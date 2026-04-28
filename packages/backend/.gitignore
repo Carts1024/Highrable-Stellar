@@ -1,0 +1,6 @@
+.agents/
+.claude/
+.env.local
+AGENTS.md
+CLAUDE.md
+skills-lock.json

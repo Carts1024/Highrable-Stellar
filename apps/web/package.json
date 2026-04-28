@@ -1,0 +1,35 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 3000",
+    "lint:fix": "oxlint --fix . && oxfmt --write . && next typegen && tsc --noEmit",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@hookstate/core": "^4.0.2",
+    "@hookstate/devtools": "^4.0.3",
+    "@rainbow-me/rainbowkit": "^2.2.10",
+    "@repo/ui": "*",
+    "@tanstack/react-query": "^5.90.21",
+    "framer-motion": "^12.35.0",
+    "lucide-react": "^0.577.0",
+    "next": "16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "viem": "^2.47.0",
+    "wagmi": "^2.19.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.2"
+  }
+}

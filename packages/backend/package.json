@@ -1,0 +1,16 @@
+{
+  "name": "@repo/backend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dashboard": "convex dashboard",
+    "dev": "convex dev",
+    "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "convex": "^1.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3"
+  }
+}

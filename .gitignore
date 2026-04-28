@@ -1,2 +1,15 @@
 docs/*
 node_modules*
+.turbo
+.next
+out
+build
+dist
+.vercel
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.vscode/mcp.json

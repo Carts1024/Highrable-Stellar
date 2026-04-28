@@ -1,0 +1,25 @@
+{
+  "experimentalSortImports": {
+    "groups": [
+      ["^node:", "value"],
+      ["builtin", "value"],
+      ["external", "value"],
+      ["^@repo/", "value"],
+      ["^./", "^../", "value"],
+      ["type"]
+    ],
+    "internalPattern": ["^@repo/"],
+    "ignoreCase": true,
+    "newlinesBetween": true,
+    "order": "asc"
+  },
+  "experimentalTailwindcss": {
+    "stylesheet": "./packages/ui/src/styles/globals.css",
+    "attributes": ["class", "className"],
+    "functions": ["clsx", "cn"],
+    "preserveWhitespace": true
+  },
+  "experimentalSortPackageJson": {
+    "sortScripts": true
+  }
+}
