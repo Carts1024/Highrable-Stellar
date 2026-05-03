@@ -18,7 +18,9 @@ export function StatusBadge({ label }: { label: TStatusValue }) {
   const normalizedLabel = label.replace("_", " ");
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLES[label]}`}>
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_STYLES[label]}`}
+    >
       {normalizedLabel}
     </span>
   );

@@ -1,10 +1,10 @@
 "use client";
 
-import type { TConvexId } from "@repo/convex-client";
+import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
-import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import type { TConvexId } from "@repo/convex-client";
 
 import { ApplicationsList } from "./applications-list";
 import { ApplyToJobForm } from "./apply-to-job-form";

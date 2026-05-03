@@ -1,14 +1,14 @@
 "use client";
 
-import type { TConvexDoc, TConvexId } from "@repo/convex-client";
-import { api } from "@repo/convex-client";
-import { useMutation } from "convex/react";
-import { useState } from "react";
-
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { api } from "@repo/convex-client";
+import { useMutation } from "convex/react";
+import { useState } from "react";
+
+import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 export function ApplyToJobForm({
   job,

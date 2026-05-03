@@ -1,7 +1,7 @@
-import type { TConvexDoc } from "@repo/convex-client";
+import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import Link from "next/link";
 
-import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import type { TConvexDoc } from "@repo/convex-client";
 
 import { StatusBadge } from "./status-badge";
 
@@ -17,9 +17,7 @@ export function JobCard({
   isApplying: boolean;
 }) {
   const canApply =
-    !!connectedWallet &&
-    !isSameWallet(connectedWallet, job.clientWallet) &&
-    job.status === "open";
+    !!connectedWallet && !isSameWallet(connectedWallet, job.clientWallet) && job.status === "open";
 
   return (
     <article className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">

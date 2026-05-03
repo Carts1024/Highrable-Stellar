@@ -2,7 +2,10 @@ export function normalizeWalletAddress(walletAddress: string | null | undefined)
   return walletAddress?.trim().toUpperCase() ?? "";
 }
 
-export function isSameWallet(left: string | null | undefined, right: string | null | undefined): boolean {
+export function isSameWallet(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
   const normalizedLeft = normalizeWalletAddress(left);
   const normalizedRight = normalizeWalletAddress(right);
 

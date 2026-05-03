@@ -1,14 +1,13 @@
 "use client";
 
-import { api } from "@repo/convex-client";
-import { useMutation, useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { api } from "@repo/convex-client";
+import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { CreateJobForm } from "./components/create-job-form";
 import { JobList } from "./components/job-list";
@@ -77,7 +76,9 @@ export function MarketplacePage() {
 
       {isConnected ? <WalletStatusCard /> : null}
 
-      <CreateJobForm onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)} />
+      <CreateJobForm
+        onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
+      />
 
       {applyError ? <p className="text-sm text-red-600">{applyError}</p> : null}
 

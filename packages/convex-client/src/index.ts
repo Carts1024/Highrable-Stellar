@@ -1,6 +1,7 @@
 import { api } from "@repo/backend/convex/_generated/api";
-import type { Doc, Id, TableNames } from "@repo/backend/convex/_generated/dataModel";
 import { ConvexReactClient } from "convex/react";
+
+import type { Doc, Id, TableNames } from "@repo/backend/convex/_generated/dataModel";
 
 const DEFAULT_CONVEX_URL = "http://127.0.0.1:3210";
 

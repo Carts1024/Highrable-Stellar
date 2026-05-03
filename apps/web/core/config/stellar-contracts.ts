@@ -55,9 +55,7 @@ export const STELLAR_RPC_URL = ENV.NEXT_PUBLIC_STELLAR_RPC_URL.trim();
 export const STELLAR_HORIZON_URL = ENV.NEXT_PUBLIC_STELLAR_HORIZON_URL.trim();
 export const REPUTATION_CONTRACT_ID = reputationContractId;
 export const ESCROW_CONTRACT_ID = escrowContractId;
-export const STABLECOIN_TOKEN_CONTRACT_ID = sanitize(
-  ENV.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
-);
+export const STABLECOIN_TOKEN_CONTRACT_ID = sanitize(ENV.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID);
 
 export function getRequiredContractIds(): {
   reputationContractId: string;

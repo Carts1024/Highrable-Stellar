@@ -16,7 +16,10 @@ export function getReadableErrorMessage(error: unknown, fallbackMessage: string)
   if (typeof error === "object" && error !== null) {
     const convexError = error as TConvexLikeError;
 
-    if (typeof convexError.data?.message === "string" && convexError.data.message.trim().length > 0) {
+    if (
+      typeof convexError.data?.message === "string" &&
+      convexError.data.message.trim().length > 0
+    ) {
       return convexError.data.message.trim();
     }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import { api } from "@repo/convex-client";
-import { useMutation } from "convex/react";
-import { useMemo, useState } from "react";
-
 import { STABLECOIN_TOKEN_CONTRACT_ID } from "@/core/config/stellar-contracts";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { api } from "@repo/convex-client";
+import { useMutation } from "convex/react";
+import { useMemo, useState } from "react";
+
 import type { TCreateJobFormErrors, TCreateJobFormState } from "@/features/marketplace/types";
 
 const DEFAULT_STABLECOIN_ASSET = STABLECOIN_TOKEN_CONTRACT_ID ?? "";
@@ -125,7 +125,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
         <div>
-          <label htmlFor="marketplace-job-title" className="mb-1 block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="marketplace-job-title"
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
             Job title
           </label>
           <input
@@ -139,7 +142,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </div>
 
         <div>
-          <label htmlFor="marketplace-job-description" className="mb-1 block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="marketplace-job-description"
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
             Description
           </label>
           <textarea
@@ -150,12 +156,17 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Scope, deliverables, and acceptance criteria"
           />
-          {errors.description ? <p className="mt-1 text-xs text-red-600">{errors.description}</p> : null}
+          {errors.description ? (
+            <p className="mt-1 text-xs text-red-600">{errors.description}</p>
+          ) : null}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="marketplace-job-budget" className="mb-1 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="marketplace-job-budget"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
               Budget
             </label>
             <input
@@ -172,7 +183,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </div>
 
           <div>
-            <label htmlFor="marketplace-job-asset" className="mb-1 block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="marketplace-job-asset"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
               Payment asset
             </label>
             <input

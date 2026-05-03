@@ -1,10 +1,10 @@
 "use client";
 
-import type { TConvexDoc } from "@repo/convex-client";
-
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import type { TActorRole, TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+
+import type { TActorRole, TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
+import type { TConvexDoc } from "@repo/convex-client";
 
 import { StatusBadge } from "./status-badge";
 
@@ -82,7 +82,9 @@ export function EscrowActionPanel({
               >
                 Create Escrow
               </button>
-              <p className="text-sm text-gray-600">Smart contract action will be enabled in Phase 9.</p>
+              <p className="text-sm text-gray-600">
+                Smart contract action will be enabled in Phase 9.
+              </p>
             </>
           ) : null}
 
@@ -93,7 +95,9 @@ export function EscrowActionPanel({
           ) : null}
 
           {role !== "client" && role !== "selectedFreelancer" ? (
-            <p className="text-sm text-gray-700">Client has selected a freelancer. Escrow setup is next.</p>
+            <p className="text-sm text-gray-700">
+              Client has selected a freelancer. Escrow setup is next.
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -109,7 +113,9 @@ export function EscrowActionPanel({
               >
                 Fund Escrow
               </button>
-              <p className="text-sm text-gray-600">Smart contract action will be enabled in Phase 9.</p>
+              <p className="text-sm text-gray-600">
+                Smart contract action will be enabled in Phase 9.
+              </p>
             </>
           ) : null}
 
@@ -130,16 +136,22 @@ export function EscrowActionPanel({
               >
                 Submit Work
               </button>
-              <p className="text-sm text-gray-600">Smart contract action will be enabled in Phase 9.</p>
+              <p className="text-sm text-gray-600">
+                Smart contract action will be enabled in Phase 9.
+              </p>
             </>
           ) : null}
 
           {role === "client" ? (
-            <p className="text-sm text-gray-700">Escrow funded. Waiting for freelancer submission.</p>
+            <p className="text-sm text-gray-700">
+              Escrow funded. Waiting for freelancer submission.
+            </p>
           ) : null}
 
           {role !== "client" && role !== "selectedFreelancer" ? (
-            <p className="text-sm text-gray-700">Verified funded means the client has locked funds on Stellar.</p>
+            <p className="text-sm text-gray-700">
+              Verified funded means the client has locked funds on Stellar.
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -155,7 +167,9 @@ export function EscrowActionPanel({
               >
                 Approve and Release
               </button>
-              <p className="text-sm text-gray-600">Smart contract action will be enabled in Phase 9.</p>
+              <p className="text-sm text-gray-600">
+                Smart contract action will be enabled in Phase 9.
+              </p>
             </>
           ) : null}
 

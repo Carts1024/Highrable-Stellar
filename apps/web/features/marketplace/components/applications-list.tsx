@@ -1,13 +1,13 @@
 "use client";
 
-import type { TConvexDoc, TConvexId } from "@repo/convex-client";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 export function ApplicationsList({
   job,
