@@ -6,12 +6,15 @@ export type TWalletConnectionStatus =
   | "error";
 
 export type TWalletNetwork = "testnet";
+export type TWalletTransactionStatus = "idle" | "pending" | "success" | "failed";
 
 export type TWalletErrorCode =
   | "NOT_INITIALIZED"
   | "UNSUPPORTED_NETWORK"
   | "CONNECT_FAILED"
   | "DISCONNECT_FAILED"
+  | "FUNDING_CHECK_FAILED"
+  | "SIGN_TRANSACTION_FAILED"
   | "AUTH_FAILED"
   | "CONFIG_ERROR"
   | "UNKNOWN";
@@ -24,14 +27,30 @@ export type TWalletError = {
 export type TWalletAccount = {
   address: string;
   displayAddress: string;
-  walletId: string;
+  walletId: string | null;
+  walletName: string | null;
+  network: string | null;
+  isTestnet: boolean;
+};
+
+export type TWalletFundingStatus = {
+  address: string;
+  isFunded: boolean;
 };
 
 export type TWalletState = {
   status: TWalletConnectionStatus;
-  network: TWalletNetwork;
+  walletAddress: string | null;
+  network: string | null;
+  isConnected: boolean;
+  isTestnet: boolean;
+  isFunded: boolean | null;
+  selectedWallet: string | null;
+  isConnecting: boolean;
+  isCheckingFunding: boolean;
+  error: string | null;
+  lastTxStatus: TWalletTransactionStatus;
   account: TWalletAccount | null;
-  error: TWalletError | null;
 };
 
 export type TAuthSession = {
@@ -48,8 +67,16 @@ export type TAuthChallenge = {
 
 export interface IWalletClient {
   connect(): Promise<TWalletAccount>;
+  getActiveWallet(): Promise<TWalletAccount>;
+  getPublicKey(): Promise<string>;
+  getNetwork(): Promise<{ network: string | null; isTestnet: boolean }>;
   disconnect(): Promise<void>;
   signMessage(message: string): Promise<string>;
+  signTransaction(xdr: string, address?: string): Promise<string>;
+}
+
+export interface IWalletFundingService {
+  getFundingStatus(address: string): Promise<TWalletFundingStatus>;
 }
 
 export interface IWalletAuthService {

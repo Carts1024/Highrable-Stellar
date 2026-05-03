@@ -39,6 +39,7 @@ if (process.env.NODE_ENV !== "production" && !HAS_WALLETCONNECT_PROJECT_ID) {
 export const STELLAR_TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
 export const STELLAR_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 export const STELLAR_TESTNET_HORIZON_URL = "https://horizon-testnet.stellar.org";
+export const STELLAR_TESTNET_NETWORK_LABEL = "Stellar Testnet";
 
 export const WALLET_NETWORK: TWalletNetwork = "testnet";
 export const WALLETCONNECT_PROJECT_ID = HAS_WALLETCONNECT_PROJECT_ID

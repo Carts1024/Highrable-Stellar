@@ -1,7 +1,15 @@
 "use client";
 
-import { STELLAR_TESTNET_NETWORK_PASSPHRASE, WALLETCONNECT_PROJECT_ID } from "@/core/wallet/config";
-import { TMessageSchema, TStellarPublicKeySchema } from "@/core/wallet/validation";
+import {
+  STELLAR_TESTNET_NETWORK_LABEL,
+  STELLAR_TESTNET_NETWORK_PASSPHRASE,
+  WALLETCONNECT_PROJECT_ID,
+} from "@/core/wallet/config";
+import {
+  TMessageSchema,
+  TStellarPublicKeySchema,
+  TTransactionXdrSchema,
+} from "@/core/wallet/validation";
 import { defaultModules } from "@creit-tech/stellar-wallets-kit/modules/utils";
 import {
   WalletConnectModule,
@@ -14,6 +22,35 @@ import type { IWalletClient, TWalletAccount } from "@/core/wallet/types";
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+function normalizeWalletNetwork(network: string | null | undefined): {
+  network: string;
+  isTestnet: boolean;
+} {
+  const normalizedNetwork = network?.trim();
+
+  if (!normalizedNetwork) {
+    return {
+      network: STELLAR_TESTNET_NETWORK_LABEL,
+      isTestnet: true,
+    };
+  }
+
+  if (
+    normalizedNetwork === STELLAR_TESTNET_NETWORK_PASSPHRASE ||
+    normalizedNetwork.toLowerCase().includes("testnet")
+  ) {
+    return {
+      network: STELLAR_TESTNET_NETWORK_LABEL,
+      isTestnet: true,
+    };
+  }
+
+  return {
+    network: normalizedNetwork,
+    isTestnet: false,
+  };
 }
 
 let walletKitInitialized = false;
@@ -75,6 +112,38 @@ function ensureKitInitialized(): void {
 }
 
 export class StellarWalletKitClient implements IWalletClient {
+  private async resolveActiveWallet(addressInput?: string): Promise<TWalletAccount> {
+    ensureKitInitialized();
+
+    const addressResponse = addressInput
+      ? { address: addressInput }
+      : await StellarWalletsKit.getAddress();
+    const address = TStellarPublicKeySchema.parse(addressResponse.address);
+    const networkResponse = await StellarWalletsKit.getNetwork().catch(() => ({
+      network: STELLAR_TESTNET_NETWORK_LABEL,
+      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+    }));
+    const normalizedNetwork = normalizeWalletNetwork(
+      networkResponse.networkPassphrase || networkResponse.network,
+    );
+    const selectedModule = (() => {
+      try {
+        return StellarWalletsKit.selectedModule;
+      } catch {
+        return null;
+      }
+    })();
+
+    return {
+      address,
+      displayAddress: formatAddress(address),
+      walletId: selectedModule?.productId ?? null,
+      walletName: selectedModule?.productName ?? null,
+      network: normalizedNetwork.network,
+      isTestnet: normalizedNetwork.isTestnet,
+    };
+  }
+
   public async connect(): Promise<TWalletAccount> {
     ensureKitInitialized();
 
@@ -85,13 +154,26 @@ export class StellarWalletKitClient implements IWalletClient {
     }
 
     const response = await StellarWalletsKit.authModal();
-    const address = TStellarPublicKeySchema.parse(response.address);
+    return this.resolveActiveWallet(response.address);
+  }
 
-    return {
-      address,
-      displayAddress: formatAddress(address),
-      walletId: StellarWalletsKit.selectedModule.productId,
-    };
+  public async getActiveWallet(): Promise<TWalletAccount> {
+    return this.resolveActiveWallet();
+  }
+
+  public async getPublicKey(): Promise<string> {
+    ensureKitInitialized();
+    const { address } = await StellarWalletsKit.getAddress();
+    return TStellarPublicKeySchema.parse(address);
+  }
+
+  public async getNetwork(): Promise<{ network: string | null; isTestnet: boolean }> {
+    ensureKitInitialized();
+    const networkResponse = await StellarWalletsKit.getNetwork().catch(() => ({
+      network: STELLAR_TESTNET_NETWORK_LABEL,
+      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+    }));
+    return normalizeWalletNetwork(networkResponse.networkPassphrase || networkResponse.network);
   }
 
   public async disconnect(): Promise<void> {
@@ -106,5 +188,16 @@ export class StellarWalletKitClient implements IWalletClient {
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
     });
     return messageResult.signedMessage;
+  }
+
+  public async signTransaction(xdr: string, address?: string): Promise<string> {
+    const sanitizedXdr = TTransactionXdrSchema.parse(xdr);
+    const sanitizedAddress = address ? TStellarPublicKeySchema.parse(address) : undefined;
+    ensureKitInitialized();
+    const transactionResult = await StellarWalletsKit.signTransaction(sanitizedXdr, {
+      address: sanitizedAddress,
+      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+    });
+    return transactionResult.signedTxXdr;
   }
 }

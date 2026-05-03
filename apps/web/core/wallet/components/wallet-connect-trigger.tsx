@@ -4,7 +4,7 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 
 export function WalletConnectTrigger({
   className,
-  label = "Connect Wallet",
+  label = "Connect Stellar Wallet",
 }: {
   className?: string;
   label?: string;
@@ -15,10 +15,10 @@ export function WalletConnectTrigger({
     <button
       type="button"
       onClick={() => void connectWallet()}
-      disabled={walletState.status === "connecting"}
+      disabled={walletState.isConnecting}
       className={className}
     >
-      {walletState.status === "connecting" ? "Connecting..." : label}
+      {walletState.isConnecting ? "Connecting wallet..." : label}
     </button>
   );
 }

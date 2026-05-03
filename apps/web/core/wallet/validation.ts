@@ -23,6 +23,12 @@ export const TMessageSchema = z
   .min(16, "Message is too short")
   .max(4096, "Message is too long");
 
+export const TTransactionXdrSchema = z
+  .string()
+  .trim()
+  .min(32, "Transaction XDR is too short")
+  .max(200000, "Transaction XDR is too long");
+
 export const TChallengeRequestSchema = z.object({
   address: TStellarPublicKeySchema,
 });
