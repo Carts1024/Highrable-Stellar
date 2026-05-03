@@ -1,10 +1,10 @@
-import { STELLAR_TESTNET_HORIZON_URL } from "@/core/wallet/config";
+import { STELLAR_HORIZON_URL } from "@/core/config/web3";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 import type { IWalletFundingService, TWalletFundingStatus } from "@/core/wallet/types";
 
 function toHorizonAccountUrl(address: string): string {
-  return `${STELLAR_TESTNET_HORIZON_URL}/accounts/${encodeURIComponent(address)}`;
+  return `${STELLAR_HORIZON_URL}/accounts/${encodeURIComponent(address)}`;
 }
 
 export class HorizonAccountService implements IWalletFundingService {

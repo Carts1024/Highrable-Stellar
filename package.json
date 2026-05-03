@@ -7,6 +7,9 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "contracts:build": "cd contracts && stellar contract build",
+    "contracts:deploy:testnet": "bash scripts/deploy-testnet.sh",
+    "contracts:verify:testnet": "bash scripts/verify-testnet.sh",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
     "prepare": "husky"
