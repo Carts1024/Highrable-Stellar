@@ -3,6 +3,7 @@
 import { StellarAuthService } from "@/core/wallet/auth/stellar-auth-service";
 import { StellarWalletKitClient } from "@/core/wallet/clients/stellar-wallet-kit-client";
 import { STELLAR_TESTNET_NETWORK_LABEL } from "@/core/wallet/config";
+import { FriendbotService } from "@/core/wallet/services/friendbot-service";
 import { HorizonAccountService } from "@/core/wallet/services/horizon-account-service";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 import {
@@ -18,11 +19,20 @@ import {
 import type {
   IWalletAuthService,
   IWalletClient,
+  IWalletFriendbotService,
   IWalletFundingService,
   TAuthSession,
   TWalletAccount,
   TWalletState,
 } from "@/core/wallet/types";
+
+const FRIEND_BOT_FUNDING_RETRY_DELAYS_MS = [1000, 2000, 3000] as const;
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
 
 type TWalletContextValue = {
   walletState: TWalletState;
@@ -32,6 +42,7 @@ type TWalletContextValue = {
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   checkFundingStatus: (address?: string) => Promise<boolean | null>;
+  fundTestnetAccount: () => Promise<void>;
   refreshWalletState: () => Promise<void>;
   clearWalletError: () => void;
   getPublicKey: () => Promise<string | null>;
@@ -50,6 +61,10 @@ const DEFAULT_STATE: TWalletState = {
   selectedWallet: null,
   isConnecting: false,
   isCheckingFunding: false,
+  isFundingWithFriendbot: false,
+  friendbotError: null,
+  friendbotSuccess: false,
+  lastFriendbotResponse: null,
   error: null,
   lastTxStatus: "idle",
   account: null,
@@ -101,45 +116,75 @@ export function WalletContextProvider({
   children,
   walletClient,
   walletAuthService,
+  walletFriendbotService,
   walletFundingService,
 }: {
   children: React.ReactNode;
   walletClient?: IWalletClient;
   walletAuthService?: IWalletAuthService;
+  walletFriendbotService?: IWalletFriendbotService;
   walletFundingService?: IWalletFundingService;
 }) {
   const [walletState, setWalletState] = useState<TWalletState>(DEFAULT_STATE);
   const [authSession, setAuthSession] = useState<TAuthSession | null>(null);
   const hasAttemptedWalletRestoreRef = useRef(false);
+  const activeWalletAddressRef = useRef<string | null>(DEFAULT_STATE.walletAddress);
   const [wallet] = useState<IWalletClient>(() => walletClient ?? new StellarWalletKitClient());
   const [auth] = useState<IWalletAuthService>(() => walletAuthService ?? new StellarAuthService());
+  const [friendbot] = useState<IWalletFriendbotService>(
+    () => walletFriendbotService ?? new FriendbotService(),
+  );
   const [fundingService] = useState<IWalletFundingService>(
     () => walletFundingService ?? new HorizonAccountService(),
   );
 
+  useEffect(() => {
+    activeWalletAddressRef.current = walletState.walletAddress;
+  }, [walletState.walletAddress]);
+
   const setConnectedWalletState = useCallback(
     (account: TWalletAccount, overrides?: Partial<TWalletState>) => {
-      setWalletState((currentValue) => ({
-        ...currentValue,
-        status: "connected",
-        walletAddress: account.address,
-        network: account.network ?? STELLAR_TESTNET_NETWORK_LABEL,
-        isConnected: true,
-        isTestnet: account.isTestnet,
-        isFunded: account.isTestnet ? (overrides?.isFunded ?? currentValue.isFunded) : null,
-        selectedWallet: account.walletName ?? account.walletId,
-        isConnecting: false,
-        isCheckingFunding: overrides?.isCheckingFunding ?? false,
-        error: overrides?.error ?? null,
-        lastTxStatus: overrides?.lastTxStatus ?? currentValue.lastTxStatus,
-        account,
-      }));
+      setWalletState((currentValue) => {
+        const shouldPreserveTransientState = currentValue.walletAddress === account.address;
+
+        return {
+          ...currentValue,
+          status: "connected",
+          walletAddress: account.address,
+          network: account.network ?? STELLAR_TESTNET_NETWORK_LABEL,
+          isConnected: true,
+          isTestnet: account.isTestnet,
+          isFunded: account.isTestnet ? (overrides?.isFunded ?? currentValue.isFunded) : null,
+          selectedWallet: account.walletName ?? account.walletId,
+          isConnecting: false,
+          isCheckingFunding: overrides?.isCheckingFunding ?? false,
+          isFundingWithFriendbot:
+            overrides?.isFundingWithFriendbot ??
+            (shouldPreserveTransientState ? currentValue.isFundingWithFriendbot : false),
+          friendbotError:
+            overrides?.friendbotError ??
+            (shouldPreserveTransientState ? currentValue.friendbotError : null),
+          friendbotSuccess:
+            overrides?.friendbotSuccess ??
+            (shouldPreserveTransientState ? currentValue.friendbotSuccess : false),
+          lastFriendbotResponse:
+            overrides?.lastFriendbotResponse ??
+            (shouldPreserveTransientState ? currentValue.lastFriendbotResponse : null),
+          error: overrides?.error ?? null,
+          lastTxStatus: overrides?.lastTxStatus ?? currentValue.lastTxStatus,
+          account,
+        };
+      });
     },
     [],
   );
 
   const clearWalletError = useCallback(() => {
-    setWalletState((currentValue) => ({ ...currentValue, error: null }));
+    setWalletState((currentValue) => ({
+      ...currentValue,
+      error: null,
+      friendbotError: null,
+    }));
   }, []);
 
   const checkFundingStatus = useCallback(
@@ -192,11 +237,158 @@ export function WalletContextProvider({
     [fundingService, walletState.walletAddress],
   );
 
+  const refreshFundingStatusWithRetry = useCallback(
+    async (address: string): Promise<boolean> => {
+      for (const delayMs of FRIEND_BOT_FUNDING_RETRY_DELAYS_MS) {
+        if (activeWalletAddressRef.current !== address) {
+          return false;
+        }
+
+        await wait(delayMs);
+
+        if (activeWalletAddressRef.current !== address) {
+          return false;
+        }
+
+        const isFunded = await checkFundingStatus(address);
+
+        if (isFunded) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+    [checkFundingStatus],
+  );
+
+  const fundTestnetAccount = useCallback(async () => {
+    const candidateAddress = walletState.walletAddress;
+
+    if (walletState.isFundingWithFriendbot) {
+      return;
+    }
+
+    if (!candidateAddress) {
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        friendbotError: "Connect a wallet before funding a testnet account.",
+        friendbotSuccess: false,
+      }));
+      return;
+    }
+
+    if (!walletState.isTestnet) {
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        friendbotError: "Friendbot is only available on Stellar Testnet.",
+        friendbotSuccess: false,
+      }));
+      return;
+    }
+
+    if (walletState.isFunded) {
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        friendbotError: null,
+        friendbotSuccess: true,
+      }));
+      return;
+    }
+
+    try {
+      const sanitizedAddress = TStellarPublicKeySchema.parse(candidateAddress);
+
+      setWalletState((currentValue) =>
+        currentValue.walletAddress === sanitizedAddress
+          ? {
+              ...currentValue,
+              isFundingWithFriendbot: true,
+              friendbotError: null,
+              friendbotSuccess: false,
+              lastFriendbotResponse: null,
+              error: null,
+            }
+          : currentValue,
+      );
+
+      const friendbotResponse = await friendbot.fundAccount(sanitizedAddress);
+
+      if (activeWalletAddressRef.current !== sanitizedAddress) {
+        return;
+      }
+
+      setWalletState((currentValue) =>
+        currentValue.walletAddress === sanitizedAddress
+          ? {
+              ...currentValue,
+              lastFriendbotResponse: friendbotResponse,
+            }
+          : currentValue,
+      );
+
+      const isFunded = await refreshFundingStatusWithRetry(sanitizedAddress);
+
+      if (activeWalletAddressRef.current !== sanitizedAddress) {
+        return;
+      }
+
+      if (!isFunded) {
+        throw new Error(
+          "Friendbot succeeded, but Horizon has not confirmed the funding yet. Please try again in a moment.",
+        );
+      }
+
+      setWalletState((currentValue) =>
+        currentValue.walletAddress === sanitizedAddress
+          ? {
+              ...currentValue,
+              isFunded: true,
+              friendbotError: null,
+              friendbotSuccess: true,
+              error: null,
+            }
+          : currentValue,
+      );
+    } catch (error) {
+      const errorMessage = toErrorMessage(error);
+
+      setWalletState((currentValue) =>
+        currentValue.walletAddress === candidateAddress
+          ? {
+              ...currentValue,
+              friendbotError: errorMessage,
+              friendbotSuccess: false,
+              error: null,
+            }
+          : currentValue,
+      );
+    } finally {
+      setWalletState((currentValue) =>
+        currentValue.walletAddress === candidateAddress
+          ? {
+              ...currentValue,
+              isFundingWithFriendbot: false,
+            }
+          : currentValue,
+      );
+    }
+  }, [
+    friendbot,
+    refreshFundingStatusWithRetry,
+    walletState.isFunded,
+    walletState.isFundingWithFriendbot,
+    walletState.isTestnet,
+    walletState.walletAddress,
+  ]);
+
   const connectWallet = useCallback(async () => {
     setWalletState((currentValue) => ({
       ...currentValue,
       status: "connecting",
       isConnecting: true,
+      friendbotError: null,
+      friendbotSuccess: false,
       error: null,
     }));
 
@@ -204,7 +396,11 @@ export function WalletContextProvider({
       const account: TWalletAccount = await wallet.connect();
       setConnectedWalletState(account, {
         isCheckingFunding: account.isTestnet,
+        isFundingWithFriendbot: false,
         isFunded: null,
+        friendbotError: null,
+        friendbotSuccess: false,
+        lastFriendbotResponse: null,
         lastTxStatus: "idle",
       });
 
@@ -368,7 +564,11 @@ export function WalletContextProvider({
 
         setConnectedWalletState(restoredWallet, {
           isCheckingFunding: restoredWallet.isTestnet,
+          isFundingWithFriendbot: false,
           isFunded: null,
+          friendbotError: null,
+          friendbotSuccess: false,
+          lastFriendbotResponse: null,
         });
 
         if (restoredWallet.isTestnet) {
@@ -395,6 +595,7 @@ export function WalletContextProvider({
       connectWallet,
       disconnectWallet,
       checkFundingStatus,
+      fundTestnetAccount,
       refreshWalletState,
       clearWalletError,
       getPublicKey,
@@ -408,6 +609,7 @@ export function WalletContextProvider({
       connectWallet,
       disconnectWallet,
       checkFundingStatus,
+      fundTestnetAccount,
       refreshWalletState,
       clearWalletError,
       getPublicKey,

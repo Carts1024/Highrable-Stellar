@@ -37,6 +37,7 @@ export function WalletStatusCard() {
     disconnectWallet,
     refreshWalletState,
     checkFundingStatus,
+    fundTestnetAccount,
     clearWalletError,
   } = useWallet();
 
@@ -71,21 +72,36 @@ export function WalletStatusCard() {
 
           {!walletState.isTestnet ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Please switch to Stellar Testnet. The app target is Stellar Testnet.
+              Friendbot is only available on Stellar Testnet.
             </div>
           ) : null}
 
           {walletState.isTestnet && walletState.isFunded === false ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p>This testnet account is not funded yet.</p>
-              {/* TODO: Wire this button to Friendbot in Phase 3. */}
+              <p className="font-semibold text-amber-900">Testnet account not funded</p>
+              <p className="mt-1">
+                Your Stellar testnet account needs test XLM before you can create or fund
+                escrow transactions.
+              </p>
+              {walletState.friendbotError ? (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  Friendbot funding failed. Please try again. {walletState.friendbotError}
+                </div>
+              ) : null}
               <button
                 type="button"
-                disabled
-                className="mt-3 cursor-not-allowed rounded-lg border border-amber-300 px-4 py-2 text-xs font-semibold text-amber-700 opacity-70"
+                onClick={() => void fundTestnetAccount()}
+                disabled={walletState.isFundingWithFriendbot}
+                className="mt-3 rounded-lg border border-amber-300 px-4 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Fund Testnet Account
+                {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
               </button>
+            </div>
+          ) : null}
+
+          {walletState.friendbotSuccess ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+              Account funded successfully.
             </div>
           ) : null}
 
@@ -118,7 +134,7 @@ export function WalletStatusCard() {
           ) : null}
         </div>
 
-        <div className="space-y-3 lg:min-w-[240px]">
+        <div className="space-y-3 lg:min-w-60">
           <div className={`rounded-xl border px-4 py-3 text-sm ${transactionState.tone}`}>
             <p className="font-semibold">{transactionState.badge}</p>
             <p className="mt-1">{transactionState.description}</p>

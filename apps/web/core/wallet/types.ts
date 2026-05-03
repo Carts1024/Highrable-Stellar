@@ -7,6 +7,7 @@ export type TWalletConnectionStatus =
 
 export type TWalletNetwork = "testnet";
 export type TWalletTransactionStatus = "idle" | "pending" | "success" | "failed";
+export type TFriendbotResponse = Readonly<Record<string, unknown>>;
 
 export type TWalletErrorCode =
   | "NOT_INITIALIZED"
@@ -48,6 +49,10 @@ export type TWalletState = {
   selectedWallet: string | null;
   isConnecting: boolean;
   isCheckingFunding: boolean;
+  isFundingWithFriendbot: boolean;
+  friendbotError: string | null;
+  friendbotSuccess: boolean;
+  lastFriendbotResponse: TFriendbotResponse | null;
   error: string | null;
   lastTxStatus: TWalletTransactionStatus;
   account: TWalletAccount | null;
@@ -78,6 +83,10 @@ export interface IWalletClient {
 
 export interface IWalletFundingService {
   getFundingStatus(address: string): Promise<TWalletFundingStatus>;
+}
+
+export interface IWalletFriendbotService {
+  fundAccount(address: string): Promise<TFriendbotResponse>;
 }
 
 export interface IWalletAuthService {
