@@ -56,11 +56,10 @@ export function createChallenge(addressInput: string): {
   return { nonce, message, expiresAt: new Date(expiresAt).toISOString() };
 }
 
-export function consumeChallenge(input: {
-  address: string;
-  message: string;
-  nonce: string;
-}): { valid: boolean; error?: string } {
+export function consumeChallenge(input: { address: string; message: string; nonce: string }): {
+  valid: boolean;
+  error?: string;
+} {
   const now = Date.now();
   cleanupExpired(now);
 

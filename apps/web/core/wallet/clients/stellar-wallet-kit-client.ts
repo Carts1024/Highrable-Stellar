@@ -1,17 +1,14 @@
 "use client";
 
-import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
+import { STELLAR_TESTNET_NETWORK_PASSPHRASE, WALLETCONNECT_PROJECT_ID } from "@/core/wallet/config";
+import { TMessageSchema, TStellarPublicKeySchema } from "@/core/wallet/validation";
 import { defaultModules } from "@creit-tech/stellar-wallets-kit/modules/utils";
 import {
   WalletConnectModule,
   WalletConnectTargetChain,
 } from "@creit-tech/stellar-wallets-kit/modules/wallet-connect";
+import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
 import { Networks } from "@creit-tech/stellar-wallets-kit/types";
-import {
-  STELLAR_TESTNET_NETWORK_PASSPHRASE,
-  WALLETCONNECT_PROJECT_ID,
-} from "@/core/wallet/config";
-import { TMessageSchema, TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 import type { IWalletClient, TWalletAccount } from "@/core/wallet/types";
 
@@ -66,7 +63,7 @@ function ensureKitInitialized(): void {
       border: "rgba(17, 24, 39, 0.08)",
       shadow: "0 24px 80px rgba(17, 24, 39, 0.18)",
       "border-radius": "1rem",
-      "font-family": "\"Space Grotesk\", system-ui, sans-serif",
+      "font-family": '"Space Grotesk", system-ui, sans-serif',
     },
     authModal: {
       showInstallLabel: true,

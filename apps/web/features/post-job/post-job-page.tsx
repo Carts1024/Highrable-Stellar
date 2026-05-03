@@ -1,8 +1,8 @@
 "use client";
 
-import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { motion } from "framer-motion";
 import { Calendar, DollarSign, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";

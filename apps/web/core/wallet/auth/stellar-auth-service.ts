@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  TChallengeRequestSchema,
-  TVerifyRequestSchema,
-} from "@/core/wallet/validation";
+import { TChallengeRequestSchema, TVerifyRequestSchema } from "@/core/wallet/validation";
 
 import type { IWalletAuthService, TAuthChallenge, TAuthSession } from "@/core/wallet/types";
 

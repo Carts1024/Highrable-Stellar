@@ -1,4 +1,9 @@
-export type TWalletConnectionStatus = "idle" | "connecting" | "connected" | "disconnecting" | "error";
+export type TWalletConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "disconnecting"
+  | "error";
 
 export type TWalletNetwork = "testnet";
 

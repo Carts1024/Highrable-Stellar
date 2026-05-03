@@ -57,9 +57,7 @@ export function Header() {
           <div className="flex items-center space-x-4">
             <div className="hidden md:block">
               {!isConnected ? (
-                <WalletConnectTrigger
-                  className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-2 font-medium text-white shadow-lg transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00] hover:shadow-xl"
-                />
+                <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-2 font-medium text-white shadow-lg transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00] hover:shadow-xl" />
               ) : (
                 <WalletAccountButton className="rounded-lg border-2 border-[#FF7003] bg-white px-4 py-2 font-medium text-[#FF7003] transition-all duration-200 hover:bg-[#FF7003] hover:text-white" />
               )}
@@ -100,9 +98,7 @@ export function Header() {
                 ))}
                 <div className="border-t border-gray-100 pt-3">
                   {!isConnected ? (
-                    <WalletConnectTrigger
-                      className="w-full rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white"
-                    />
+                    <WalletConnectTrigger className="w-full rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white" />
                   ) : (
                     <WalletAccountButton className="w-full rounded-lg border border-[#FF7003] px-4 py-2 font-medium text-[#FF7003]" />
                   )}
