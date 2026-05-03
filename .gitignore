@@ -13,3 +13,4 @@ dist
 .env.test.local
 .env.production.local
 .vscode/mcp.json
+contracts/target

@@ -64,13 +64,10 @@ export async function fundWithFriendbot(address: string): Promise<TFriendbotResp
   let response: Response;
 
   try {
-    response = await fetch(
-      `${FRIEND_BOT_BASE_URL}?addr=${encodeURIComponent(sanitizedAddress)}`,
-      {
-        method: "GET",
-        cache: "no-store",
-      },
-    );
+    response = await fetch(`${FRIEND_BOT_BASE_URL}?addr=${encodeURIComponent(sanitizedAddress)}`, {
+      method: "GET",
+      cache: "no-store",
+    });
   } catch {
     throw new Error("Unable to reach Friendbot. Check your connection and try again.");
   }
