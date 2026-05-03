@@ -5,7 +5,15 @@ import { StellarWalletKitClient } from "@/core/wallet/clients/stellar-wallet-kit
 import { STELLAR_TESTNET_NETWORK_LABEL } from "@/core/wallet/config";
 import { HorizonAccountService } from "@/core/wallet/services/horizon-account-service";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type {
   IWalletAuthService,
@@ -50,11 +58,43 @@ const DEFAULT_STATE: TWalletState = {
 const WalletContext = createContext<TWalletContextValue | null>(null);
 
 function toErrorMessage(error: unknown): string {
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error.trim();
+  }
+
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
   }
 
-  return "Unexpected wallet error";
+  if (typeof error === "object" && error !== null) {
+    const objectWithMessage = error as {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+      code?: unknown;
+    };
+
+    if (
+      typeof objectWithMessage.message === "string" &&
+      objectWithMessage.message.trim().length > 0
+    ) {
+      return objectWithMessage.message.trim();
+    }
+
+    if (
+      typeof objectWithMessage.error?.message === "string" &&
+      objectWithMessage.error.message.trim().length > 0
+    ) {
+      return objectWithMessage.error.message.trim();
+    }
+
+    if (typeof objectWithMessage.code === "number" || typeof objectWithMessage.code === "string") {
+      return `Wallet request failed (${String(objectWithMessage.code)}).`;
+    }
+  }
+
+  return "Wallet request failed. Please try again.";
 }
 
 export function WalletContextProvider({
@@ -70,6 +110,7 @@ export function WalletContextProvider({
 }) {
   const [walletState, setWalletState] = useState<TWalletState>(DEFAULT_STATE);
   const [authSession, setAuthSession] = useState<TAuthSession | null>(null);
+  const hasAttemptedWalletRestoreRef = useRef(false);
   const [wallet] = useState<IWalletClient>(() => walletClient ?? new StellarWalletKitClient());
   const [auth] = useState<IWalletAuthService>(() => walletAuthService ?? new StellarAuthService());
   const [fundingService] = useState<IWalletFundingService>(
@@ -308,6 +349,42 @@ export function WalletContextProvider({
   const logoutWallet = useCallback(() => {
     setAuthSession(null);
   }, []);
+
+  useEffect(() => {
+    if (hasAttemptedWalletRestoreRef.current) {
+      return;
+    }
+
+    hasAttemptedWalletRestoreRef.current = true;
+    let isMounted = true;
+
+    const restoreWalletConnection = async () => {
+      try {
+        const restoredWallet = await wallet.restoreConnection();
+
+        if (!isMounted || !restoredWallet) {
+          return;
+        }
+
+        setConnectedWalletState(restoredWallet, {
+          isCheckingFunding: restoredWallet.isTestnet,
+          isFunded: null,
+        });
+
+        if (restoredWallet.isTestnet) {
+          await checkFundingStatus(restoredWallet.address);
+        }
+      } catch {
+        // Ignore restore failures and let the user reconnect manually.
+      }
+    };
+
+    void restoreWalletConnection();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [checkFundingStatus, setConnectedWalletState, wallet]);
 
   const contextValue = useMemo<TWalletContextValue>(
     () => ({

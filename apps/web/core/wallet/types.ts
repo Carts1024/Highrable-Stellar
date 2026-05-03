@@ -70,6 +70,7 @@ export interface IWalletClient {
   getActiveWallet(): Promise<TWalletAccount>;
   getPublicKey(): Promise<string>;
   getNetwork(): Promise<{ network: string | null; isTestnet: boolean }>;
+  restoreConnection(): Promise<TWalletAccount | null>;
   disconnect(): Promise<void>;
   signMessage(message: string): Promise<string>;
   signTransaction(xdr: string, address?: string): Promise<string>;

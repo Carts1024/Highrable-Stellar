@@ -10,26 +10,69 @@ import {
   TStellarPublicKeySchema,
   TTransactionXdrSchema,
 } from "@/core/wallet/validation";
+import { FreighterModule } from "@creit-tech/stellar-wallets-kit/modules/freighter";
 import { defaultModules } from "@creit-tech/stellar-wallets-kit/modules/utils";
 import {
   WalletConnectModule,
   WalletConnectTargetChain,
 } from "@creit-tech/stellar-wallets-kit/modules/wallet-connect";
 import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
-import { Networks } from "@creit-tech/stellar-wallets-kit/types";
+import { LocalStorageKeys, Networks } from "@creit-tech/stellar-wallets-kit/types";
 
 import type { IWalletClient, TWalletAccount } from "@/core/wallet/types";
+import type { ModuleInterface } from "@creit-tech/stellar-wallets-kit/types";
+
+declare const window:
+  | (Window &
+      typeof globalThis & {
+        stellar?: {
+          provider?: string;
+          platform?: string;
+        };
+      })
+  | undefined;
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function isStaleWalletConnectSessionError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
+function getErrorMessage(error: unknown): string {
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error.trim();
   }
 
-  const normalizedMessage = error.message.toLowerCase();
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message.trim();
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const objectWithErrorMessage = error as {
+      message?: unknown;
+      error?: {
+        message?: unknown;
+      };
+    };
+
+    if (
+      typeof objectWithErrorMessage.message === "string" &&
+      objectWithErrorMessage.message.trim().length > 0
+    ) {
+      return objectWithErrorMessage.message.trim();
+    }
+
+    if (
+      typeof objectWithErrorMessage.error?.message === "string" &&
+      objectWithErrorMessage.error.message.trim().length > 0
+    ) {
+      return objectWithErrorMessage.error.message.trim();
+    }
+  }
+
+  return "Wallet request failed. Please try again.";
+}
+
+function isStaleWalletConnectSessionError(error: unknown): boolean {
+  const normalizedMessage = getErrorMessage(error).toLowerCase();
 
   return (
     normalizedMessage.includes("session topic doesn't exist") ||
@@ -68,6 +111,23 @@ function clearWalletConnectStorage(): void {
   }
 }
 
+function getStoredWalletSelection(): {
+  address: string | null;
+  walletId: string | null;
+} {
+  if (typeof window === "undefined") {
+    return {
+      address: null,
+      walletId: null,
+    };
+  }
+
+  return {
+    address: window.localStorage.getItem(LocalStorageKeys.activeAddress),
+    walletId: window.localStorage.getItem(LocalStorageKeys.selectedModuleId),
+  };
+}
+
 function normalizeWalletNetwork(network: string | null | undefined): {
   network: string;
   isTestnet: boolean;
@@ -99,12 +159,38 @@ function normalizeWalletNetwork(network: string | null | undefined): {
 
 let walletKitInitialized = false;
 
+class SafeFreighterModule extends FreighterModule {
+  public override async isAvailable(): Promise<boolean> {
+    if (
+      typeof window !== "undefined" &&
+      window.stellar?.provider === "freighter" &&
+      window.stellar?.platform === "mobile"
+    ) {
+      return false;
+    }
+
+    const originalConsoleError = console.error;
+
+    try {
+      console.error = () => undefined;
+      return await super.isAvailable();
+    } catch {
+      return false;
+    } finally {
+      console.error = originalConsoleError;
+    }
+  }
+}
+
 function ensureKitInitialized(): void {
   if (walletKitInitialized) {
     return;
   }
 
-  const modules = defaultModules();
+  const modules = defaultModules().map(
+    (module): ModuleInterface =>
+      module.productId === "freighter" ? new SafeFreighterModule() : module,
+  );
   const appOrigin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
@@ -212,13 +298,17 @@ export class StellarWalletKitClient implements IWalletClient {
       return this.resolveActiveWallet(response.address);
     } catch (error) {
       if (!isStaleWalletConnectSessionError(error)) {
-        throw error;
+        throw new Error(getErrorMessage(error));
       }
 
       await this.clearStaleWalletConnectState();
 
-      const retryResponse = await StellarWalletsKit.authModal();
-      return this.resolveActiveWallet(retryResponse.address);
+      try {
+        const retryResponse = await StellarWalletsKit.authModal();
+        return this.resolveActiveWallet(retryResponse.address);
+      } catch (retryError) {
+        throw new Error(getErrorMessage(retryError));
+      }
     }
   }
 
@@ -239,6 +329,29 @@ export class StellarWalletKitClient implements IWalletClient {
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
     }));
     return normalizeWalletNetwork(networkResponse.networkPassphrase || networkResponse.network);
+  }
+
+  public async restoreConnection(): Promise<TWalletAccount | null> {
+    ensureKitInitialized();
+
+    const storedWalletSelection = getStoredWalletSelection();
+
+    if (!storedWalletSelection.address || !storedWalletSelection.walletId) {
+      return null;
+    }
+
+    try {
+      StellarWalletsKit.setWallet(storedWalletSelection.walletId);
+      const selectedModule = StellarWalletsKit.selectedModule;
+
+      if (!(await selectedModule.isAvailable())) {
+        return null;
+      }
+
+      return await this.resolveActiveWallet(storedWalletSelection.address);
+    } catch {
+      return null;
+    }
   }
 
   public async disconnect(): Promise<void> {
