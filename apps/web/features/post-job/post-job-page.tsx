@@ -1,12 +1,12 @@
 "use client";
 
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { motion } from "framer-motion";
 import { Calendar, DollarSign, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useAccount } from "wagmi";
 
 type JobFormState = {
   title: string;
@@ -25,7 +25,7 @@ type MilestoneDraft = {
 
 /** Renders the job creation flow for wallet-connected clients. */
 export function PostJobPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
   const { createJob } = useJobs();
   const router = useRouter();
   const jobTitleInputId = "job-title-input";
@@ -132,19 +132,10 @@ export function PostJobPage() {
 
   if (!isConnected) {
     return (
-      <div className="mx-auto max-w-2xl py-16 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-gray-100 bg-white p-12 shadow-lg"
-        >
-          <h1 className="mb-6 text-3xl font-bold text-gray-900">Connect Your Wallet</h1>
-          <p className="mb-8 text-gray-600">
-            Connect your wallet to post jobs and hire talented freelancers on the Web3 platform
-          </p>
-          <ConnectButton />
-        </motion.div>
-      </div>
+      <WalletRequiredNotice
+        title="Connect Your Wallet"
+        description="Connect your wallet to post jobs and hire talented freelancers on the Web3 platform"
+      />
     );
   }
 

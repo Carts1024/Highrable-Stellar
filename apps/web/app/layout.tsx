@@ -1,6 +1,5 @@
 import { APP_DESCRIPTION, APP_NAME } from "@/core/constants";
 import { AppProviders } from "@/core/providers/app-providers";
-import "@rainbow-me/rainbowkit/styles.css";
 import "@repo/ui/globals.css";
 import { AppShell } from "@/features/common";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
