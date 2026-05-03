@@ -10,10 +10,10 @@
     "start": "next start"
   },
   "dependencies": {
+    "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@heroicons/react": "^2.2.0",
     "@hookstate/core": "^4.0.2",
     "@hookstate/devtools": "^4.0.3",
-    "@rainbow-me/rainbowkit": "^2.2.10",
     "@repo/ui": "*",
     "@tanstack/react-query": "^5.90.21",
     "framer-motion": "^12.35.0",
@@ -21,8 +21,6 @@
     "next": "16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "viem": "^2.47.0",
-    "wagmi": "^2.19.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -1,57 +1,45 @@
 "use client";
 
+import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
 import { Award, Briefcase, CheckCircle, Clock, DollarSign, Target, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
 
 /** Summarizes wallet-specific activity for the current Highrable user. */
 export function DashboardPage() {
   const router = useRouter();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
   const { jobs, loading } = useJobs();
 
-  // Filter jobs based on user role (simplified for POC)
   const userJobs = jobs.filter(
     (job) =>
       job.clientAddress === address ||
-      job.applications?.some((app) => app.freelancerAddress === address),
+      job.applications?.some((application) => application.freelancerAddress === address),
   );
 
   const stats = {
     totalJobs: userJobs.length,
-    activeProjects: userJobs.filter((j) => j.status === "in_progress").length,
-    completedProjects: userJobs.filter((j) => j.status === "completed").length,
+    activeProjects: userJobs.filter((job) => job.status === "in_progress").length,
+    completedProjects: userJobs.filter((job) => job.status === "completed").length,
     totalEarned: userJobs
-      .filter((j) => j.status === "completed")
+      .filter((job) => job.status === "completed")
       .reduce((sum, job) => sum + job.budget, 0),
   };
 
   if (!isConnected) {
     return (
-      <div className="mx-auto max-w-2xl py-16 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-gray-100 bg-white p-12 shadow-lg"
-        >
-          <h1 className="mb-6 text-3xl font-bold text-gray-900">Access Your Dashboard</h1>
-          <p className="mb-8 text-gray-600">
-            Connect your wallet to view your projects, earnings, and manage your Web3 freelancing
-            journey
-          </p>
-          <ConnectButton />
-        </motion.div>
-      </div>
+      <WalletRequiredNotice
+        title="Access Your Dashboard"
+        description="Connect your wallet to view your projects, earnings, and manage your Web3 freelancing journey"
+      />
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* Dashboard Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -68,7 +56,6 @@ export function DashboardPage() {
         </p>
       </motion.div>
 
-      {/* Stats Grid */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -130,7 +117,6 @@ export function DashboardPage() {
         })}
       </motion.div>
 
-      {/* Quick Actions */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -177,7 +163,6 @@ export function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Recent Projects */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -194,8 +179,8 @@ export function DashboardPage() {
 
         {loading ? (
           <div className="space-y-6">
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="rounded-2xl border border-gray-100 bg-white p-6">
+            {[...Array(2)].map((_, index) => (
+              <div key={index} className="rounded-2xl border border-gray-100 bg-white p-6">
                 <div className="animate-pulse">
                   <div className="mb-4 flex items-start justify-between">
                     <div className="flex-1 space-y-2">

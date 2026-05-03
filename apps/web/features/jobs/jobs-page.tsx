@@ -1,15 +1,15 @@
 "use client";
 
+import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { JobList } from "@/features/jobs/components/job-list";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { motion } from "framer-motion";
-import { useAccount } from "wagmi";
 
 /** Renders the public job browsing experience. */
 export function JobsPage() {
   const { jobs, loading, applyToJob } = useJobs();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWallet();
 
   const handleApply = async (jobId: string) => {
     if (!isConnected) {
@@ -35,7 +35,6 @@ export function JobsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -53,7 +52,6 @@ export function JobsPage() {
         </p>
       </motion.div>
 
-      {/* Connect Wallet Prompt */}
       {!isConnected && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -66,11 +64,10 @@ export function JobsPage() {
           <p className="mb-6 text-gray-600">
             Connect your wallet to apply for jobs and access the full Web3 freelancing experience
           </p>
-          <ConnectButton />
+          <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-2 font-medium text-white" />
         </motion.div>
       )}
 
-      {/* Job List */}
       <JobList jobs={jobs} loading={loading} onApply={handleApply} />
     </div>
   );
