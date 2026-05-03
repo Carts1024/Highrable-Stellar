@@ -67,7 +67,9 @@ export function WalletStatusCard() {
 
             <div>
               <p className="text-sm text-gray-500">Connected address</p>
-              <p className="break-all font-mono text-sm text-gray-900">{walletState.walletAddress}</p>
+              <p className="font-mono text-sm break-all text-gray-900">
+                {walletState.walletAddress}
+              </p>
             </div>
 
             {!walletState.isTestnet ? (

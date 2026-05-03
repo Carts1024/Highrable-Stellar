@@ -1,4 +1,9 @@
-import { consumeChallenge, createSessionToken } from "@/core/wallet/server/auth-store";
+import {
+  AUTH_SESSION_COOKIE_NAME,
+  consumeChallenge,
+  createSessionToken,
+  validateChallenge,
+} from "@/core/wallet/server/auth-store";
 import { verifyStellarMessageSignature } from "@/core/wallet/server/signature";
 import { TVerifyRequestSchema } from "@/core/wallet/validation";
 import { NextResponse } from "next/server";
@@ -8,7 +13,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as unknown;
     const payload = TVerifyRequestSchema.parse(body);
 
-    const challengeResult = consumeChallenge({
+    const challengeResult = validateChallenge({
       address: payload.address,
       message: payload.message,
       nonce: payload.nonce,
@@ -28,6 +33,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
     }
 
+    const consumeResult = consumeChallenge(payload.nonce);
+
+    if (!consumeResult.valid) {
+      return NextResponse.json({ error: consumeResult.error }, { status: 401 });
+    }
+
     const session = createSessionToken(payload.address);
 
     const response = NextResponse.json(
@@ -40,10 +51,10 @@ export async function POST(request: Request) {
     );
 
     response.cookies.set({
-      name: "highrable_auth_session",
+      name: AUTH_SESSION_COOKIE_NAME,
       value: session.token,
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
       path: "/",
       expires: new Date(session.expiresAt),

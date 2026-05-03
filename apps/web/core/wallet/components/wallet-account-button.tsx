@@ -16,7 +16,9 @@ export function WalletAccountButton({ className }: { className?: string }) {
       : "border-[#FF7003]/30 bg-[#FF7003]/10 text-[#FF7003]";
 
   return (
-    <div className={`rounded-lg border px-3 py-2 text-sm font-medium ${toneClassName} ${className ?? ""}`}>
+    <div
+      className={`rounded-lg border px-3 py-2 text-sm font-medium ${toneClassName} ${className ?? ""}`}
+    >
       <span>{walletState.account.displayAddress}</span>
     </div>
   );

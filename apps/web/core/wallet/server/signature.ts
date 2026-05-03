@@ -96,6 +96,7 @@ export function verifyStellarMessageSignature(input: {
     const messageBytes = Buffer.from(input.message, "utf8");
     const signature = normalizeSignature(input.signature);
 
+    // Ed25519 signatures in Node must be verified with a null algorithm parameter.
     return verify(null, messageBytes, key, signature);
   } catch {
     return false;

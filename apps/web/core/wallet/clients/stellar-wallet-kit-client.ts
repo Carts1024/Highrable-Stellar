@@ -24,6 +24,50 @@ function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function isStaleWalletConnectSessionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const normalizedMessage = error.message.toLowerCase();
+
+  return (
+    normalizedMessage.includes("session topic doesn't exist") ||
+    normalizedMessage.includes("no matching key") ||
+    normalizedMessage.includes("no walletconnect session found")
+  );
+}
+
+function clearWalletConnectStorage(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const storageMatchers = ["walletconnect", "wc@", "WALLETCONNECT_DEEPLINK_CHOICE"];
+
+  for (const storage of [window.localStorage, window.sessionStorage]) {
+    const keysToDelete: string[] = [];
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+
+      if (!key) {
+        continue;
+      }
+
+      const normalizedKey = key.toLowerCase();
+
+      if (storageMatchers.some((matcher) => normalizedKey.includes(matcher.toLowerCase()))) {
+        keysToDelete.push(key);
+      }
+    }
+
+    for (const key of keysToDelete) {
+      storage.removeItem(key);
+    }
+  }
+}
+
 function normalizeWalletNetwork(network: string | null | undefined): {
   network: string;
   isTestnet: boolean;
@@ -112,6 +156,16 @@ function ensureKitInitialized(): void {
 }
 
 export class StellarWalletKitClient implements IWalletClient {
+  private async clearStaleWalletConnectState(): Promise<void> {
+    clearWalletConnectStorage();
+
+    try {
+      await StellarWalletsKit.disconnect();
+    } catch {
+      // Ignore disconnect failures while clearing broken WalletConnect state.
+    }
+  }
+
   private async resolveActiveWallet(addressInput?: string): Promise<TWalletAccount> {
     ensureKitInitialized();
 
@@ -153,8 +207,19 @@ export class StellarWalletKitClient implements IWalletClient {
       );
     }
 
-    const response = await StellarWalletsKit.authModal();
-    return this.resolveActiveWallet(response.address);
+    try {
+      const response = await StellarWalletsKit.authModal();
+      return this.resolveActiveWallet(response.address);
+    } catch (error) {
+      if (!isStaleWalletConnectSessionError(error)) {
+        throw error;
+      }
+
+      await this.clearStaleWalletConnectState();
+
+      const retryResponse = await StellarWalletsKit.authModal();
+      return this.resolveActiveWallet(retryResponse.address);
+    }
   }
 
   public async getActiveWallet(): Promise<TWalletAccount> {
