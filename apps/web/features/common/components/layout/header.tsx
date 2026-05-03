@@ -11,8 +11,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const navigation = [
-  { name: "Browse Jobs", href: "/jobs", icon: Briefcase },
-  { name: "Find Talent", href: "/post-job", icon: Users },
+  { name: "Browse Jobs", href: "/marketplace", icon: Briefcase },
+  { name: "Find Talent", href: "/marketplace", icon: Users },
   { name: "Dashboard", href: "/dashboard", icon: Award },
 ] as const;
 

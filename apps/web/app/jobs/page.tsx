@@ -1,5 +1,5 @@
-import { JobsPage } from "@/features/jobs";
+import { redirect } from "next/navigation";
 
 export default function JobsRoutePage() {
-  return <JobsPage />;
+  redirect("/marketplace");
 }
