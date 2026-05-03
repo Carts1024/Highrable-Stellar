@@ -69,10 +69,9 @@ impl ReputationContract {
             return Err(Error::AlreadyInitialized);
         }
 
-        env.storage().instance().set(
-            &DataKey::AuthorizedEscrowContract,
-            &authorized_escrow_contract,
-        );
+        env.storage()
+            .instance()
+            .set(&DataKey::AuthorizedEscrowContract, &authorized_escrow_contract);
 
         Ok(())
     }
@@ -157,9 +156,7 @@ impl ReputationContract {
 
     pub fn has_completion(env: Env, escrow_id: u64) -> bool {
         touch_instance(&env);
-        env.storage()
-            .persistent()
-            .has(&DataKey::Completion(escrow_id))
+        env.storage().persistent().has(&DataKey::Completion(escrow_id))
     }
 
     pub fn get_freelancer_stats(env: Env, freelancer: Address) -> TFreelancerStatsView {
@@ -238,7 +235,7 @@ fn validate_amount(amount: i128) -> Result<(), Error> {
 fn touch_instance(env: &Env) {
     env.storage()
         .instance()
-        .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_EXTEND_TO);
+    .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_EXTEND_TO);
 }
 
 #[cfg(test)]
