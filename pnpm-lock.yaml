@@ -28,7 +28,7 @@ importers:
     dependencies:
       '@creit-tech/stellar-wallets-kit':
         specifier: npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0
-        version: /@jsr/creit-tech__stellar-wallets-kit@2.1.0(@solana/sysvars@2.3.0)(@stellar/stellar-sdk@13.3.0)(@trezor/connect@9.7.3)(@types/react@19.2.13)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.4)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)(zod@4.3.6)
+        version: /@jsr/creit-tech__stellar-wallets-kit@2.1.0(@solana/sysvars@2.3.0)(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.3)(@types/react@19.2.13)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.4)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)(zod@4.3.6)
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.4)
@@ -44,6 +44,9 @@ importers:
       '@repo/ui':
         specifier: '*'
         version: link:../../packages/ui
+      '@stellar/stellar-sdk':
+        specifier: 14.2.0
+        version: 14.2.0
       '@tanstack/react-query':
         specifier: ^5.90.21
         version: 5.90.21(react@19.2.4)
@@ -983,7 +986,7 @@ packages:
       '@jridgewell/sourcemap-codec': 1.5.5
     dev: false
 
-  /@jsr/creit-tech__stellar-wallets-kit@2.1.0(@solana/sysvars@2.3.0)(@stellar/stellar-sdk@13.3.0)(@trezor/connect@9.7.3)(@types/react@19.2.13)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.4)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)(zod@4.3.6):
+  /@jsr/creit-tech__stellar-wallets-kit@2.1.0(@solana/sysvars@2.3.0)(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.3)(@types/react@19.2.13)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.4)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)(zod@4.3.6):
     resolution: {integrity: sha512-FzLSvyU/Qnme9VHBTrQHtS2UzgHWQI9Gr1zYuBjB9r/ZpZwcpGRzwxAyPom7lBwZyk406f4PWm/ASkSAAnTKqA==, tarball: https://npm.jsr.io/~/11/@jsr/creit-tech__stellar-wallets-kit/2.1.0.tgz}
     dependencies:
       '@albedo-link/intent': 0.12.0
@@ -998,7 +1001,7 @@ packages:
       '@reown/appkit': 1.8.19(@types/react@19.2.13)(fastestsmallesttextencoderdecoder@1.0.22)(react@19.2.4)(typescript@5.9.2)(zod@4.3.6)
       '@stellar/freighter-api': 6.0.0
       '@stellar/stellar-base': 14.0.1
-      '@trezor/connect-plugin-stellar': 9.2.6(@stellar/stellar-sdk@13.3.0)(@trezor/connect@9.7.3)(tslib@2.8.1)
+      '@trezor/connect-plugin-stellar': 9.2.6(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.3)(tslib@2.8.1)
       '@trezor/connect-web': 9.7.2(@solana/sysvars@2.3.0)(fastestsmallesttextencoderdecoder@1.0.22)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)
       '@twind/core': 1.1.3(typescript@5.9.2)
       '@twind/preset-autoprefix': 1.0.7(@twind/core@1.1.3)(typescript@5.9.2)
@@ -4741,22 +4744,6 @@ packages:
     resolution: {integrity: sha512-VVolPL5goVEIsvuGqDc5uiKxV03lzfWdvYg1KikvwheDmTBO68CKDji3bAZ/kppZrx5iTA8z3Ld5yuytcvhvOQ==}
     dev: false
 
-  /@stellar/stellar-base@13.1.0:
-    resolution: {integrity: sha512-90EArG+eCCEzDGj3OJNoCtwpWDwxjv+rs/RNPhvg4bulpjN/CSRj+Ys/SalRcfM4/WRC5/qAfjzmJBAuquWhkA==}
-    engines: {node: '>=18.0.0'}
-    dependencies:
-      '@stellar/js-xdr': 3.1.2
-      base32.js: 0.1.0
-      bignumber.js: 9.3.1
-      buffer: 6.0.3
-      sha.js: 2.4.12
-      tweetnacl: 1.0.3
-    optionalDependencies:
-      sodium-native: 4.3.3
-    transitivePeerDependencies:
-      - bare-url
-    dev: false
-
   /@stellar/stellar-base@14.0.1:
     resolution: {integrity: sha512-mI6Kjh9hGWDA1APawQTtCbR7702dNT/8Te1uuRFPqqdoAKBk3WpXOQI3ZSZO+5olW7BSHpmVG5KBPZpIpQxIvw==}
     engines: {node: '>=20.0.0'}
@@ -4767,23 +4754,6 @@ packages:
       bignumber.js: 9.3.1
       buffer: 6.0.3
       sha.js: 2.4.12
-    dev: false
-
-  /@stellar/stellar-sdk@13.3.0:
-    resolution: {integrity: sha512-8+GHcZLp+mdin8gSjcgfb/Lb6sSMYRX6Nf/0LcSJxvjLQR0XHpjGzOiRbYb2jSXo51EnA6kAV5j+4Pzh5OUKUg==}
-    engines: {node: '>=18.0.0'}
-    dependencies:
-      '@stellar/stellar-base': 13.1.0
-      axios: 1.13.6
-      bignumber.js: 9.3.1
-      eventsource: 2.0.2
-      feaxios: 0.0.23
-      randombytes: 2.1.0
-      toml: 3.0.0
-      urijs: 1.19.11
-    transitivePeerDependencies:
-      - bare-url
-      - debug
     dev: false
 
   /@stellar/stellar-sdk@14.2.0:
@@ -5156,14 +5126,14 @@ packages:
       - react-native
     dev: false
 
-  /@trezor/connect-plugin-stellar@9.2.6(@stellar/stellar-sdk@13.3.0)(@trezor/connect@9.7.3)(tslib@2.8.1):
+  /@trezor/connect-plugin-stellar@9.2.6(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.3)(tslib@2.8.1):
     resolution: {integrity: sha512-RA0Q4GHaf1mFxgSX183yyH+5tWEgS1j+sfe9KiUyIn/VnpXeUnaCpQuKMomAjGXQ5oNuvikTOdHYOqsvuEdOyw==}
     peerDependencies:
       '@stellar/stellar-sdk': ^13.3.0
       '@trezor/connect': 9.x.x
       tslib: ^2.6.2
     dependencies:
-      '@stellar/stellar-sdk': 13.3.0
+      '@stellar/stellar-sdk': 14.2.0
       '@trezor/connect': 9.7.3(@solana/sysvars@2.3.0)(fastestsmallesttextencoderdecoder@1.0.22)(tslib@2.8.1)(typescript@5.9.2)(ws@8.20.0)
       '@trezor/utils': 9.5.0(tslib@2.8.1)
       tslib: 2.8.1
@@ -6419,36 +6389,6 @@ packages:
     transitivePeerDependencies:
       - debug
     dev: false
-
-  /bare-addon-resolve@1.10.0:
-    resolution: {integrity: sha512-sSd0jieRJlDaODOzj0oe0RjFVC1QI0ZIjGIdPkbrTXsdVVtENg14c+lHHAhHwmWCZ2nQlMhy8jA3Y5LYPc/isA==}
-    peerDependencies:
-      bare-url: '*'
-    peerDependenciesMeta:
-      bare-url:
-        optional: true
-    dependencies:
-      bare-module-resolve: 1.12.2
-      bare-semver: 1.0.3
-    dev: false
-    optional: true
-
-  /bare-module-resolve@1.12.2:
-    resolution: {integrity: sha512-j+hiD5k99qec4KjJvYsI67q5AOBifmy9JG3oeMVxTmvrhn2sIdp8StrUvZu4YNgwTpO+NhniQG16N1ETDe1k5w==}
-    peerDependencies:
-      bare-url: '*'
-    peerDependenciesMeta:
-      bare-url:
-        optional: true
-    dependencies:
-      bare-semver: 1.0.3
-    dev: false
-    optional: true
-
-  /bare-semver@1.0.3:
-    resolution: {integrity: sha512-HS/A30bi2+PiRJfU6R4+Kp+6KeLSCSByjYM2iiobOKzLAvtu1CT+S8xWfiU7wz0erknjkUoC+yXy108tzIuP5Q==}
-    dev: false
-    optional: true
 
   /base-x@3.0.11:
     resolution: {integrity: sha512-xz7wQ8xDhdyP7tQxwdteLYeFfS68tSMNCZ/Y37WJ4bhGfKPpqEIlmIyueQHqOyoPhE6xNUqjzRr8ra0eF9VRvA==}
@@ -8847,16 +8787,6 @@ packages:
       '@babel/runtime': 7.29.2
     dev: false
 
-  /require-addon@1.2.0:
-    resolution: {integrity: sha512-VNPDZlYgIYQwWp9jMTzljx+k0ZtatKlcvOhktZ/anNPI3dQ9NXk7cq2U4iJ1wd9IrytRnYhyEocFWbkdPb+MYA==}
-    engines: {bare: '>=1.10.0'}
-    dependencies:
-      bare-addon-resolve: 1.10.0
-    transitivePeerDependencies:
-      - bare-url
-    dev: false
-    optional: true
-
   /require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -9085,16 +9015,6 @@ packages:
       ip-address: 10.2.0
       smart-buffer: 4.2.0
     dev: false
-
-  /sodium-native@4.3.3:
-    resolution: {integrity: sha512-OnxSlN3uyY8D0EsLHpmm2HOFmKddQVvEMmsakCrXUzSd8kjjbzL413t4ZNF3n0UxSwNgwTyUvkmZHTfuCeiYSw==}
-    requiresBuild: true
-    dependencies:
-      require-addon: 1.2.0
-    transitivePeerDependencies:
-      - bare-url
-    dev: false
-    optional: true
 
   /sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}

@@ -64,6 +64,7 @@ export const updateTransactionStatus = mutation({
     await ctx.db.patch(transaction._id, {
       status: args.status,
       updatedAt: Date.now(),
+      ...(txHash !== undefined ? { txHash } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
     });
 

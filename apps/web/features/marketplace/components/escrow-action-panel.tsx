@@ -1,40 +1,12 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
+import { useState } from "react";
 
-import type { TActorRole, TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
+import type { TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { StatusBadge } from "./status-badge";
-
-function detectRole(
-  connectedWallet: string | null,
-  job: TConvexDoc<"jobs">,
-  applications: TConvexDoc<"applications">[],
-): TActorRole {
-  if (!connectedWallet) {
-    return "guest";
-  }
-
-  if (isSameWallet(connectedWallet, job.clientWallet)) {
-    return "client";
-  }
-
-  if (isSameWallet(connectedWallet, job.selectedFreelancerWallet ?? null)) {
-    return "selectedFreelancer";
-  }
-
-  const isApplicant = applications.some((application) =>
-    isSameWallet(application.freelancerWallet, connectedWallet),
-  );
-
-  if (isApplicant) {
-    return "applicant";
-  }
-
-  return "other";
-}
 
 function getCurrentStatus(
   job: TConvexDoc<"jobs">,
@@ -47,6 +19,49 @@ function getCurrentStatus(
   return job.status;
 }
 
+function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: string): string {
+  return isPending ? pendingLabel : label;
+}
+
+function TransactionStatus({
+  error,
+  success,
+  txExplorerUrl,
+}: {
+  error: string | null;
+  success: string | null;
+  txExplorerUrl: string | null;
+}) {
+  if (!error && !success && !txExplorerUrl) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      {error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+      {success ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          {success}
+        </p>
+      ) : null}
+      {txExplorerUrl ? (
+        <a
+          href={txExplorerUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex text-sm font-medium text-indigo-700 hover:text-indigo-900"
+        >
+          View transaction in Stellar explorer
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 export function EscrowActionPanel({
   job,
   escrow,
@@ -56,9 +71,29 @@ export function EscrowActionPanel({
   escrow: TConvexDoc<"escrows"> | null | undefined;
   applications: TConvexDoc<"applications">[];
 }) {
-  const { address, walletState } = useWallet();
-  const role = detectRole(address, job, applications);
+  const [releaseRating, setReleaseRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const {
+    role,
+    isPending,
+    pendingAction,
+    error,
+    success,
+    txExplorerUrl,
+    createEscrow,
+    fundEscrow,
+    submitWork,
+    approveAndRelease,
+    cancelEscrow,
+    markDisputed,
+  } = useEscrowActions({ job, escrow, applications });
   const currentStatus = getCurrentStatus(job, escrow);
+  const buttonClass =
+    "rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500";
+  const secondaryButtonClass =
+    "rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400";
+  const dangerButtonClass =
+    "rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-gray-400";
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -77,13 +112,18 @@ export function EscrowActionPanel({
             <>
               <button
                 type="button"
-                disabled
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-500"
+                disabled={isPending}
+                onClick={() => void createEscrow()}
+                className={buttonClass}
               >
-                Create Escrow
+                {getActionButtonLabel(
+                  "Create Escrow",
+                  pendingAction === "create_escrow",
+                  "Creating Escrow...",
+                )}
               </button>
               <p className="text-sm text-gray-600">
-                Smart contract action will be enabled in Phase 9.
+                Creates the Stellar escrow record for the selected freelancer.
               </p>
             </>
           ) : null}
@@ -106,15 +146,34 @@ export function EscrowActionPanel({
         <div className="space-y-3">
           {role === "client" ? (
             <>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-500"
-              >
-                Fund Escrow
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void fundEscrow()}
+                  className={buttonClass}
+                >
+                  {getActionButtonLabel(
+                    "Fund Escrow",
+                    pendingAction === "fund_escrow",
+                    "Funding Escrow...",
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void cancelEscrow()}
+                  className={secondaryButtonClass}
+                >
+                  {getActionButtonLabel(
+                    "Cancel Escrow",
+                    pendingAction === "cancel_escrow",
+                    "Cancelling...",
+                  )}
+                </button>
+              </div>
               <p className="text-sm text-gray-600">
-                Smart contract action will be enabled in Phase 9.
+                Verified funded means the client has locked mock USDC on Stellar.
               </p>
             </>
           ) : null}
@@ -129,23 +188,70 @@ export function EscrowActionPanel({
         <div className="space-y-3">
           {role === "selectedFreelancer" ? (
             <>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-500"
-              >
-                Submit Work
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void submitWork()}
+                  className={buttonClass}
+                >
+                  {getActionButtonLabel(
+                    "Submit Work",
+                    pendingAction === "submit_work",
+                    "Submitting Work...",
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void markDisputed()}
+                  className={dangerButtonClass}
+                >
+                  {getActionButtonLabel(
+                    "Mark Disputed",
+                    pendingAction === "mark_disputed",
+                    "Marking Disputed...",
+                  )}
+                </button>
+              </div>
               <p className="text-sm text-gray-600">
-                Smart contract action will be enabled in Phase 9.
+                Submit only after the funded escrow covers the agreed work.
               </p>
             </>
           ) : null}
 
           {role === "client" ? (
-            <p className="text-sm text-gray-700">
-              Escrow funded. Waiting for freelancer submission.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">
+                Escrow funded. Waiting for freelancer submission.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void cancelEscrow()}
+                  className={secondaryButtonClass}
+                >
+                  {getActionButtonLabel(
+                    "Cancel Escrow",
+                    pendingAction === "cancel_escrow",
+                    "Cancelling...",
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void markDisputed()}
+                  className={dangerButtonClass}
+                >
+                  {getActionButtonLabel(
+                    "Mark Disputed",
+                    pendingAction === "mark_disputed",
+                    "Marking Disputed...",
+                  )}
+                </button>
+              </div>
+            </div>
           ) : null}
 
           {role !== "client" && role !== "selectedFreelancer" ? (
@@ -160,29 +266,88 @@ export function EscrowActionPanel({
         <div className="space-y-3">
           {role === "client" ? (
             <>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-500"
-              >
-                Approve and Release
-              </button>
-              <p className="text-sm text-gray-600">
-                Smart contract action will be enabled in Phase 9.
-              </p>
+              <div className="grid gap-3 sm:max-w-md">
+                <label className="grid gap-1 text-sm font-medium text-gray-700">
+                  Release rating
+                  <input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={releaseRating}
+                    disabled={isPending}
+                    onChange={(event) => setReleaseRating(Number(event.target.value))}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-medium text-gray-700">
+                  Review text
+                  <textarea
+                    value={reviewText}
+                    disabled={isPending}
+                    onChange={(event) => setReviewText(event.target.value)}
+                    rows={3}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                    placeholder="Optional verified review"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() =>
+                    void approveAndRelease({
+                      rating: releaseRating,
+                      reviewText,
+                    })
+                  }
+                  className={buttonClass}
+                >
+                  {getActionButtonLabel(
+                    "Approve and Release",
+                    pendingAction === "release_payment",
+                    "Releasing Payment...",
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => void markDisputed()}
+                  className={dangerButtonClass}
+                >
+                  {getActionButtonLabel(
+                    "Mark Disputed",
+                    pendingAction === "mark_disputed",
+                    "Marking Disputed...",
+                  )}
+                </button>
+              </div>
             </>
           ) : null}
 
           {role === "selectedFreelancer" ? (
-            <p className="text-sm text-gray-700">Work submitted. Waiting for client approval.</p>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">Work submitted. Waiting for client approval.</p>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => void markDisputed()}
+                className={dangerButtonClass}
+              >
+                {getActionButtonLabel(
+                  "Mark Disputed",
+                  pendingAction === "mark_disputed",
+                  "Marking Disputed...",
+                )}
+              </button>
+            </div>
           ) : null}
         </div>
       ) : null}
 
       {currentStatus === "released" || currentStatus === "completed" ? (
         <div className="space-y-2 text-sm text-emerald-800">
-          <p>Payment released. Verified work record available.</p>
-          <p>Leave/View Verified Review (coming soon).</p>
+          <p>Paid. Verified review recorded.</p>
         </div>
       ) : null}
 
@@ -194,12 +359,7 @@ export function EscrowActionPanel({
         <p className="text-sm text-red-700">Escrow disputed. Manual review required.</p>
       ) : null}
 
-      {walletState.isTestnet && walletState.isFunded === false ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          You can continue off-chain actions in Phase 8, but on-chain escrow actions in later steps
-          need a funded testnet account.
-        </p>
-      ) : null}
+      <TransactionStatus error={error} success={success} txExplorerUrl={txExplorerUrl} />
     </section>
   );
 }
