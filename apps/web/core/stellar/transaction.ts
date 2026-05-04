@@ -1,10 +1,4 @@
-import {
-  BASE_FEE,
-  Contract,
-  rpc,
-  scValToNative,
-  TransactionBuilder,
-} from "@stellar/stellar-sdk";
+import { BASE_FEE, Contract, rpc, scValToNative, TransactionBuilder } from "@stellar/stellar-sdk";
 
 import type { Transaction, xdr } from "@stellar/stellar-sdk";
 
@@ -190,10 +184,7 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
   const signedTransaction = TransactionBuilder.fromXDR(signedXdr, params.networkPassphrase);
   const submittedTransaction = await server.sendTransaction(signedTransaction);
 
-  if (
-    submittedTransaction.status !== "PENDING" &&
-    submittedTransaction.status !== "DUPLICATE"
-  ) {
+  if (submittedTransaction.status !== "PENDING" && submittedTransaction.status !== "DUPLICATE") {
     throw new StellarTransactionError(
       `Stellar RPC rejected the transaction: ${submittedTransaction.status}`,
       submittedTransaction.hash,

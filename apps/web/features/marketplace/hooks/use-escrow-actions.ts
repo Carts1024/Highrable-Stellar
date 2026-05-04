@@ -14,6 +14,7 @@ import {
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { hasUsdcTrustline, normalizeUsdcTrustlineError } from "@/core/stellar/trustline";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -89,10 +90,12 @@ export function useEscrowActions({
   job,
   escrow,
   applications,
+  hasUsdcPaymentsEnabled,
 }: {
   job: TConvexDoc<"jobs">;
   escrow: TConvexDoc<"escrows"> | null | undefined;
   applications: TConvexDoc<"applications">[];
+  hasUsdcPaymentsEnabled?: boolean | null;
 }) {
   const { address, walletState, signTransaction } = useWallet();
   const createTransaction = useMutation(api.transactions.createTransaction);
@@ -127,6 +130,13 @@ export function useEscrowActions({
         throw new Error("Fund your Stellar testnet account with Friendbot before using escrow.");
       }
 
+      if (
+        (action === "fund_escrow" || action === "release_payment") &&
+        hasUsdcPaymentsEnabled !== true
+      ) {
+        throw new Error("Enable USDC payments before using escrow.");
+      }
+
       if (!job.clientWallet) {
         throw new Error("Job is missing the client wallet.");
       }
@@ -140,9 +150,7 @@ export function useEscrowActions({
       }
 
       if (!isSameWallet(job.asset, config.stablecoinTokenContractId)) {
-        throw new Error(
-          "Job asset does not match the configured mock USDC stablecoin token contract ID.",
-        );
+        throw new Error("Job asset does not match the configured USDC token contract ID.");
       }
 
       if (!job.jobHash) {
@@ -154,9 +162,7 @@ export function useEscrowActions({
       }
 
       if (
-        (action === "fund_escrow" ||
-          action === "release_payment" ||
-          action === "cancel_escrow") &&
+        (action === "fund_escrow" || action === "release_payment" || action === "cancel_escrow") &&
         role !== "client"
       ) {
         throw new Error("Only the client wallet can perform this escrow action.");
@@ -166,17 +172,21 @@ export function useEscrowActions({
         throw new Error("Only the selected freelancer can submit work.");
       }
 
-      if (
-        action === "mark_disputed" &&
-        role !== "client" &&
-        role !== "selectedFreelancer"
-      ) {
+      if (action === "mark_disputed" && role !== "client" && role !== "selectedFreelancer") {
         throw new Error("Only the client or selected freelancer can mark escrow disputed.");
       }
 
       return config;
     },
-    [address, job, role, walletState.isConnected, walletState.isFunded, walletState.isTestnet],
+    [
+      address,
+      hasUsdcPaymentsEnabled,
+      job,
+      role,
+      walletState.isConnected,
+      walletState.isFunded,
+      walletState.isTestnet,
+    ],
   );
 
   const runEscrowAction = useCallback(
@@ -345,7 +355,15 @@ export function useEscrowActions({
         success: "Escrow funded on Stellar.",
       };
     });
-  }, [address, escrow, job.budget, job.clientWallet, runEscrowAction, signTransaction, updateEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    job.budget,
+    job.clientWallet,
+    runEscrowAction,
+    signTransaction,
+    updateEscrowStatus,
+  ]);
 
   const submitWork = useCallback(async () => {
     await runEscrowAction("submit_work", async ({ config }) => {
@@ -376,7 +394,14 @@ export function useEscrowActions({
         success: "Work submitted on Stellar.",
       };
     });
-  }, [address, escrow, job.selectedFreelancerWallet, runEscrowAction, signTransaction, updateEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    job.selectedFreelancerWallet,
+    runEscrowAction,
+    signTransaction,
+    updateEscrowStatus,
+  ]);
 
   const approveAndRelease = useCallback(
     async ({ rating, reviewText }: { rating: number; reviewText: string }) => {
@@ -387,6 +412,15 @@ export function useEscrowActions({
         }
 
         requireRating(rating);
+
+        try {
+          const freelancerReady = await hasUsdcTrustline(job.selectedFreelancerWallet!);
+          if (!freelancerReady) {
+            throw new Error("The freelancer must enable USDC payments before release.");
+          }
+        } catch (error) {
+          throw normalizeUsdcTrustlineError(error);
+        }
 
         const normalizedReviewText = reviewText.trim();
         const reviewSource = normalizedReviewText || "Highrable MVP verified review";

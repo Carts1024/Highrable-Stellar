@@ -1,5 +1,8 @@
 "use client";
 
+import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
+import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
 import { useState } from "react";
 
@@ -73,6 +76,8 @@ export function EscrowActionPanel({
 }) {
   const [releaseRating, setReleaseRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
+  const { address, walletState, fundTestnetAccount } = useWallet();
+  const usdcTrustline = useUsdcTrustline(address);
   const {
     role,
     isPending,
@@ -86,8 +91,16 @@ export function EscrowActionPanel({
     approveAndRelease,
     cancelEscrow,
     markDisputed,
-  } = useEscrowActions({ job, escrow, applications });
+  } = useEscrowActions({
+    job,
+    escrow,
+    applications,
+    hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
+  });
   const currentStatus = getCurrentStatus(job, escrow);
+  const showUsdcOnboarding =
+    walletState.isConnected && (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
+  const isUsdcActionDisabled = isPending || usdcTrustline.hasTrustline !== true;
   const buttonClass =
     "rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500";
   const secondaryButtonClass =
@@ -101,6 +114,21 @@ export function EscrowActionPanel({
         <h2 className="text-lg font-semibold text-gray-900">Escrow Action Panel</h2>
         <StatusBadge label={currentStatus} />
       </div>
+
+      {showUsdcOnboarding ? (
+        <div className="mb-4">
+          <UsdcOnboardingCard
+            isChecking={usdcTrustline.isChecking}
+            isEnabling={usdcTrustline.isEnabling}
+            isEnabled={usdcTrustline.hasTrustline === true}
+            error={usdcTrustline.error}
+            isWalletFunded={walletState.isFunded}
+            onEnable={() => void usdcTrustline.enableUsdcPayments()}
+            onFundTestnetAccount={() => void fundTestnetAccount()}
+            onRefresh={() => void usdcTrustline.refreshTrustlineStatus()}
+          />
+        </div>
+      ) : null}
 
       {currentStatus === "open" ? (
         <p className="text-sm text-gray-700">Waiting for client to select a freelancer.</p>
@@ -149,7 +177,7 @@ export function EscrowActionPanel({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={isPending}
+                  disabled={isUsdcActionDisabled}
                   onClick={() => void fundEscrow()}
                   className={buttonClass}
                 >
@@ -175,6 +203,9 @@ export function EscrowActionPanel({
               <p className="text-sm text-gray-600">
                 Verified funded means the client has locked mock USDC on Stellar.
               </p>
+              {usdcTrustline.hasTrustline !== true ? (
+                <p className="text-sm text-amber-800">Enable USDC payments before using escrow.</p>
+              ) : null}
             </>
           ) : null}
 
@@ -294,7 +325,7 @@ export function EscrowActionPanel({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={isPending}
+                  disabled={isUsdcActionDisabled}
                   onClick={() =>
                     void approveAndRelease({
                       rating: releaseRating,
@@ -322,6 +353,9 @@ export function EscrowActionPanel({
                   )}
                 </button>
               </div>
+              {usdcTrustline.hasTrustline !== true ? (
+                <p className="text-sm text-amber-800">Enable USDC payments before using escrow.</p>
+              ) : null}
             </>
           ) : null}
 

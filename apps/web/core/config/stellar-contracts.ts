@@ -1,22 +1,29 @@
 import { z } from "zod";
 
 const TStellarContractsEnvSchema = z.object({
+  NEXT_PUBLIC_STELLAR_NETWORK: z.string().default("testnet"),
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().default("https://soroban-testnet.stellar.org"),
   NEXT_PUBLIC_STELLAR_HORIZON_URL: z.string().default("https://horizon-testnet.stellar.org"),
-  NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: z
+  NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: z.string().default("Test SDF Network ; September 2015"),
+  NEXT_PUBLIC_STABLECOIN_ASSET_CODE: z.string().default("USDC"),
+  NEXT_PUBLIC_STABLECOIN_ISSUER: z
     .string()
-    .default("Test SDF Network ; September 2015"),
+    .default("GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5"),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: z.string().optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: z.string().optional(),
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: z.string().optional(),
 });
 
 const TContractIdSchema = z.string().regex(/^C[A-Z2-7]{55}$/);
+const TStellarPublicKeySchema = z.string().regex(/^G[A-Z2-7]{55}$/);
 
 const ENV = TStellarContractsEnvSchema.parse({
+  NEXT_PUBLIC_STELLAR_NETWORK: process.env.NEXT_PUBLIC_STELLAR_NETWORK,
   NEXT_PUBLIC_STELLAR_RPC_URL: process.env.NEXT_PUBLIC_STELLAR_RPC_URL,
   NEXT_PUBLIC_STELLAR_HORIZON_URL: process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL,
   NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
+  NEXT_PUBLIC_STABLECOIN_ASSET_CODE: process.env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE,
+  NEXT_PUBLIC_STABLECOIN_ISSUER: process.env.NEXT_PUBLIC_STABLECOIN_ISSUER,
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID,
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
@@ -40,6 +47,15 @@ const parseContractId = (value: string | undefined, envName: string): string | u
   return parsed.data;
 };
 
+const parseStellarPublicKey = (value: string, envName: string): string => {
+  const parsed = TStellarPublicKeySchema.safeParse(value.trim());
+  if (!parsed.success) {
+    throw new Error(`${envName} must be a valid Stellar public key (G...).`);
+  }
+
+  return parsed.data;
+};
+
 const reputationContractId = parseContractId(
   sanitize(ENV.NEXT_PUBLIC_REPUTATION_CONTRACT_ID),
   "NEXT_PUBLIC_REPUTATION_CONTRACT_ID",
@@ -58,6 +74,12 @@ if (process.env.NODE_ENV === "production" && (!reputationContractId || !escrowCo
 export const STELLAR_RPC_URL = ENV.NEXT_PUBLIC_STELLAR_RPC_URL.trim();
 export const STELLAR_HORIZON_URL = ENV.NEXT_PUBLIC_STELLAR_HORIZON_URL.trim();
 export const STELLAR_NETWORK_PASSPHRASE = ENV.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE.trim();
+export const STELLAR_NETWORK = ENV.NEXT_PUBLIC_STELLAR_NETWORK.trim().toLowerCase();
+export const STABLECOIN_ASSET_CODE = ENV.NEXT_PUBLIC_STABLECOIN_ASSET_CODE.trim();
+export const STABLECOIN_ISSUER = parseStellarPublicKey(
+  ENV.NEXT_PUBLIC_STABLECOIN_ISSUER,
+  "NEXT_PUBLIC_STABLECOIN_ISSUER",
+);
 export const REPUTATION_CONTRACT_ID = reputationContractId;
 export const ESCROW_CONTRACT_ID = escrowContractId;
 export const STABLECOIN_TOKEN_CONTRACT_ID = parseContractId(
@@ -93,7 +115,7 @@ export function getRequiredEscrowActionConfig(): {
 
   if (!STABLECOIN_TOKEN_CONTRACT_ID) {
     throw new Error(
-      "Stablecoin token contract ID is not configured. Set NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID to the mock USDC token contract ID after deployment.",
+      "Stablecoin token contract ID is not configured. Set NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID to the Stellar Asset Contract ID for configured USDC.",
     );
   }
 
