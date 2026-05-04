@@ -73,7 +73,7 @@ function renderReviewBody({
         No written review was added, but this completion is verified by a released escrow payment.
       </p>
       {!reviewText && reviewHash ? (
-        <p className="text-xs text-gray-400 break-all">Review hash: {reviewHash}</p>
+        <p className="text-xs break-all text-gray-400">Review hash: {reviewHash}</p>
       ) : null}
     </div>
   );
@@ -121,7 +121,8 @@ export function VerifiedReviewCard({
           {safeRating !== undefined ? <RatingStars rating={safeRating} /> : "Rating not provided"}
         </p>
         <p>
-          <span className="font-medium text-gray-500">Payment:</span> {formatAmount(amount)} {formatAsset(asset)}
+          <span className="font-medium text-gray-500">Payment:</span> {formatAmount(amount)}{" "}
+          {formatAsset(asset)}
         </p>
         <p>
           <span className="font-medium text-gray-500">Client:</span>{" "}
@@ -131,7 +132,7 @@ export function VerifiedReviewCard({
           <span className="font-medium text-gray-500">Freelancer:</span>{" "}
           {shortenWalletAddress(freelancerWallet)}
         </p>
-        <p className="sm:col-span-2 break-all">
+        <p className="break-all sm:col-span-2">
           <span className="font-medium text-gray-500">Escrow ID:</span> {escrowId}
         </p>
       </div>
