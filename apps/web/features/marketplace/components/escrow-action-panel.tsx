@@ -4,6 +4,7 @@ import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-ca
 import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
+import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { useState } from "react";
 
 import type { TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
@@ -60,6 +61,50 @@ function TransactionStatus({
         >
           View transaction in Stellar explorer
         </a>
+      ) : null}
+    </div>
+  );
+}
+
+function SyncStatusSection({ escrow }: { escrow: TConvexDoc<"escrows"> }) {
+  const { isSyncing, syncMessage, syncResult, syncEscrowAndReputation, syncReputationRecord } =
+    useSyncActions({ escrow });
+
+  const isReleased = escrow.status === "released";
+  const syncButtonClass =
+    "rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400";
+
+  return (
+    <div className="mt-4 border-t border-gray-100 pt-4">
+      <p className="mb-2 text-xs font-medium tracking-wide text-gray-400 uppercase">
+        Sync Utilities
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={isSyncing}
+          onClick={() => void syncEscrowAndReputation()}
+          className={syncButtonClass}
+        >
+          {isSyncing ? "Syncing…" : "Sync Escrow Status"}
+        </button>
+
+        {isReleased ? (
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={() => void syncReputationRecord()}
+            className={syncButtonClass}
+          >
+            {isSyncing ? "Syncing…" : "Sync Reputation Record"}
+          </button>
+        ) : null}
+      </div>
+
+      {syncMessage ? (
+        <p className={`mt-2 text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-600"}`}>
+          {syncMessage}
+        </p>
       ) : null}
     </div>
   );
@@ -394,6 +439,8 @@ export function EscrowActionPanel({
       ) : null}
 
       <TransactionStatus error={error} success={success} txExplorerUrl={txExplorerUrl} />
+
+      {escrow ? <SyncStatusSection escrow={escrow} /> : null}
     </section>
   );
 }
