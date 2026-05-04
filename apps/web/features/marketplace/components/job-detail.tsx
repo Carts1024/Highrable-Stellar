@@ -1,10 +1,12 @@
 "use client";
 
+import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
-import type { TConvexId } from "@repo/convex-client";
+import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 import { ApplicationsList } from "./applications-list";
 import { ApplyToJobForm } from "./apply-to-job-form";
@@ -22,6 +24,19 @@ export function JobDetail({ jobId }: { jobId: string }) {
     hasJobId ? { jobId: convexJobId } : "skip",
   );
   const escrow = useQuery(api.escrows.getEscrowByJobId, hasJobId ? { jobId: convexJobId } : "skip");
+  const verifiedReviewData = useQuery(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (api as any).reputation.getVerifiedReviewForJob,
+    hasJobId ? { jobId: convexJobId } : "skip",
+  ) as
+    | {
+        job: TConvexDoc<"jobs">;
+        escrow: TConvexDoc<"escrows">;
+        reputationRecord: TConvexDoc<"reputationRecords"> | null;
+      }
+    | null
+    | undefined;
+  const { isSyncing, syncReputationRecord, syncMessage, syncResult } = useSyncActions({ escrow });
 
   if (!hasJobId) {
     return <p className="text-sm text-gray-700">Job not found.</p>;
@@ -36,6 +51,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
   }
 
   const safeApplications = applications ?? [];
+  const mergedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
+  const reputationRecord = verifiedReviewData?.reputationRecord ?? null;
+  const hasReleasedCompletion = mergedEscrow?.status === "released" || job.status === "completed";
+  const showPendingSyncState =
+    hasReleasedCompletion && mergedEscrow?.status === "released" && !reputationRecord;
 
   return (
     <div className="space-y-6">
@@ -72,6 +92,51 @@ export function JobDetail({ jobId }: { jobId: string }) {
       </section>
 
       <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
+
+      {hasReleasedCompletion ? (
+        <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Verified completion</h2>
+
+          {reputationRecord && mergedEscrow ? (
+            <VerifiedReviewCard
+              jobTitle={job.title}
+              escrowId={mergedEscrow.escrowId}
+              clientWallet={mergedEscrow.clientWallet}
+              freelancerWallet={mergedEscrow.freelancerWallet}
+              amount={mergedEscrow.amount}
+              asset={mergedEscrow.asset}
+              rating={reputationRecord.rating}
+              reviewText={reputationRecord.reviewText}
+              reviewHash={reputationRecord.reviewHash}
+              txHash={reputationRecord.txHash ?? mergedEscrow.releaseTxHash}
+              createdAt={reputationRecord.createdAt}
+            />
+          ) : null}
+
+          {showPendingSyncState ? (
+            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p>Payment was released, but the verified review record has not synced yet.</p>
+              <button
+                type="button"
+                disabled={isSyncing}
+                onClick={() => void syncReputationRecord()}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSyncing ? "Syncing..." : "Sync verified review"}
+              </button>
+              {syncMessage ? (
+                <p className={`text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}>
+                  {syncMessage}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!reputationRecord && !showPendingSyncState ? (
+            <p className="text-sm text-gray-500">Could not load verified review.</p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="space-y-3 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Apply</h2>

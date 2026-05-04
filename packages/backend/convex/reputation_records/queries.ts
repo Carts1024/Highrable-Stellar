@@ -31,3 +31,34 @@ export const getReputationByEscrowId = query({
       .unique();
   },
 });
+
+export const getVerifiedReviewForJob = query({
+  args: {
+    jobId: v.id("jobs"),
+  },
+  handler: async (ctx, args) => {
+    const [job, escrow] = await Promise.all([
+      ctx.db.get(args.jobId),
+      ctx.db
+        .query("escrows")
+        .withIndex("by_jobId", (q) => q.eq("jobId", args.jobId))
+        .take(1)
+        .then((rows) => rows[0] ?? null),
+    ]);
+
+    if (!job || !escrow) {
+      return null;
+    }
+
+    const reputationRecord = await ctx.db
+      .query("reputationRecords")
+      .withIndex("by_escrowId", (q) => q.eq("escrowId", escrow.escrowId))
+      .unique();
+
+    return {
+      job,
+      escrow,
+      reputationRecord,
+    };
+  },
+});

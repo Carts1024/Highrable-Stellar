@@ -1,9 +1,7 @@
 "use client";
 
-import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
-import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { CheckCircle, ExternalLink, Star, Wallet } from "lucide-react";
+import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { Star } from "lucide-react";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -28,47 +26,50 @@ function RatingStars({ rating }: { rating: number }) {
 }
 
 export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
-  const { jobTitle, amount, asset, clientWallet, releaseTxHash, rating, reviewText } = payout;
+  const {
+    escrowId,
+    jobTitle,
+    amount,
+    asset,
+    clientWallet,
+    freelancerWallet,
+    releaseTxHash,
+    rating,
+    reviewText,
+    releasedAt,
+  } = payout;
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate font-medium text-gray-900">{jobTitle ?? "Untitled Job"}</p>
-
-        <p className="text-sm font-semibold text-emerald-600">
-          {formatAmount(amount)} {formatAsset(asset)}
-        </p>
-
-        <div className="flex items-center gap-1 text-xs text-gray-500">
-          <Wallet className="h-3.5 w-3.5 shrink-0" />
-          <span>Client: {shortenWalletAddress(clientWallet)}</span>
+    <div className="space-y-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+      <p className="truncate text-sm font-semibold text-gray-900">{jobTitle ?? "Untitled Job"}</p>
+      <VerifiedReviewCard
+        compact
+        jobTitle={jobTitle}
+        escrowId={escrowId}
+        clientWallet={clientWallet}
+        freelancerWallet={freelancerWallet}
+        amount={amount}
+        asset={asset}
+        rating={rating}
+        reviewText={reviewText}
+        txHash={releaseTxHash}
+        createdAt={releasedAt}
+      />
+      {rating !== undefined ? (
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span>Verified rating:</span>
+          <RatingStars rating={rating} />
         </div>
-
-        {rating !== undefined && <RatingStars rating={rating} />}
-
-        {reviewText && <p className="line-clamp-2 text-xs text-gray-500 italic">"{reviewText}"</p>}
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-          <CheckCircle className="h-3.5 w-3.5" />
-          Paid
-        </span>
-
-        {releaseTxHash ? (
-          <a
-            href={getTxExplorerUrl(releaseTxHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-[#FF7003] transition-colors hover:text-[#E85D00]"
-          >
-            View transaction
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : (
-          <span className="text-xs text-gray-400">No transaction hash stored</span>
-        )}
-      </div>
+      ) : (
+        <p className="text-xs text-gray-500">Rating not provided</p>
+      )}
+      {reviewText ? (
+        <p className="line-clamp-2 text-xs text-gray-500 italic">"{reviewText}"</p>
+      ) : null}
+      <div className="text-xs text-emerald-700">Paid through Stellar escrow</div>
+      {!releaseTxHash ? (
+        <span className="text-xs text-gray-400">Transaction hash not stored</span>
+      ) : null}
     </div>
   );
 }

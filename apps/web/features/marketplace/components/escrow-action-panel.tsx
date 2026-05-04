@@ -3,8 +3,11 @@
 import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
 import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
+import { api } from "@repo/convex-client";
+import { useQuery } from "convex/react";
 import { useState } from "react";
 
 import type { TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
@@ -66,50 +69,6 @@ function TransactionStatus({
   );
 }
 
-function SyncStatusSection({ escrow }: { escrow: TConvexDoc<"escrows"> }) {
-  const { isSyncing, syncMessage, syncResult, syncEscrowAndReputation, syncReputationRecord } =
-    useSyncActions({ escrow });
-
-  const isReleased = escrow.status === "released";
-  const syncButtonClass =
-    "rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400";
-
-  return (
-    <div className="mt-4 border-t border-gray-100 pt-4">
-      <p className="mb-2 text-xs font-medium tracking-wide text-gray-400 uppercase">
-        Sync Utilities
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={isSyncing}
-          onClick={() => void syncEscrowAndReputation()}
-          className={syncButtonClass}
-        >
-          {isSyncing ? "Syncing…" : "Sync Escrow Status"}
-        </button>
-
-        {isReleased ? (
-          <button
-            type="button"
-            disabled={isSyncing}
-            onClick={() => void syncReputationRecord()}
-            className={syncButtonClass}
-          >
-            {isSyncing ? "Syncing…" : "Sync Reputation Record"}
-          </button>
-        ) : null}
-      </div>
-
-      {syncMessage ? (
-        <p className={`mt-2 text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-600"}`}>
-          {syncMessage}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 export function EscrowActionPanel({
   job,
   escrow,
@@ -123,6 +82,11 @@ export function EscrowActionPanel({
   const [reviewText, setReviewText] = useState("");
   const { address, walletState, fundTestnetAccount } = useWallet();
   const usdcTrustline = useUsdcTrustline(address);
+  const reputationRecord = useQuery(
+    api.reputation.getReputationByEscrowId,
+    escrow?.escrowId ? { escrowId: escrow.escrowId } : "skip",
+  );
+  const { isSyncing, syncMessage, syncResult, syncReputationRecord } = useSyncActions({ escrow });
   const {
     role,
     isPending,
@@ -152,6 +116,8 @@ export function EscrowActionPanel({
     "rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400";
   const dangerButtonClass =
     "rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-gray-400";
+  const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
+  const showPendingVerifiedSync = hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
 
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -424,9 +390,49 @@ export function EscrowActionPanel({
         </div>
       ) : null}
 
-      {currentStatus === "released" || currentStatus === "completed" ? (
-        <div className="space-y-2 text-sm text-emerald-800">
-          <p>Paid. Verified review recorded.</p>
+      {hasReleasedCompletion ? (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-emerald-800">Payment released.</p>
+
+          {escrow && reputationRecord ? (
+            <VerifiedReviewCard
+              compact
+              jobTitle={job.title}
+              escrowId={escrow.escrowId}
+              clientWallet={escrow.clientWallet}
+              freelancerWallet={escrow.freelancerWallet}
+              amount={escrow.amount}
+              asset={escrow.asset}
+              rating={reputationRecord.rating}
+              reviewText={reputationRecord.reviewText}
+              reviewHash={reputationRecord.reviewHash}
+              txHash={reputationRecord.txHash ?? escrow.releaseTxHash}
+              createdAt={reputationRecord.createdAt}
+            />
+          ) : null}
+
+          {showPendingVerifiedSync ? (
+            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p>Payment was released, but the verified review record has not synced yet.</p>
+              <button
+                type="button"
+                disabled={isSyncing}
+                onClick={() => void syncReputationRecord()}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSyncing ? "Syncing..." : "Sync verified review"}
+              </button>
+              {syncMessage ? (
+                <p className={`text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}>
+                  {syncMessage}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {escrow && reputationRecord === undefined ? (
+            <p className="text-sm text-gray-500">Loading verified review...</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -439,8 +445,6 @@ export function EscrowActionPanel({
       ) : null}
 
       <TransactionStatus error={error} success={success} txExplorerUrl={txExplorerUrl} />
-
-      {escrow ? <SyncStatusSection escrow={escrow} /> : null}
     </section>
   );
 }

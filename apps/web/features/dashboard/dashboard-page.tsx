@@ -4,7 +4,7 @@ import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-n
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
-import { formatAsset, formatAmount } from "@/features/dashboard/lib/format";
+import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
