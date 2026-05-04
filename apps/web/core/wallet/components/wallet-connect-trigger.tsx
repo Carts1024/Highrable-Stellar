@@ -4,7 +4,7 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 
 export function WalletConnectTrigger({
   className,
-  label = "Connect Stellar Wallet",
+  label = "Connect Wallet",
 }: {
   className?: string;
   label?: string;
