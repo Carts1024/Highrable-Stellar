@@ -16,6 +16,7 @@ import type * as applications_helpers from "../applications/helpers.js";
 import type * as applications_mutations from "../applications/mutations.js";
 import type * as applications_queries from "../applications/queries.js";
 import type * as applications_types from "../applications/types.js";
+import type * as dashboard_queries from "../dashboard/queries.js";
 import type * as escrows from "../escrows.js";
 import type * as escrows_helpers from "../escrows/helpers.js";
 import type * as escrows_mutations from "../escrows/mutations.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "applications/mutations": typeof applications_mutations;
   "applications/queries": typeof applications_queries;
   "applications/types": typeof applications_types;
+  "dashboard/queries": typeof dashboard_queries;
   escrows: typeof escrows;
   "escrows/helpers": typeof escrows_helpers;
   "escrows/mutations": typeof escrows_mutations;
