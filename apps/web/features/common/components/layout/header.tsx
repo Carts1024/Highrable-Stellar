@@ -11,10 +11,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const navigation = [
-  { name: "Browse Jobs", href: "/marketplace", icon: Briefcase },
-  { name: "Find Talent", href: "/marketplace", icon: Users },
+  { name: "Browse Jobs", href: "/jobs", icon: Briefcase },
+  { name: "Find Talent", href: "/talent", icon: Users },
   { name: "Dashboard", href: "/dashboard", icon: Award },
 ] as const;
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /** Renders the shared navigation and wallet controls for the Highrable app. */
 export function Header() {
@@ -43,7 +47,7 @@ export function Header() {
                 key={name}
                 href={href}
                 className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                  pathname === href
+                  isActivePath(pathname, href)
                     ? "bg-linear-to-r from-[#FF7003] to-[#FF8801] text-white shadow-lg"
                     : "text-gray-600 hover:bg-gray-50 hover:text-[#FF7003]"
                 }`}
@@ -87,7 +91,7 @@ export function Header() {
                     href={href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                      pathname === href
+                      isActivePath(pathname, href)
                         ? "bg-linear-to-r from-[#FF7003] to-[#FF8801] text-white"
                         : "text-gray-600 hover:bg-gray-50 hover:text-[#FF7003]"
                     }`}
