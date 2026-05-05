@@ -41,8 +41,8 @@ export function TalentPage() {
             </h1>
             <p className="text-base leading-7 text-gray-600 sm:text-lg">
               A dedicated freelancer directory is planned after the MVP job, application, escrow,
-              and reputation flows are stable. For now, clients can post a job and review
-              applicants from the marketplace flow.
+              and reputation flows are stable. For now, clients can post a job and review applicants
+              from the marketplace flow.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -74,7 +74,10 @@ export function TalentPage() {
           </div>
           <div className="mt-4 space-y-3">
             {plannedSignals.map((signal) => (
-              <div key={signal} className="flex gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
+              <div
+                key={signal}
+                className="flex gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700"
+              >
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 <span>{signal}</span>
               </div>

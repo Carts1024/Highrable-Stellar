@@ -2,6 +2,7 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api, type TConvexDoc } from "@repo/convex-client";
@@ -9,8 +10,6 @@ import { useMutation, useQuery } from "convex/react";
 import { Briefcase, Clock3, Filter, Search, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
-import { StatusBadge } from "@/features/marketplace/components/status-badge";
 
 type JobSortOption = "newest" | "budget_high" | "budget_low";
 type JobDocument = TConvexDoc<"jobs">;
