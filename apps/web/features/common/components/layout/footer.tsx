@@ -1,7 +1,6 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import { BriefcaseIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -25,9 +24,11 @@ export function Footer() {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="mb-4 flex items-center space-x-2"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
-                <BriefcaseIcon className="h-5 w-5 text-white" />
-              </div>
+              <img
+                src="/logo/highrable-icon.jpg"
+                alt="Highrable logo"
+                className="h-8 w-8 rounded-md object-cover"
+              />
               <span className="text-xl font-bold">{APP_NAME}</span>
             </motion.div>
             <p className="text-sm leading-relaxed text-gray-400">

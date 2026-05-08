@@ -32,9 +32,9 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
             <img
-              src="/logo/stellar/Stellar_Symbol.png"
+              src="/logo/highrable-icon.jpg"
               alt="Highrable logo"
-              className="h-8 w-8 rounded-md object-contain"
+              className="h-8 w-8 rounded-md object-cover"
             />
             <span className="bg-linear-to-r from-[#FF7003] to-[#FF8801] bg-clip-text text-xl font-bold text-transparent">
               {APP_NAME}

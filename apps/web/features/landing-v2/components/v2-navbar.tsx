@@ -1,7 +1,6 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import { BriefcaseIcon } from "@heroicons/react/24/outline";
 import { cn } from "@repo/ui/lib/utils";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -11,9 +10,11 @@ import { NAV_LINKS } from "../constants/landing-v2.constants";
 function Logo() {
   return (
     <Link href="/home" className="flex items-center gap-2.5">
-      <div className="flex h-8 w-8 items-center justify-center bg-linear-to-br from-[#FF8801] to-[#E85D00]">
-        <BriefcaseIcon className="h-4 w-4 text-white" />
-      </div>
+      <img
+        src="/logo/highrable-icon.jpg"
+        alt="Highrable logo"
+        className="h-8 w-8 rounded-md object-cover"
+      />
       <span className="font-semibold tracking-tight text-[#0a0a0a]">{APP_NAME}</span>
     </Link>
   );
