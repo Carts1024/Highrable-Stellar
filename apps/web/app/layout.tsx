@@ -1,7 +1,7 @@
 import { APP_DESCRIPTION, APP_NAME } from "@/core/constants";
 import { AppProviders } from "@/core/providers/app-providers";
-import "@repo/ui/globals.css";
 import { AppShell } from "@/features/common";
+import "@repo/ui/globals.css";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 import type { Metadata } from "next";
@@ -22,6 +22,11 @@ const monoFont = JetBrains_Mono({
 export const metadata: Metadata = {
   title: `${APP_NAME} | Web3 Freelancing on Stellar`,
   description: APP_DESCRIPTION,
+  icons: {
+    icon: [{ url: "/logo/highrable-icon.jpg", type: "image/jpeg" }, { url: "/favicon.ico" }],
+    shortcut: "/logo/highrable-icon.jpg",
+    apple: "/logo/highrable-icon.jpg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
