@@ -1,5 +1,6 @@
 "use client";
 
+import { PasskeySmartAccountProvider } from "@/core/wallet/context/passkey-smart-account-context";
 import { WalletContextProvider } from "@/core/wallet/context/wallet-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
@@ -10,7 +11,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WalletContextProvider>{children}</WalletContextProvider>
+      <WalletContextProvider>
+        <PasskeySmartAccountProvider>{children}</PasskeySmartAccountProvider>
+      </WalletContextProvider>
     </QueryClientProvider>
   );
 }

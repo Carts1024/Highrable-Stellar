@@ -15,6 +15,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { hasUsdcTrustline, normalizeUsdcTrustlineError } from "@/core/stellar/trustline";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -98,6 +99,7 @@ export function useEscrowActions({
   hasUsdcPaymentsEnabled?: boolean | null;
 }) {
   const { address, walletState, signTransaction } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
@@ -110,13 +112,20 @@ export function useEscrowActions({
     txHash: null,
   });
 
-  const role = useMemo(() => detectRole(address, job, applications), [address, applications, job]);
+  const role = useMemo(
+    () => detectRole(walletIdentity.walletAddress, job, applications),
+    [applications, job, walletIdentity.walletAddress],
+  );
   const isPending = state.pendingAction !== null;
   const txExplorerUrl = state.txHash ? getTxExplorerUrl(state.txHash) : null;
 
   const validateBaseAction = useCallback(
     (action: TEscrowAction) => {
       const config = getRequiredEscrowActionConfig();
+
+      if (walletIdentity.walletType === "passkey_smart_account" && walletIdentity.walletAddress) {
+        throw new Error("Passkey transaction signing will be enabled in the next phase.");
+      }
 
       if (!address || !walletState.isConnected) {
         throw new Error("Connect a Stellar wallet before using escrow actions.");
@@ -183,6 +192,8 @@ export function useEscrowActions({
       hasUsdcPaymentsEnabled,
       job,
       role,
+      walletIdentity.walletAddress,
+      walletIdentity.walletType,
       walletState.isConnected,
       walletState.isFunded,
       walletState.isTestnet,

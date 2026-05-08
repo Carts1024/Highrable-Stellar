@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
@@ -16,22 +16,25 @@ type TFreelancerDashboardState = {
 };
 
 export function useFreelancerDashboard(): TFreelancerDashboardState {
-  const { isConnected, address, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
 
   const summary = useQuery(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (api as any).dashboard.queries.getFreelancerIncomeSummary,
-    isConnected && address ? { freelancerWallet: address } : "skip",
+    walletIdentity.isConnected && walletIdentity.walletAddress
+      ? { freelancerWallet: walletIdentity.walletAddress }
+      : "skip",
   );
 
-  const isLoading = isConnected && address != null && summary === undefined;
+  const isLoading =
+    walletIdentity.isConnected && walletIdentity.walletAddress != null && summary === undefined;
 
   return {
     summary: summary ?? undefined,
     isLoading,
-    isConnected,
-    address,
-    isFunded: walletState.isFunded,
-    isTestnet: walletState.isTestnet,
+    isConnected: walletIdentity.isConnected,
+    address: walletIdentity.walletAddress,
+    isFunded: walletIdentity.isFunded,
+    isTestnet: walletIdentity.isTestnet,
   };
 }

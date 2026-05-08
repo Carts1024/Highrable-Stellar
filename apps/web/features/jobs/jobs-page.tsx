@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -36,7 +36,7 @@ function formatBudget(budget: number) {
 
 /** Renders the dedicated public job browsing experience backed by Convex jobs. */
 export function JobsPage() {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const jobs = useQuery(api.jobs.listOpenJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [searchTerm, setSearchTerm] = useState("");
@@ -73,13 +73,13 @@ export function JobsPage() {
   }, [visibleJobs]);
 
   const handleApply = async (job: JobDocument) => {
-    if (!address || !isConnected) {
+    if (!walletIdentity.walletAddress || !walletIdentity.isConnected) {
       setApplyError("Connect your wallet to apply for jobs.");
       setApplySuccess(null);
       return;
     }
 
-    if (isSameWallet(job.clientWallet, address)) {
+    if (isSameWallet(job.clientWallet, walletIdentity.walletAddress)) {
       setApplyError("Client cannot apply to their own job.");
       setApplySuccess(null);
       return;
@@ -97,7 +97,7 @@ export function JobsPage() {
     try {
       await applyToJob({
         jobId: job._id,
-        freelancerWallet: address,
+        freelancerWallet: walletIdentity.walletAddress,
         proposal: proposal.trim(),
       });
       setApplySuccess(`Application submitted for "${job.title}".`);
@@ -140,7 +140,7 @@ export function JobsPage() {
             >
               Post a Job
             </Link>
-            {!isConnected ? (
+            {!walletIdentity.isConnected ? (
               <WalletConnectTrigger className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" />
             ) : null}
           </div>
@@ -233,7 +233,9 @@ export function JobsPage() {
           <div className="grid gap-4">
             {visibleJobs.map((job) => {
               const canApply =
-                !!address && !isSameWallet(address, job.clientWallet) && job.status === "open";
+                !!walletIdentity.walletAddress &&
+                !isSameWallet(walletIdentity.walletAddress, job.clientWallet) &&
+                job.status === "open";
 
               return (
                 <article

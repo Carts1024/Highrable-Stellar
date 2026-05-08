@@ -2,6 +2,7 @@
 
 import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
 import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
@@ -81,7 +82,9 @@ export function EscrowActionPanel({
   const [releaseRating, setReleaseRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const { address, walletState, fundTestnetAccount } = useWallet();
-  const usdcTrustline = useUsdcTrustline(address);
+  const walletIdentity = useHighrableWalletIdentity();
+  const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
+  const usdcTrustline = useUsdcTrustline(isPasskeyMode ? null : address);
   const reputationRecord = useQuery(
     api.reputation.getReputationByEscrowId,
     escrow?.escrowId ? { escrowId: escrow.escrowId } : "skip",
@@ -108,7 +111,9 @@ export function EscrowActionPanel({
   });
   const currentStatus = getCurrentStatus(job, escrow);
   const showUsdcOnboarding =
-    walletState.isConnected && (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
+    !isPasskeyMode &&
+    walletState.isConnected &&
+    (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
   const isUsdcActionDisabled = isPending || usdcTrustline.hasTrustline !== true;
   const buttonClass =
     "rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500";
@@ -140,6 +145,12 @@ export function EscrowActionPanel({
             onRefresh={() => void usdcTrustline.refreshTrustlineStatus()}
           />
         </div>
+      ) : null}
+
+      {isPasskeyMode ? (
+        <p className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          Passkey transaction signing will be enabled in the next phase.
+        </p>
       ) : null}
 
       {currentStatus === "open" ? (

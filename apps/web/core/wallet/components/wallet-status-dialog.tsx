@@ -1,6 +1,6 @@
 "use client";
 
-import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
+import { WalletIdentityCard } from "@/core/wallet/components/wallet-identity-card";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,7 @@ export function WalletStatusDialog({
             Review your connected Stellar wallet state and available wallet actions.
           </DialogDescription>
         </DialogHeader>
-        <WalletStatusCard />
+        <WalletIdentityCard />
       </DialogContent>
     </Dialog>
   );

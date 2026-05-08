@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -20,16 +20,16 @@ export function ApplicationsList({
   isLoading: boolean;
   onSelected: () => void;
 }) {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const selectFreelancer = useMutation(api.jobs.selectFreelancer);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingWallet, setSelectingWallet] = useState<string | null>(null);
 
-  const isClient = isSameWallet(address, job.clientWallet);
-  const canSelectFreelancer = isConnected && isClient && job.status === "open";
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
+  const canSelectFreelancer = walletIdentity.isConnected && isClient && job.status === "open";
 
   const handleSelectFreelancer = async (freelancerWallet: string) => {
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setSelectionError("Connect wallet to select a freelancer.");
       return;
     }
@@ -40,7 +40,7 @@ export function ApplicationsList({
     try {
       await selectFreelancer({
         jobId: job._id as TConvexId<"jobs">,
-        clientWallet: address,
+        clientWallet: walletIdentity.walletAddress,
         freelancerWallet,
       });
       onSelected();

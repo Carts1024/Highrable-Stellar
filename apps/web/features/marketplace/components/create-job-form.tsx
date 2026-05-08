@@ -2,7 +2,7 @@
 
 import { STABLECOIN_TOKEN_CONTRACT_ID } from "@/core/config/stellar-contracts";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
@@ -36,7 +36,7 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
 }
 
 export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
-  const { address, isConnected, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createJob = useMutation(api.jobs.createJob);
   const [formState, setFormState] = useState<TCreateJobFormState>({
     title: "",
@@ -63,7 +63,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!isConnected || !address) {
+    if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
       setErrors({ submit: "Connect wallet to create a job." });
       return;
     }
@@ -83,7 +83,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: formState.description.trim(),
         budget: Number.parseFloat(formState.budget),
         asset: formState.asset.trim(),
-        clientWallet: address,
+        clientWallet: walletIdentity.walletAddress,
       });
 
       setFormState({
@@ -109,14 +109,16 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         Create off-chain job terms now. Smart contract actions will be enabled in the next phase.
       </p>
 
-      {!isConnected ? (
+      {!walletIdentity.isConnected ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           <p className="mb-3">Connect wallet to create a job.</p>
           <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white" />
         </div>
       ) : null}
 
-      {isConnected && walletState.isTestnet && walletState.isFunded === false ? (
+      {walletIdentity.walletType === "external_wallet" &&
+      walletIdentity.isTestnet &&
+      walletIdentity.isFunded === false ? (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           You can create off-chain jobs, but Stellar transactions in later steps require a funded
           testnet account.
@@ -205,7 +207,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         <button
           type="submit"
-          disabled={isSubmitting || !isConnected}
+          disabled={isSubmitting || !walletIdentity.isConnected}
           className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Submitting..." : "Create Job"}

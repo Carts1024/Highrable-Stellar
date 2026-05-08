@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -17,16 +17,16 @@ export function ApplyToJobForm({
   job: TConvexDoc<"jobs">;
   onApplied: () => void;
 }) {
-  const { isConnected, address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const applyToJob = useMutation(api.applications.applyToJob);
   const [proposal, setProposal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isJobOpen = job.status === "open";
-  const isClient = isSameWallet(address, job.clientWallet);
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
 
-  if (!isConnected) {
+  if (!walletIdentity.isConnected) {
     return (
       <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
         <p className="mb-3 text-sm text-gray-700">Connect wallet to apply.</p>
@@ -46,7 +46,7 @@ export function ApplyToJobForm({
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setError("Connect wallet to apply.");
       return;
     }
@@ -63,7 +63,7 @@ export function ApplyToJobForm({
     try {
       await applyToJob({
         jobId: job._id as TConvexId<"jobs">,
-        freelancerWallet: address,
+        freelancerWallet: walletIdentity.walletAddress,
         proposal: sanitizedProposal,
       });
 

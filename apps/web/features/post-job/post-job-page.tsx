@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useJobs } from "@/features/jobs/hooks/use-jobs";
 import { motion } from "framer-motion";
 import { Calendar, DollarSign, Plus, Trash2 } from "lucide-react";
@@ -25,7 +25,7 @@ type MilestoneDraft = {
 
 /** Renders the job creation flow for wallet-connected clients. */
 export function PostJobPage() {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const { createJob } = useJobs();
   const router = useRouter();
   const jobTitleInputId = "job-title-input";
@@ -46,7 +46,7 @@ export function PostJobPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!isConnected || !address) {
+    if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
       alert("Please connect your wallet to post a job");
       return;
     }
@@ -67,8 +67,8 @@ export function PostJobPage() {
       budget: parseFloat(formData.budget),
       deadline: formData.deadline,
       skills: formData.skills.filter((skill) => skill.trim() !== ""),
-      client: `Client ${address.slice(0, 6)}...${address.slice(-4)}`,
-      clientAddress: address,
+      client: `Client ${walletIdentity.walletAddress.slice(0, 6)}...${walletIdentity.walletAddress.slice(-4)}`,
+      clientAddress: walletIdentity.walletAddress,
       milestones: milestones.map((milestone, index) => ({
         id: `${Date.now()}-${index}`,
         title: milestone.title,
@@ -130,7 +130,7 @@ export function PostJobPage() {
     );
   };
 
-  if (!isConnected) {
+  if (!walletIdentity.isConnected) {
     return (
       <WalletRequiredNotice
         title="Connect Your Wallet"

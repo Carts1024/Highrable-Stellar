@@ -1,7 +1,7 @@
 "use client";
 
-import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { WalletIdentityCard } from "@/core/wallet/components/wallet-identity-card";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -14,14 +14,14 @@ import { JobList } from "./components/job-list";
 
 export function MarketplacePage() {
   const router = useRouter();
-  const { address, isConnected } = useWallet();
+  const { walletAddress } = useHighrableWalletIdentity();
   const jobs = useQuery(api.jobs.listOpenJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const handleApplyFromList = async (jobId: string) => {
-    if (!address || !jobs) {
+    if (!walletAddress || !jobs) {
       return;
     }
 
@@ -30,7 +30,7 @@ export function MarketplacePage() {
       return;
     }
 
-    if (isSameWallet(selectedJob.clientWallet, address)) {
+    if (isSameWallet(selectedJob.clientWallet, walletAddress)) {
       setApplyError("Client cannot apply to their own job.");
       return;
     }
@@ -46,7 +46,7 @@ export function MarketplacePage() {
     try {
       await applyToJob({
         jobId: selectedJob._id,
-        freelancerWallet: address,
+        freelancerWallet: walletAddress,
         proposal: proposal.trim(),
       });
     } catch (error) {
@@ -74,7 +74,7 @@ export function MarketplacePage() {
         </p>
       </section>
 
-      {isConnected ? <WalletStatusCard /> : null}
+      <WalletIdentityCard />
 
       <CreateJobForm
         onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
@@ -86,7 +86,7 @@ export function MarketplacePage() {
         <h2 className="text-xl font-semibold text-gray-900">Open Jobs</h2>
         <JobList
           jobs={jobs}
-          connectedWallet={address}
+          connectedWallet={walletAddress}
           onApply={(jobId) => void handleApplyFromList(jobId)}
           applyingJobId={applyingJobId}
         />
