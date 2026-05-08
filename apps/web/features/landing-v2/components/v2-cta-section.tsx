@@ -26,9 +26,12 @@ export function V2CtaSection() {
         transition={{ duration: 0.7 }}
         className="relative mx-auto max-w-7xl px-6 text-center"
       >
-        <p className="mb-4 font-mono text-[0.7rem] tracking-widest text-white/70 uppercase">
-          [] Start Today
-        </p>
+        <div className="mb-4 inline-flex items-center gap-2">
+          <span className="h-1 w-1 bg-white/80" aria-hidden="true" />
+          <p className="font-mono text-[0.7rem] tracking-widest text-white/70 uppercase">
+            Start Today
+          </p>
+        </div>
         <h2 className="mb-4 text-3xl leading-[1.1] font-medium text-white md:text-[2.75rem]">
           The future of work is trustless.
           <br />
