@@ -1,35 +1,68 @@
 "use client";
 
 import { STABLECOIN_TOKEN_CONTRACT_ID } from "@/core/config/stellar-contracts";
+import { AppButton } from "@/core/ui/button";
+import { AppInput } from "@/core/ui/input";
+import { AppTextarea } from "@/core/ui/textarea";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 
 import type { TCreateJobFormErrors, TCreateJobFormState } from "@/features/marketplace/types";
 
 const DEFAULT_STABLECOIN_ASSET = STABLECOIN_TOKEN_CONTRACT_ID ?? "";
 
+const CREATE_JOB_SCHEMA = z.object({
+  title: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(3, "Job title must be at least 3 characters."))
+    .pipe(z.string().max(120, "Job title must be under 120 characters.")),
+  description: z
+    .string()
+    .transform(sanitizeMultilineInput)
+    .pipe(z.string().min(20, "Description must be at least 20 characters."))
+    .pipe(z.string().max(4000, "Description must be under 4000 characters.")),
+  budget: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(1, "Budget is required."))
+    .transform((value) => Number.parseFloat(value))
+    .refine((value) => Number.isFinite(value) && value > 0, {
+      message: "Budget must be greater than zero.",
+    })
+    .refine((value) => value <= 10_000_000, {
+      message: "Budget exceeds the allowed range.",
+    }),
+  asset: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(3, "Payment asset is required."))
+    .pipe(z.string().max(255, "Payment asset is too long.")),
+});
+
+type TCreateJobPayload = z.infer<typeof CREATE_JOB_SCHEMA>;
+
 function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErrors {
   const errors: TCreateJobFormErrors = {};
-  const parsedBudget = Number.parseFloat(formState.budget);
+  const parsed = CREATE_JOB_SCHEMA.safeParse(formState);
 
-  if (!formState.title.trim()) {
-    errors.title = "Job title is required.";
+  if (parsed.success) {
+    return errors;
   }
 
-  if (!formState.description.trim()) {
-    errors.description = "Description is required.";
-  }
-
-  if (!Number.isFinite(parsedBudget) || parsedBudget <= 0) {
-    errors.budget = "Budget must be greater than zero.";
-  }
-
-  if (!formState.asset.trim()) {
-    errors.asset = "Payment asset is required.";
+  for (const issue of parsed.error.issues) {
+    const field = issue.path[0];
+    if (field === "title" || field === "description" || field === "budget" || field === "asset") {
+      if (!errors[field]) {
+        errors[field] = issue.message;
+      }
+    }
   }
 
   return errors;
@@ -78,11 +111,19 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     setErrors({});
 
     try {
+      const parsed = CREATE_JOB_SCHEMA.safeParse(formState);
+      if (!parsed.success) {
+        setErrors(buildCreateJobErrors(formState));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const payload: TCreateJobPayload = parsed.data;
       const createdJobId = await createJob({
-        title: formState.title.trim(),
-        description: formState.description.trim(),
-        budget: Number.parseFloat(formState.budget),
-        asset: formState.asset.trim(),
+        title: payload.title,
+        description: payload.description,
+        budget: payload.budget,
+        asset: payload.asset,
         clientWallet: address,
       });
 
@@ -131,10 +172,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           >
             Job title
           </label>
-          <input
+          <AppInput
             id="marketplace-job-title"
             value={formState.title}
             onChange={(event) => updateField("title", event.target.value)}
+            maxLength={140}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Build a responsive frontend with Stellar wallet integration"
           />
@@ -148,11 +190,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           >
             Description
           </label>
-          <textarea
+          <AppTextarea
             id="marketplace-job-description"
             value={formState.description}
             onChange={(event) => updateField("description", event.target.value)}
             rows={4}
+            maxLength={4000}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Scope, deliverables, and acceptance criteria"
           />
@@ -169,7 +212,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             >
               Budget
             </label>
-            <input
+            <AppInput
               id="marketplace-job-budget"
               type="number"
               min="0"
@@ -189,10 +232,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             >
               Payment asset
             </label>
-            <input
+            <AppInput
               id="marketplace-job-asset"
               value={formState.asset}
               onChange={(event) => updateField("asset", event.target.value)}
+              maxLength={255}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
               placeholder="Mock USDC token contract ID"
             />
@@ -203,13 +247,13 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         {errors.submit ? <p className="text-sm text-red-600">{errors.submit}</p> : null}
 
-        <button
+        <AppButton
           type="submit"
           disabled={isSubmitting || !isConnected}
-          className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Submitting..." : "Create Job"}
-        </button>
+        </AppButton>
       </form>
     </section>
   );

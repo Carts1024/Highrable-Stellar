@@ -1,14 +1,24 @@
 "use client";
 
+import { AppButton } from "@/core/ui/button";
+import { AppTextarea } from "@/core/ui/textarea";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { sanitizeMultilineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import { useState } from "react";
+import { z } from "zod";
 
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
+
+const APPLY_PROPOSAL_SCHEMA = z
+  .string()
+  .transform(sanitizeMultilineInput)
+  .pipe(z.string().min(10, "Proposal is required and must be at least 10 characters."))
+  .pipe(z.string().max(1000, "Proposal must be under 1000 characters."));
 
 export function ApplyToJobForm({
   job,
@@ -51,9 +61,9 @@ export function ApplyToJobForm({
       return;
     }
 
-    const sanitizedProposal = proposal.trim();
-    if (!sanitizedProposal) {
-      setError("Proposal is required.");
+    const parsedProposal = APPLY_PROPOSAL_SCHEMA.safeParse(proposal);
+    if (!parsedProposal.success) {
+      setError(parsedProposal.error.issues[0]?.message ?? "Proposal is invalid.");
       return;
     }
 
@@ -64,7 +74,7 @@ export function ApplyToJobForm({
       await applyToJob({
         jobId: job._id as TConvexId<"jobs">,
         freelancerWallet: address,
-        proposal: sanitizedProposal,
+        proposal: parsedProposal.data,
       });
 
       setProposal("");
@@ -90,27 +100,27 @@ export function ApplyToJobForm({
       <label htmlFor="apply-proposal" className="mb-2 block text-sm font-medium text-gray-700">
         Write a short proposal
       </label>
-      <textarea
+      <AppTextarea
         id="apply-proposal"
         rows={4}
         value={proposal}
+        maxLength={1200}
         onChange={(event) => {
           setProposal(event.target.value);
           setError(null);
         }}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
         placeholder="Highlight your relevant experience and timeline"
       />
 
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
 
-      <button
+      <AppButton
         type="submit"
         disabled={isSubmitting}
-        className="mt-3 rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-3 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? "Applying..." : "Apply to Job"}
-      </button>
+      </AppButton>
     </form>
   );
 }

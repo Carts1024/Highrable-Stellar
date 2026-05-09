@@ -1,13 +1,17 @@
 "use client";
 
+import { AppButton } from "@/core/ui/button";
+import { AppInput } from "@/core/ui/input";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { ProductPageHero } from "@/features/common";
+import { JobApplicationDialog } from "@/features/marketplace/components/job-application-dialog";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api, type TConvexDoc } from "@repo/convex-client";
 import { useMutation, useQuery } from "convex/react";
-import { Briefcase, Clock3, Filter, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Briefcase, Clock3, Filter, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -42,8 +46,11 @@ export function JobsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<JobSortOption>("newest");
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [selectedJobForApply, setSelectedJobForApply] = useState<JobDocument | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState<string | null>(null);
+  const searchInputId = "jobs-search-input";
+  const sortSelectId = "jobs-sort-select";
 
   const visibleJobs = useMemo(() => {
     if (!jobs) {
@@ -72,7 +79,7 @@ export function JobsPage() {
     return visibleJobs.reduce((total, job) => total + job.budget, 0);
   }, [visibleJobs]);
 
-  const handleApply = async (job: JobDocument) => {
+  const openApplyDialog = (job: JobDocument) => {
     if (!address || !isConnected) {
       setApplyError("Connect your wallet to apply for jobs.");
       setApplySuccess(null);
@@ -85,22 +92,27 @@ export function JobsPage() {
       return;
     }
 
-    const proposal = window.prompt("Write a short proposal");
-    if (!proposal?.trim()) {
+    setApplyError(null);
+    setSelectedJobForApply(job);
+  };
+
+  const handleApply = async (proposal: string) => {
+    if (!selectedJobForApply || !address || !isConnected) {
       return;
     }
 
-    setApplyingJobId(job._id);
+    setApplyingJobId(selectedJobForApply._id);
     setApplyError(null);
     setApplySuccess(null);
 
     try {
       await applyToJob({
-        jobId: job._id,
+        jobId: selectedJobForApply._id,
         freelancerWallet: address,
-        proposal: proposal.trim(),
+        proposal,
       });
-      setApplySuccess(`Application submitted for "${job.title}".`);
+      setApplySuccess(`Application submitted for "${selectedJobForApply.title}".`);
+      setSelectedJobForApply(null);
     } catch (error) {
       const readableError = getReadableErrorMessage(
         error,
@@ -119,68 +131,69 @@ export function JobsPage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-[#B94A00]">
-            <Sparkles className="h-4 w-4" />
-            Stellar-native freelance work
-          </div>
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-4xl font-bold tracking-normal text-gray-950 sm:text-5xl">
-              Browse Jobs
-            </h1>
-            <p className="text-base leading-7 text-gray-600 sm:text-lg">
-              Find open client work, apply with your wallet, and move accepted work into
-              contract-backed escrow when the client selects you.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/post-job"
-              className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:from-[#E85D00] hover:to-[#E87A00]"
-            >
-              Post a Job
-            </Link>
-            {!isConnected ? (
-              <WalletConnectTrigger className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" />
-            ) : null}
-          </div>
-        </div>
+        <ProductPageHero
+          label="Open Opportunities"
+          title={
+            <>
+              Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
+            </>
+          }
+          description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
+          actions={
+            <>
+              <AppButton asChild>
+                <Link href="/post-job">Post a Job</Link>
+              </AppButton>
+              {!isConnected ? (
+                <WalletConnectTrigger className="rounded-lg border border-[#e8e8e8] bg-white px-5 py-2.5 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]" />
+              ) : null}
+            </>
+          }
+        />
 
-        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="rounded-xl bg-gray-50 p-4">
-            <div className="text-2xl font-bold text-gray-950">{jobs?.length ?? "-"}</div>
-            <div className="mt-1 text-xs font-medium text-gray-500">Open jobs</div>
+        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-[#e8e8e8] bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-[#f5f5f5] p-4">
+            <div className="text-2xl font-bold text-[#0a0a0a]">{jobs?.length ?? "-"}</div>
+            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#7f7f7f] uppercase">
+              Open jobs
+            </div>
           </div>
-          <div className="rounded-xl bg-gray-50 p-4">
-            <div className="text-2xl font-bold text-gray-950">{visibleJobs.length}</div>
-            <div className="mt-1 text-xs font-medium text-gray-500">Matching</div>
+          <div className="rounded-xl bg-[#f5f5f5] p-4">
+            <div className="text-2xl font-bold text-[#0a0a0a]">{visibleJobs.length}</div>
+            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#7f7f7f] uppercase">
+              Matching
+            </div>
           </div>
-          <div className="col-span-2 rounded-xl bg-orange-50 p-4">
+          <div className="col-span-2 rounded-xl bg-[#fff7ed] p-4">
             <div className="text-2xl font-bold text-[#B94A00]">{formatBudget(totalBudget)}</div>
-            <div className="mt-1 text-xs font-medium text-[#B94A00]/80">Visible budget pool</div>
+            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#B94A00]/80 uppercase">
+              Visible budget pool
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-[#e8e8e8] bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <label className="relative block">
+          <label htmlFor={searchInputId} className="relative block">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
+            <AppInput
+              id={searchInputId}
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by title, description, asset, or wallet"
-              className="h-11 w-full rounded-lg border border-gray-200 bg-white pr-3 pl-10 text-sm text-gray-900 outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
+              className="pr-3 pl-10"
             />
           </label>
 
-          <label className="relative block">
+          <label htmlFor={sortSelectId} className="relative block">
             <Filter className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <select
+              id={sortSelectId}
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as JobSortOption)}
-              className="h-11 w-full appearance-none rounded-lg border border-gray-200 bg-white pr-3 pl-9 text-sm font-medium text-gray-700 outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
+              className="h-11 w-full appearance-none rounded-lg border border-[#e8e8e8] bg-white pr-3 pl-9 text-sm font-medium text-[#5f5f5f] outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
             >
               <option value="newest">Newest first</option>
               <option value="budget_high">Highest budget</option>
@@ -205,9 +218,14 @@ export function JobsPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Briefcase className="h-5 w-5 text-[#FF7003]" />
-            <h2 className="text-lg font-semibold text-gray-950">{visibleJobs.length} jobs found</h2>
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">
+              {visibleJobs.length} jobs found
+            </h2>
           </div>
-          <Link href="/marketplace" className="text-sm font-medium text-[#B94A00] hover:underline">
+          <Link
+            href="/marketplace"
+            className="font-mono text-xs tracking-[0.06em] text-[#B94A00] uppercase hover:underline"
+          >
             Manage marketplace flow
           </Link>
         </div>
@@ -238,7 +256,7 @@ export function JobsPage() {
               return (
                 <article
                   key={job._id}
-                  className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-orange-200"
+                  className="rounded-2xl border border-[#e8e8e8] bg-white p-5 transition-colors hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 space-y-3">
@@ -279,19 +297,19 @@ export function JobsPage() {
                       <div className="flex flex-wrap gap-2 lg:justify-end">
                         <Link
                           href={`/marketplace/jobs/${job._id}`}
-                          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                          className="rounded-lg border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-[#f5f5f5]"
                         >
                           Details
                         </Link>
                         {canApply ? (
-                          <button
+                          <AppButton
                             type="button"
                             disabled={applyingJobId === job._id}
-                            onClick={() => void handleApply(job)}
-                            className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => openApplyDialog(job)}
+                            className="px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {applyingJobId === job._id ? "Applying..." : "Apply"}
-                          </button>
+                          </AppButton>
                         ) : null}
                       </div>
                     </div>
@@ -302,6 +320,20 @@ export function JobsPage() {
           </div>
         )}
       </section>
+
+      <JobApplicationDialog
+        isOpen={!!selectedJobForApply}
+        isSubmitting={!!applyingJobId}
+        jobTitle={selectedJobForApply?.title ?? "this job"}
+        errorMessage={applyError}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedJobForApply(null);
+            setApplyError(null);
+          }
+        }}
+        onSubmit={handleApply}
+      />
     </div>
   );
 }

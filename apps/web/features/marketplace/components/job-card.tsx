@@ -1,3 +1,4 @@
+import { AppButton } from "@/core/ui/button";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import Link from "next/link";
 
@@ -20,50 +21,52 @@ export function JobCard({
     !!connectedWallet && !isSameWallet(connectedWallet, job.clientWallet) && job.status === "open";
 
   return (
-    <article className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+    <article className="rounded-2xl border border-[#e8e8e8] bg-white p-6 transition-colors hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+        <h3 className="text-lg font-semibold text-[#0a0a0a]">{job.title}</h3>
         <StatusBadge label={job.status} />
       </div>
 
-      <p className="mb-4 line-clamp-3 text-sm text-gray-600">{job.description}</p>
+      <p className="mb-4 line-clamp-3 text-sm text-[#5f5f5f]">{job.description}</p>
 
-      <dl className="grid grid-cols-1 gap-3 text-sm text-gray-700 sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-3 text-sm text-[#5f5f5f] sm:grid-cols-2">
         <div>
-          <dt className="text-gray-500">Budget</dt>
-          <dd className="font-medium">{job.budget.toLocaleString()}</dd>
+          <dt className="text-[#7f7f7f]">Budget</dt>
+          <dd className="font-semibold text-[#0a0a0a]">{job.budget.toLocaleString()}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">Asset</dt>
-          <dd className="font-medium break-all">{job.asset}</dd>
+          <dt className="text-[#7f7f7f]">Asset</dt>
+          <dd className="font-semibold break-all text-[#0a0a0a]">{job.asset}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">Client wallet</dt>
-          <dd className="font-medium">{shortenWalletAddress(job.clientWallet)}</dd>
+          <dt className="text-[#7f7f7f]">Client wallet</dt>
+          <dd className="font-semibold text-[#0a0a0a]">{shortenWalletAddress(job.clientWallet)}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">Selected freelancer</dt>
-          <dd className="font-medium">{shortenWalletAddress(job.selectedFreelancerWallet)}</dd>
+          <dt className="text-[#7f7f7f]">Selected freelancer</dt>
+          <dd className="font-semibold text-[#0a0a0a]">
+            {shortenWalletAddress(job.selectedFreelancerWallet)}
+          </dd>
         </div>
       </dl>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           href={`/marketplace/jobs/${job._id}`}
-          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="rounded-lg border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-[#f5f5f5]"
         >
           View Details
         </Link>
 
         {canApply ? (
-          <button
+          <AppButton
             type="button"
             disabled={isApplying}
             onClick={() => onApply(job._id)}
-            className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            className="px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isApplying ? "Applying..." : "Apply"}
-          </button>
+          </AppButton>
         ) : null}
       </div>
     </article>

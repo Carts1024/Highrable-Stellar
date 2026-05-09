@@ -1,4 +1,6 @@
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, Search, ShieldCheck, Star } from "lucide-react";
+import { AppButton } from "@/core/ui/button";
+import { ProductPageHero } from "@/features/common";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
 
 const plannedSignals = [
@@ -30,37 +32,28 @@ export function TalentPage() {
   return (
     <div className="space-y-8">
       <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
-        <div className="space-y-5">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm font-medium text-gray-700">
-            <Search className="h-4 w-4 text-[#FF7003]" />
-            Talent discovery placeholder
-          </div>
-          <div className="max-w-3xl space-y-3">
-            <h1 className="text-4xl font-bold tracking-normal text-gray-950 sm:text-5xl">
-              Find Talent
-            </h1>
-            <p className="text-base leading-7 text-gray-600 sm:text-lg">
-              A dedicated freelancer directory is planned after the MVP job, application, escrow,
-              and reputation flows are stable. For now, clients can post a job and review applicants
-              from the marketplace flow.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/post-job"
-              className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:from-[#E85D00] hover:to-[#E87A00]"
-            >
-              Post a Job
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/jobs"
-              className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50"
-            >
-              Browse Jobs
-            </Link>
-          </div>
-        </div>
+        <ProductPageHero
+          label="Talent Discovery"
+          title={
+            <>
+              Find Talent <span className="text-[#FF7003]">with Verified Reputation Signals</span>
+            </>
+          }
+          description="A dedicated freelancer directory is planned after MVP job, application, escrow, and reputation flows stabilize. Today, clients can post roles and review wallet-based applicants through the marketplace."
+          actions={
+            <>
+              <AppButton asChild>
+                <Link href="/post-job" className="inline-flex items-center gap-2">
+                  Post a Job
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </AppButton>
+              <AppButton asChild appVariant="secondary">
+                <Link href="/jobs">Browse Jobs</Link>
+              </AppButton>
+            </>
+          }
+        />
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3 border-b border-gray-100 pb-4">

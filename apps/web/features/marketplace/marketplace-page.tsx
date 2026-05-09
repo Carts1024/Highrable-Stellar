@@ -2,6 +2,7 @@
 
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { ProductPageHero } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -10,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { CreateJobForm } from "./components/create-job-form";
+import { JobApplicationDialog } from "./components/job-application-dialog";
 import { JobList } from "./components/job-list";
 
 export function MarketplacePage() {
@@ -18,9 +20,12 @@ export function MarketplacePage() {
   const jobs = useQuery(api.jobs.listOpenJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [selectedJobForApplyId, setSelectedJobForApplyId] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
 
-  const handleApplyFromList = async (jobId: string) => {
+  const selectedJobForApply = jobs?.find((job) => job._id === selectedJobForApplyId) ?? null;
+
+  const openApplyDialogFromList = (jobId: string) => {
     if (!address || !jobs) {
       return;
     }
@@ -35,20 +40,25 @@ export function MarketplacePage() {
       return;
     }
 
-    const proposal = window.prompt("Write a short proposal");
-    if (!proposal?.trim()) {
+    setApplyError(null);
+    setSelectedJobForApplyId(jobId);
+  };
+
+  const handleApplyFromList = async (proposal: string) => {
+    if (!address || !selectedJobForApply) {
       return;
     }
 
-    setApplyingJobId(jobId);
+    setApplyingJobId(selectedJobForApply._id);
     setApplyError(null);
 
     try {
       await applyToJob({
-        jobId: selectedJob._id,
+        jobId: selectedJobForApply._id,
         freelancerWallet: address,
-        proposal: proposal.trim(),
+        proposal,
       });
+      setSelectedJobForApplyId(null);
     } catch (error) {
       const readableError = getReadableErrorMessage(
         error,
@@ -66,13 +76,15 @@ export function MarketplacePage() {
 
   return (
     <div className="space-y-6">
-      <section className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Marketplace</h1>
-        <p className="max-w-3xl text-sm text-gray-600">
-          Wallet connect → Client creates a job → Freelancer applies → Client selects freelancer →
-          Escrow action panel guides the next on-chain step.
-        </p>
-      </section>
+      <ProductPageHero
+        label="Marketplace Workflow"
+        title={
+          <>
+            Marketplace <span className="text-[#FF7003]">for Escrow-backed Collaboration</span>
+          </>
+        }
+        description="Wallet connect, client posting, freelancer applications, and selection all flow into escrow actions that drive on-chain execution."
+      />
 
       {isConnected ? <WalletStatusCard /> : null}
 
@@ -87,10 +99,24 @@ export function MarketplacePage() {
         <JobList
           jobs={jobs}
           connectedWallet={address}
-          onApply={(jobId) => void handleApplyFromList(jobId)}
+          onApply={openApplyDialogFromList}
           applyingJobId={applyingJobId}
         />
       </section>
+
+      <JobApplicationDialog
+        isOpen={!!selectedJobForApply}
+        isSubmitting={!!applyingJobId}
+        jobTitle={selectedJobForApply?.title ?? "this job"}
+        errorMessage={applyError}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedJobForApplyId(null);
+            setApplyError(null);
+          }
+        }}
+        onSubmit={handleApplyFromList}
+      />
     </div>
   );
 }

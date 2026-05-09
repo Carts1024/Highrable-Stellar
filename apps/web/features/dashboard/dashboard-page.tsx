@@ -1,6 +1,8 @@
 "use client";
 
+import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { ProductPageHero } from "@/features/common";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
@@ -15,7 +17,7 @@ import {
   Hourglass,
   Users,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import type { TAssetAmount } from "@/features/dashboard/types";
 
@@ -50,42 +52,46 @@ function DashboardSkeletonCards() {
 }
 
 function QuickActions() {
-  const router = useRouter();
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.7 }}
-      className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+      className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm"
     >
-      <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Actions</h2>
+      <h2 className="mb-4 text-xl font-semibold text-[#0a0a0a]">Quick Actions</h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <button
-          onClick={() => router.push("/marketplace")}
-          className="group flex items-center space-x-3 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
+        <Link
+          href="/marketplace"
+          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
             <Briefcase className="h-5 w-5 text-white" />
           </div>
           <div className="text-left">
-            <p className="font-medium text-gray-900 group-hover:text-[#FF7003]">Browse Jobs</p>
-            <p className="text-sm text-gray-600">Find new opportunities</p>
+            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Browse Jobs</p>
+            <p className="text-sm text-[#5f5f5f]">Find new opportunities</p>
           </div>
-        </button>
+        </Link>
 
-        <button
-          onClick={() => router.push("/post-job")}
-          className="group flex items-center space-x-3 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
+        <Link
+          href="/post-job"
+          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-blue-600">
             <Users className="h-5 w-5 text-white" />
           </div>
           <div className="text-left">
-            <p className="font-medium text-gray-900 group-hover:text-[#FF7003]">Post a Job</p>
-            <p className="text-sm text-gray-600">Hire talented freelancers</p>
+            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Post a Job</p>
+            <p className="text-sm text-[#5f5f5f]">Hire talented freelancers</p>
           </div>
-        </button>
+        </Link>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <AppButton asChild appVariant="secondary">
+          <Link href="/marketplace">Open Marketplace Flow</Link>
+        </AppButton>
       </div>
     </motion.div>
   );
@@ -106,21 +112,15 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center"
-      >
-        <h1 className="mb-2 text-4xl font-bold text-gray-900">
-          Freelancer{" "}
-          <span className="bg-linear-to-r from-[#FF7003] to-[#FF8801] bg-clip-text text-transparent">
-            Income Dashboard
-          </span>
-        </h1>
-        <p className="text-lg text-gray-600">
-          Track your Stellar escrow earnings and pending payments.
-        </p>
-      </motion.div>
+      <ProductPageHero
+        label="Freelancer Performance"
+        title={
+          <>
+            Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+          </>
+        }
+        description="Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements."
+      />
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 
