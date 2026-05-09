@@ -2,18 +2,44 @@
 
 import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
 import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
+import { AppButton } from "@/core/ui/button";
+import { AppInput } from "@/core/ui/input";
+import { AppTextarea } from "@/core/ui/textarea";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { sanitizeMultilineInput } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { z } from "zod";
 
 import type { TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
+import { EscrowSection } from "./escrow-section";
 import { StatusBadge } from "./status-badge";
+
+const RELEASE_REVIEW_SCHEMA = z.object({
+  rating: z.number().int().min(1).max(5),
+  reviewText: z
+    .string()
+    .transform(sanitizeMultilineInput)
+    .pipe(z.string().max(1000, "Review text must be under 1000 characters.")),
+});
+
+interface ITransactionStatusProps {
+  readonly error: string | null;
+  readonly success: string | null;
+  readonly txExplorerUrl: string | null;
+}
+
+interface IEscrowActionPanelProps {
+  readonly job: TConvexDoc<"jobs">;
+  readonly escrow: TConvexDoc<"escrows"> | null | undefined;
+  readonly applications: TConvexDoc<"applications">[];
+}
 
 function getCurrentStatus(
   job: TConvexDoc<"jobs">,
@@ -30,28 +56,33 @@ function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: s
   return isPending ? pendingLabel : label;
 }
 
-function TransactionStatus({
-  error,
-  success,
-  txExplorerUrl,
-}: {
-  error: string | null;
-  success: string | null;
-  txExplorerUrl: string | null;
-}) {
+function TransactionStatus({ error, success, txExplorerUrl }: ITransactionStatusProps) {
   if (!error && !success && !txExplorerUrl) {
     return null;
   }
 
   return (
-    <div className="mt-4 space-y-2">
+    <div
+      className="mt-4 space-y-2"
+      role="region"
+      aria-live="polite"
+      aria-label="Transaction status"
+    >
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p
+          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          role="alert"
+          aria-atomic="true"
+        >
           {error}
         </p>
       ) : null}
       {success ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+        <p
+          className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          role="status"
+          aria-atomic="true"
+        >
           {success}
         </p>
       ) : null}
@@ -61,25 +92,23 @@ function TransactionStatus({
           target="_blank"
           rel="noreferrer"
           className="inline-flex text-sm font-medium text-indigo-700 hover:text-indigo-900"
+          aria-label="View transaction in Stellar Testnet Explorer (opens in new window)"
         >
-          View transaction in Stellar explorer
+          View on Stellar Explorer
         </a>
       ) : null}
     </div>
   );
 }
 
-export function EscrowActionPanel({
-  job,
-  escrow,
-  applications,
-}: {
-  job: TConvexDoc<"jobs">;
-  escrow: TConvexDoc<"escrows"> | null | undefined;
-  applications: TConvexDoc<"applications">[];
-}) {
+export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPanelProps) {
   const [releaseRating, setReleaseRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
+  const [releaseInputError, setReleaseInputError] = useState<string | null>(null);
+  const releaseInputErrorId = "release-input-error";
+  const ratingInputRef = useRef<HTMLInputElement>(null);
+  const reviewInputRef = useRef<HTMLTextAreaElement>(null);
+
   const { address, walletState, fundTestnetAccount } = useWallet();
   const usdcTrustline = useUsdcTrustline(address);
   const reputationRecord = useQuery(
@@ -106,24 +135,41 @@ export function EscrowActionPanel({
     applications,
     hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
   });
+
   const currentStatus = getCurrentStatus(job, escrow);
   const showUsdcOnboarding =
     walletState.isConnected && (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
   const isUsdcActionDisabled = isPending || usdcTrustline.hasTrustline !== true;
-  const buttonClass =
-    "rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500";
-  const secondaryButtonClass =
-    "rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400";
-  const dangerButtonClass =
-    "rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-gray-400";
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
 
+  const handleApproveAndRelease = async () => {
+    const parsed = RELEASE_REVIEW_SCHEMA.safeParse({
+      rating: releaseRating,
+      reviewText,
+    });
+
+    if (!parsed.success) {
+      setReleaseInputError(parsed.error.issues[0]?.message ?? "Release inputs are invalid.");
+      ratingInputRef.current?.focus();
+      return;
+    }
+
+    setReleaseInputError(null);
+    await approveAndRelease({
+      rating: parsed.data.rating,
+      reviewText: parsed.data.reviewText,
+    });
+  };
+
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Escrow Action Panel</h2>
+    <section
+      className="rounded-2xl border border-[#e8e8e8] bg-white p-5 shadow-sm"
+      aria-label="Escrow lifecycle and actions"
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Management</h2>
         <StatusBadge label={currentStatus} />
       </div>
 
@@ -143,257 +189,305 @@ export function EscrowActionPanel({
       ) : null}
 
       {currentStatus === "open" ? (
-        <p className="text-sm text-gray-700">Waiting for client to select a freelancer.</p>
+        <p className="text-sm text-[#5f5f5f]">
+          Waiting for client to select a freelancer. Once selected, escrow setup will begin.
+        </p>
       ) : null}
 
       {currentStatus === "selected" && !escrow ? (
-        <div className="space-y-3">
+        <EscrowSection
+          ariaLabel="Create escrow action"
+          role={role}
+          allowedRoles={["client", "selectedFreelancer", "other"]}
+          helperText={
+            role === "client"
+              ? "Create a Stellar escrow record to secure payments during the project."
+              : undefined
+          }
+          warningText={
+            role === "selectedFreelancer"
+              ? "Waiting for client to create and fund escrow. Do not start work until payment is confirmed."
+              : undefined
+          }
+          infoText={
+            role !== "client" && role !== "selectedFreelancer"
+              ? "Client has selected a freelancer. Escrow setup begins next."
+              : undefined
+          }
+        >
           {role === "client" ? (
-            <>
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => void createEscrow()}
-                className={buttonClass}
-              >
-                {getActionButtonLabel(
-                  "Create Escrow",
-                  pendingAction === "create_escrow",
-                  "Creating Escrow...",
-                )}
-              </button>
-              <p className="text-sm text-gray-600">
-                Creates the Stellar escrow record for the selected freelancer.
-              </p>
-            </>
+            <AppButton
+              type="button"
+              disabled={isPending}
+              onClick={() => void createEscrow()}
+              className="disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Create escrow for selected freelancer"
+            >
+              {getActionButtonLabel(
+                "Create Escrow",
+                pendingAction === "create_escrow",
+                "Creating Escrow...",
+              )}
+            </AppButton>
           ) : null}
-
-          {role === "selectedFreelancer" ? (
-            <p className="text-sm text-amber-800">
-              Waiting for client to create and fund escrow. Do not start work yet.
-            </p>
-          ) : null}
-
-          {role !== "client" && role !== "selectedFreelancer" ? (
-            <p className="text-sm text-gray-700">
-              Client has selected a freelancer. Escrow setup is next.
-            </p>
-          ) : null}
-        </div>
+        </EscrowSection>
       ) : null}
 
       {currentStatus === "created" ? (
-        <div className="space-y-3">
+        <EscrowSection
+          ariaLabel="Fund escrow action"
+          role={role}
+          allowedRoles={["client", "selectedFreelancer"]}
+          helperText={
+            role === "client"
+              ? "Lock funds in escrow. Once funded, the freelancer can begin work."
+              : undefined
+          }
+          warningText={
+            role === "selectedFreelancer"
+              ? "Escrow created. Waiting for client to fund and confirm work can begin."
+              : usdcTrustline.hasTrustline !== true
+                ? "Enable USDC payments in your wallet settings to proceed."
+                : undefined
+          }
+        >
           {role === "client" ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={isUsdcActionDisabled}
-                  onClick={() => void fundEscrow()}
-                  className={buttonClass}
-                >
-                  {getActionButtonLabel(
-                    "Fund Escrow",
-                    pendingAction === "fund_escrow",
-                    "Funding Escrow...",
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => void cancelEscrow()}
-                  className={secondaryButtonClass}
-                >
-                  {getActionButtonLabel(
-                    "Cancel Escrow",
-                    pendingAction === "cancel_escrow",
-                    "Cancelling...",
-                  )}
-                </button>
-              </div>
-              <p className="text-sm text-gray-600">
-                Verified funded means the client has locked mock USDC on Stellar.
-              </p>
-              {usdcTrustline.hasTrustline !== true ? (
-                <p className="text-sm text-amber-800">Enable USDC payments before using escrow.</p>
-              ) : null}
-            </>
+            <div className="flex flex-wrap gap-2">
+              <AppButton
+                type="button"
+                disabled={isUsdcActionDisabled}
+                onClick={() => void fundEscrow()}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Fund escrow and lock payment"
+              >
+                {getActionButtonLabel(
+                  "Fund Escrow",
+                  pendingAction === "fund_escrow",
+                  "Funding Escrow...",
+                )}
+              </AppButton>
+              <AppButton
+                type="button"
+                appVariant="secondary"
+                disabled={isPending}
+                onClick={() => void cancelEscrow()}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cancel escrow and reset project"
+              >
+                {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
+              </AppButton>
+            </div>
           ) : null}
-
-          {role === "selectedFreelancer" ? (
-            <p className="text-sm text-amber-800">Escrow created. Waiting for client to fund.</p>
-          ) : null}
-        </div>
+        </EscrowSection>
       ) : null}
 
       {currentStatus === "funded" ? (
-        <div className="space-y-3">
+        <EscrowSection
+          ariaLabel="Submit work action"
+          role={role}
+          allowedRoles={["selectedFreelancer", "client"]}
+          helperText={
+            role === "selectedFreelancer"
+              ? "Submit completed work. Client will review and approve payment release."
+              : role === "client"
+                ? "Escrow funded and locked. Waiting for freelancer to submit work."
+                : undefined
+          }
+        >
           {role === "selectedFreelancer" ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => void submitWork()}
-                  className={buttonClass}
-                >
-                  {getActionButtonLabel(
-                    "Submit Work",
-                    pendingAction === "submit_work",
-                    "Submitting Work...",
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => void markDisputed()}
-                  className={dangerButtonClass}
-                >
-                  {getActionButtonLabel(
-                    "Mark Disputed",
-                    pendingAction === "mark_disputed",
-                    "Marking Disputed...",
-                  )}
-                </button>
-              </div>
-              <p className="text-sm text-gray-600">
-                Submit only after the funded escrow covers the agreed work.
-              </p>
-            </>
-          ) : null}
-
-          {role === "client" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-700">
-                Escrow funded. Waiting for freelancer submission.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => void cancelEscrow()}
-                  className={secondaryButtonClass}
-                >
-                  {getActionButtonLabel(
-                    "Cancel Escrow",
-                    pendingAction === "cancel_escrow",
-                    "Cancelling...",
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => void markDisputed()}
-                  className={dangerButtonClass}
-                >
-                  {getActionButtonLabel(
-                    "Mark Disputed",
-                    pendingAction === "mark_disputed",
-                    "Marking Disputed...",
-                  )}
-                </button>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <AppButton
+                type="button"
+                disabled={isPending}
+                onClick={() => void submitWork()}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Submit completed work for client review"
+              >
+                {getActionButtonLabel(
+                  "Submit Work",
+                  pendingAction === "submit_work",
+                  "Submitting Work...",
+                )}
+              </AppButton>
+              <AppButton
+                type="button"
+                appVariant="secondary"
+                disabled={isPending}
+                onClick={() => void markDisputed()}
+                className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Dispute escrow if there are issues"
+              >
+                {getActionButtonLabel(
+                  "Dispute",
+                  pendingAction === "mark_disputed",
+                  "Marking Disputed...",
+                )}
+              </AppButton>
             </div>
           ) : null}
 
-          {role !== "client" && role !== "selectedFreelancer" ? (
-            <p className="text-sm text-gray-700">
-              Verified funded means the client has locked funds on Stellar.
-            </p>
+          {role === "client" ? (
+            <div className="flex flex-wrap gap-2">
+              <AppButton
+                type="button"
+                appVariant="secondary"
+                disabled={isPending}
+                onClick={() => void cancelEscrow()}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cancel escrow and refund freelancer"
+              >
+                {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
+              </AppButton>
+              <AppButton
+                type="button"
+                appVariant="secondary"
+                disabled={isPending}
+                onClick={() => void markDisputed()}
+                className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Mark escrow as disputed"
+              >
+                {getActionButtonLabel(
+                  "Dispute",
+                  pendingAction === "mark_disputed",
+                  "Marking Disputed...",
+                )}
+              </AppButton>
+            </div>
           ) : null}
-        </div>
+        </EscrowSection>
       ) : null}
 
       {currentStatus === "submitted" ? (
-        <div className="space-y-3">
+        <EscrowSection
+          ariaLabel="Approve and release payment action"
+          role={role}
+          allowedRoles={["client", "selectedFreelancer"]}
+          warningText={
+            role === "selectedFreelancer"
+              ? "Work submitted. Waiting for client to review and approve payment."
+              : usdcTrustline.hasTrustline !== true
+                ? "Enable USDC payments to release funds."
+                : undefined
+          }
+        >
           {role === "client" ? (
             <>
               <div className="grid gap-3 sm:max-w-md">
-                <label className="grid gap-1 text-sm font-medium text-gray-700">
-                  Release rating
-                  <input
+                <label
+                  htmlFor="release-rating"
+                  className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+                >
+                  Rating (1–5 stars)
+                  <AppInput
+                    ref={ratingInputRef}
+                    id="release-rating"
                     type="number"
                     min={1}
                     max={5}
                     value={releaseRating}
                     disabled={isPending}
-                    onChange={(event) => setReleaseRating(Number(event.target.value))}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                    onChange={(event) => {
+                      setReleaseRating(Number(event.target.value));
+                      setReleaseInputError(null);
+                    }}
+                    aria-label="Rating for freelancer performance"
+                    aria-errormessage={releaseInputErrorId}
+                    aria-invalid={releaseInputError !== null}
                   />
                 </label>
-                <label className="grid gap-1 text-sm font-medium text-gray-700">
-                  Review text
-                  <textarea
+                <label
+                  htmlFor="release-review"
+                  className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+                >
+                  Feedback (optional)
+                  <AppTextarea
+                    ref={reviewInputRef}
+                    id="release-review"
                     value={reviewText}
                     disabled={isPending}
-                    onChange={(event) => setReviewText(event.target.value)}
+                    maxLength={1000}
+                    onChange={(event) => {
+                      setReviewText(event.target.value);
+                      setReleaseInputError(null);
+                    }}
                     rows={3}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
-                    placeholder="Optional verified review"
+                    placeholder="Share feedback about the work quality"
+                    aria-label="Review text for freelancer work"
+                    aria-errormessage={releaseInputErrorId}
+                    aria-invalid={releaseInputError !== null}
                   />
                 </label>
               </div>
+
+              {releaseInputError ? (
+                <p
+                  id={releaseInputErrorId}
+                  className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                  role="alert"
+                  aria-atomic="true"
+                >
+                  {releaseInputError}
+                </p>
+              ) : null}
+
               <div className="flex flex-wrap gap-2">
-                <button
+                <AppButton
                   type="button"
                   disabled={isUsdcActionDisabled}
-                  onClick={() =>
-                    void approveAndRelease({
-                      rating: releaseRating,
-                      reviewText,
-                    })
-                  }
-                  className={buttonClass}
+                  onClick={() => void handleApproveAndRelease()}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Approve work and release payment to freelancer"
                 >
                   {getActionButtonLabel(
-                    "Approve and Release",
+                    "Release Payment",
                     pendingAction === "release_payment",
                     "Releasing Payment...",
                   )}
-                </button>
-                <button
+                </AppButton>
+                <AppButton
                   type="button"
+                  appVariant="secondary"
                   disabled={isPending}
                   onClick={() => void markDisputed()}
-                  className={dangerButtonClass}
+                  className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Dispute if work does not meet requirements"
                 >
                   {getActionButtonLabel(
-                    "Mark Disputed",
+                    "Dispute",
                     pendingAction === "mark_disputed",
                     "Marking Disputed...",
                   )}
-                </button>
+                </AppButton>
               </div>
-              {usdcTrustline.hasTrustline !== true ? (
-                <p className="text-sm text-amber-800">Enable USDC payments before using escrow.</p>
-              ) : null}
             </>
           ) : null}
 
           {role === "selectedFreelancer" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-700">Work submitted. Waiting for client approval.</p>
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => void markDisputed()}
-                className={dangerButtonClass}
-              >
-                {getActionButtonLabel(
-                  "Mark Disputed",
-                  pendingAction === "mark_disputed",
-                  "Marking Disputed...",
-                )}
-              </button>
-            </div>
+            <AppButton
+              type="button"
+              appVariant="secondary"
+              disabled={isPending}
+              onClick={() => void markDisputed()}
+              className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Dispute escrow if there are concerns"
+            >
+              {getActionButtonLabel(
+                "Dispute",
+                pendingAction === "mark_disputed",
+                "Marking Disputed...",
+              )}
+            </AppButton>
           ) : null}
-        </div>
+        </EscrowSection>
       ) : null}
 
       {hasReleasedCompletion ? (
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-emerald-800">Payment released.</p>
+        <div
+          className="space-y-3"
+          role="region"
+          aria-label="Payment completion and reputation record"
+        >
+          <p className="text-sm font-medium text-emerald-800">✓ Payment released successfully.</p>
 
           {escrow && reputationRecord ? (
             <VerifiedReviewCard
@@ -414,17 +508,24 @@ export function EscrowActionPanel({
 
           {showPendingVerifiedSync ? (
             <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p>Payment was released, but the verified review record has not synced yet.</p>
-              <button
+              <p>
+                Payment released. The verified reputation record is syncing from Stellar blockchain.
+              </p>
+              <AppButton
                 type="button"
+                appVariant="secondary"
                 disabled={isSyncing}
                 onClick={() => void syncReputationRecord()}
-                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-8 rounded-lg border-amber-300 px-3 py-1.5 text-xs hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
+                aria-label="Manually sync reputation record from blockchain"
               >
-                {isSyncing ? "Syncing..." : "Sync verified review"}
-              </button>
+                {isSyncing ? "Syncing..." : "Sync Reputation"}
+              </AppButton>
               {syncMessage ? (
-                <p className={`text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}>
+                <p
+                  className={`text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}
+                  role={syncResult?.ok ? "status" : "alert"}
+                >
                   {syncMessage}
                 </p>
               ) : null}
@@ -432,17 +533,19 @@ export function EscrowActionPanel({
           ) : null}
 
           {escrow && reputationRecord === undefined ? (
-            <p className="text-sm text-gray-500">Loading verified review...</p>
+            <p className="text-sm text-gray-500">Loading verified reputation record...</p>
           ) : null}
         </div>
       ) : null}
 
       {currentStatus === "cancelled" ? (
-        <p className="text-sm text-gray-700">Escrow cancelled.</p>
+        <p className="text-sm text-[#5f5f5f]">Escrow cancelled. No funds were exchanged.</p>
       ) : null}
 
       {currentStatus === "disputed" ? (
-        <p className="text-sm text-red-700">Escrow disputed. Manual review required.</p>
+        <p className="text-sm text-red-700" role="alert">
+          ⚠ Escrow disputed. A moderator will review this case shortly.
+        </p>
       ) : null}
 
       <TransactionStatus error={error} success={success} txExplorerUrl={txExplorerUrl} />
