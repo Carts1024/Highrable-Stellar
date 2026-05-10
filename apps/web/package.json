@@ -18,7 +18,7 @@
     "@repo/ui": "*",
     "@stellar/stellar-sdk": "14.2.0",
     "@tanstack/react-query": "^5.90.21",
-    "convex": "^1.34.0",
+    "convex": "^1.38.0",
     "framer-motion": "^12.35.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
