@@ -4,10 +4,12 @@ import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { ProductPageHero } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
+import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
 import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
+import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
@@ -103,11 +105,21 @@ function QuickActions() {
 
 /** Summarizes wallet-specific escrow activity for the connected freelancer using Convex data. */
 export function DashboardPage() {
-  const { summary, isLoading, isConnected, isTestnet, isFunded } = useFreelancerDashboard();
+  const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
+    useFreelancerDashboard();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
+  const {
+    selectedMode,
+    isReady: isModeReady,
+    setSelectedMode,
+  } = useDashboardMode({
+    role,
+    address,
+    isConnected,
+  });
 
-  const showFreelancerSections = !isRoleLoading && role !== "client";
-  const showClientSections = !isRoleLoading && role === "client";
+  const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
+  const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
 
   if (!isConnected) {
     return (
@@ -129,6 +141,12 @@ export function DashboardPage() {
         }
         description="Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements."
       />
+
+      {!isRoleLoading && isModeReady && (
+        <div className="flex justify-end">
+          <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
+        </div>
+      )}
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 

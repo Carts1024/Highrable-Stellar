@@ -6,6 +6,7 @@ export type TAssetAmount = {
 };
 
 export type TDashboardRole = "client" | "freelancer";
+export type TDashboardMode = "client" | "freelancer";
 
 export type TDerivedApplicationStatus =
   | "pending"
@@ -91,4 +92,10 @@ export interface IPaginatedDashboardState<TItem> {
   readonly canLoadMore: boolean;
   readonly isLoadingMore: boolean;
   readonly loadMore: (numItems: number) => void;
+}
+
+export interface IDashboardModeState {
+  readonly selectedMode: TDashboardMode;
+  readonly isReady: boolean;
+  readonly setSelectedMode: (mode: TDashboardMode) => void;
 }
