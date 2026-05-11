@@ -17,10 +17,15 @@ import {
   WalletConnectTargetChain,
 } from "@creit-tech/stellar-wallets-kit/modules/wallet-connect";
 import { StellarWalletsKit } from "@creit-tech/stellar-wallets-kit/sdk";
-import { LocalStorageKeys, Networks } from "@creit-tech/stellar-wallets-kit/types";
+import { Networks } from "@creit-tech/stellar-wallets-kit/types";
 
 import type { IWalletClient, TWalletAccount } from "@/core/wallet/types";
 import type { ModuleInterface } from "@creit-tech/stellar-wallets-kit/types";
+
+import { WalletPersistenceService } from "../services/wallet-persistence-service";
+
+const WALLET_CONNECT_MODULE_ID = "wallet_connect";
+const WALLET_RESTORE_RETRY_DELAYS_MS = [0, 150, 500, 1000] as const;
 
 declare const window:
   | (Window &
@@ -31,6 +36,16 @@ declare const window:
         };
       })
   | undefined;
+
+type TWalletKitInitOptions = {
+  includeWalletConnect: boolean;
+};
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
 
 function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -81,51 +96,58 @@ function isStaleWalletConnectSessionError(error: unknown): boolean {
   );
 }
 
+function getBrowserStorage(kind: "localStorage" | "sessionStorage"): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window[kind];
+  } catch {
+    return null;
+  }
+}
+
 function clearWalletConnectStorage(): void {
   if (typeof window === "undefined") {
     return;
   }
 
-  const storageMatchers = ["walletconnect", "wc@", "WALLETCONNECT_DEEPLINK_CHOICE"];
+  const storageMatchers = ["walletconnect", "wc@", "wcsession", "WALLETCONNECT_DEEPLINK_CHOICE"];
 
-  for (const storage of [window.localStorage, window.sessionStorage]) {
-    const keysToDelete: string[] = [];
-
-    for (let index = 0; index < storage.length; index += 1) {
-      const key = storage.key(index);
-
-      if (!key) {
-        continue;
-      }
-
-      const normalizedKey = key.toLowerCase();
-
-      if (storageMatchers.some((matcher) => normalizedKey.includes(matcher.toLowerCase()))) {
-        keysToDelete.push(key);
-      }
+  for (const storage of [getBrowserStorage("localStorage"), getBrowserStorage("sessionStorage")]) {
+    if (!storage) {
+      continue;
     }
 
-    for (const key of keysToDelete) {
-      storage.removeItem(key);
+    const keysToDelete: string[] = [];
+
+    try {
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index);
+
+        if (!key) {
+          continue;
+        }
+
+        const normalizedKey = key.toLowerCase();
+
+        if (storageMatchers.some((matcher) => normalizedKey.includes(matcher.toLowerCase()))) {
+          keysToDelete.push(key);
+        }
+      }
+
+      for (const key of keysToDelete) {
+        storage.removeItem(key);
+      }
+    } catch {
+      // Browser privacy settings can deny storage access. Wallet restore remains optional.
     }
   }
 }
 
-function getStoredWalletSelection(): {
-  address: string | null;
-  walletId: string | null;
-} {
-  if (typeof window === "undefined") {
-    return {
-      address: null,
-      walletId: null,
-    };
-  }
-
-  return {
-    address: window.localStorage.getItem(LocalStorageKeys.activeAddress),
-    walletId: window.localStorage.getItem(LocalStorageKeys.selectedModuleId),
-  };
+function isWalletConnectModule(walletId: string): boolean {
+  return walletId === WALLET_CONNECT_MODULE_ID;
 }
 
 function normalizeWalletNetwork(network: string | null | undefined): {
@@ -158,6 +180,8 @@ function normalizeWalletNetwork(network: string | null | undefined): {
 }
 
 let walletKitInitialized = false;
+let walletKitIncludesWalletConnect = false;
+const walletPersistenceService = new WalletPersistenceService();
 
 class SafeFreighterModule extends FreighterModule {
   public override async isAvailable(): Promise<boolean> {
@@ -182,36 +206,44 @@ class SafeFreighterModule extends FreighterModule {
   }
 }
 
-function ensureKitInitialized(): void {
-  if (walletKitInitialized) {
-    return;
-  }
-
+function createWalletModules(includeWalletConnect: boolean): ModuleInterface[] {
   const modules = defaultModules().map(
     (module): ModuleInterface =>
       module.productId === "freighter" ? new SafeFreighterModule() : module,
   );
+
+  if (!includeWalletConnect || !WALLETCONNECT_PROJECT_ID) {
+    return modules;
+  }
+
   const appOrigin =
     typeof window !== "undefined" && window.location.origin
       ? window.location.origin
       : "https://highrable.local";
-  if (WALLETCONNECT_PROJECT_ID) {
-    modules.push(
-      new WalletConnectModule({
-        projectId: WALLETCONNECT_PROJECT_ID,
-        metadata: {
-          name: "Highrable",
-          description: "Stellar-native freelancing marketplace on testnet.",
-          url: appOrigin,
-          icons: [`${appOrigin}/logo/stellar/Stellar_Symbol.png`],
-        },
-        allowedChains: [WalletConnectTargetChain.TESTNET],
-      }),
-    );
+
+  modules.push(
+    new WalletConnectModule({
+      projectId: WALLETCONNECT_PROJECT_ID,
+      metadata: {
+        name: "Highrable",
+        description: "Stellar-native freelancing marketplace on testnet.",
+        url: appOrigin,
+        icons: [`${appOrigin}/logo/stellar/Stellar_Symbol.png`],
+      },
+      allowedChains: [WalletConnectTargetChain.TESTNET],
+    }),
+  );
+
+  return modules;
+}
+
+function ensureKitInitialized(options: TWalletKitInitOptions): void {
+  if (walletKitInitialized && (!options.includeWalletConnect || walletKitIncludesWalletConnect)) {
+    return;
   }
 
   StellarWalletsKit.init({
-    modules,
+    modules: createWalletModules(options.includeWalletConnect),
     network: Networks.TESTNET,
     theme: {
       background: "#ffffff",
@@ -239,11 +271,67 @@ function ensureKitInitialized(): void {
   });
 
   walletKitInitialized = true;
+  walletKitIncludesWalletConnect = options.includeWalletConnect && !!WALLETCONNECT_PROJECT_ID;
 }
 
 export class StellarWalletKitClient implements IWalletClient {
+  private getSelectedModule(): ModuleInterface | null {
+    try {
+      return StellarWalletsKit.selectedModule;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildWalletAccount(
+    address: string,
+    selectedModule: Pick<ModuleInterface, "productId" | "productName"> | null,
+    networkInput?: string | null,
+  ): TWalletAccount {
+    const normalizedNetwork = normalizeWalletNetwork(networkInput);
+    const account: TWalletAccount = {
+      address,
+      displayAddress: formatAddress(address),
+      walletId: selectedModule?.productId ?? null,
+      walletName: selectedModule?.productName ?? null,
+      network: normalizedNetwork.network,
+      isTestnet: normalizedNetwork.isTestnet,
+    };
+
+    walletPersistenceService.saveWalletSelection(account);
+
+    return account;
+  }
+
+  private async selectAvailableWalletModule(
+    walletId: string,
+    options: TWalletKitInitOptions,
+  ): Promise<ModuleInterface | null> {
+    ensureKitInitialized(options);
+
+    for (const delayMs of WALLET_RESTORE_RETRY_DELAYS_MS) {
+      if (delayMs > 0) {
+        await wait(delayMs);
+      }
+
+      try {
+        StellarWalletsKit.setWallet(walletId);
+        const selectedModule = this.getSelectedModule();
+
+        if (selectedModule && (await selectedModule.isAvailable())) {
+          return selectedModule;
+        }
+      } catch {
+        // Wallet init can race with browser extension injection on refresh.
+      }
+    }
+
+    return null;
+  }
+
   private async clearStaleWalletConnectState(): Promise<void> {
     clearWalletConnectStorage();
+    walletPersistenceService.clearWalletSelection();
 
     try {
       await StellarWalletsKit.disconnect();
@@ -253,7 +341,7 @@ export class StellarWalletKitClient implements IWalletClient {
   }
 
   private async resolveActiveWallet(addressInput?: string): Promise<TWalletAccount> {
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
 
     const addressResponse = addressInput
       ? { address: addressInput }
@@ -263,29 +351,15 @@ export class StellarWalletKitClient implements IWalletClient {
       network: STELLAR_TESTNET_NETWORK_LABEL,
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
     }));
-    const normalizedNetwork = normalizeWalletNetwork(
+    return this.buildWalletAccount(
+      address,
+      this.getSelectedModule(),
       networkResponse.networkPassphrase || networkResponse.network,
     );
-    const selectedModule = (() => {
-      try {
-        return StellarWalletsKit.selectedModule;
-      } catch {
-        return null;
-      }
-    })();
-
-    return {
-      address,
-      displayAddress: formatAddress(address),
-      walletId: selectedModule?.productId ?? null,
-      walletName: selectedModule?.productName ?? null,
-      network: normalizedNetwork.network,
-      isTestnet: normalizedNetwork.isTestnet,
-    };
   }
 
   public async connect(): Promise<TWalletAccount> {
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: true });
 
     if (!WALLETCONNECT_PROJECT_ID) {
       console.warn(
@@ -317,13 +391,13 @@ export class StellarWalletKitClient implements IWalletClient {
   }
 
   public async getPublicKey(): Promise<string> {
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const { address } = await StellarWalletsKit.getAddress();
     return TStellarPublicKeySchema.parse(address);
   }
 
   public async getNetwork(): Promise<{ network: string | null; isTestnet: boolean }> {
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const networkResponse = await StellarWalletsKit.getNetwork().catch(() => ({
       network: STELLAR_TESTNET_NETWORK_LABEL,
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
@@ -332,36 +406,70 @@ export class StellarWalletKitClient implements IWalletClient {
   }
 
   public async restoreConnection(): Promise<TWalletAccount | null> {
-    ensureKitInitialized();
+    const storedWalletSelection = walletPersistenceService.getWalletSelection();
 
-    const storedWalletSelection = getStoredWalletSelection();
-
-    if (!storedWalletSelection.address || !storedWalletSelection.walletId) {
+    if (!storedWalletSelection) {
       return null;
     }
 
-    try {
-      StellarWalletsKit.setWallet(storedWalletSelection.walletId);
-      const selectedModule = StellarWalletsKit.selectedModule;
+    const storedAddressResult = TStellarPublicKeySchema.safeParse(storedWalletSelection.address);
 
-      if (!(await selectedModule.isAvailable())) {
+    if (!storedAddressResult.success) {
+      return null;
+    }
+
+    if (isWalletConnectModule(storedWalletSelection.walletId)) {
+      try {
+        const selectedModule = await this.selectAvailableWalletModule(
+          storedWalletSelection.walletId,
+          { includeWalletConnect: true },
+        );
+
+        if (!selectedModule) {
+          return null;
+        }
+
+        return this.buildWalletAccount(
+          storedAddressResult.data,
+          selectedModule,
+          STELLAR_TESTNET_NETWORK_LABEL,
+        );
+      } catch (error) {
+        if (isStaleWalletConnectSessionError(error)) {
+          await this.clearStaleWalletConnectState();
+        }
+
+        return null;
+      }
+    }
+
+    try {
+      const selectedModule = await this.selectAvailableWalletModule(
+        storedWalletSelection.walletId,
+        {
+          includeWalletConnect: false,
+        },
+      );
+
+      if (!selectedModule) {
         return null;
       }
 
-      return await this.resolveActiveWallet(storedWalletSelection.address);
+      return await this.resolveActiveWallet(storedAddressResult.data);
     } catch {
       return null;
     }
   }
 
   public async disconnect(): Promise<void> {
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     await StellarWalletsKit.disconnect();
+    walletPersistenceService.clearWalletSelection();
   }
 
   public async signMessage(message: string): Promise<string> {
     const sanitizedMessage = TMessageSchema.parse(message);
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const messageResult = await StellarWalletsKit.signMessage(sanitizedMessage, {
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
     });
@@ -371,7 +479,7 @@ export class StellarWalletKitClient implements IWalletClient {
   public async signTransaction(xdr: string, address?: string): Promise<string> {
     const sanitizedXdr = TTransactionXdrSchema.parse(xdr);
     const sanitizedAddress = address ? TStellarPublicKeySchema.parse(address) : undefined;
-    ensureKitInitialized();
+    ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const transactionResult = await StellarWalletsKit.signTransaction(sanitizedXdr, {
       address: sanitizedAddress,
       networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
