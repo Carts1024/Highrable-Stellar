@@ -1,2 +1,12 @@
 export { DashboardPage } from "./dashboard-page";
-export type { TAssetAmount, TFreelancerIncomeSummary, TRecentPayout } from "./types";
+export type {
+  IAppliedJobItem,
+  IOngoingJobItem,
+  IPaginatedDashboardState,
+  IPostedJobItem,
+  TAssetAmount,
+  TDashboardRole,
+  TDerivedApplicationStatus,
+  TFreelancerIncomeSummary,
+  TRecentPayout,
+} from "./types";

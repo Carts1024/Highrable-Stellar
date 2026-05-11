@@ -3,8 +3,12 @@
 import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { ProductPageHero } from "@/features/common";
+import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
+import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
+import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
+import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { motion } from "framer-motion";
@@ -100,6 +104,10 @@ function QuickActions() {
 /** Summarizes wallet-specific escrow activity for the connected freelancer using Convex data. */
 export function DashboardPage() {
   const { summary, isLoading, isConnected, isTestnet, isFunded } = useFreelancerDashboard();
+  const { role, isLoading: isRoleLoading } = useDashboardRole();
+
+  const showFreelancerSections = !isRoleLoading && role !== "client";
+  const showClientSections = !isRoleLoading && role === "client";
 
   if (!isConnected) {
     return (
@@ -131,7 +139,7 @@ export function DashboardPage() {
         </motion.div>
       )}
 
-      {!isLoading && summary && (
+      {showFreelancerSections && !isLoading && summary && (
         <>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -193,6 +201,12 @@ export function DashboardPage() {
           <RecentPayoutsList payouts={summary.recentPayouts} />
         </>
       )}
+
+      {showFreelancerSections && <AppliedJobsSection />}
+
+      {showFreelancerSections && <OngoingJobsSection />}
+
+      {showClientSections && <PostedJobsSection />}
 
       <QuickActions />
     </div>
