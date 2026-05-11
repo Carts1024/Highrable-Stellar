@@ -6,21 +6,25 @@ import { useQuery } from "convex/react";
 
 import type { TFreelancerIncomeSummary } from "@/features/dashboard/types";
 
-type TFreelancerDashboardState = {
-  summary: TFreelancerIncomeSummary | undefined;
-  isLoading: boolean;
-  isConnected: boolean;
-  address: string | null;
-  isFunded: boolean | null;
-  isTestnet: boolean;
-};
+export interface IFreelancerDashboardState {
+  readonly summary: TFreelancerIncomeSummary | undefined;
+  readonly isLoading: boolean;
+  readonly isConnected: boolean;
+  readonly address: string | null;
+  readonly isFunded: boolean | null;
+  readonly isTestnet: boolean;
+}
 
-export function useFreelancerDashboard(): TFreelancerDashboardState {
+/**
+ * Hook to manage and provide data for the freelancer's financial dashboard.
+ * Following strictly typed, maintainable, and reusable patterns.
+ */
+export function useFreelancerDashboard(): IFreelancerDashboardState {
   const { isConnected, address, walletState } = useWallet();
 
+  // Strictly typed query via Convex API bindings.
   const summary = useQuery(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (api as any).dashboard.queries.getFreelancerIncomeSummary,
+    api.dashboard.queries.getFreelancerIncomeSummary,
     isConnected && address ? { freelancerWallet: address } : "skip",
   );
 

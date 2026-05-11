@@ -3,8 +3,15 @@
 import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { ProductPageHero } from "@/features/common";
+import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
+import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
+import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
+import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
+import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
+import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode";
+import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { motion } from "framer-motion";
@@ -19,11 +26,37 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import type { TAssetAmount } from "@/features/dashboard/types";
+import type { TAssetAmount, TDashboardMode } from "@/features/dashboard/types";
 
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
   return rows.map((r) => `${formatAmount(r.amount)} ${formatAsset(r.asset)}`).join(" + ");
+}
+
+function resolveDashboardHeroCopy(mode: TDashboardMode) {
+  if (mode === "client") {
+    return {
+      label: "Client Operations",
+      title: (
+        <>
+          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+        </>
+      ),
+      description:
+        "Manage posted jobs, monitor application volume, and track escrow progress from a single control plane.",
+    };
+  }
+
+  return {
+    label: "Freelancer Performance",
+    title: (
+      <>
+        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+      </>
+    ),
+    description:
+      "Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements.",
+  };
 }
 
 function UnfundedWarningBanner() {
@@ -99,7 +132,22 @@ function QuickActions() {
 
 /** Summarizes wallet-specific escrow activity for the connected freelancer using Convex data. */
 export function DashboardPage() {
-  const { summary, isLoading, isConnected, isTestnet, isFunded } = useFreelancerDashboard();
+  const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
+    useFreelancerDashboard();
+  const { role, isLoading: isRoleLoading } = useDashboardRole();
+  const {
+    selectedMode,
+    isReady: isModeReady,
+    setSelectedMode,
+  } = useDashboardMode({
+    role,
+    address,
+    isConnected,
+  });
+
+  const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
+  const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
+  const heroCopy = resolveDashboardHeroCopy(selectedMode);
 
   if (!isConnected) {
     return (
@@ -113,14 +161,17 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <ProductPageHero
-        label="Freelancer Performance"
-        title={
-          <>
-            Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
-          </>
-        }
-        description="Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements."
+        label={heroCopy.label}
+        title={heroCopy.title}
+        description={heroCopy.description}
       />
+
+      {!isRoleLoading && isModeReady && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DashboardModeLabel mode={selectedMode} />
+          <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
+        </div>
+      )}
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 
@@ -131,7 +182,7 @@ export function DashboardPage() {
         </motion.div>
       )}
 
-      {!isLoading && summary && (
+      {showFreelancerSections && !isLoading && summary && (
         <>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -193,6 +244,12 @@ export function DashboardPage() {
           <RecentPayoutsList payouts={summary.recentPayouts} />
         </>
       )}
+
+      {showFreelancerSections && <AppliedJobsSection />}
+
+      {showFreelancerSections && <OngoingJobsSection />}
+
+      {showClientSections && <PostedJobsSection />}
 
       <QuickActions />
     </div>

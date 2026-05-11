@@ -1,3 +1,4 @@
+import { env } from "@/core/config/env";
 import {
   AUTH_SESSION_COOKIE_NAME,
   consumeChallenge,
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
       value: session.token,
       httpOnly: true,
       sameSite: "strict",
-      secure: process.env.NODE_ENV === "production",
+      secure: env.NODE_ENV === "production",
       path: "/",
       expires: new Date(session.expiresAt),
     });

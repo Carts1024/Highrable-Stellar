@@ -8,7 +8,7 @@ import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
-import type { TConvexDoc, TConvexId } from "@repo/convex-client";
+import type { TConvexId } from "@repo/convex-client";
 
 import { ApplicationsList } from "./applications-list";
 import { ApplyToJobForm } from "./apply-to-job-form";
@@ -26,18 +26,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
     hasJobId ? { jobId: convexJobId } : "skip",
   );
   const escrow = useQuery(api.escrows.getEscrowByJobId, hasJobId ? { jobId: convexJobId } : "skip");
+
+  // Strictly typed reputation data retrieval.
   const verifiedReviewData = useQuery(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (api as any).reputation.getVerifiedReviewForJob,
+    api.reputation_records.queries.getVerifiedReviewForJob,
     hasJobId ? { jobId: convexJobId } : "skip",
-  ) as
-    | {
-        job: TConvexDoc<"jobs">;
-        escrow: TConvexDoc<"escrows">;
-        reputationRecord: TConvexDoc<"reputationRecords"> | null;
-      }
-    | null
-    | undefined;
+  );
+
   const { isSyncing, syncReputationRecord, syncMessage, syncResult } = useSyncActions({ escrow });
 
   if (!hasJobId) {

@@ -1,5 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 
+import { env } from "@/core/config/env";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
@@ -41,13 +42,13 @@ function cleanupExpired(now: number): void {
 }
 
 function getSessionSecret(): string {
-  const envSecret = process.env.WALLET_SESSION_SECRET?.trim();
+  const envSecret = env.WALLET_SESSION_SECRET;
 
   if (envSecret) {
     return envSecret;
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (env.NODE_ENV === "production") {
     throw new Error("WALLET_SESSION_SECRET must be set in production.");
   }
 
@@ -84,7 +85,7 @@ export function createChallenge(addressInput: string): {
   const address = TStellarPublicKeySchema.parse(addressInput);
   const nonce = randomUUID();
   const expiresAt = now + CHALLENGE_TTL_MS;
-  const domain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? "localhost";
+  const domain = env.NEXT_PUBLIC_APP_DOMAIN;
 
   const message = [
     "Highrable Sign-In Request",

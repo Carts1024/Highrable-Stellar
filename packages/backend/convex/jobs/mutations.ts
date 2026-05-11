@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { ForbiddenError, NotFoundError } from "../_shared/errors";
+import { ensureUserWithRole } from "../users/helpers";
 import {
   getJobOrThrow,
   sanitizeClientWallet,
@@ -20,6 +21,8 @@ export const createJob = mutation({
   },
   handler: async (ctx, args) => {
     const sanitizedArgs = sanitizeCreateJobArgs(args);
+
+    await ensureUserWithRole(ctx, sanitizedArgs.clientWallet, "client");
 
     // TODO: Convert jobHash into the on-chain 32-byte format before contract calls.
     return await ctx.db.insert("jobs", {
