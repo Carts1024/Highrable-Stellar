@@ -4,6 +4,7 @@ import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { ProductPageHero } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
+import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
 import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
@@ -25,11 +26,37 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import type { TAssetAmount } from "@/features/dashboard/types";
+import type { TAssetAmount, TDashboardMode } from "@/features/dashboard/types";
 
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
   return rows.map((r) => `${formatAmount(r.amount)} ${formatAsset(r.asset)}`).join(" + ");
+}
+
+function resolveDashboardHeroCopy(mode: TDashboardMode) {
+  if (mode === "client") {
+    return {
+      label: "Client Operations",
+      title: (
+        <>
+          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+        </>
+      ),
+      description:
+        "Manage posted jobs, monitor application volume, and track escrow progress from a single control plane.",
+    };
+  }
+
+  return {
+    label: "Freelancer Performance",
+    title: (
+      <>
+        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+      </>
+    ),
+    description:
+      "Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements.",
+  };
 }
 
 function UnfundedWarningBanner() {
@@ -120,6 +147,7 @@ export function DashboardPage() {
 
   const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
   const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
+  const heroCopy = resolveDashboardHeroCopy(selectedMode);
 
   if (!isConnected) {
     return (
@@ -133,17 +161,14 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       <ProductPageHero
-        label="Freelancer Performance"
-        title={
-          <>
-            Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
-          </>
-        }
-        description="Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements."
+        label={heroCopy.label}
+        title={heroCopy.title}
+        description={heroCopy.description}
       />
 
       {!isRoleLoading && isModeReady && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DashboardModeLabel mode={selectedMode} />
           <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
         </div>
       )}
