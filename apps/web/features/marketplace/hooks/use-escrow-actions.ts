@@ -16,6 +16,10 @@ import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { hasUsdcTrustline, normalizeUsdcTrustlineError } from "@/core/stellar/trustline";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import {
+  getEscrowActionGuard,
+  type TEscrowActionGuardAction,
+} from "@/features/marketplace/lib/escrow-action-guards";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
@@ -24,13 +28,7 @@ import { useCallback, useMemo, useState } from "react";
 import type { TActorRole } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
-type TEscrowAction =
-  | "create_escrow"
-  | "fund_escrow"
-  | "submit_work"
-  | "release_payment"
-  | "cancel_escrow"
-  | "mark_disputed";
+type TEscrowAction = TEscrowActionGuardAction;
 
 type TEscrowActionState = {
   pendingAction: TEscrowAction | null;
@@ -130,13 +128,6 @@ export function useEscrowActions({
         throw new Error("Fund your Stellar testnet account with Friendbot before using escrow.");
       }
 
-      if (
-        (action === "fund_escrow" || action === "release_payment") &&
-        hasUsdcPaymentsEnabled !== true
-      ) {
-        throw new Error("Enable USDC payments before using escrow.");
-      }
-
       if (!job.clientWallet) {
         throw new Error("Job is missing the client wallet.");
       }
@@ -157,23 +148,22 @@ export function useEscrowActions({
         throw new Error("Job is missing a hash for the escrow contract.");
       }
 
-      if (action === "create_escrow" && role !== "client") {
-        throw new Error("Only the client can create escrow.");
-      }
+      const guardResult = getEscrowActionGuard({
+        action,
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+        hasUsdcPaymentsEnabled,
+      });
 
-      if (
-        (action === "fund_escrow" || action === "release_payment" || action === "cancel_escrow") &&
-        role !== "client"
-      ) {
-        throw new Error("Only the client wallet can perform this escrow action.");
-      }
-
-      if (action === "submit_work" && role !== "selectedFreelancer") {
-        throw new Error("Only the selected freelancer can submit work.");
-      }
-
-      if (action === "mark_disputed" && role !== "client" && role !== "selectedFreelancer") {
-        throw new Error("Only the client or selected freelancer can mark escrow disputed.");
+      if (!guardResult.canAct) {
+        throw new Error(guardResult.reason ?? "This escrow action is not currently available.");
       }
 
       return config;
@@ -184,6 +174,7 @@ export function useEscrowActions({
       job,
       role,
       walletState.isConnected,
+      walletState.canWriteContracts,
       walletState.isFunded,
       walletState.isTestnet,
     ],
@@ -196,9 +187,9 @@ export function useEscrowActions({
         clientRequestId: string;
         config: ReturnType<typeof getRequiredEscrowActionConfig>;
       }) => Promise<{ txHash: string; success: string }>,
-    ) => {
+    ): Promise<boolean> => {
       if (state.pendingAction) {
-        return;
+        return false;
       }
 
       const clientRequestId = createClientRequestId(action, job._id);
@@ -236,6 +227,8 @@ export function useEscrowActions({
           success: result.success,
           txHash: result.txHash,
         });
+
+        return true;
       } catch (error) {
         const errorMessage = normalizeStellarError(error);
         const failedTxHash =
@@ -263,6 +256,8 @@ export function useEscrowActions({
           success: null,
           txHash: failedTxHash ?? null,
         });
+
+        return false;
       }
     },
     [
@@ -277,7 +272,7 @@ export function useEscrowActions({
   );
 
   const createEscrow = useCallback(async () => {
-    await runEscrowAction("create_escrow", async ({ config }) => {
+    return await runEscrowAction("create_escrow", async ({ config }) => {
       if (job.status !== "selected" || escrow) {
         throw new Error("Escrow can only be created after a freelancer is selected.");
       }
@@ -314,7 +309,7 @@ export function useEscrowActions({
   }, [address, createEscrowRecord, escrow, job, runEscrowAction, signTransaction]);
 
   const fundEscrow = useCallback(async () => {
-    await runEscrowAction("fund_escrow", async ({ config }) => {
+    return await runEscrowAction("fund_escrow", async ({ config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "created") {
         throw new Error("Escrow must be created before it can be funded.");
@@ -366,7 +361,7 @@ export function useEscrowActions({
   ]);
 
   const submitWork = useCallback(async () => {
-    await runEscrowAction("submit_work", async ({ config }) => {
+    return await runEscrowAction("submit_work", async ({ config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "funded") {
         throw new Error("Escrow must be funded before work can be submitted.");
@@ -405,7 +400,7 @@ export function useEscrowActions({
 
   const approveAndRelease = useCallback(
     async ({ rating, reviewText }: { rating: number; reviewText: string }) => {
-      await runEscrowAction("release_payment", async ({ config }) => {
+      return await runEscrowAction("release_payment", async ({ config }) => {
         const escrowId = getEscrowIdOrThrow(escrow);
         if (escrow?.status !== "submitted") {
           throw new Error("Escrow must be submitted before payment can be released.");
@@ -477,7 +472,7 @@ export function useEscrowActions({
   );
 
   const cancelEscrow = useCallback(async () => {
-    await runEscrowAction("cancel_escrow", async ({ config }) => {
+    return await runEscrowAction("cancel_escrow", async ({ config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "created" && escrow?.status !== "funded") {
         throw new Error("Escrow can only be cancelled before work is submitted.");
@@ -508,7 +503,7 @@ export function useEscrowActions({
   }, [address, escrow, job.clientWallet, runEscrowAction, signTransaction, updateEscrowStatus]);
 
   const markDisputed = useCallback(async () => {
-    await runEscrowAction("mark_disputed", async ({ config }) => {
+    return await runEscrowAction("mark_disputed", async ({ config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "funded" && escrow?.status !== "submitted") {
         throw new Error("Escrow can only be disputed after funding and before release.");

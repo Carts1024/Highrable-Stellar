@@ -58,6 +58,8 @@ const DEFAULT_STATE: TWalletState = {
   isConnected: false,
   isTestnet: true,
   isFunded: null,
+  canWriteContracts: true,
+  writeRestrictionReason: null,
   selectedWallet: null,
   isConnecting: false,
   isCheckingFunding: false,
@@ -155,6 +157,12 @@ export function WalletContextProvider({
           isConnected: true,
           isTestnet: account.isTestnet,
           isFunded: account.isTestnet ? (overrides?.isFunded ?? currentValue.isFunded) : null,
+          canWriteContracts:
+            overrides?.canWriteContracts ??
+            (shouldPreserveTransientState ? currentValue.canWriteContracts : true),
+          writeRestrictionReason:
+            overrides?.writeRestrictionReason ??
+            (shouldPreserveTransientState ? currentValue.writeRestrictionReason : null),
           selectedWallet: account.walletName ?? account.walletId,
           isConnecting: false,
           isCheckingFunding: overrides?.isCheckingFunding ?? false,

@@ -46,6 +46,8 @@ export type TWalletState = {
   isConnected: boolean;
   isTestnet: boolean;
   isFunded: boolean | null;
+  canWriteContracts?: boolean;
+  writeRestrictionReason?: string | null;
   selectedWallet: string | null;
   isConnecting: boolean;
   isCheckingFunding: boolean;

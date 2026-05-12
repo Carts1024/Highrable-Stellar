@@ -1,39 +1,30 @@
 "use client";
 
 import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
+import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
 import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
 import { AppButton } from "@/core/ui/button";
-import { AppInput } from "@/core/ui/input";
-import { AppTextarea } from "@/core/ui/textarea";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { sanitizeMultilineInput } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
+import { getEscrowActionGuard } from "@/features/marketplace/lib/escrow-action-guards";
+import {
+  getMarketplaceStatus,
+  getMarketplaceStatusMeta,
+} from "@/features/marketplace/lib/escrow-status";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
-import { useRef, useState } from "react";
-import { z } from "zod";
+import { useMemo, useState } from "react";
 
-import type { TEscrowStatus, TJobStatus } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { EscrowSection } from "./escrow-section";
+import { ReleasePaymentDialog } from "./release-payment-dialog";
+import { StablecoinReadinessCard } from "./stablecoin-readiness-card";
 import { StatusBadge } from "./status-badge";
-
-const RELEASE_REVIEW_SCHEMA = z.object({
-  rating: z.number().int().min(1).max(5),
-  reviewText: z
-    .string()
-    .transform(sanitizeMultilineInput)
-    .pipe(z.string().max(1000, "Review text must be under 1000 characters.")),
-});
-
-interface ITransactionStatusProps {
-  readonly error: string | null;
-  readonly success: string | null;
-  readonly txExplorerUrl: string | null;
-}
+import { TransactionStatusBanner } from "./transaction-status-banner";
+import { TrustWarning } from "./trust-warning";
 
 interface IEscrowActionPanelProps {
   readonly job: TConvexDoc<"jobs">;
@@ -41,73 +32,12 @@ interface IEscrowActionPanelProps {
   readonly applications: TConvexDoc<"applications">[];
 }
 
-function getCurrentStatus(
-  job: TConvexDoc<"jobs">,
-  escrow: TConvexDoc<"escrows"> | null | undefined,
-): TJobStatus | TEscrowStatus {
-  if (escrow) {
-    return escrow.status;
-  }
-
-  return job.status;
-}
-
 function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: string): string {
   return isPending ? pendingLabel : label;
 }
 
-function TransactionStatus({ error, success, txExplorerUrl }: ITransactionStatusProps) {
-  if (!error && !success && !txExplorerUrl) {
-    return null;
-  }
-
-  return (
-    <div
-      className="mt-4 space-y-2"
-      role="region"
-      aria-live="polite"
-      aria-label="Transaction status"
-    >
-      {error ? (
-        <p
-          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-          role="alert"
-          aria-atomic="true"
-        >
-          {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p
-          className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-          role="status"
-          aria-atomic="true"
-        >
-          {success}
-        </p>
-      ) : null}
-      {txExplorerUrl ? (
-        <a
-          href={txExplorerUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex text-sm font-medium text-indigo-700 hover:text-indigo-900"
-          aria-label="View transaction in Stellar Testnet Explorer (opens in new window)"
-        >
-          View on Stellar Explorer
-        </a>
-      ) : null}
-    </div>
-  );
-}
-
 export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPanelProps) {
-  const [releaseRating, setReleaseRating] = useState(5);
-  const [reviewText, setReviewText] = useState("");
-  const [releaseInputError, setReleaseInputError] = useState<string | null>(null);
-  const releaseInputErrorId = "release-input-error";
-  const ratingInputRef = useRef<HTMLInputElement>(null);
-  const reviewInputRef = useRef<HTMLTextAreaElement>(null);
+  const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
   const { address, walletState, fundTestnetAccount } = useWallet();
   const usdcTrustline = useUsdcTrustline(address);
@@ -136,31 +66,128 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
   });
 
-  const currentStatus = getCurrentStatus(job, escrow);
+  const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
+  const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
+  const actionGuards = useMemo(
+    () => ({
+      createEscrow: getEscrowActionGuard({
+        action: "create_escrow",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+      }),
+      fundEscrow: getEscrowActionGuard({
+        action: "fund_escrow",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+        hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
+      }),
+      submitWork: getEscrowActionGuard({
+        action: "submit_work",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+      }),
+      releasePayment: getEscrowActionGuard({
+        action: "release_payment",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+        hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
+      }),
+      cancelEscrow: getEscrowActionGuard({
+        action: "cancel_escrow",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+      }),
+      markDisputed: getEscrowActionGuard({
+        action: "mark_disputed",
+        role,
+        job,
+        escrow,
+        wallet: {
+          isConnected: walletState.isConnected,
+          isTestnet: walletState.isTestnet,
+          isFunded: walletState.isFunded,
+          canWriteContracts: walletState.canWriteContracts,
+        },
+      }),
+    }),
+    [
+      escrow,
+      job,
+      role,
+      usdcTrustline.hasTrustline,
+      walletState.isConnected,
+      walletState.canWriteContracts,
+      walletState.isFunded,
+      walletState.isTestnet,
+    ],
+  );
   const showUsdcOnboarding =
     walletState.isConnected && (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
-  const isUsdcActionDisabled = isPending || usdcTrustline.hasTrustline !== true;
+  const stablecoinReadiness = useStablecoinReadiness({
+    walletAddress: address,
+    requiredAmount: job.budget,
+    enabled:
+      currentStatus === "created" &&
+      role === "client" &&
+      walletState.isConnected &&
+      walletState.isTestnet &&
+      usdcTrustline.hasTrustline === true,
+  });
+  const isFundEscrowDisabled =
+    isPending ||
+    !actionGuards.fundEscrow.canAct ||
+    stablecoinReadiness.hasSufficientBalance === false;
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
 
-  const handleApproveAndRelease = async () => {
-    const parsed = RELEASE_REVIEW_SCHEMA.safeParse({
-      rating: releaseRating,
-      reviewText,
-    });
+  const handleConfirmRelease = async ({
+    rating,
+    reviewText,
+  }: {
+    rating: number;
+    reviewText: string;
+  }) => {
+    const releaseSucceeded = await approveAndRelease({ rating, reviewText });
 
-    if (!parsed.success) {
-      setReleaseInputError(parsed.error.issues[0]?.message ?? "Release inputs are invalid.");
-      ratingInputRef.current?.focus();
-      return;
+    if (releaseSucceeded) {
+      setIsReleaseDialogOpen(false);
     }
-
-    setReleaseInputError(null);
-    await approveAndRelease({
-      rating: parsed.data.rating,
-      reviewText: parsed.data.reviewText,
-    });
   };
 
   return (
@@ -172,6 +199,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Management</h2>
         <StatusBadge label={currentStatus} />
       </div>
+
+      <p className="text-sm text-[#5f5f5f]">{currentStatusMeta.description}</p>
+      {currentStatusMeta.trustWarning ? (
+        <TrustWarning className="mt-2" message={currentStatusMeta.trustWarning} />
+      ) : null}
 
       {showUsdcOnboarding ? (
         <div className="mb-4">
@@ -207,7 +239,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           warningText={
             role === "selectedFreelancer"
               ? "Waiting for client to create and fund escrow. Do not start work until payment is confirmed."
-              : undefined
+              : role === "client" && !actionGuards.createEscrow.canAct
+                ? actionGuards.createEscrow.reason
+                : undefined
           }
           infoText={
             role !== "client" && role !== "selectedFreelancer"
@@ -218,7 +252,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           {role === "client" ? (
             <AppButton
               type="button"
-              disabled={isPending}
+              disabled={isPending || !actionGuards.createEscrow.canAct}
               onClick={() => void createEscrow()}
               className="disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Create escrow for selected freelancer"
@@ -246,36 +280,59 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           warningText={
             role === "selectedFreelancer"
               ? "Escrow created. Waiting for client to fund and confirm work can begin."
-              : usdcTrustline.hasTrustline !== true
-                ? "Enable USDC payments in your wallet settings to proceed."
-                : undefined
+              : role === "client" && stablecoinReadiness.hasSufficientBalance === false
+                ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} USDC.`
+                : role === "client" && stablecoinReadiness.error
+                  ? stablecoinReadiness.error
+                  : role === "client" && !actionGuards.fundEscrow.canAct
+                    ? actionGuards.fundEscrow.reason
+                    : undefined
           }
         >
           {role === "client" ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                type="button"
-                disabled={isUsdcActionDisabled}
-                onClick={() => void fundEscrow()}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Fund escrow and lock payment"
-              >
-                {getActionButtonLabel(
-                  "Fund Escrow",
-                  pendingAction === "fund_escrow",
-                  "Funding Escrow...",
-                )}
-              </AppButton>
-              <AppButton
-                type="button"
-                appVariant="secondary"
-                disabled={isPending}
-                onClick={() => void cancelEscrow()}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Cancel escrow and reset project"
-              >
-                {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
-              </AppButton>
+            <div className="space-y-3">
+              {usdcTrustline.hasTrustline === true ? (
+                <StablecoinReadinessCard
+                  requiredAmount={stablecoinReadiness.requiredAmountDisplay}
+                  walletBalance={stablecoinReadiness.balanceDisplay}
+                  deficitAmount={stablecoinReadiness.deficitDisplay}
+                  hasSufficientBalance={stablecoinReadiness.hasSufficientBalance}
+                  isLoading={stablecoinReadiness.isLoading}
+                  error={stablecoinReadiness.error}
+                  onRefresh={() => void stablecoinReadiness.refresh()}
+                  isRefreshDisabled={isPending}
+                />
+              ) : null}
+
+              <div className="flex flex-wrap gap-2">
+                <AppButton
+                  type="button"
+                  disabled={isFundEscrowDisabled}
+                  onClick={() => void fundEscrow()}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Fund escrow and lock payment"
+                >
+                  {getActionButtonLabel(
+                    "Fund Escrow",
+                    pendingAction === "fund_escrow",
+                    "Funding Escrow...",
+                  )}
+                </AppButton>
+                <AppButton
+                  type="button"
+                  appVariant="secondary"
+                  disabled={isPending || !actionGuards.cancelEscrow.canAct}
+                  onClick={() => void cancelEscrow()}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Cancel escrow and reset project"
+                >
+                  {getActionButtonLabel(
+                    "Cancel",
+                    pendingAction === "cancel_escrow",
+                    "Cancelling...",
+                  )}
+                </AppButton>
+              </div>
             </div>
           ) : null}
         </EscrowSection>
@@ -298,7 +355,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             <div className="flex flex-wrap gap-2">
               <AppButton
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !actionGuards.submitWork.canAct}
                 onClick={() => void submitWork()}
                 className="disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Submit completed work for client review"
@@ -312,7 +369,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               <AppButton
                 type="button"
                 appVariant="secondary"
-                disabled={isPending}
+                disabled={isPending || !actionGuards.markDisputed.canAct}
                 onClick={() => void markDisputed()}
                 className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Dispute escrow if there are issues"
@@ -331,7 +388,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               <AppButton
                 type="button"
                 appVariant="secondary"
-                disabled={isPending}
+                disabled={isPending || !actionGuards.cancelEscrow.canAct}
                 onClick={() => void cancelEscrow()}
                 className="disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Cancel escrow and refund freelancer"
@@ -341,7 +398,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               <AppButton
                 type="button"
                 appVariant="secondary"
-                disabled={isPending}
+                disabled={isPending || !actionGuards.markDisputed.canAct}
                 onClick={() => void markDisputed()}
                 className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Mark escrow as disputed"
@@ -365,81 +422,23 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           warningText={
             role === "selectedFreelancer"
               ? "Work submitted. Waiting for client to review and approve payment."
-              : usdcTrustline.hasTrustline !== true
-                ? "Enable USDC payments to release funds."
+              : role === "client" && !actionGuards.releasePayment.canAct
+                ? actionGuards.releasePayment.reason
                 : undefined
           }
         >
           {role === "client" ? (
             <>
-              <div className="grid gap-3 sm:max-w-md">
-                <label
-                  htmlFor="release-rating"
-                  className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
-                >
-                  Rating (1–5 stars)
-                  <AppInput
-                    ref={ratingInputRef}
-                    id="release-rating"
-                    type="number"
-                    min={1}
-                    max={5}
-                    value={releaseRating}
-                    disabled={isPending}
-                    onChange={(event) => {
-                      setReleaseRating(Number(event.target.value));
-                      setReleaseInputError(null);
-                    }}
-                    aria-label="Rating for freelancer performance"
-                    aria-errormessage={releaseInputErrorId}
-                    aria-invalid={releaseInputError !== null}
-                  />
-                </label>
-                <label
-                  htmlFor="release-review"
-                  className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
-                >
-                  Feedback (optional)
-                  <AppTextarea
-                    ref={reviewInputRef}
-                    id="release-review"
-                    value={reviewText}
-                    disabled={isPending}
-                    maxLength={1000}
-                    onChange={(event) => {
-                      setReviewText(event.target.value);
-                      setReleaseInputError(null);
-                    }}
-                    rows={3}
-                    placeholder="Share feedback about the work quality"
-                    aria-label="Review text for freelancer work"
-                    aria-errormessage={releaseInputErrorId}
-                    aria-invalid={releaseInputError !== null}
-                  />
-                </label>
-              </div>
-
-              {releaseInputError ? (
-                <p
-                  id={releaseInputErrorId}
-                  className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                  role="alert"
-                  aria-atomic="true"
-                >
-                  {releaseInputError}
-                </p>
-              ) : null}
-
               <div className="flex flex-wrap gap-2">
                 <AppButton
                   type="button"
-                  disabled={isUsdcActionDisabled}
-                  onClick={() => void handleApproveAndRelease()}
+                  disabled={isPending || !actionGuards.releasePayment.canAct}
+                  onClick={() => setIsReleaseDialogOpen(true)}
                   className="disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Approve work and release payment to freelancer"
                 >
                   {getActionButtonLabel(
-                    "Release Payment",
+                    "Review & Release",
                     pendingAction === "release_payment",
                     "Releasing Payment...",
                   )}
@@ -447,7 +446,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 <AppButton
                   type="button"
                   appVariant="secondary"
-                  disabled={isPending}
+                  disabled={isPending || !actionGuards.markDisputed.canAct}
                   onClick={() => void markDisputed()}
                   className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Dispute if work does not meet requirements"
@@ -466,7 +465,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             <AppButton
               type="button"
               appVariant="secondary"
-              disabled={isPending}
+              disabled={isPending || !actionGuards.markDisputed.canAct}
               onClick={() => void markDisputed()}
               className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Dispute escrow if there are concerns"
@@ -479,6 +478,20 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             </AppButton>
           ) : null}
         </EscrowSection>
+      ) : null}
+
+      {role === "client" && escrow?.status === "submitted" ? (
+        <ReleasePaymentDialog
+          isOpen={isReleaseDialogOpen}
+          isSubmitting={isPending && pendingAction === "release_payment"}
+          jobTitle={job.title}
+          freelancerWallet={job.selectedFreelancerWallet ?? "-"}
+          amount={job.budget}
+          asset={job.asset}
+          errorMessage={pendingAction === "release_payment" ? error : null}
+          onOpenChange={setIsReleaseDialogOpen}
+          onConfirm={handleConfirmRelease}
+        />
       ) : null}
 
       {hasReleasedCompletion ? (
@@ -548,7 +561,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         </p>
       ) : null}
 
-      <TransactionStatus error={error} success={success} txExplorerUrl={txExplorerUrl} />
+      <TransactionStatusBanner error={error} success={success} txExplorerUrl={txExplorerUrl} />
     </section>
   );
 }
