@@ -2,20 +2,29 @@
 
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { AppButton } from "@/core/ui/button";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
-import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
+import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
+import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
+import { AlertTriangle } from "lucide-react";
 
 import type { TConvexId } from "@repo/convex-client";
 
 import { ApplicationsList } from "./applications-list";
 import { ApplyToJobForm } from "./apply-to-job-form";
+import { ClientTrustCard } from "./client-trust-card";
 import { EscrowActionPanel } from "./escrow-action-panel";
+import { FreelancerSafetyChecklist } from "./freelancer-safety-checklist";
+import { JobSafetyBadge } from "./job-safety-badge";
+import { ReportJobButton } from "./report-job-button";
 import { StatusBadge } from "./status-badge";
+import { TrustSafetyNotice } from "./trust-safety-notice";
 
 type TEscrowSyncMetadata = {
   lastSyncAt?: number;
@@ -25,6 +34,7 @@ type TEscrowSyncMetadata = {
 };
 
 export function JobDetail({ jobId }: { jobId: string }) {
+  const { address } = useWallet();
   const normalizedJobId = jobId.trim();
   const hasJobId = normalizedJobId.length > 0;
   const convexJobId = normalizedJobId as TConvexId<"jobs">;
@@ -65,6 +75,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const hasReleasedCompletion = mergedEscrow?.status === "released" || job.status === "completed";
   const showPendingSyncState =
     hasReleasedCompletion && mergedEscrow?.status === "released" && !reputationRecord;
+  const safetyStatus = getJobSafetyStatus({ job, escrow: mergedEscrow });
+  const isSelectedConnectedFreelancer = isSameWallet(address, job.selectedFreelancerWallet);
+  const scamAnalysis = analyzeJobScamSignals({
+    title: job.title,
+    description: job.description,
+  });
 
   return (
     <div className="space-y-6">
@@ -81,8 +97,44 @@ export function JobDetail({ jobId }: { jobId: string }) {
       <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-2xl font-semibold text-[#0a0a0a]">Contract Snapshot</h2>
-          <StatusBadge label={job.status} />
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <JobSafetyBadge status={safetyStatus.status} />
+            <StatusBadge label={mergedEscrow?.status ?? job.status} />
+          </div>
         </div>
+
+        <div className="mb-4 space-y-3">
+          <TrustSafetyNotice type="off_platform" />
+          {safetyStatus.status === "unfunded" ? (
+            <TrustSafetyNotice
+              type={isSelectedConnectedFreelancer ? "selected_unfunded" : "unfunded"}
+            />
+          ) : null}
+          {safetyStatus.status === "escrow_created" ? (
+            <TrustSafetyNotice type="selected_unfunded" />
+          ) : null}
+          {safetyStatus.status === "verified_funded" ? (
+            <TrustSafetyNotice type="verified_funded" />
+          ) : null}
+        </div>
+
+        {scamAnalysis.riskLevel !== "low" ? (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4" />
+              Suspicious language detected
+            </div>
+            <p className="mt-1">
+              This job may look suspicious because it asks users to move off-platform or pay
+              upfront.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {scamAnalysis.signals.map((signal) => (
+                <li key={signal.type}>{signal.message}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <p className="mb-5 text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
 
@@ -114,7 +166,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
             <dd className="font-semibold break-all text-[#0a0a0a]">{job.jobHash}</dd>
           </div>
         </dl>
+
+        <div className="mt-5">
+          <ReportJobButton jobId={convexJobId} />
+        </div>
       </section>
+
+      <ClientTrustCard clientWallet={job.clientWallet} />
+
+      <FreelancerSafetyChecklist job={job} escrow={mergedEscrow} connectedWallet={address} />
 
       <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
 

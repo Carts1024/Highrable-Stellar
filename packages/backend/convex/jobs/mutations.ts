@@ -9,6 +9,7 @@ import {
   sanitizeCreateJobArgs,
   sanitizeFreelancerWallet,
 } from "./helpers";
+import { containsDisallowedJobPostLanguage, DISALLOWED_JOB_POST_MESSAGE } from "./scamSignals";
 
 export const createJob = mutation({
   args: {
@@ -21,6 +22,10 @@ export const createJob = mutation({
   },
   handler: async (ctx, args) => {
     const sanitizedArgs = sanitizeCreateJobArgs(args);
+
+    if (containsDisallowedJobPostLanguage(sanitizedArgs)) {
+      throw new ForbiddenError(DISALLOWED_JOB_POST_MESSAGE);
+    }
 
     await ensureUserWithRole(ctx, sanitizedArgs.clientWallet, "client");
 

@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
+import { TrustSafetyNotice } from "./trust-safety-notice";
+
 const APPLY_PROPOSAL_SCHEMA = z
   .string()
   .transform(sanitizeMultilineInput)
@@ -97,6 +99,10 @@ export function ApplyToJobForm({
 
   return (
     <form onSubmit={handleApply} className="rounded-xl border border-gray-200 bg-white p-4">
+      <TrustSafetyNotice type="unfunded" compact className="mb-3" />
+      <p className="mb-3 text-sm text-[#5f5f5f]">
+        Only start work after this job shows Verified Funded.
+      </p>
       <label htmlFor="apply-proposal" className="mb-2 block text-sm font-medium text-gray-700">
         Write a short proposal
       </label>

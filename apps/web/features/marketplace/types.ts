@@ -1,3 +1,5 @@
+import type { TConvexDoc } from "@repo/convex-client";
+
 export type TJobStatus =
   | "open"
   | "selected"
@@ -34,4 +36,9 @@ export type TCreateJobFormErrors = {
 
 export type TApplyFormState = {
   proposal: string;
+};
+
+export type TMarketplaceJobRow = {
+  job: TConvexDoc<"jobs">;
+  escrow: TConvexDoc<"escrows"> | null;
 };

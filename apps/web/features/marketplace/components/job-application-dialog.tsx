@@ -3,6 +3,7 @@
 import { AppButton } from "@/core/ui/button";
 import { AppTextarea } from "@/core/ui/textarea";
 import { sanitizeMultilineInput } from "@/features/common";
+import { TrustSafetyNotice } from "@/features/marketplace/components/trust-safety-notice";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,11 @@ export function JobApplicationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <TrustSafetyNotice type="unfunded" compact />
+          <p className="text-sm text-[#5f5f5f]">
+            Only start work after this job shows Verified Funded.
+          </p>
+
           <div className="space-y-2">
             <label
               htmlFor="job-application-proposal"

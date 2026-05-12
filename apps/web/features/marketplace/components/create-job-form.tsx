@@ -14,6 +14,10 @@ import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-tr
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import {
+  analyzeJobScamSignals,
+  DISALLOWED_JOB_POST_MESSAGE,
+} from "@/features/marketplace/lib/scam-signals";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
@@ -89,6 +93,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   });
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const scamAnalysis = useMemo(
+    () =>
+      analyzeJobScamSignals({
+        title: sanitizeSingleLineInput(formState.title),
+        description: sanitizeMultilineInput(formState.description),
+      }),
+    [formState.description, formState.title],
+  );
 
   const helperText = useMemo(() => {
     if (isStablecoinConfigured && stablecoinConfig.tokenContractId) {
@@ -145,6 +157,17 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       }
 
       const payload: TCreateJobPayload = parsed.data;
+      const parsedScamAnalysis = analyzeJobScamSignals({
+        title: payload.title,
+        description: payload.description,
+      });
+
+      if (parsedScamAnalysis.isBlocked) {
+        setErrors({ submit: DISALLOWED_JOB_POST_MESSAGE });
+        setIsSubmitting(false);
+        return;
+      }
+
       const createdJobId = await createJob({
         title: payload.title,
         description: payload.description,
@@ -236,6 +259,34 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <p className="mt-1 text-xs text-red-600">{errors.description}</p>
           ) : null}
         </div>
+
+        {scamAnalysis.signals.length > 0 ? (
+          <div
+            className={`rounded-xl border p-3 text-sm ${
+              scamAnalysis.isBlocked
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+            role={scamAnalysis.isBlocked ? "alert" : "note"}
+          >
+            <p className="font-semibold">
+              {scamAnalysis.isBlocked
+                ? DISALLOWED_JOB_POST_MESSAGE
+                : "This job post contains language that may look suspicious to freelancers."}
+            </p>
+            {!scamAnalysis.isBlocked ? (
+              <p className="mt-1">
+                This job may look suspicious because it asks users to move off-platform or pay
+                upfront.
+              </p>
+            ) : null}
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {scamAnalysis.signals.map((signal) => (
+                <li key={signal.type}>{signal.message}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

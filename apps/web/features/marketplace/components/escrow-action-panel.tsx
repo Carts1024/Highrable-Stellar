@@ -18,6 +18,7 @@ import {
   getMarketplaceStatus,
   getMarketplaceStatusMeta,
 } from "@/features/marketplace/lib/escrow-status";
+import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -25,9 +26,11 @@ import { useMemo, useState } from "react";
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { EscrowSection } from "./escrow-section";
+import { JobSafetyBadge } from "./job-safety-badge";
 import { ReleasePaymentDialog } from "./release-payment-dialog";
 import { StatusBadge } from "./status-badge";
 import { TransactionStatusBanner } from "./transaction-status-banner";
+import { TrustSafetyNotice } from "./trust-safety-notice";
 import { TrustWarning } from "./trust-warning";
 
 interface IEscrowActionPanelProps {
@@ -74,6 +77,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
+  const safetyStatus = getJobSafetyStatus({ job, escrow });
   const actionGuards = useMemo(
     () => ({
       createEscrow: getEscrowActionGuard({
@@ -245,10 +249,30 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Management</h2>
-        <StatusBadge label={currentStatus} />
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <JobSafetyBadge status={safetyStatus.status} />
+          <StatusBadge label={currentStatus} />
+        </div>
       </div>
 
       <p className="text-sm text-[#5f5f5f]">{currentStatusMeta.description}</p>
+      {safetyStatus.status === "unfunded" ? (
+        <TrustSafetyNotice
+          type={role === "selectedFreelancer" ? "selected_unfunded" : "unfunded"}
+          compact
+          className="mt-3"
+        />
+      ) : null}
+      {safetyStatus.status === "escrow_created" ? (
+        <TrustSafetyNotice
+          type={role === "client" ? "client_funding" : "selected_unfunded"}
+          compact
+          className="mt-3"
+        />
+      ) : null}
+      {safetyStatus.status === "verified_funded" ? (
+        <TrustSafetyNotice type="verified_funded" compact className="mt-3" />
+      ) : null}
       {currentStatusMeta.trustWarning ? (
         <TrustWarning className="mt-2" message={currentStatusMeta.trustWarning} />
       ) : null}
@@ -368,6 +392,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         >
           {role === "client" ? (
             <div className="space-y-3">
+              <TrustSafetyNotice type="client_funding" compact />
               <StablecoinBalancePanel
                 walletAddress={address}
                 requiredAmount={job.budget}

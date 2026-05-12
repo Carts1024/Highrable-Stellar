@@ -4,33 +4,54 @@ import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import {
+  compareJobsBySafetyThenNewest,
+  getJobSafetyStatus,
+} from "@/features/marketplace/lib/job-safety";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { CreateJobForm } from "./components/create-job-form";
 import { JobApplicationDialog } from "./components/job-application-dialog";
 import { JobList } from "./components/job-list";
 
+type TMarketplaceFilter = "all" | "verified_funded";
+
 export function MarketplacePage() {
   const router = useRouter();
   const { address, isConnected } = useWallet();
-  const jobs = useQuery(api.jobs.listOpenJobs, {});
+  const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [selectedJobForApplyId, setSelectedJobForApplyId] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<TMarketplaceFilter>("all");
 
-  const selectedJobForApply = jobs?.find((job) => job._id === selectedJobForApplyId) ?? null;
+  const visibleRows = useMemo(() => {
+    if (!marketplaceRows) {
+      return marketplaceRows;
+    }
+
+    return marketplaceRows
+      .filter((row) => {
+        const safetyStatus = getJobSafetyStatus(row);
+        return filter === "all" || safetyStatus.status === "verified_funded";
+      })
+      .sort(compareJobsBySafetyThenNewest);
+  }, [marketplaceRows, filter]);
+
+  const selectedJobForApply =
+    marketplaceRows?.find((row) => row.job._id === selectedJobForApplyId)?.job ?? null;
 
   const openApplyDialogFromList = (jobId: string) => {
-    if (!address || !jobs) {
+    if (!address || !marketplaceRows) {
       return;
     }
 
-    const selectedJob = jobs.find((job) => job._id === jobId);
+    const selectedJob = marketplaceRows.find((row) => row.job._id === jobId)?.job;
     if (!selectedJob) {
       return;
     }
@@ -95,9 +116,31 @@ export function MarketplacePage() {
       {applyError ? <p className="text-sm text-red-600">{applyError}</p> : null}
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-gray-900">Open Jobs</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Active Marketplace Jobs</h2>
+          <div className="inline-flex rounded-lg border border-[#e8e8e8] bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                filter === "all" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
+              }`}
+            >
+              All active jobs
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("verified_funded")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                filter === "verified_funded" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
+              }`}
+            >
+              Verified Funded
+            </button>
+          </div>
+        </div>
         <JobList
-          jobs={jobs}
+          jobs={visibleRows}
           connectedWallet={address}
           onApply={openApplyDialogFromList}
           applyingJobId={applyingJobId}
