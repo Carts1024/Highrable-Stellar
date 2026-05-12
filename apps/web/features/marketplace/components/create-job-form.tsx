@@ -1,6 +1,12 @@
 "use client";
 
-import { STABLECOIN_TOKEN_CONTRACT_ID } from "@/core/config/stellar-contracts";
+import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
+import { parseHumanAmount } from "@/core/stellar/amounts";
+import {
+  hasStablecoinConfig,
+  stablecoinConfig,
+  validateStablecoinConfig,
+} from "@/core/stellar/stablecoin-config";
 import { AppButton } from "@/core/ui/button";
 import { AppInput } from "@/core/ui/input";
 import { AppTextarea } from "@/core/ui/textarea";
@@ -15,7 +21,8 @@ import { z } from "zod";
 
 import type { TCreateJobFormErrors, TCreateJobFormState } from "@/features/marketplace/types";
 
-const DEFAULT_STABLECOIN_ASSET = STABLECOIN_TOKEN_CONTRACT_ID ?? "";
+const DEFAULT_STABLECOIN_ASSET = stablecoinConfig.tokenContractId ?? "";
+const MAX_HUMAN_BUDGET = 10_000_000;
 
 const CREATE_JOB_SCHEMA = z.object({
   title: z
@@ -32,11 +39,12 @@ const CREATE_JOB_SCHEMA = z.object({
     .string()
     .transform(sanitizeSingleLineInput)
     .pipe(z.string().min(1, "Budget is required."))
-    .transform((value) => Number.parseFloat(value))
+    .transform((value) => parseHumanAmount(value))
+    .transform((value) => Number(value))
     .refine((value) => Number.isFinite(value) && value > 0, {
       message: "Budget must be greater than zero.",
     })
-    .refine((value) => value <= 10_000_000, {
+    .refine((value) => value <= MAX_HUMAN_BUDGET, {
       message: "Budget exceeds the allowed range.",
     }),
   asset: z
@@ -71,6 +79,8 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
 export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
   const { address, isConnected, walletState } = useWallet();
   const createJob = useMutation(api.jobs.createJob);
+  const stablecoinValidation = useMemo(() => validateStablecoinConfig(), []);
+  const isStablecoinConfigured = useMemo(() => hasStablecoinConfig(), []);
   const [formState, setFormState] = useState<TCreateJobFormState>({
     title: "",
     description: "",
@@ -81,12 +91,20 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const helperText = useMemo(() => {
-    if (DEFAULT_STABLECOIN_ASSET) {
-      return "Mock USDC / Stablecoin token contract ID is prefilled from config.";
+    if (isStablecoinConfigured && stablecoinConfig.tokenContractId) {
+      return `${stablecoinConfig.symbol} is configured for MVP escrow payments (${shortenContractId(
+        stablecoinConfig.tokenContractId,
+      )}).`;
     }
 
-    return "Use the mock USDC token contract ID after deployment.";
-  }, []);
+    return "Enter the stablecoin token contract ID only if you need an off-chain draft before central config is set.";
+  }, [isStablecoinConfigured]);
+
+  const budgetHelperText = useMemo(
+    () =>
+      "This amount will be locked in Stellar escrow after the client funds the contract.",
+    [],
+  );
 
   const updateField = (field: keyof TCreateJobFormState, value: string) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
@@ -98,6 +116,15 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
     if (!isConnected || !address) {
       setErrors({ submit: "Connect wallet to create a job." });
+      return;
+    }
+
+    if (!isStablecoinConfigured && !formState.asset.trim()) {
+      setErrors({
+        asset:
+          stablecoinValidation.message ??
+          "Payment asset is required until stablecoin configuration is set.",
+      });
       return;
     }
 
@@ -147,8 +174,15 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
       <h2 className="text-xl font-semibold text-gray-900">Post a freelance job</h2>
       <p className="mt-1 text-sm text-gray-600">
-        Create off-chain job terms now. Smart contract actions will be enabled in the next phase.
+        Define escrow-ready job terms with the configured stablecoin payment asset for the MVP.
       </p>
+
+      {!isStablecoinConfigured ? (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Stablecoin token is not configured. You can create off-chain jobs, but escrow funding
+          will be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set.
+        </p>
+      ) : null}
 
       {!isConnected ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -214,14 +248,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             </label>
             <AppInput
               id="marketplace-job-budget"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={formState.budget}
               onChange={(event) => updateField("budget", event.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
               placeholder="500"
             />
+            <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
             {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
           </div>
 
@@ -232,14 +266,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             >
               Payment asset
             </label>
-            <AppInput
-              id="marketplace-job-asset"
-              value={formState.asset}
-              onChange={(event) => updateField("asset", event.target.value)}
-              maxLength={255}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
-              placeholder="Mock USDC token contract ID"
-            />
+            {isStablecoinConfigured ? (
+              <div className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900">
+                <p className="font-medium text-[#0a0a0a]">
+                  Payment asset: {formatAssetLabel(stablecoinConfig.tokenContractId ?? "")}
+                </p>
+                <p className="mt-1 break-all font-mono text-xs text-[#5f5f5f]">
+                  {stablecoinConfig.tokenContractId}
+                </p>
+              </div>
+            ) : (
+              <AppInput
+                id="marketplace-job-asset"
+                value={formState.asset}
+                onChange={(event) => updateField("asset", event.target.value)}
+                maxLength={255}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                placeholder="Stablecoin token contract ID"
+              />
+            )}
             <p className="mt-1 text-xs text-gray-500">{helperText}</p>
             {errors.asset ? <p className="mt-1 text-xs text-red-600">{errors.asset}</p> : null}
           </div>

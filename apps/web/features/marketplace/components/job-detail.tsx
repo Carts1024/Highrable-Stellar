@@ -1,8 +1,10 @@
 "use client";
 
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { AppButton } from "@/core/ui/button";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { formatAmount } from "@/features/dashboard/lib/format";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -87,11 +89,13 @@ export function JobDetail({ jobId }: { jobId: string }) {
         <dl className="grid gap-4 text-sm text-[#5f5f5f] sm:grid-cols-2">
           <div>
             <dt className="text-[#7f7f7f]">Budget</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{job.budget.toLocaleString()}</dd>
+            <dd className="font-semibold text-[#0a0a0a]">
+              {formatAmount(job.budget)} {formatAssetLabel(job.asset)}
+            </dd>
           </div>
           <div>
             <dt className="text-[#7f7f7f]">Asset</dt>
-            <dd className="font-semibold break-all text-[#0a0a0a]">{job.asset}</dd>
+            <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
           </div>
           <div>
             <dt className="text-[#7f7f7f]">Client wallet</dt>

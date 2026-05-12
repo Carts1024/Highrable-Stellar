@@ -13,8 +13,8 @@ import {
 } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
-import { hasUsdcTrustline, normalizeUsdcTrustlineError } from "@/core/stellar/trustline";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
   getEscrowActionGuard,
@@ -88,12 +88,10 @@ export function useEscrowActions({
   job,
   escrow,
   applications,
-  hasUsdcPaymentsEnabled,
 }: {
   job: TConvexDoc<"jobs">;
   escrow: TConvexDoc<"escrows"> | null | undefined;
   applications: TConvexDoc<"applications">[];
-  hasUsdcPaymentsEnabled?: boolean | null;
 }) {
   const { address, walletState, signTransaction } = useWallet();
   const createTransaction = useMutation(api.transactions.createTransaction);
@@ -141,7 +139,9 @@ export function useEscrowActions({
       }
 
       if (!isSameWallet(job.asset, config.stablecoinTokenContractId)) {
-        throw new Error("Job asset does not match the configured USDC token contract ID.");
+        throw new Error(
+          "This job's payment asset does not match the configured MVP stablecoin.",
+        );
       }
 
       if (!job.jobHash) {
@@ -159,7 +159,6 @@ export function useEscrowActions({
           isFunded: walletState.isFunded,
           canWriteContracts: walletState.canWriteContracts,
         },
-        hasUsdcPaymentsEnabled,
       });
 
       if (!guardResult.canAct) {
@@ -170,7 +169,6 @@ export function useEscrowActions({
     },
     [
       address,
-      hasUsdcPaymentsEnabled,
       job,
       role,
       walletState.isConnected,
@@ -325,7 +323,9 @@ export function useEscrowActions({
       });
 
       if (stablecoinBalance < requiredBalance) {
-        throw new Error("Connected wallet does not have enough mock USDC stablecoin balance.");
+        throw new Error(
+          `You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`,
+        );
       }
 
       const result = await fundEscrowOnChain({
@@ -407,15 +407,6 @@ export function useEscrowActions({
         }
 
         requireRating(rating);
-
-        try {
-          const freelancerReady = await hasUsdcTrustline(job.selectedFreelancerWallet!);
-          if (!freelancerReady) {
-            throw new Error("The freelancer must enable USDC payments before release.");
-          }
-        } catch (error) {
-          throw normalizeUsdcTrustlineError(error);
-        }
 
         const normalizedReviewText = reviewText.trim();
         const reviewSource = normalizedReviewText || "Highrable MVP verified review";

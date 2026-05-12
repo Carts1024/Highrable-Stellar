@@ -11,6 +11,8 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_CONVEX_URL: string;
   readonly NEXT_PUBLIC_STABLECOIN_ASSET_CODE: string;
   readonly NEXT_PUBLIC_STABLECOIN_ISSUER: string;
+  readonly NEXT_PUBLIC_STABLECOIN_SYMBOL?: string;
+  readonly NEXT_PUBLIC_STABLECOIN_DECIMALS?: number;
   readonly NEXT_PUBLIC_APP_DOMAIN: string;
   readonly NEXT_PUBLIC_REPUTATION_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_ESCROW_CONTRACT_ID?: string;
@@ -49,6 +51,8 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STABLECOIN_ISSUER: TStellarPublicKeySchema.default(
     "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
   ),
+  NEXT_PUBLIC_STABLECOIN_SYMBOL: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_STABLECOIN_DECIMALS: z.coerce.number().int().min(0).max(18).optional(),
   NEXT_PUBLIC_APP_DOMAIN: z.string().min(1).default("localhost"),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
@@ -77,6 +81,8 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
     NEXT_PUBLIC_STABLECOIN_ASSET_CODE: process.env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE,
     NEXT_PUBLIC_STABLECOIN_ISSUER: process.env.NEXT_PUBLIC_STABLECOIN_ISSUER,
+    NEXT_PUBLIC_STABLECOIN_SYMBOL: process.env.NEXT_PUBLIC_STABLECOIN_SYMBOL,
+    NEXT_PUBLIC_STABLECOIN_DECIMALS: process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS,
     NEXT_PUBLIC_APP_DOMAIN: process.env.NEXT_PUBLIC_APP_DOMAIN,
     NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID,
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
@@ -104,12 +110,10 @@ export const env: IServerEnv = validateEnv();
 export function ensureContractConfig(): {
   reputationContractId: string;
   escrowContractId: string;
-  stablecoinTokenContractId: string;
 } {
   const missing = [
     !env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID && "NEXT_PUBLIC_REPUTATION_CONTRACT_ID",
     !env.NEXT_PUBLIC_ESCROW_CONTRACT_ID && "NEXT_PUBLIC_ESCROW_CONTRACT_ID",
-    !env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID && "NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID",
   ].filter(Boolean);
 
   if (missing.length > 0) {
@@ -119,6 +123,5 @@ export function ensureContractConfig(): {
   return {
     reputationContractId: env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID!,
     escrowContractId: env.NEXT_PUBLIC_ESCROW_CONTRACT_ID!,
-    stablecoinTokenContractId: env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID!,
   };
 }

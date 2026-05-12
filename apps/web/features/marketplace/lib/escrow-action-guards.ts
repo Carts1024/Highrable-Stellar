@@ -28,7 +28,6 @@ type TEscrowActionGuardInput = {
   job: TConvexDoc<"jobs">;
   escrow: TConvexDoc<"escrows"> | null | undefined;
   wallet: TWalletActionContext;
-  hasUsdcPaymentsEnabled?: boolean | null;
 };
 
 function blocked(reason: string, warning: string | null = null): TEscrowActionGuardResult {
@@ -99,10 +98,6 @@ export function getEscrowActionGuard(input: TEscrowActionGuardInput): TEscrowAct
         return blocked("Escrow must be in Created state before funding.");
       }
 
-      if (input.hasUsdcPaymentsEnabled !== true) {
-        return blocked("Enable USDC payments in your wallet before funding escrow.");
-      }
-
       return allowed("Funding locks payment on Stellar so the freelancer can safely begin work.");
     }
 
@@ -125,10 +120,6 @@ export function getEscrowActionGuard(input: TEscrowActionGuardInput): TEscrowAct
 
       if (!input.escrow || input.escrow.status !== "submitted") {
         return blocked("Payment can be released only after submitted work is reviewed.");
-      }
-
-      if (input.hasUsdcPaymentsEnabled !== true) {
-        return blocked("Enable USDC payments in your wallet before releasing payment.");
       }
 
       return allowed();

@@ -1,5 +1,8 @@
 "use client";
 
+import { formatAssetLabel } from "@/core/stellar/assets";
+import { formatTokenAmount } from "@/core/stellar/amounts";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { AppButton } from "@/core/ui/button";
 import { AppInput } from "@/core/ui/input";
 import { AppTextarea } from "@/core/ui/textarea";
@@ -104,10 +107,11 @@ export function ReleasePaymentDialog({
             {shortenWalletAddress(freelancerWallet)}
           </p>
           <p>
-            <span className="font-medium text-[#0a0a0a]">Amount:</span> {amount} USDC
+            <span className="font-medium text-[#0a0a0a]">Amount:</span>{" "}
+            {formatTokenAmount(amount, formatAssetLabel(asset), stablecoinConfig.decimals)}
           </p>
           <p>
-            <span className="font-medium text-[#0a0a0a]">Asset:</span> {shortenWalletAddress(asset)}
+            <span className="font-medium text-[#0a0a0a]">Asset:</span> {formatAssetLabel(asset)}
           </p>
         </div>
 

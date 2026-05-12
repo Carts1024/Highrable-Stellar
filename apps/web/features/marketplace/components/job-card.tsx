@@ -1,4 +1,6 @@
 import { AppButton } from "@/core/ui/button";
+import { formatAssetLabel } from "@/core/stellar/assets";
+import { formatAmount } from "@/features/dashboard/lib/format";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import Link from "next/link";
 
@@ -32,11 +34,13 @@ export function JobCard({
       <dl className="grid grid-cols-1 gap-3 text-sm text-[#5f5f5f] sm:grid-cols-2">
         <div>
           <dt className="text-[#7f7f7f]">Budget</dt>
-          <dd className="font-semibold text-[#0a0a0a]">{job.budget.toLocaleString()}</dd>
+          <dd className="font-semibold text-[#0a0a0a]">
+            {formatAmount(job.budget)} {formatAssetLabel(job.asset)}
+          </dd>
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Asset</dt>
-          <dd className="font-semibold break-all text-[#0a0a0a]">{job.asset}</dd>
+          <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Client wallet</dt>

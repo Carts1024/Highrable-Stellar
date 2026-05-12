@@ -1,8 +1,13 @@
 "use client";
 
-import { UsdcOnboardingCard } from "@/core/stellar/components/usdc-onboarding-card";
+import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
+import { formatAssetLabel, isConfiguredStablecoin } from "@/core/stellar/assets";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
-import { useUsdcTrustline } from "@/core/stellar/hooks/use-usdc-trustline";
+import {
+  hasStablecoinConfig,
+  stablecoinConfig,
+  validateStablecoinConfig,
+} from "@/core/stellar/stablecoin-config";
 import { AppButton } from "@/core/ui/button";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
@@ -21,7 +26,6 @@ import type { TConvexDoc } from "@repo/convex-client";
 
 import { EscrowSection } from "./escrow-section";
 import { ReleasePaymentDialog } from "./release-payment-dialog";
-import { StablecoinReadinessCard } from "./stablecoin-readiness-card";
 import { StatusBadge } from "./status-badge";
 import { TransactionStatusBanner } from "./transaction-status-banner";
 import { TrustWarning } from "./trust-warning";
@@ -39,8 +43,7 @@ function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: s
 export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPanelProps) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
-  const { address, walletState, fundTestnetAccount } = useWallet();
-  const usdcTrustline = useUsdcTrustline(address);
+  const { address, walletState } = useWallet();
   const reputationRecord = useQuery(
     api.reputation.getReputationByEscrowId,
     escrow?.escrowId ? { escrowId: escrow.escrowId } : "skip",
@@ -63,8 +66,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     job,
     escrow,
     applications,
-    hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
   });
+
+  const isStablecoinConfigured = hasStablecoinConfig();
+  const stablecoinConfigValidation = validateStablecoinConfig();
+  const isJobAssetConfiguredStablecoin = isConfiguredStablecoin(job.asset);
 
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
@@ -93,7 +99,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           isFunded: walletState.isFunded,
           canWriteContracts: walletState.canWriteContracts,
         },
-        hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
       }),
       submitWork: getEscrowActionGuard({
         action: "submit_work",
@@ -118,7 +123,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           isFunded: walletState.isFunded,
           canWriteContracts: walletState.canWriteContracts,
         },
-        hasUsdcPaymentsEnabled: usdcTrustline.hasTrustline,
       }),
       cancelEscrow: getEscrowActionGuard({
         action: "cancel_escrow",
@@ -149,32 +153,76 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       escrow,
       job,
       role,
-      usdcTrustline.hasTrustline,
       walletState.isConnected,
       walletState.canWriteContracts,
       walletState.isFunded,
       walletState.isTestnet,
     ],
   );
-  const showUsdcOnboarding =
-    walletState.isConnected && (usdcTrustline.isChecking || usdcTrustline.hasTrustline === false);
   const stablecoinReadiness = useStablecoinReadiness({
     walletAddress: address,
     requiredAmount: job.budget,
+    tokenContractId: job.asset || stablecoinConfig.tokenContractId,
     enabled:
       currentStatus === "created" &&
       role === "client" &&
       walletState.isConnected &&
-      walletState.isTestnet &&
-      usdcTrustline.hasTrustline === true,
+      walletState.isTestnet,
   });
   const isFundEscrowDisabled =
     isPending ||
     !actionGuards.fundEscrow.canAct ||
+    !isStablecoinConfigured ||
+    !isJobAssetConfiguredStablecoin ||
+    stablecoinReadiness.isLoading ||
+    stablecoinReadiness.requiredAmountAtomic === null ||
+    stablecoinReadiness.error !== null ||
     stablecoinReadiness.hasSufficientBalance === false;
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
+  const readinessChecklist = [
+    {
+      label: "Stellar network",
+      isReady: walletState.isTestnet,
+      value: walletState.isTestnet ? "testnet" : "not testnet",
+    },
+    {
+      label: "Stablecoin token configured",
+      isReady: isStablecoinConfigured,
+      value: isStablecoinConfigured
+        ? formatAssetLabel(stablecoinConfig.tokenContractId ?? "")
+        : "missing",
+    },
+    {
+      label: "Wallet connected",
+      isReady: walletState.isConnected,
+      value: walletState.isConnected ? "connected" : "not connected",
+    },
+    {
+      label: "Wallet has testnet XLM",
+      isReady: walletState.isFunded !== false,
+      value: walletState.isFunded === false ? "missing" : "ready",
+    },
+    {
+      label: "Job uses MVP stablecoin",
+      isReady: isJobAssetConfiguredStablecoin,
+      value: formatAssetLabel(job.asset),
+    },
+    {
+      label: "Escrow amount valid",
+      isReady: stablecoinReadiness.requiredAmountAtomic !== null,
+      value: stablecoinReadiness.requiredAmountDisplay ?? "invalid",
+    },
+    {
+      label: `Enough ${stablecoinConfig.symbol}`,
+      isReady:
+        stablecoinReadiness.hasSufficientBalance === null
+          ? stablecoinReadiness.error === null
+          : stablecoinReadiness.hasSufficientBalance,
+      value: stablecoinReadiness.balanceDisplay ?? "unknown",
+    },
+  ];
 
   const handleConfirmRelease = async ({
     rating,
@@ -205,18 +253,42 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         <TrustWarning className="mt-2" message={currentStatusMeta.trustWarning} />
       ) : null}
 
-      {showUsdcOnboarding ? (
-        <div className="mb-4">
-          <UsdcOnboardingCard
-            isChecking={usdcTrustline.isChecking}
-            isEnabling={usdcTrustline.isEnabling}
-            isEnabled={usdcTrustline.hasTrustline === true}
-            error={usdcTrustline.error}
-            isWalletFunded={walletState.isFunded}
-            onEnable={() => void usdcTrustline.enableUsdcPayments()}
-            onFundTestnetAccount={() => void fundTestnetAccount()}
-            onRefresh={() => void usdcTrustline.refreshTrustlineStatus()}
+      <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+        <h3 className="text-sm font-semibold text-[#0a0a0a]">Stablecoin readiness checklist</h3>
+        <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          {readinessChecklist.map((item) => (
+            <li
+              key={item.label}
+              className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-[#5f5f5f]"
+            >
+              <span className={`mr-2 font-medium ${item.isReady ? "text-emerald-700" : "text-red-700"}`}>
+                {item.isReady ? "Ready" : "Blocked"}
+              </span>
+              <span className="text-[#0a0a0a]">{item.label}:</span> {item.value}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-[#5f5f5f]">
+          Trustlines are treated as legacy wallet infrastructure in this MVP. Escrow readiness is
+          determined by the configured stablecoin token, wallet balance, and Stellar testnet fee
+          funding.
+        </p>
+      </div>
+
+      {!isStablecoinConfigured ? (
+        <div className="mt-4">
+          <TrustWarning
+            message={
+              stablecoinConfigValidation.message ??
+              "Stablecoin token contract is not configured."
+            }
           />
+        </div>
+      ) : null}
+
+      {isStablecoinConfigured && !isJobAssetConfiguredStablecoin ? (
+        <div className="mt-4">
+          <TrustWarning message="This job uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
         </div>
       ) : null}
 
@@ -280,8 +352,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           warningText={
             role === "selectedFreelancer"
               ? "Escrow created. Waiting for client to fund and confirm work can begin."
+              : role === "client" && !isStablecoinConfigured
+                ? stablecoinConfigValidation.message
+                : role === "client" && !isJobAssetConfiguredStablecoin
+                  ? "This job uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety."
               : role === "client" && stablecoinReadiness.hasSufficientBalance === false
-                ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} USDC.`
+                ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`
                 : role === "client" && stablecoinReadiness.error
                   ? stablecoinReadiness.error
                   : role === "client" && !actionGuards.fundEscrow.canAct
@@ -291,18 +367,14 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         >
           {role === "client" ? (
             <div className="space-y-3">
-              {usdcTrustline.hasTrustline === true ? (
-                <StablecoinReadinessCard
-                  requiredAmount={stablecoinReadiness.requiredAmountDisplay}
-                  walletBalance={stablecoinReadiness.balanceDisplay}
-                  deficitAmount={stablecoinReadiness.deficitDisplay}
-                  hasSufficientBalance={stablecoinReadiness.hasSufficientBalance}
-                  isLoading={stablecoinReadiness.isLoading}
-                  error={stablecoinReadiness.error}
-                  onRefresh={() => void stablecoinReadiness.refresh()}
-                  isRefreshDisabled={isPending}
-                />
-              ) : null}
+              <StablecoinBalancePanel
+                walletAddress={address}
+                requiredAmount={job.budget}
+                tokenContractId={job.asset || stablecoinConfig.tokenContractId}
+                enabled={currentStatus === "created" && role === "client"}
+                readinessState={stablecoinReadiness}
+                isRefreshDisabled={isPending}
+              />
 
               <div className="flex flex-wrap gap-2">
                 <AppButton
