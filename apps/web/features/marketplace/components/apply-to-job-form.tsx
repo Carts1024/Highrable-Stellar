@@ -1,13 +1,13 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
-import { AppTextarea } from "@/core/ui/textarea";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { sanitizeMultilineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { z } from "zod";

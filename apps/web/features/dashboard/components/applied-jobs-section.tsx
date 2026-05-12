@@ -1,9 +1,9 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerAppliedJobs } from "@/features/dashboard/hooks/use-freelancer-applied-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Card,
   CardContent,
@@ -82,7 +82,7 @@ export function AppliedJobsSection() {
                     {item.proposalPreview || "-"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <AppButton asChild appVariant="secondary" className="h-8 px-3 text-xs">
+                    <AppButton asChild variant="secondary" className="h-8 px-3 text-xs">
                       <Link href={`/marketplace/jobs/${item.jobId}`}>
                         <BriefcaseBusiness className="h-3.5 w-3.5" />
                         View
@@ -98,7 +98,7 @@ export function AppliedJobsSection() {
       {(canLoadMore || isLoadingMore) && (
         <CardFooter className="justify-end border-t pt-4">
           <AppButton
-            appVariant="secondary"
+            variant="secondary"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
           >

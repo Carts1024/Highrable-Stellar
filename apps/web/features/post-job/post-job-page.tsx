@@ -1,10 +1,10 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
 import { CreateJobForm } from "@/features/marketplace/components/create-job-form";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -25,10 +25,10 @@ export function PostJobPage() {
         description="Define job scope, budget, and payment asset. Once submitted, applicants can apply and the selected freelancer can move into the escrow execution flow."
         actions={
           <>
-            <AppButton asChild appVariant="secondary">
+            <AppButton asChild variant="secondary">
               <Link href="/jobs">Browse Open Jobs</Link>
             </AppButton>
-            <AppButton asChild appVariant="ghost">
+            <AppButton asChild variant="ghost">
               <Link href="/marketplace">Open Marketplace</Link>
             </AppButton>
           </>

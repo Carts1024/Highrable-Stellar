@@ -1,4 +1,5 @@
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
+import { Badge } from "@repo/ui/components/ui/badge";
 
 import type { TMarketplaceStatus } from "@/features/marketplace/lib/escrow-status";
 
@@ -16,13 +17,14 @@ export function StatusBadge({ label, ariaLabel }: IStatusBadgeProps) {
   const accessibleLabel = ariaLabel ?? `Status: ${meta.label}`;
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase ${meta.badgeClassName}`}
+    <Badge
+      variant="outline"
+      className={`font-mono text-[0.65rem] tracking-[0.06em] uppercase ${meta.badgeClassName}`}
       role="status"
       aria-label={accessibleLabel}
       title={meta.description}
     >
       {meta.label}
-    </span>
+    </Badge>
   );
 }

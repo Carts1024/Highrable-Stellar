@@ -1,10 +1,10 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 
@@ -110,7 +110,7 @@ export function ApplicationsList({
                 type="button"
                 onClick={() => void handleSelectFreelancer(application.freelancerWallet)}
                 disabled={selectingWallet === application.freelancerWallet}
-                appVariant="secondary"
+                variant="secondary"
                 className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label={`Select ${shortenWalletAddress(application.freelancerWallet)} as freelancer for ${job.title}`}
                 aria-busy={selectingWallet === application.freelancerWallet}

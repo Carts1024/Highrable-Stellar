@@ -1,10 +1,18 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
-import { AppTextarea } from "@/core/ui/textarea";
 import { sanitizeMultilineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { api } from "@repo/convex-client";
+import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/ui/select";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -106,18 +114,21 @@ export function ReportJobDialog({
             <label htmlFor="report-job-reason" className="block text-sm font-medium text-[#0a0a0a]">
               Reason
             </label>
-            <select
-              id="report-job-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value as TReportReason)}
-              className="h-11 w-full rounded-lg border border-[#e8e8e8] bg-white px-3 text-sm text-[#0a0a0a] outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
-            >
-              {REPORT_REASONS.map((reportReason) => (
-                <option key={reportReason.value} value={reportReason.value}>
-                  {reportReason.label}
-                </option>
-              ))}
-            </select>
+            <Select value={reason} onValueChange={(value) => setReason(value as TReportReason)}>
+              <SelectTrigger
+                id="report-job-reason"
+                className="h-11 w-full border-[#e8e8e8] bg-white text-[#0a0a0a] focus-visible:border-[#FF7003] focus-visible:ring-[#FF7003]/20"
+              >
+                <SelectValue placeholder="Choose a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                {REPORT_REASONS.map((reportReason) => (
+                  <SelectItem key={reportReason.value} value={reportReason.value}>
+                    {reportReason.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
@@ -141,13 +152,13 @@ export function ReportJobDialog({
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
+            <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-700">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <AppButton type="button" appVariant="secondary" onClick={() => onOpenChange(false)}>
+            <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </AppButton>
             <AppButton type="submit" disabled={isSubmitting}>

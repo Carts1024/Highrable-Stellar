@@ -3,11 +3,11 @@
 import { formatTokenAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
-import { AppButton } from "@/core/ui/button";
-import { AppInput } from "@/core/ui/input";
-import { AppTextarea } from "@/core/ui/textarea";
 import { sanitizeMultilineInput } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Input as AppInput } from "@repo/ui/components/ui/input";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -165,7 +165,7 @@ export function ReleasePaymentDialog({
           <div className="flex justify-end gap-2">
             <AppButton
               type="button"
-              appVariant="secondary"
+              variant="secondary"
               disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >

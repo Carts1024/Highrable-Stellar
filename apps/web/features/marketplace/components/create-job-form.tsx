@@ -7,9 +7,6 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
-import { AppButton } from "@/core/ui/button";
-import { AppInput } from "@/core/ui/input";
-import { AppTextarea } from "@/core/ui/textarea";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
@@ -19,6 +16,10 @@ import {
   DISALLOWED_JOB_POST_MESSAGE,
 } from "@/features/marketplace/lib/scam-signals";
 import { api } from "@repo/convex-client";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Input as AppInput } from "@repo/ui/components/ui/input";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
@@ -261,7 +262,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </div>
 
         {scamAnalysis.signals.length > 0 ? (
-          <div
+          <Alert
+            variant={scamAnalysis.isBlocked ? "destructive" : "default"}
             className={`rounded-xl border p-3 text-sm ${
               scamAnalysis.isBlocked
                 ? "border-red-200 bg-red-50 text-red-700"
@@ -269,23 +271,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             }`}
             role={scamAnalysis.isBlocked ? "alert" : "note"}
           >
-            <p className="font-semibold">
+            <AlertTitle>
               {scamAnalysis.isBlocked
                 ? DISALLOWED_JOB_POST_MESSAGE
                 : "This job post contains language that may look suspicious to freelancers."}
-            </p>
-            {!scamAnalysis.isBlocked ? (
-              <p className="mt-1">
-                This job may look suspicious because it asks users to move off-platform or pay
-                upfront.
-              </p>
-            ) : null}
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              {scamAnalysis.signals.map((signal) => (
-                <li key={signal.type}>{signal.message}</li>
-              ))}
-            </ul>
-          </div>
+            </AlertTitle>
+            <AlertDescription>
+              {!scamAnalysis.isBlocked ? (
+                <p>
+                  This job may look suspicious because it asks users to move off-platform or pay
+                  upfront.
+                </p>
+              ) : null}
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {scamAnalysis.signals.map((signal) => (
+                  <li key={signal.type}>{signal.message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -3,7 +3,7 @@
 import { formatTokenAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { stablecoinConfig, validateStablecoinConfig } from "@/core/stellar/stablecoin-config";
-import { AppButton } from "@/core/ui/button";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 
 import {
   useStablecoinReadiness,
@@ -123,7 +123,7 @@ export function StablecoinBalancePanel({
       <div className="flex justify-end">
         <AppButton
           type="button"
-          appVariant="secondary"
+          variant="secondary"
           className="h-8 rounded-lg px-3 py-1.5 text-xs"
           disabled={readiness.isLoading || isRefreshDisabled}
           onClick={() => void readiness.refresh()}

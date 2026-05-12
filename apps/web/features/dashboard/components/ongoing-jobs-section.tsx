@@ -1,11 +1,11 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerOngoingJobs } from "@/features/dashboard/hooks/use-freelancer-ongoing-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Card,
   CardContent,
@@ -81,7 +81,7 @@ export function OngoingJobsSection() {
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <AppButton asChild appVariant="secondary" className="h-8 px-3 text-xs">
+                    <AppButton asChild variant="secondary" className="h-8 px-3 text-xs">
                       <Link href={`/marketplace/jobs/${item.jobId}`}>
                         <Briefcase className="h-3.5 w-3.5" />
                         Open
@@ -97,7 +97,7 @@ export function OngoingJobsSection() {
       {(canLoadMore || isLoadingMore) && (
         <CardFooter className="justify-end border-t pt-4">
           <AppButton
-            appVariant="secondary"
+            variant="secondary"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
           >

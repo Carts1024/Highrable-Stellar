@@ -1,9 +1,9 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
-import { AppTextarea } from "@/core/ui/textarea";
 import { sanitizeMultilineInput } from "@/features/common";
 import { TrustSafetyNotice } from "@/features/marketplace/components/trust-safety-notice";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -110,7 +110,7 @@ export function JobApplicationDialog({
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <AppButton type="button" appVariant="secondary" onClick={() => onOpenChange(false)}>
+            <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </AppButton>
             <AppButton type="submit" disabled={isSubmitting}>

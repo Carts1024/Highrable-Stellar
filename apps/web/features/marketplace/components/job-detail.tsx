@@ -1,7 +1,6 @@
 "use client";
 
 import { formatAssetLabel } from "@/core/stellar/assets";
-import { AppButton } from "@/core/ui/button";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
@@ -11,6 +10,8 @@ import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
 
@@ -119,21 +120,23 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </div>
 
         {scamAnalysis.riskLevel !== "low" ? (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <div className="flex items-center gap-2 font-semibold">
+          <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900" role="note">
+            <AlertTitle className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               Suspicious language detected
-            </div>
-            <p className="mt-1">
-              This job may look suspicious because it asks users to move off-platform or pay
-              upfront.
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              {scamAnalysis.signals.map((signal) => (
-                <li key={signal.type}>{signal.message}</li>
-              ))}
-            </ul>
-          </div>
+            </AlertTitle>
+            <AlertDescription>
+              <p>
+                This job may look suspicious because it asks users to move off-platform or pay
+                upfront.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {scamAnalysis.signals.map((signal) => (
+                  <li key={signal.type}>{signal.message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <p className="mb-5 text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
@@ -184,7 +187,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Sync Status</h2>
             <AppButton
               type="button"
-              appVariant="secondary"
+              variant="secondary"
               disabled={isSyncing}
               onClick={() => void syncEscrowStatus()}
               className="h-8 rounded-lg px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-70"
@@ -266,7 +269,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
                 type="button"
                 disabled={isSyncing}
                 onClick={() => void syncReputationRecord()}
-                appVariant="secondary"
+                variant="secondary"
                 className="h-8 rounded-lg border-amber-300 px-3 py-1.5 text-xs hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSyncing ? "Syncing..." : "Sync verified review"}

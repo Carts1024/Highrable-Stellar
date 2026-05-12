@@ -1,7 +1,5 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
-import { AppInput } from "@/core/ui/input";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
@@ -17,6 +15,8 @@ import {
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { useMutation, useQuery } from "convex/react";
 import { Briefcase, Clock3, Filter, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";

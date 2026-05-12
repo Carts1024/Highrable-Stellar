@@ -1,8 +1,9 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { api } from "@repo/convex-client";
+import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { Flag } from "lucide-react";
 import { useState } from "react";
@@ -25,7 +26,7 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
     <div className="space-y-2">
       <AppButton
         type="button"
-        appVariant="secondary"
+        variant="secondary"
         onClick={() => {
           setSuccessMessage(null);
           setIsDialogOpen(true);
@@ -37,15 +38,15 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
       </AppButton>
 
       {successMessage ? (
-        <p className="text-sm text-emerald-700" role="status">
-          {successMessage}
-        </p>
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800" role="status">
+          <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
       ) : null}
 
       {(reportCount ?? 0) >= 3 ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          This job has multiple reports. Proceed carefully.
-        </p>
+        <Alert className="border-amber-200 bg-amber-50 text-amber-900" role="note">
+          <AlertDescription>This job has multiple reports. Proceed carefully.</AlertDescription>
+        </Alert>
       ) : null}
 
       <ReportJobDialog

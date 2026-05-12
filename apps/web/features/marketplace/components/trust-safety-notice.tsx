@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
 import { cn } from "@repo/ui/lib/utils";
 import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 
@@ -45,9 +46,9 @@ export function TrustSafetyNotice({ type, compact = false, className }: ITrustSa
     notice.tone === "green" ? CheckCircle2 : type === "off_platform" ? ShieldCheck : AlertTriangle;
 
   return (
-    <div
+    <Alert
       className={cn(
-        "flex gap-3 rounded-xl border px-4 py-3 text-sm",
+        "rounded-xl",
         notice.tone === "green"
           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
           : "border-amber-200 bg-amber-50 text-amber-900",
@@ -57,7 +58,9 @@ export function TrustSafetyNotice({ type, compact = false, className }: ITrustSa
       role={notice.tone === "green" ? "status" : "note"}
     >
       <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", compact ? "h-3.5 w-3.5" : null)} />
-      <p>{notice.message}</p>
-    </div>
+      <AlertDescription className={compact ? "text-xs" : undefined}>
+        {notice.message}
+      </AlertDescription>
+    </Alert>
   );
 }

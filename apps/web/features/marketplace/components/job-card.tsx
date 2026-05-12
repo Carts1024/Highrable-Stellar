@@ -1,8 +1,8 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
-import { AppButton } from "@/core/ui/button";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 
 import type { TConvexDoc } from "@repo/convex-client";

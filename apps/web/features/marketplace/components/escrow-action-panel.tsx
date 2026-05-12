@@ -8,7 +8,6 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
-import { AppButton } from "@/core/ui/button";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
@@ -20,6 +19,7 @@ import {
 } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 
@@ -418,7 +418,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 </AppButton>
                 <AppButton
                   type="button"
-                  appVariant="secondary"
+                  variant="secondary"
                   disabled={isPending || !actionGuards.cancelEscrow.canAct}
                   onClick={() => void cancelEscrow()}
                   className="disabled:cursor-not-allowed disabled:opacity-60"
@@ -466,7 +466,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               </AppButton>
               <AppButton
                 type="button"
-                appVariant="secondary"
+                variant="secondary"
                 disabled={isPending || !actionGuards.markDisputed.canAct}
                 onClick={() => void markDisputed()}
                 className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -485,7 +485,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             <div className="flex flex-wrap gap-2">
               <AppButton
                 type="button"
-                appVariant="secondary"
+                variant="secondary"
                 disabled={isPending || !actionGuards.cancelEscrow.canAct}
                 onClick={() => void cancelEscrow()}
                 className="disabled:cursor-not-allowed disabled:opacity-60"
@@ -495,7 +495,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               </AppButton>
               <AppButton
                 type="button"
-                appVariant="secondary"
+                variant="secondary"
                 disabled={isPending || !actionGuards.markDisputed.canAct}
                 onClick={() => void markDisputed()}
                 className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -543,7 +543,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 </AppButton>
                 <AppButton
                   type="button"
-                  appVariant="secondary"
+                  variant="secondary"
                   disabled={isPending || !actionGuards.markDisputed.canAct}
                   onClick={() => void markDisputed()}
                   className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -562,7 +562,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           {role === "selectedFreelancer" ? (
             <AppButton
               type="button"
-              appVariant="secondary"
+              variant="secondary"
               disabled={isPending || !actionGuards.markDisputed.canAct}
               onClick={() => void markDisputed()}
               className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -624,7 +624,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               </p>
               <AppButton
                 type="button"
-                appVariant="secondary"
+                variant="secondary"
                 disabled={isSyncing}
                 onClick={() => void syncReputationRecord()}
                 className="h-8 rounded-lg border-amber-300 px-3 py-1.5 text-xs hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"

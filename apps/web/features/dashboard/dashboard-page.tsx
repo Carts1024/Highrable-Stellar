@@ -1,6 +1,5 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { ProductPageHero } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
@@ -14,6 +13,7 @@ import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode"
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -122,7 +122,7 @@ function QuickActions() {
       </div>
 
       <div className="mt-4 flex justify-end">
-        <AppButton asChild appVariant="secondary">
+        <AppButton asChild variant="secondary">
           <Link href="/marketplace">Open Marketplace Flow</Link>
         </AppButton>
       </div>

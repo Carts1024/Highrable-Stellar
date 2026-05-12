@@ -1,10 +1,10 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useClientPostedJobs } from "@/features/dashboard/hooks/use-client-posted-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Card,
   CardContent,
@@ -83,7 +83,7 @@ export function PostedJobsSection() {
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <AppButton asChild appVariant="secondary" className="h-8 px-3 text-xs">
+                    <AppButton asChild variant="secondary" className="h-8 px-3 text-xs">
                       <Link href={`/marketplace/jobs/${item.jobId}`}>Manage</Link>
                     </AppButton>
                   </TableCell>
@@ -94,7 +94,7 @@ export function PostedJobsSection() {
         )}
       </CardContent>
       <CardFooter className="justify-between border-t pt-4">
-        <AppButton asChild appVariant="outline" className="h-8 px-3 text-xs">
+        <AppButton asChild variant="outline" className="h-8 px-3 text-xs">
           <Link href="/post-job">
             <PlusSquare className="h-3.5 w-3.5" />
             Post a job
@@ -102,7 +102,7 @@ export function PostedJobsSection() {
         </AppButton>
         {(canLoadMore || isLoadingMore) && (
           <AppButton
-            appVariant="secondary"
+            variant="secondary"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
           >
