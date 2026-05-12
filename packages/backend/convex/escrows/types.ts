@@ -6,6 +6,7 @@ export type TEscrowDoc = Doc<"escrows">;
 export type TEscrowTxField =
   | "createTxHash"
   | "fundTxHash"
+  | "assignTxHash"
   | "submitTxHash"
   | "releaseTxHash"
   | "cancelTxHash"

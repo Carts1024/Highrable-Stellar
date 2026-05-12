@@ -1,5 +1,5 @@
-import { AppButton } from "@/core/ui/button";
 import { ProductPageHero } from "@/features/common";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { ArrowRight, BadgeCheck, BriefcaseBusiness, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
 
@@ -48,7 +48,7 @@ export function TalentPage() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </AppButton>
-              <AppButton asChild appVariant="secondary">
+              <AppButton asChild variant="secondary">
                 <Link href="/jobs">Browse Jobs</Link>
               </AppButton>
             </>

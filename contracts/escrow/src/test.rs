@@ -87,6 +87,15 @@ fn create_escrow(context: &TTestContext, amount: i128, hash_byte: u8) -> u64 {
     )
 }
 
+fn create_open_escrow(context: &TTestContext, amount: i128, hash_byte: u8) -> u64 {
+    context.escrow_client.create_open_escrow(
+        &context.client,
+        &context.mock_usdc_token,
+        &amount,
+        &hash_from_byte(&context.env, hash_byte),
+    )
+}
+
 fn fund_escrow(context: &TTestContext, escrow_id: u64) {
     context
         .escrow_client
@@ -138,7 +147,7 @@ fn create_escrow_works() {
     assert_eq!(escrow_id, 1);
     assert_eq!(escrow.status, TEscrowStatus::Created);
     assert_eq!(escrow.client, context.client);
-    assert_eq!(escrow.freelancer, context.freelancer);
+    assert_eq!(escrow.freelancer, Some(context.freelancer.clone()));
     assert_eq!(escrow.asset, context.mock_usdc_token);
     assert_eq!(escrow.amount, 500);
     assert_eq!(escrow.job_hash, hash_from_byte(&context.env, 1));
@@ -147,6 +156,49 @@ fn create_escrow_works() {
     assert_eq!(escrow.submitted_at, 0);
     assert_eq!(escrow.released_at, 0);
     assert_eq!(context.escrow_client.get_next_escrow_id(), 2);
+}
+
+#[test]
+fn create_open_escrow_works() {
+    let context = setup();
+
+    set_timestamp(&context.env, 6);
+    let escrow_id = create_open_escrow(&context, 475, 54);
+
+    let escrow: TEscrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.status, TEscrowStatus::Created);
+    assert_eq!(escrow.client, context.client);
+    assert_eq!(escrow.freelancer, None);
+    assert_eq!(escrow.amount, 475);
+    assert_eq!(escrow.created_at, 6);
+    assert_eq!(escrow.funded_at, 0);
+}
+
+#[test]
+fn create_and_fund_open_escrow_works() {
+    let context = setup();
+
+    set_timestamp(&context.env, 7);
+    let escrow_id = context.escrow_client.create_and_fund_open_escrow(
+        &context.client,
+        &context.mock_usdc_token,
+        &650,
+        &hash_from_byte(&context.env, 55),
+    );
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.status, TEscrowStatus::Funded);
+    assert_eq!(escrow.freelancer, None);
+    assert_eq!(escrow.funded_at, 7);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_350);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        650
+    );
 }
 
 #[test]
@@ -243,6 +295,102 @@ fn fund_wrong_status_fails() {
         .escrow_client
         .try_fund_escrow(&context.client, &second_escrow_id);
     assert_eq!(cancelled_fund, Err(Ok(Error::InvalidStatus)));
+}
+
+#[test]
+fn assign_freelancer_works_for_open_escrow() {
+    let context = setup();
+
+    let escrow_id = create_open_escrow(&context, 425, 56);
+    context
+        .escrow_client
+        .assign_freelancer(&context.client, &escrow_id, &context.freelancer);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.freelancer, Some(context.freelancer.clone()));
+}
+
+#[test]
+fn assign_freelancer_works_for_prefunded_open_escrow() {
+    let context = setup();
+
+    let escrow_id = context.escrow_client.create_and_fund_open_escrow(
+        &context.client,
+        &context.mock_usdc_token,
+        &725,
+        &hash_from_byte(&context.env, 57),
+    );
+
+    context
+        .escrow_client
+        .assign_freelancer(&context.client, &escrow_id, &context.freelancer);
+    submit_work(&context, escrow_id);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Submitted);
+    assert_eq!(escrow.freelancer, Some(context.freelancer.clone()));
+}
+
+#[test]
+fn assign_freelancer_rejects_unauthorized_client_self_and_existing_assignment() {
+    let context = setup();
+
+    let escrow_id = create_open_escrow(&context, 300, 58);
+
+    let unauthorized = context.escrow_client.try_assign_freelancer(
+        &context.outsider,
+        &escrow_id,
+        &context.freelancer,
+    );
+    assert_eq!(unauthorized, Err(Ok(Error::Unauthorized)));
+
+    let self_assignment =
+        context
+            .escrow_client
+            .try_assign_freelancer(&context.client, &escrow_id, &context.client);
+    assert_eq!(self_assignment, Err(Ok(Error::InvalidFreelancer)));
+
+    context
+        .escrow_client
+        .assign_freelancer(&context.client, &escrow_id, &context.freelancer);
+
+    let second_freelancer = Address::generate(&context.env);
+    let already_assigned = context.escrow_client.try_assign_freelancer(
+        &context.client,
+        &escrow_id,
+        &second_freelancer,
+    );
+    assert_eq!(already_assigned, Err(Ok(Error::InvalidStatus)));
+}
+
+#[test]
+fn unassigned_funded_escrow_rejects_freelancer_required_actions() {
+    let context = setup();
+
+    let escrow_id = context.escrow_client.create_and_fund_open_escrow(
+        &context.client,
+        &context.mock_usdc_token,
+        &825,
+        &hash_from_byte(&context.env, 59),
+    );
+
+    let submit = context
+        .escrow_client
+        .try_submit_work(&context.freelancer, &escrow_id);
+    assert_eq!(submit, Err(Ok(Error::InvalidFreelancer)));
+
+    let release = context.escrow_client.try_approve_and_release(
+        &context.client,
+        &escrow_id,
+        &5,
+        &hash_from_byte(&context.env, 60),
+    );
+    assert_eq!(release, Err(Ok(Error::InvalidStatus)));
+
+    let dispute_by_freelancer = context
+        .escrow_client
+        .try_mark_disputed(&context.freelancer, &escrow_id);
+    assert_eq!(dispute_by_freelancer, Err(Ok(Error::InvalidFreelancer)));
 }
 
 #[test]

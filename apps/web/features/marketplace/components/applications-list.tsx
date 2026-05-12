@@ -1,10 +1,13 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
+import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
+import { assignFreelancerOnChain } from "@/core/stellar/escrow-contract";
+import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 
@@ -12,6 +15,7 @@ import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 interface IApplicationsListProps {
   readonly job: TConvexDoc<"jobs">;
+  readonly escrow: TConvexDoc<"escrows"> | null | undefined;
   readonly applications: TConvexDoc<"applications">[] | undefined;
   readonly isLoading: boolean;
   readonly onSelected: () => void;
@@ -19,18 +23,109 @@ interface IApplicationsListProps {
 
 export function ApplicationsList({
   job,
+  escrow,
   applications,
   isLoading,
   onSelected,
 }: IApplicationsListProps) {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, signTransaction, walletState } = useWallet();
   const selectFreelancer = useMutation(api.jobs.selectFreelancer);
+  const assignFreelancerToEscrow = useMutation(api.escrows.assignFreelancerToEscrow);
+  const createTransaction = useMutation(api.transactions.createTransaction);
+  const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingWallet, setSelectingWallet] = useState<string | null>(null);
 
   const isClient = isSameWallet(address, job.clientWallet);
-  const canSelectFreelancer = isConnected && isClient && job.status === "open";
+  const isPreFundedOpenEscrow =
+    job.status === "funded" &&
+    !job.selectedFreelancerWallet &&
+    escrow?.status === "funded" &&
+    !escrow.freelancerWallet;
+  const canSelectFreelancer =
+    isConnected && isClient && (job.status === "open" || isPreFundedOpenEscrow);
   const applicationCount = applications?.length ?? 0;
+
+  const assignPreFundedEscrow = async (freelancerWallet: string) => {
+    if (!address || !escrow?.escrowId) {
+      throw new Error("Escrow record is missing the on-chain escrow ID.");
+    }
+
+    if (!walletState.isTestnet) {
+      throw new Error("Switch your wallet to Stellar Testnet before assigning a freelancer.");
+    }
+
+    if (walletState.isFunded === false) {
+      throw new Error("Fund your Stellar testnet account with Friendbot before assigning escrow.");
+    }
+
+    if (walletState.canWriteContracts === false) {
+      throw new Error("This wallet cannot sign escrow contract actions right now.");
+    }
+
+    const config = getRequiredEscrowActionConfig();
+    const clientRequestId = `assign_freelancer:${job._id}:${freelancerWallet}:${Date.now()}`;
+
+    await createTransaction({
+      walletAddress: address,
+      type: "assign_freelancer",
+      clientRequestId,
+      escrowId: escrow.escrowId,
+      jobId: job._id as TConvexId<"jobs">,
+      status: "pending",
+    });
+
+    let confirmedTxHash: string | null = null;
+
+    try {
+      const result = await assignFreelancerOnChain({
+        rpcUrl: config.rpcUrl,
+        networkPassphrase: config.networkPassphrase,
+        escrowContractId: config.escrowContractId,
+        sourceAddress: address,
+        signTransaction,
+        client: job.clientWallet,
+        freelancer: freelancerWallet,
+        escrowId: escrow.escrowId,
+      });
+      confirmedTxHash = result.txHash;
+
+      await assignFreelancerToEscrow({
+        jobId: job._id as TConvexId<"jobs">,
+        clientWallet: address,
+        freelancerWallet,
+        txHash: confirmedTxHash,
+      });
+
+      await updateTransactionStatus({
+        clientRequestId,
+        txHash: confirmedTxHash,
+        status: "success",
+      });
+    } catch (error) {
+      const errorMessage = normalizeStellarError(error);
+      const failedTxHash =
+        typeof error === "object" &&
+        error !== null &&
+        "txHash" in error &&
+        typeof error.txHash === "string"
+          ? error.txHash
+          : confirmedTxHash || undefined;
+
+      await updateTransactionStatus({
+        clientRequestId,
+        ...(failedTxHash ? { txHash: failedTxHash } : {}),
+        status: "failed",
+        errorMessage,
+      });
+
+      throw new Error(
+        confirmedTxHash
+          ? `Freelancer was assigned on Stellar, but the local escrow record could not be updated. Transaction: ${confirmedTxHash}. ${errorMessage}`
+          : errorMessage,
+      );
+    }
+  };
 
   const handleSelectFreelancer = async (freelancerWallet: string) => {
     if (!address) {
@@ -42,11 +137,15 @@ export function ApplicationsList({
     setSelectingWallet(freelancerWallet);
 
     try {
-      await selectFreelancer({
-        jobId: job._id as TConvexId<"jobs">,
-        clientWallet: address,
-        freelancerWallet,
-      });
+      if (isPreFundedOpenEscrow) {
+        await assignPreFundedEscrow(freelancerWallet);
+      } else {
+        await selectFreelancer({
+          jobId: job._id as TConvexId<"jobs">,
+          clientWallet: address,
+          freelancerWallet,
+        });
+      }
       onSelected();
     } catch (error) {
       setSelectionError(
@@ -110,7 +209,7 @@ export function ApplicationsList({
                 type="button"
                 onClick={() => void handleSelectFreelancer(application.freelancerWallet)}
                 disabled={selectingWallet === application.freelancerWallet}
-                appVariant="secondary"
+                variant="secondary"
                 className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label={`Select ${shortenWalletAddress(application.freelancerWallet)} as freelancer for ${job.title}`}
                 aria-busy={selectingWallet === application.freelancerWallet}

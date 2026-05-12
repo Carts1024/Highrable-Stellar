@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, token, vec, Address, BytesN, Env,
-    IntoVal, Symbol,
+    contract, contracterror, contractimpl, contracttype, token, vec, Address, BytesN, Env, IntoVal,
+    Symbol,
 };
 
 const INSTANCE_TTL_THRESHOLD: u32 = 100;
@@ -36,7 +36,7 @@ pub enum TEscrowStatus {
 pub struct TEscrow {
     pub escrow_id: u64,
     pub client: Address,
-    pub freelancer: Address,
+    pub freelancer: Option<Address>,
     pub asset: Address,
     pub amount: i128,
     pub job_hash: BytesN<32>,
@@ -104,40 +104,82 @@ impl EscrowContract {
         require_initialized(&env)?;
 
         client.require_auth();
-        validate_amount(amount)?;
 
         if client == freelancer {
             return Err(Error::InvalidFreelancer);
         }
 
-        if should_enforce_asset_allowlist(&env) && !is_allowed_asset_internal(&env, &asset) {
-            return Err(Error::AssetNotAllowed);
-        }
-
-        let escrow_id = get_next_escrow_id_internal(&env)?;
-        let escrow = TEscrow {
-            escrow_id,
-            client: client.clone(),
-            freelancer,
+        create_escrow_internal(
+            &env,
+            client,
+            Some(freelancer),
             asset,
             amount,
             job_hash,
-            status: TEscrowStatus::Created,
-            created_at: now(&env),
-            funded_at: 0,
-            submitted_at: 0,
-            released_at: 0,
-        };
+            TEscrowStatus::Created,
+            0,
+        )
+    }
 
-        write_escrow(&env, &escrow);
-        env.storage()
-            .instance()
-            .set(&DataKey::NextEscrowId, &(escrow_id + 1));
+    pub fn create_open_escrow(
+        env: Env,
+        client: Address,
+        asset: Address,
+        amount: i128,
+        job_hash: BytesN<32>,
+    ) -> Result<u64, Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+
+        client.require_auth();
+
+        create_escrow_internal(
+            &env,
+            client,
+            None,
+            asset,
+            amount,
+            job_hash,
+            TEscrowStatus::Created,
+            0,
+        )
+    }
+
+    pub fn create_and_fund_open_escrow(
+        env: Env,
+        client: Address,
+        asset: Address,
+        amount: i128,
+        job_hash: BytesN<32>,
+    ) -> Result<u64, Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+
+        client.require_auth();
+
+        let funded_at = now(&env);
+        let escrow_id = create_escrow_internal(
+            &env,
+            client.clone(),
+            None,
+            asset,
+            amount,
+            job_hash,
+            TEscrowStatus::Funded,
+            funded_at,
+        )?;
+
+        let escrow = read_escrow(&env, escrow_id)?;
+        transfer_to_contract(&env, &client, &escrow.asset, &escrow.amount);
 
         Ok(escrow_id)
     }
 
-    pub fn add_allowed_asset(env: Env, platform_admin: Address, asset: Address) -> Result<(), Error> {
+    pub fn add_allowed_asset(
+        env: Env,
+        platform_admin: Address,
+        asset: Address,
+    ) -> Result<(), Error> {
         touch_instance(&env);
         require_initialized(&env)?;
         require_platform_admin(&env, &platform_admin)?;
@@ -146,7 +188,9 @@ impl EscrowContract {
         if !env.storage().instance().has(&key) {
             env.storage().instance().set(&key, &true);
             let next_count = get_allowed_asset_count_internal(&env) + 1;
-            env.storage().instance().set(&DataKey::AllowedAssetCount, &next_count);
+            env.storage()
+                .instance()
+                .set(&DataKey::AllowedAssetCount, &next_count);
         }
 
         Ok(())
@@ -166,8 +210,14 @@ impl EscrowContract {
             env.storage().instance().remove(&key);
 
             let current_count = get_allowed_asset_count_internal(&env);
-            let next_count = if current_count == 0 { 0 } else { current_count - 1 };
-            env.storage().instance().set(&DataKey::AllowedAssetCount, &next_count);
+            let next_count = if current_count == 0 {
+                0
+            } else {
+                current_count - 1
+            };
+            env.storage()
+                .instance()
+                .set(&DataKey::AllowedAssetCount, &next_count);
         }
 
         Ok(())
@@ -198,13 +248,52 @@ impl EscrowContract {
             return Err(Error::Unauthorized);
         }
 
-        let token_client = token::Client::new(&env, &escrow.asset);
-        let contract_address = env.current_contract_address();
-
-        token_client.transfer(&client, &contract_address, &escrow.amount);
+        transfer_to_contract(&env, &client, &escrow.asset, &escrow.amount);
 
         escrow.status = TEscrowStatus::Funded;
         escrow.funded_at = now(&env);
+
+        write_escrow(&env, &escrow);
+
+        Ok(())
+    }
+
+    pub fn assign_freelancer(
+        env: Env,
+        client: Address,
+        escrow_id: u64,
+        freelancer: Address,
+    ) -> Result<(), Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+
+        client.require_auth();
+
+        let mut escrow = read_escrow(&env, escrow_id)?;
+
+        if escrow.client != client {
+            return Err(Error::Unauthorized);
+        }
+
+        if client == freelancer {
+            return Err(Error::InvalidFreelancer);
+        }
+
+        if escrow.freelancer.is_some() {
+            return Err(Error::InvalidStatus);
+        }
+
+        match escrow.status {
+            TEscrowStatus::Created | TEscrowStatus::Funded => {
+                escrow.freelancer = Some(freelancer);
+            }
+            TEscrowStatus::Submitted
+            | TEscrowStatus::Released
+            | TEscrowStatus::Cancelled
+            | TEscrowStatus::Disputed => {
+                return Err(Error::InvalidStatus);
+            }
+        }
 
         write_escrow(&env, &escrow);
 
@@ -220,7 +309,8 @@ impl EscrowContract {
         let mut escrow = read_escrow(&env, escrow_id)?;
         require_status(&escrow.status, TEscrowStatus::Funded)?;
 
-        if escrow.freelancer != freelancer {
+        let assigned_freelancer = get_assigned_freelancer(&escrow)?;
+        if assigned_freelancer != freelancer {
             return Err(Error::Unauthorized);
         }
 
@@ -252,10 +342,11 @@ impl EscrowContract {
             return Err(Error::Unauthorized);
         }
 
+        let freelancer = get_assigned_freelancer(&escrow)?;
         let contract_address = env.current_contract_address();
         let token_client = token::Client::new(&env, &escrow.asset);
 
-        token_client.transfer(&contract_address, &escrow.freelancer, &escrow.amount);
+        token_client.transfer(&contract_address, &freelancer, &escrow.amount);
 
         let reputation_contract = get_reputation_contract_internal(&env)?;
         env.invoke_contract::<bool>(
@@ -265,7 +356,7 @@ impl EscrowContract {
                 &env,
                 escrow.escrow_id.into_val(&env),
                 escrow.client.into_val(&env),
-                escrow.freelancer.into_val(&env),
+                freelancer.into_val(&env),
                 escrow.asset.into_val(&env),
                 escrow.amount.into_val(&env),
                 escrow.job_hash.into_val(&env),
@@ -324,8 +415,9 @@ impl EscrowContract {
         caller.require_auth();
 
         let mut escrow = read_escrow(&env, escrow_id)?;
+        let assigned_freelancer = get_assigned_freelancer(&escrow)?;
 
-        if caller != escrow.client && caller != escrow.freelancer {
+        if caller != escrow.client && caller != assigned_freelancer {
             return Err(Error::Unauthorized);
         }
 
@@ -391,6 +483,56 @@ fn write_escrow(env: &Env, escrow: &TEscrow) {
         .set(&DataKey::Escrow(escrow.escrow_id), escrow);
 }
 
+fn create_escrow_internal(
+    env: &Env,
+    client: Address,
+    freelancer: Option<Address>,
+    asset: Address,
+    amount: i128,
+    job_hash: BytesN<32>,
+    status: TEscrowStatus,
+    funded_at: u64,
+) -> Result<u64, Error> {
+    validate_amount(amount)?;
+
+    if should_enforce_asset_allowlist(env) && !is_allowed_asset_internal(env, &asset) {
+        return Err(Error::AssetNotAllowed);
+    }
+
+    let escrow_id = get_next_escrow_id_internal(env)?;
+    let escrow = TEscrow {
+        escrow_id,
+        client,
+        freelancer,
+        asset,
+        amount,
+        job_hash,
+        status,
+        created_at: now(env),
+        funded_at,
+        submitted_at: 0,
+        released_at: 0,
+    };
+
+    write_escrow(env, &escrow);
+    env.storage()
+        .instance()
+        .set(&DataKey::NextEscrowId, &(escrow_id + 1));
+
+    Ok(escrow_id)
+}
+
+fn transfer_to_contract(env: &Env, client: &Address, asset: &Address, amount: &i128) {
+    let token_client = token::Client::new(env, asset);
+    let contract_address = env.current_contract_address();
+
+    token_client.transfer(client, &contract_address, amount);
+}
+
+fn get_assigned_freelancer(escrow: &TEscrow) -> Result<Address, Error> {
+    escrow.freelancer.clone().ok_or(Error::InvalidFreelancer)
+}
+
 fn is_initialized_internal(env: &Env) -> bool {
     env.storage().instance().has(&DataKey::Initialized)
 }
@@ -445,7 +587,9 @@ fn should_enforce_asset_allowlist(env: &Env) -> bool {
 }
 
 fn is_allowed_asset_internal(env: &Env, asset: &Address) -> bool {
-    env.storage().instance().has(&DataKey::AllowedAsset(asset.clone()))
+    env.storage()
+        .instance()
+        .has(&DataKey::AllowedAsset(asset.clone()))
 }
 
 fn require_status(actual: &TEscrowStatus, expected: TEscrowStatus) -> Result<(), Error> {

@@ -1,23 +1,24 @@
-import { STABLECOIN_TOKEN_CONTRACT_ID } from "@/core/config/stellar-contracts";
+import { formatAssetLabel } from "@/core/stellar/assets";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 
 import type { TAssetAmount } from "@/features/dashboard/types";
 
+const amountFormatter = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: stablecoinConfig.decimals,
+});
+
 /** Returns a human-readable asset label for known contracts, or a shortened contract ID. */
 export function formatAsset(asset: string): string {
-  if (STABLECOIN_TOKEN_CONTRACT_ID && asset === STABLECOIN_TOKEN_CONTRACT_ID) {
-    return "Mock USDC";
-  }
-
-  if (asset.length > 10) {
-    return `Token ${asset.slice(0, 4)}...${asset.slice(-4)}`;
-  }
-
-  return asset;
+  return formatAssetLabel(asset);
 }
 
 /** Formats a human-readable stablecoin amount for display. */
 export function formatAmount(amount: number): string {
-  return amount.toLocaleString(undefined, { maximumFractionDigits: 7 });
+  if (!Number.isFinite(amount)) {
+    return "0";
+  }
+
+  return amountFormatter.format(amount);
 }
 
 /** Formats an asset amount with its label as a single string. */

@@ -36,6 +36,12 @@ type TCreateReputationRecordFromSyncArgs = {
   reviewHash?: string;
 };
 
+type TRecordEscrowSyncFailureArgs = {
+  escrowId: string;
+  onChainStatus?: (typeof escrowStatusValidator)["type"];
+  errorMessage: string;
+};
+
 const applyEscrowStatusSyncRef = makeFunctionReference<
   "mutation",
   TApplyEscrowStatusSyncArgs,
@@ -48,6 +54,12 @@ const createReputationRecordFromSyncRef = makeFunctionReference<
   TSyncResult
 >("syncMutations:createReputationRecordFromSync");
 
+const recordEscrowSyncFailureRef = makeFunctionReference<
+  "mutation",
+  TRecordEscrowSyncFailureArgs,
+  TSyncResult
+>("syncMutations:recordEscrowSyncFailure");
+
 export const syncEscrowStatus = action({
   args: {
     escrowId: v.string(),
@@ -59,10 +71,16 @@ export const syncEscrowStatus = action({
     try {
       config = loadStellarReadConfig();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await ctx.runMutation(recordEscrowSyncFailureRef, {
+        escrowId,
+        errorMessage,
+      });
       return {
         ok: false,
         reason: "missing_env_config",
-        errorMessage: error instanceof Error ? error.message : String(error),
+        escrowId,
+        errorMessage,
       };
     }
 
@@ -70,21 +88,31 @@ export const syncEscrowStatus = action({
     try {
       onChainEscrow = await getEscrowFromContract(config, escrowId);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await ctx.runMutation(recordEscrowSyncFailureRef, {
+        escrowId,
+        errorMessage,
+      });
       return {
         ok: false,
         reason: "onchain_read_failed",
         escrowId,
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage,
       };
     }
 
     const onChainStatus = normalizeOnChainEscrowStatus(onChainEscrow.status);
     if (!onChainStatus) {
+      const errorMessage = `Unrecognized on-chain status: ${JSON.stringify(onChainEscrow.status)}`;
+      await ctx.runMutation(recordEscrowSyncFailureRef, {
+        escrowId,
+        errorMessage,
+      });
       return {
         ok: false,
         reason: "unknown_onchain_status",
         escrowId,
-        errorMessage: `Unrecognized on-chain status: ${JSON.stringify(onChainEscrow.status)}`,
+        errorMessage,
       };
     }
 

@@ -201,7 +201,10 @@ export const getFreelancerIncomeSummary = query({
       .withIndex("by_freelancerWallet", (q) => q.eq("freelancerWallet", freelancerWallet))
       .take(200);
 
-    const releasedEscrows = allEscrows.filter((e) => e.status === RELEASED_STATUS);
+    const releasedEscrows = allEscrows.filter(
+      (e): e is typeof e & { freelancerWallet: string } =>
+        e.status === RELEASED_STATUS && e.freelancerWallet !== undefined,
+    );
     const pendingEscrows = allEscrows.filter((e) =>
       PENDING_STATUSES.has(e.status as "funded" | "submitted"),
     );

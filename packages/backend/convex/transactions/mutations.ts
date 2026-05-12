@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import {
   assertTransactionLookupKey,
-  getTransactionByLookupOrThrow,
+  getTransactionByLookup,
   sanitizeOptionalTransactionRef,
   sanitizeTransactionWallet,
 } from "./helpers";
@@ -59,7 +59,11 @@ export const updateTransactionStatus = mutation({
 
     assertTransactionLookupKey(txHash, clientRequestId);
 
-    const transaction = await getTransactionByLookupOrThrow(ctx, txHash, clientRequestId);
+    const transaction = await getTransactionByLookup(ctx, txHash, clientRequestId);
+
+    if (!transaction) {
+      return null;
+    }
 
     await ctx.db.patch(transaction._id, {
       status: args.status,

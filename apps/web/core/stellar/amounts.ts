@@ -1,37 +1,106 @@
-export const STABLECOIN_DECIMALS = 7;
+import { stablecoinConfig } from "./stablecoin-config";
 
-const DECIMAL_SCALE = BigInt(10 ** STABLECOIN_DECIMALS);
+export const STABLECOIN_DECIMALS = stablecoinConfig.decimals;
 
-export function toTokenAmount(amount: number | string): bigint {
-  const rawAmount = String(amount).trim();
+function getDecimalScale(decimals: number): bigint {
+  return 10n ** BigInt(decimals);
+}
 
-  if (!/^\d+(\.\d+)?$/.test(rawAmount)) {
-    throw new Error("Enter a valid stablecoin amount.");
+function normalizeDecimals(decimals: number = stablecoinConfig.decimals): number {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
+    throw new Error("Stablecoin decimals must be an integer between 0 and 18.");
   }
 
-  const [wholePart = "0", fractionalPart = ""] = rawAmount.split(".");
-  const normalizedFraction = fractionalPart.padEnd(STABLECOIN_DECIMALS, "0");
+  return decimals;
+}
 
-  if (fractionalPart.length > STABLECOIN_DECIMALS) {
-    throw new Error(`Stablecoin amount supports up to ${STABLECOIN_DECIMALS} decimal places.`);
+function normalizeHumanAmount(value: number | string): string {
+  const rawValue = typeof value === "number" ? value.toString() : value;
+  const sanitizedValue = rawValue.trim();
+
+  if (!/^\d+(\.\d+)?$/.test(sanitizedValue)) {
+    throw new Error("Invalid amount. Please enter a valid stablecoin amount.");
   }
 
-  const tokenAmount =
-    BigInt(wholePart) * DECIMAL_SCALE + BigInt(normalizedFraction.slice(0, STABLECOIN_DECIMALS));
+  return sanitizedValue;
+}
 
-  if (tokenAmount <= 0n) {
+function formatHumanAmountString(amount: string): string {
+  const [wholePart = "0", fractionalPart = ""] = amount.split(".");
+  const normalizedWholePart = wholePart.replace(/^0+(?=\d)/, "");
+  const trimmedFraction = fractionalPart.replace(/0+$/, "");
+
+  return trimmedFraction
+    ? `${normalizedWholePart || "0"}.${trimmedFraction}`
+    : normalizedWholePart || "0";
+}
+
+// Convex amounts are stored in human stablecoin units.
+// Smart-contract calls receive raw integer token units derived from the configured decimals.
+export function parseHumanAmount(input: string): string {
+  return formatHumanAmountString(normalizeHumanAmount(input));
+}
+
+export function toTokenUnits(
+  humanAmount: number | string,
+  decimals: number = stablecoinConfig.decimals,
+): bigint {
+  const resolvedDecimals = normalizeDecimals(decimals);
+  const normalizedAmount = normalizeHumanAmount(humanAmount);
+  const [wholePart = "0", fractionalPart = ""] = normalizedAmount.split(".");
+
+  if (fractionalPart.length > resolvedDecimals) {
+    throw new Error(`Stablecoin amount supports up to ${resolvedDecimals} decimal places.`);
+  }
+
+  const scale = getDecimalScale(resolvedDecimals);
+  const normalizedFraction = fractionalPart.padEnd(resolvedDecimals, "0");
+  const rawAmount = BigInt(wholePart) * scale + BigInt(normalizedFraction || "0");
+
+  if (rawAmount <= 0n) {
     throw new Error("Escrow amount must be greater than zero.");
   }
 
-  return tokenAmount;
+  return rawAmount;
 }
 
-export function fromTokenAmount(amount: bigint | string): string {
-  const tokenAmount = BigInt(amount);
-  const wholePart = tokenAmount / DECIMAL_SCALE;
-  const fractionalPart = tokenAmount % DECIMAL_SCALE;
-  const formattedFraction = fractionalPart.toString().padStart(STABLECOIN_DECIMALS, "0");
+export function fromTokenUnits(
+  rawAmount: bigint | number | string,
+  decimals: number = stablecoinConfig.decimals,
+): string {
+  const resolvedDecimals = normalizeDecimals(decimals);
+  const normalizedRawAmount = BigInt(rawAmount);
+  const isNegative = normalizedRawAmount < 0n;
+  const absoluteRawAmount = isNegative ? normalizedRawAmount * -1n : normalizedRawAmount;
+  const scale = getDecimalScale(resolvedDecimals);
+  const wholePart = absoluteRawAmount / scale;
+  const fractionalPart = absoluteRawAmount % scale;
+  const formattedFraction = fractionalPart.toString().padStart(resolvedDecimals, "0");
   const trimmedFraction = formattedFraction.replace(/0+$/, "");
+  const humanAmount = trimmedFraction
+    ? `${wholePart.toString()}.${trimmedFraction}`
+    : wholePart.toString();
 
-  return trimmedFraction ? `${wholePart.toString()}.${trimmedFraction}` : wholePart.toString();
+  return isNegative ? `-${humanAmount}` : humanAmount;
+}
+
+export function formatTokenAmount(
+  amount: bigint | number | string,
+  symbol: string,
+  decimals: number = stablecoinConfig.decimals,
+): string {
+  const humanAmount =
+    typeof amount === "bigint"
+      ? fromTokenUnits(amount, decimals)
+      : formatHumanAmountString(String(amount));
+
+  return `${humanAmount} ${symbol}`;
+}
+
+export function toTokenAmount(amount: number | string): bigint {
+  return toTokenUnits(amount, stablecoinConfig.decimals);
+}
+
+export function fromTokenAmount(amount: bigint | number | string): string {
+  return fromTokenUnits(amount, stablecoinConfig.decimals);
 }

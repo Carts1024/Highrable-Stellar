@@ -1,8 +1,12 @@
 "use client";
 
-import { AppButton } from "@/core/ui/button";
-import { AppTextarea } from "@/core/ui/textarea";
 import { sanitizeMultilineInput } from "@/features/common";
+import {
+  TrustSafetyNotice,
+  type TTrustSafetyNoticeType,
+} from "@/features/marketplace/components/trust-safety-notice";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +21,7 @@ interface IJobApplicationDialogProps {
   readonly isOpen: boolean;
   readonly isSubmitting: boolean;
   readonly jobTitle: string;
+  readonly trustSafetyNoticeType: Extract<TTrustSafetyNoticeType, "unfunded" | "verified_funded">;
   readonly errorMessage: string | null;
   readonly onOpenChange: (isOpen: boolean) => void;
   readonly onSubmit: (proposal: string) => Promise<void>;
@@ -33,6 +38,7 @@ export function JobApplicationDialog({
   isOpen,
   isSubmitting,
   jobTitle,
+  trustSafetyNoticeType,
   errorMessage,
   onOpenChange,
   onSubmit,
@@ -71,6 +77,11 @@ export function JobApplicationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <TrustSafetyNotice type={trustSafetyNoticeType} compact />
+          <p className="text-sm text-[#5f5f5f]">
+            Only start work after this job shows Verified Funded.
+          </p>
+
           <div className="space-y-2">
             <label
               htmlFor="job-application-proposal"
@@ -104,7 +115,7 @@ export function JobApplicationDialog({
           ) : null}
 
           <div className="flex justify-end gap-2">
-            <AppButton type="button" appVariant="secondary" onClick={() => onOpenChange(false)}>
+            <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </AppButton>
             <AppButton type="submit" disabled={isSubmitting}>

@@ -39,7 +39,7 @@ const ON_CHAIN_STATUS_MAP: Record<string, TEscrowStatus> = {
 export type TOnChainEscrow = {
   escrow_id: bigint;
   client: string;
-  freelancer: string;
+  freelancer?: string | null;
   asset: string;
   amount: bigint;
   job_hash: Uint8Array;
@@ -179,6 +179,14 @@ export async function getCompletionFromContract(
 export function normalizeOnChainEscrowStatus(onChainStatus: unknown): TEscrowStatus | null {
   if (typeof onChainStatus === "string") {
     return ON_CHAIN_STATUS_MAP[onChainStatus] ?? null;
+  }
+
+  if (Array.isArray(onChainStatus)) {
+    if (onChainStatus.length !== 1) {
+      return null;
+    }
+
+    return normalizeOnChainEscrowStatus(onChainStatus[0]);
   }
 
   if (typeof onChainStatus === "object" && onChainStatus !== null) {

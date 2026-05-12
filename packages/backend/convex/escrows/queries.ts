@@ -4,6 +4,23 @@ import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
 import { getEscrowByEscrowId as findEscrowByEscrowId, sanitizeEscrowId } from "./helpers";
 
+const TRUST_FUNDED_STATUSES = new Set(["funded", "submitted", "released"] as const);
+
+type TAssetAmountRow = {
+  asset: string;
+  amount: number;
+};
+
+function sumByAsset(escrows: Array<{ asset: string; amount: number }>): TAssetAmountRow[] {
+  const byAsset = new Map<string, number>();
+
+  for (const escrow of escrows) {
+    byAsset.set(escrow.asset, (byAsset.get(escrow.asset) ?? 0) + escrow.amount);
+  }
+
+  return Array.from(byAsset.entries()).map(([asset, amount]) => ({ asset, amount }));
+}
+
 export const getEscrowByEscrowId = query({
   args: {
     escrowId: v.string(),
@@ -54,5 +71,36 @@ export const listEscrowsByWallet = query({
     }
 
     return Array.from(byId.values()).sort((left, right) => right.updatedAt - left.updatedAt);
+  },
+});
+
+export const getClientTrustStats = query({
+  args: {
+    clientWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const clientWallet = normalizeWalletAddress(args.clientWallet);
+    const [jobs, escrows] = await Promise.all([
+      ctx.db
+        .query("jobs")
+        .withIndex("by_clientWallet", (q) => q.eq("clientWallet", clientWallet))
+        .take(500),
+      ctx.db
+        .query("escrows")
+        .withIndex("by_clientWallet", (q) => q.eq("clientWallet", clientWallet))
+        .take(500),
+    ]);
+
+    const fundedEscrows = escrows.filter((escrow) =>
+      TRUST_FUNDED_STATUSES.has(escrow.status as "funded" | "submitted" | "released"),
+    );
+
+    return {
+      jobsPosted: jobs.length,
+      fundedJobs: fundedEscrows.length,
+      completedJobs: escrows.filter((escrow) => escrow.status === "released").length,
+      disputedJobs: escrows.filter((escrow) => escrow.status === "disputed").length,
+      totalEscrowFundedByAsset: sumByAsset(fundedEscrows),
+    };
   },
 });

@@ -18,7 +18,7 @@ type TEscrowResult = TConfirmedContractTx;
 export type TOnChainEscrow = {
   escrow_id: bigint;
   client: string;
-  freelancer: string;
+  freelancer?: string | null;
   asset: string;
   amount: bigint;
   job_hash: Uint8Array;
@@ -102,6 +102,82 @@ export async function createEscrowOnChain(
   };
 }
 
+export async function createOpenEscrowOnChain(
+  params: TBaseEscrowCallParams & {
+    client: string;
+    asset: string;
+    amount: number;
+    jobHash: Uint8Array;
+  },
+): Promise<TEscrowResult & { escrowId: string }> {
+  const result = await invokeContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    contractId: params.escrowContractId,
+    method: "create_open_escrow",
+    args: [
+      addressScVal(params.client),
+      addressScVal(params.asset),
+      i128ScVal(toTokenAmount(params.amount)),
+      bytesN32ScVal(params.jobHash),
+    ],
+    signTransaction: params.signTransaction,
+  });
+
+  if (!result.returnValue) {
+    throw new Error("Create open escrow transaction did not return an escrow ID.");
+  }
+
+  const escrowId = scValToNative(result.returnValue);
+  if (typeof escrowId !== "bigint" && typeof escrowId !== "number") {
+    throw new Error("Create open escrow return value was not a u64 escrow ID.");
+  }
+
+  return {
+    ...result,
+    escrowId: escrowId.toString(),
+  };
+}
+
+export async function createAndFundOpenEscrowOnChain(
+  params: TBaseEscrowCallParams & {
+    client: string;
+    asset: string;
+    amount: number;
+    jobHash: Uint8Array;
+  },
+): Promise<TEscrowResult & { escrowId: string }> {
+  const result = await invokeContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    contractId: params.escrowContractId,
+    method: "create_and_fund_open_escrow",
+    args: [
+      addressScVal(params.client),
+      addressScVal(params.asset),
+      i128ScVal(toTokenAmount(params.amount)),
+      bytesN32ScVal(params.jobHash),
+    ],
+    signTransaction: params.signTransaction,
+  });
+
+  if (!result.returnValue) {
+    throw new Error("Create and fund open escrow transaction did not return an escrow ID.");
+  }
+
+  const escrowId = scValToNative(result.returnValue);
+  if (typeof escrowId !== "bigint" && typeof escrowId !== "number") {
+    throw new Error("Create and fund open escrow return value was not a u64 escrow ID.");
+  }
+
+  return {
+    ...result,
+    escrowId: escrowId.toString(),
+  };
+}
+
 export async function fundEscrowOnChain(
   params: TBaseEscrowCallParams & { client: string; escrowId: string },
 ): Promise<TEscrowResult> {
@@ -112,6 +188,20 @@ export async function fundEscrowOnChain(
     contractId: params.escrowContractId,
     method: "fund_escrow",
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
+    signTransaction: params.signTransaction,
+  });
+}
+
+export async function assignFreelancerOnChain(
+  params: TBaseEscrowCallParams & { client: string; freelancer: string; escrowId: string },
+): Promise<TEscrowResult> {
+  return await invokeContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    contractId: params.escrowContractId,
+    method: "assign_freelancer",
+    args: [addressScVal(params.client), u64ScVal(params.escrowId), addressScVal(params.freelancer)],
     signTransaction: params.signTransaction,
   });
 }

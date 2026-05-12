@@ -1,9 +1,10 @@
+import type { TMarketplaceJobRow } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { JobCard } from "./job-card";
 
 interface IJobListProps {
-  readonly jobs: TConvexDoc<"jobs">[] | undefined;
+  readonly jobs: TMarketplaceJobRow[] | TConvexDoc<"jobs">[] | undefined;
   readonly connectedWallet: string | null;
   readonly onApply: (jobId: string) => void;
   readonly applyingJobId: string | null;
@@ -24,15 +25,26 @@ export function JobList({ jobs, connectedWallet, onApply, applyingJobId }: IJobL
 
   return (
     <div className="grid gap-4">
-      {jobs.map((job) => (
-        <JobCard
-          key={job._id}
-          job={job}
-          connectedWallet={connectedWallet}
-          onApply={onApply}
-          isApplying={applyingJobId === job._id}
-        />
-      ))}
+      {jobs.map((job) =>
+        "job" in job ? (
+          <JobCard
+            key={job.job._id}
+            job={job.job}
+            escrow={job.escrow}
+            connectedWallet={connectedWallet}
+            onApply={onApply}
+            isApplying={applyingJobId === job.job._id}
+          />
+        ) : (
+          <JobCard
+            key={job._id}
+            job={job}
+            connectedWallet={connectedWallet}
+            onApply={onApply}
+            isApplying={applyingJobId === job._id}
+          />
+        ),
+      )}
     </div>
   );
 }
