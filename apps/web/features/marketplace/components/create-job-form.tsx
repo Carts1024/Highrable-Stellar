@@ -1,7 +1,7 @@
 "use client";
 
-import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import { parseHumanAmount } from "@/core/stellar/amounts";
+import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -101,8 +101,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   }, [isStablecoinConfigured]);
 
   const budgetHelperText = useMemo(
-    () =>
-      "This amount will be locked in Stellar escrow after the client funds the contract.",
+    () => "This amount will be locked in Stellar escrow after the client funds the contract.",
     [],
   );
 
@@ -179,8 +178,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       {!isStablecoinConfigured ? (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Stablecoin token is not configured. You can create off-chain jobs, but escrow funding
-          will be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set.
+          Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will
+          be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set.
         </p>
       ) : null}
 
@@ -271,7 +270,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 <p className="font-medium text-[#0a0a0a]">
                   Payment asset: {formatAssetLabel(stablecoinConfig.tokenContractId ?? "")}
                 </p>
-                <p className="mt-1 break-all font-mono text-xs text-[#5f5f5f]">
+                <p className="mt-1 font-mono text-xs break-all text-[#5f5f5f]">
                   {stablecoinConfig.tokenContractId}
                 </p>
               </div>

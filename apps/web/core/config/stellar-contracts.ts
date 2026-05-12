@@ -1,6 +1,6 @@
-import { env, ensureContractConfig } from "./env";
-
 import { getStablecoinConfigOrThrow } from "@/core/stellar/stablecoin-config";
+
+import { env, ensureContractConfig } from "./env";
 
 export const STELLAR_RPC_URL = env.NEXT_PUBLIC_STELLAR_RPC_URL;
 export const STELLAR_HORIZON_URL = env.NEXT_PUBLIC_STELLAR_HORIZON_URL;

@@ -1,7 +1,7 @@
 "use client";
 
-import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { formatAssetLabel, isConfiguredStablecoin } from "@/core/stellar/assets";
+import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
 import {
   hasStablecoinConfig,
@@ -261,7 +261,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               key={item.label}
               className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-[#5f5f5f]"
             >
-              <span className={`mr-2 font-medium ${item.isReady ? "text-emerald-700" : "text-red-700"}`}>
+              <span
+                className={`mr-2 font-medium ${item.isReady ? "text-emerald-700" : "text-red-700"}`}
+              >
                 {item.isReady ? "Ready" : "Blocked"}
               </span>
               <span className="text-[#0a0a0a]">{item.label}:</span> {item.value}
@@ -279,8 +281,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         <div className="mt-4">
           <TrustWarning
             message={
-              stablecoinConfigValidation.message ??
-              "Stablecoin token contract is not configured."
+              stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
             }
           />
         </div>
@@ -356,13 +357,13 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 ? stablecoinConfigValidation.message
                 : role === "client" && !isJobAssetConfiguredStablecoin
                   ? "This job uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety."
-              : role === "client" && stablecoinReadiness.hasSufficientBalance === false
-                ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`
-                : role === "client" && stablecoinReadiness.error
-                  ? stablecoinReadiness.error
-                  : role === "client" && !actionGuards.fundEscrow.canAct
-                    ? actionGuards.fundEscrow.reason
-                    : undefined
+                  : role === "client" && stablecoinReadiness.hasSufficientBalance === false
+                    ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`
+                    : role === "client" && stablecoinReadiness.error
+                      ? stablecoinReadiness.error
+                      : role === "client" && !actionGuards.fundEscrow.canAct
+                        ? actionGuards.fundEscrow.reason
+                        : undefined
           }
         >
           {role === "client" ? (

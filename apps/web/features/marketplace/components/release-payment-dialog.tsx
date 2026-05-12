@@ -1,7 +1,7 @@
 "use client";
 
-import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatTokenAmount } from "@/core/stellar/amounts";
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { AppButton } from "@/core/ui/button";
 import { AppInput } from "@/core/ui/input";

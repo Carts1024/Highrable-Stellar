@@ -50,9 +50,7 @@ export function toTokenUnits(
   const [wholePart = "0", fractionalPart = ""] = normalizedAmount.split(".");
 
   if (fractionalPart.length > resolvedDecimals) {
-    throw new Error(
-      `Stablecoin amount supports up to ${resolvedDecimals} decimal places.`,
-    );
+    throw new Error(`Stablecoin amount supports up to ${resolvedDecimals} decimal places.`);
   }
 
   const scale = getDecimalScale(resolvedDecimals);
@@ -92,7 +90,9 @@ export function formatTokenAmount(
   decimals: number = stablecoinConfig.decimals,
 ): string {
   const humanAmount =
-    typeof amount === "bigint" ? fromTokenUnits(amount, decimals) : formatHumanAmountString(String(amount));
+    typeof amount === "bigint"
+      ? fromTokenUnits(amount, decimals)
+      : formatHumanAmountString(String(amount));
 
   return `${humanAmount} ${symbol}`;
 }

@@ -139,9 +139,7 @@ export function useEscrowActions({
       }
 
       if (!isSameWallet(job.asset, config.stablecoinTokenContractId)) {
-        throw new Error(
-          "This job's payment asset does not match the configured MVP stablecoin.",
-        );
+        throw new Error("This job's payment asset does not match the configured MVP stablecoin.");
       }
 
       if (!job.jobHash) {
@@ -323,9 +321,7 @@ export function useEscrowActions({
       });
 
       if (stablecoinBalance < requiredBalance) {
-        throw new Error(
-          `You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`,
-        );
+        throw new Error(`You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`);
       }
 
       const result = await fundEscrowOnChain({

@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  STELLAR_NETWORK_PASSPHRASE,
-  STELLAR_RPC_URL,
-} from "@/core/config/stellar-contracts";
+import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { fromTokenUnits, toTokenUnits } from "@/core/stellar/amounts";
 import { getStablecoinBalanceOnChain } from "@/core/stellar/escrow-contract";
-import {
-  stablecoinConfig,
-  validateStablecoinConfig,
-} from "@/core/stellar/stablecoin-config";
+import { stablecoinConfig, validateStablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -90,7 +84,11 @@ export function useStablecoinReadiness({
   );
 
   const requiredAmountAtomic = useMemo(() => {
-    if (requiredAmount === undefined || requiredAmount === null || String(requiredAmount).trim() === "") {
+    if (
+      requiredAmount === undefined ||
+      requiredAmount === null ||
+      String(requiredAmount).trim() === ""
+    ) {
       return null;
     }
 
@@ -232,9 +230,7 @@ export function useStablecoinReadiness({
         : fromTokenUnits(state.balanceAtomic, stablecoinConfig.decimals),
     deficitAtomic,
     deficitDisplay:
-      deficitAtomic === null
-        ? null
-        : fromTokenUnits(deficitAtomic, stablecoinConfig.decimals),
+      deficitAtomic === null ? null : fromTokenUnits(deficitAtomic, stablecoinConfig.decimals),
     hasSufficientBalance,
     isLoading: state.isLoading,
     error: state.error,

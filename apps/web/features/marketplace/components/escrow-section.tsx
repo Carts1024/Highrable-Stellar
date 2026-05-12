@@ -11,7 +11,7 @@ interface IEscrowSectionProps {
   readonly children: ReactNode;
   /** Contextual helper text */
   readonly helperText?: string | null;
-  /** Warning text (e.g., USDC requirements) */
+  /** Warning text (e.g., stablecoin readiness requirements) */
   readonly warningText?: string | null;
   /** Info/neutral text */
   readonly infoText?: string | null;
