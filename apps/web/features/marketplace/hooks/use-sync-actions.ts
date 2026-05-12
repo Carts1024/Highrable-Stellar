@@ -31,8 +31,16 @@ function formatSyncMessage(result: TSyncResult): string {
     switch (result.reason) {
       case "convex_escrow_not_found":
         return "Sync failed: escrow record not found.";
+      case "sync_failed":
+        return result.errorMessage
+          ? `Sync failed: ${result.errorMessage}`
+          : "Sync failed while updating local sync metadata.";
       case "onchain_escrow_not_found":
         return "Sync failed: escrow not found on-chain.";
+      case "onchain_read_failed":
+        return result.errorMessage
+          ? `Sync failed: could not read on-chain escrow. ${result.errorMessage}`
+          : "Sync failed: could not read on-chain escrow.";
       case "onchain_completion_not_found":
         return "Sync failed: reputation completion not found on-chain.";
       case "unsafe_status_downgrade":
@@ -48,6 +56,10 @@ function formatSyncMessage(result: TSyncResult): string {
           ? `Sync failed: ${result.errorMessage}`
           : "Sync failed. Please try again.";
     }
+  }
+
+  if (result.reason === "already_up_to_date") {
+    return "Already synced — Convex matches the current Stellar escrow state.";
   }
 
   if (!result.changed) {

@@ -15,6 +15,13 @@ import { ApplyToJobForm } from "./apply-to-job-form";
 import { EscrowActionPanel } from "./escrow-action-panel";
 import { StatusBadge } from "./status-badge";
 
+type TEscrowSyncMetadata = {
+  lastSyncAt?: number;
+  lastSyncOutcome?: "success" | "failed";
+  lastSyncedOnChainStatus?: string;
+  lastSyncErrorMessage?: string;
+};
+
 export function JobDetail({ jobId }: { jobId: string }) {
   const normalizedJobId = jobId.trim();
   const hasJobId = normalizedJobId.length > 0;
@@ -33,7 +40,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
     hasJobId ? { jobId: convexJobId } : "skip",
   );
 
-  const { isSyncing, syncReputationRecord, syncMessage, syncResult } = useSyncActions({ escrow });
+  const { isSyncing, syncEscrowStatus, syncReputationRecord, syncMessage, syncResult } =
+    useSyncActions({ escrow });
 
   if (!hasJobId) {
     return <p className="text-sm text-gray-700">Job not found.</p>;
@@ -49,6 +57,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
   const safeApplications = applications ?? [];
   const mergedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
+  const mergedEscrowWithSyncMetadata =
+    mergedEscrow === null ? null : (mergedEscrow as typeof mergedEscrow & TEscrowSyncMetadata);
   const reputationRecord = verifiedReviewData?.reputationRecord ?? null;
   const hasReleasedCompletion = mergedEscrow?.status === "released" || job.status === "completed";
   const showPendingSyncState =
@@ -103,6 +113,67 @@ export function JobDetail({ jobId }: { jobId: string }) {
       </section>
 
       <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
+
+      {mergedEscrowWithSyncMetadata ? (
+        <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Sync Status</h2>
+            <AppButton
+              type="button"
+              appVariant="secondary"
+              disabled={isSyncing}
+              onClick={() => void syncEscrowStatus()}
+              className="h-8 rounded-lg px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSyncing ? "Syncing..." : "Sync with Stellar"}
+            </AppButton>
+          </div>
+
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+              <dt className="text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">Convex status</dt>
+              <dd className="mt-1 font-semibold text-[#0a0a0a]">
+                {mergedEscrowWithSyncMetadata.status}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+              <dt className="text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Last synced chain status
+              </dt>
+              <dd className="mt-1 font-semibold text-[#0a0a0a]">
+                {mergedEscrowWithSyncMetadata.lastSyncedOnChainStatus ?? "Not synced yet"}
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+              <dt className="text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Last sync result
+              </dt>
+              <dd className="mt-1 font-semibold text-[#0a0a0a]">
+                {mergedEscrowWithSyncMetadata.lastSyncOutcome ?? "Unknown"}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="text-xs text-[#5f5f5f]">
+            Last sync time:{" "}
+            {mergedEscrowWithSyncMetadata.lastSyncAt
+              ? new Date(mergedEscrowWithSyncMetadata.lastSyncAt).toLocaleString()
+              : "Not synced yet"}
+          </p>
+
+          {mergedEscrowWithSyncMetadata.lastSyncErrorMessage ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {mergedEscrowWithSyncMetadata.lastSyncErrorMessage}
+            </p>
+          ) : null}
+
+          {syncMessage ? (
+            <p className={`text-sm ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}>
+              {syncMessage}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {hasReleasedCompletion ? (
         <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">

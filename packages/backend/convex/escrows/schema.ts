@@ -41,6 +41,10 @@ export default defineTable({
   releaseTxHash: v.optional(v.string()),
   cancelTxHash: v.optional(v.string()),
   disputeTxHash: v.optional(v.string()),
+  lastSyncAt: v.optional(v.number()),
+  lastSyncOutcome: v.optional(v.union(v.literal("success"), v.literal("failed"))),
+  lastSyncedOnChainStatus: v.optional(escrowStatusValidator),
+  lastSyncErrorMessage: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })

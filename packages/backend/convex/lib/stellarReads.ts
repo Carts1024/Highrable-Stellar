@@ -181,6 +181,14 @@ export function normalizeOnChainEscrowStatus(onChainStatus: unknown): TEscrowSta
     return ON_CHAIN_STATUS_MAP[onChainStatus] ?? null;
   }
 
+  if (Array.isArray(onChainStatus)) {
+    if (onChainStatus.length !== 1) {
+      return null;
+    }
+
+    return normalizeOnChainEscrowStatus(onChainStatus[0]);
+  }
+
   if (typeof onChainStatus === "object" && onChainStatus !== null) {
     const keys = Object.keys(onChainStatus);
     if (keys.length === 1 && keys[0]) {
