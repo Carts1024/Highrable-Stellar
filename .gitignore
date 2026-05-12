@@ -1,4 +1,5 @@
 docs/*
+!docs/deployment.md
 node_modules*
 .turbo
 .next
@@ -13,3 +14,4 @@ dist
 .env.test.local
 .env.production.local
 .vscode/mcp.json
+contracts/target

@@ -1,7 +1,10 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
+import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { V2_THEME } from "@/features/common/lib/v2-theme";
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Briefcase, Menu, Users, X } from "lucide-react";
 import Link from "next/link";
@@ -10,39 +13,46 @@ import { useState } from "react";
 
 const navigation = [
   { name: "Browse Jobs", href: "/jobs", icon: Briefcase },
-  { name: "Find Talent", href: "/post-job", icon: Users },
+  { name: "Find Talent", href: "/talent", icon: Users },
   { name: "Dashboard", href: "/dashboard", icon: Award },
 ] as const;
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /** Renders the shared navigation and wallet controls for the Highrable app. */
 export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isConnected } = useWallet();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 border-b border-[#e8e8e8] bg-white/95 backdrop-blur-sm">
+      <nav className="mx-auto max-w-7xl px-6">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center gap-2.5">
             <img
-              src="/logo/stellar/Stellar_Symbol.png"
+              src="/logo/highrable-icon.jpg"
               alt="Highrable logo"
-              className="h-8 w-8 rounded-md object-contain"
+              className="h-8 w-8 rounded-md object-cover"
             />
-            <span className="bg-linear-to-r from-[#FF7003] to-[#FF8801] bg-clip-text text-xl font-bold text-transparent">
+            <span
+              className={`bg-clip-text text-xl font-semibold tracking-tight text-transparent ${V2_THEME.gradients.primaryStrong}`}
+            >
               {APP_NAME}
             </span>
           </Link>
 
-          <div className="hidden items-center space-x-8 md:flex">
+          <div className="hidden items-center gap-8 md:flex">
             {navigation.map(({ href, icon: Icon, name }) => (
               <Link
                 key={name}
                 href={href}
-                className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                  pathname === href
-                    ? "bg-linear-to-r from-[#FF7003] to-[#FF8801] text-white shadow-lg"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-[#FF7003]"
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
+                  isActivePath(pathname, href)
+                    ? `${V2_THEME.gradients.primaryStrong} text-white`
+                    : "text-[#5f5f5f] hover:bg-[#f5f5f5] hover:text-[#FF7003]"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -51,62 +61,21 @@ export function Header() {
             ))}
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-4">
             <div className="hidden md:block">
-              <ConnectButton.Custom>
-                {({
-                  account,
-                  chain,
-                  openAccountModal,
-                  openChainModal,
-                  openConnectModal,
-                  mounted,
-                }) => {
-                  const ready = mounted;
-                  const connected = ready && account && chain;
-
-                  return (
-                    <div
-                      {...(!ready && {
-                        "aria-hidden": true,
-                        style: {
-                          opacity: 0,
-                          pointerEvents: "none",
-                          userSelect: "none",
-                        },
-                      })}
-                    >
-                      {!connected ? (
-                        <button
-                          onClick={openConnectModal}
-                          className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-2 font-medium text-white shadow-lg transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00] hover:shadow-xl"
-                        >
-                          Connect Wallet
-                        </button>
-                      ) : chain.unsupported ? (
-                        <button
-                          onClick={openChainModal}
-                          className="rounded-lg bg-red-500 px-4 py-2 font-medium text-white transition-colors hover:bg-red-600"
-                        >
-                          Wrong Network
-                        </button>
-                      ) : (
-                        <button
-                          onClick={openAccountModal}
-                          className="rounded-lg border-2 border-[#FF7003] bg-white px-4 py-2 font-medium text-[#FF7003] transition-all duration-200 hover:bg-[#FF7003] hover:text-white"
-                        >
-                          {account.displayName}
-                        </button>
-                      )}
-                    </div>
-                  );
-                }}
-              </ConnectButton.Custom>
+              {!isConnected ? (
+                <WalletConnectTrigger
+                  className={`rounded-lg px-6 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase transition-all hover:brightness-105 ${V2_THEME.gradients.primary}`}
+                />
+              ) : (
+                <WalletAccountButton className="rounded-lg border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]" />
+              )}
             </div>
 
             <button
-              className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-[#FF7003] md:hidden"
+              className="rounded-lg p-2 text-[#5f5f5f] transition-colors hover:bg-[#f5f5f5] hover:text-[#FF7003] md:hidden"
               onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -119,7 +88,7 @@ export function Header() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-gray-100 bg-white md:hidden"
+              className="border-t border-[#e8e8e8] bg-white md:hidden"
             >
               <div className="space-y-3 px-4 py-4">
                 {navigation.map(({ href, icon: Icon, name }) => (
@@ -127,18 +96,24 @@ export function Header() {
                     key={name}
                     href={href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
-                      pathname === href
-                        ? "bg-linear-to-r from-[#FF7003] to-[#FF8801] text-white"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-[#FF7003]"
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
+                      isActivePath(pathname, href)
+                        ? `${V2_THEME.gradients.primaryStrong} text-white`
+                        : "text-[#5f5f5f] hover:bg-[#f5f5f5] hover:text-[#FF7003]"
                     }`}
                   >
                     <Icon className="h-5 w-5" />
                     <span>{name}</span>
                   </Link>
                 ))}
-                <div className="border-t border-gray-100 pt-3">
-                  <ConnectButton />
+                <div className="border-t border-[#e8e8e8] pt-3">
+                  {!isConnected ? (
+                    <WalletConnectTrigger
+                      className={`w-full rounded-lg px-4 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase ${V2_THEME.gradients.primary}`}
+                    />
+                  ) : (
+                    <WalletAccountButton className="w-full rounded-lg border border-[#e8e8e8] px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase" />
+                  )}
                 </div>
               </div>
             </motion.div>

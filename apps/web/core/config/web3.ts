@@ -1,50 +1,17 @@
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
-import { baseSepolia } from "wagmi/chains";
+import {
+  STELLAR_HORIZON_URL as CONFIGURED_STELLAR_HORIZON_URL,
+  STELLAR_NETWORK_PASSPHRASE as CONFIGURED_STELLAR_NETWORK_PASSPHRASE,
+  STELLAR_RPC_URL as CONFIGURED_STELLAR_RPC_URL,
+  ESCROW_CONTRACT_ID,
+  REPUTATION_CONTRACT_ID,
+  STABLECOIN_TOKEN_CONTRACT_ID,
+} from "@/core/config/stellar-contracts.ts";
+import { WALLET_NETWORK } from "@/core/wallet/config";
 
-import type { Config } from "wagmi";
-
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "YOUR_PROJECT_ID";
-
-export const config: Config = getDefaultConfig({
-  appName: "Highrable",
-  projectId: walletConnectProjectId,
-  chains: [baseSepolia],
-  ssr: false,
-});
-
-export const ESCROW_CONTRACT_ADDRESS = "0x...";
-export const ESCROW_ABI = [
-  // Basic escrow contract ABI
-  {
-    inputs: [
-      { name: "client", type: "address" },
-      { name: "freelancer", type: "address" },
-      { name: "amount", type: "uint256" },
-      { name: "jobId", type: "uint256" },
-    ],
-    name: "createEscrow",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "jobId", type: "uint256" }],
-    name: "releasePayment",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ name: "jobId", type: "uint256" }],
-    name: "getJobDetails",
-    outputs: [
-      { name: "client", type: "address" },
-      { name: "freelancer", type: "address" },
-      { name: "amount", type: "uint256" },
-      { name: "status", type: "uint8" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+export const STELLAR_NETWORK = WALLET_NETWORK;
+export const STELLAR_NETWORK_PASSPHRASE = CONFIGURED_STELLAR_NETWORK_PASSPHRASE;
+export const STELLAR_RPC_URL = CONFIGURED_STELLAR_RPC_URL;
+export const STELLAR_HORIZON_URL = CONFIGURED_STELLAR_HORIZON_URL;
+export const REPUTATION_CONTRACT = REPUTATION_CONTRACT_ID;
+export const ESCROW_CONTRACT = ESCROW_CONTRACT_ID;
+export const STABLECOIN_TOKEN_CONTRACT = STABLECOIN_TOKEN_CONTRACT_ID;

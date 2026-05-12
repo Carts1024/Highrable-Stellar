@@ -1,247 +1,257 @@
 "use client";
 
-import { JobCard } from "@/features/jobs/components/job-card";
-import { useJobs } from "@/features/jobs/hooks/use-jobs";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { ProductPageHero } from "@/features/common";
+import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
+import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
+import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
+import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
+import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
+import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
+import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
+import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode";
+import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
+import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
+import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { motion } from "framer-motion";
-import { Award, Briefcase, CheckCircle, Clock, DollarSign, Target, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import {
+  AlertTriangle,
+  Briefcase,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Hourglass,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
 
-/** Summarizes wallet-specific activity for the current Highrable user. */
-export function DashboardPage() {
-  const router = useRouter();
-  const { address, isConnected } = useAccount();
-  const { jobs, loading } = useJobs();
+import type { TAssetAmount, TDashboardMode } from "@/features/dashboard/types";
 
-  // Filter jobs based on user role (simplified for POC)
-  const userJobs = jobs.filter(
-    (job) =>
-      job.clientAddress === address ||
-      job.applications?.some((app) => app.freelancerAddress === address),
-  );
+function formatAssetAmountList(rows: TAssetAmount[]): string {
+  if (rows.length === 0) return "0";
+  return rows.map((r) => `${formatAmount(r.amount)} ${formatAsset(r.asset)}`).join(" + ");
+}
 
-  const stats = {
-    totalJobs: userJobs.length,
-    activeProjects: userJobs.filter((j) => j.status === "in_progress").length,
-    completedProjects: userJobs.filter((j) => j.status === "completed").length,
-    totalEarned: userJobs
-      .filter((j) => j.status === "completed")
-      .reduce((sum, job) => sum + job.budget, 0),
+function resolveDashboardHeroCopy(mode: TDashboardMode) {
+  if (mode === "client") {
+    return {
+      label: "Client Operations",
+      title: (
+        <>
+          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+        </>
+      ),
+      description:
+        "Manage posted jobs, monitor application volume, and track escrow progress from a single control plane.",
+    };
+  }
+
+  return {
+    label: "Freelancer Performance",
+    title: (
+      <>
+        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+      </>
+    ),
+    description:
+      "Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements.",
   };
+}
+
+function UnfundedWarningBanner() {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+      <span>
+        Your testnet wallet is not funded. You can view your dashboard, but Stellar transactions
+        require test XLM.
+      </span>
+    </div>
+  );
+}
+
+function DashboardSkeletonCards() {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-gray-100"
+        />
+      ))}
+    </div>
+  );
+}
+
+function QuickActions() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.7 }}
+      className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm"
+    >
+      <h2 className="mb-4 text-xl font-semibold text-[#0a0a0a]">Quick Actions</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Link
+          href="/marketplace"
+          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
+            <Briefcase className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Browse Jobs</p>
+            <p className="text-sm text-[#5f5f5f]">Find new opportunities</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/post-job"
+          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-blue-600">
+            <Users className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Post a Job</p>
+            <p className="text-sm text-[#5f5f5f]">Hire talented freelancers</p>
+          </div>
+        </Link>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <AppButton asChild variant="secondary">
+          <Link href="/marketplace">Open Marketplace Flow</Link>
+        </AppButton>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Summarizes wallet-specific escrow activity for the connected freelancer using Convex data. */
+export function DashboardPage() {
+  const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
+    useFreelancerDashboard();
+  const { role, isLoading: isRoleLoading } = useDashboardRole();
+  const {
+    selectedMode,
+    isReady: isModeReady,
+    setSelectedMode,
+  } = useDashboardMode({
+    role,
+    address,
+    isConnected,
+  });
+
+  const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
+  const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
+  const heroCopy = resolveDashboardHeroCopy(selectedMode);
 
   if (!isConnected) {
     return (
-      <div className="mx-auto max-w-2xl py-16 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-gray-100 bg-white p-12 shadow-lg"
-        >
-          <h1 className="mb-6 text-3xl font-bold text-gray-900">Access Your Dashboard</h1>
-          <p className="mb-8 text-gray-600">
-            Connect your wallet to view your projects, earnings, and manage your Web3 freelancing
-            journey
-          </p>
-          <ConnectButton />
-        </motion.div>
-      </div>
+      <WalletRequiredNotice
+        title="Freelancer Income Dashboard"
+        description="Connect your Stellar wallet to view your income dashboard."
+      />
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* Dashboard Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center"
-      >
-        <h1 className="mb-4 text-4xl font-bold text-gray-900">
-          Your{" "}
-          <span className="bg-linear-to-r from-[#FF7003] to-[#FF8801] bg-clip-text text-transparent">
-            Dashboard
-          </span>
-        </h1>
-        <p className="text-lg text-gray-600">
-          Welcome back! Here's an overview of your Web3 freelancing activity
-        </p>
-      </motion.div>
+      <ProductPageHero
+        label={heroCopy.label}
+        title={heroCopy.title}
+        description={heroCopy.description}
+      />
 
-      {/* Stats Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
-      >
-        {[
-          {
-            title: "Total Projects",
-            value: stats.totalJobs.toString(),
-            icon: Briefcase,
-            color: "from-[#FF7003] to-[#FF8801]",
-            bgColor: "from-[#FF7003]/10 to-[#FF8801]/10",
-          },
-          {
-            title: "Active Projects",
-            value: stats.activeProjects.toString(),
-            icon: Clock,
-            color: "from-blue-500 to-blue-600",
-            bgColor: "from-blue-500/10 to-blue-600/10",
-          },
-          {
-            title: "Completed",
-            value: stats.completedProjects.toString(),
-            icon: CheckCircle,
-            color: "from-green-500 to-green-600",
-            bgColor: "from-green-500/10 to-green-600/10",
-          },
-          {
-            title: "Total Earned",
-            value: `$${stats.totalEarned.toLocaleString()}`,
-            icon: DollarSign,
-            color: "from-purple-500 to-purple-600",
-            bgColor: "from-purple-500/10 to-purple-600/10",
-          },
-        ].map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + index * 0.1 }}
-              className={`rounded-2xl border border-gray-100 bg-linear-to-br ${stat.bgColor} p-6`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br ${stat.color}`}
-                >
-                  <Icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
-      >
-        <h2 className="mb-4 text-xl font-semibold text-gray-900">Quick Actions</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <button
-            onClick={() => router.push("/jobs")}
-            className="group flex items-center space-x-3 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
-              <Briefcase className="h-5 w-5 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900 group-hover:text-[#FF7003]">Browse Jobs</p>
-              <p className="text-sm text-gray-600">Find new opportunities</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => router.push("/post-job")}
-            className="group flex items-center space-x-3 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-blue-600">
-              <Users className="h-5 w-5 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900 group-hover:text-[#FF7003]">Post a Job</p>
-              <p className="text-sm text-gray-600">Hire talented freelancers</p>
-            </div>
-          </button>
-
-          <button className="group flex items-center space-x-3 rounded-lg border border-gray-200 p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-green-500 to-green-600">
-              <Award className="h-5 w-5 text-white" />
-            </div>
-            <div className="text-left">
-              <p className="font-medium text-gray-900 group-hover:text-[#FF7003]">View Profile</p>
-              <p className="text-sm text-gray-600">Manage your reputation</p>
-            </div>
-          </button>
+      {!isRoleLoading && isModeReady && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DashboardModeLabel mode={selectedMode} />
+          <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
         </div>
-      </motion.div>
+      )}
 
-      {/* Recent Projects */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="space-y-6"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-gray-900">Your Projects</h2>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Target className="h-4 w-4" />
-            <span>{userJobs.length} total projects</span>
-          </div>
-        </div>
+      {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 
-        {loading ? (
-          <div className="space-y-6">
-            {[...Array(2)].map((_, i) => (
-              <div key={i} className="rounded-2xl border border-gray-100 bg-white p-6">
-                <div className="animate-pulse">
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex-1 space-y-2">
-                      <div className="h-6 w-3/4 rounded bg-gray-200"></div>
-                      <div className="h-4 w-1/2 rounded bg-gray-200"></div>
-                    </div>
-                    <div className="h-8 w-20 rounded bg-gray-200"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 rounded bg-gray-200"></div>
-                    <div className="h-4 w-5/6 rounded bg-gray-200"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : userJobs.length === 0 ? (
-          <div className="rounded-2xl border border-gray-100 bg-white py-12 text-center">
-            <Briefcase className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-            <h3 className="mb-2 text-xl font-medium text-gray-700">No projects yet</h3>
-            <p className="mb-6 text-gray-500">
-              Start your Web3 freelancing journey by browsing jobs or posting a project
-            </p>
-            <div className="flex justify-center space-x-4">
-              <button
-                onClick={() => router.push("/jobs")}
-                className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-3 font-medium text-white transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00]"
-              >
-                Browse Jobs
-              </button>
-              <button
-                onClick={() => router.push("/post-job")}
-                className="rounded-lg border-2 border-[#FF7003] bg-white px-6 py-3 font-medium text-[#FF7003] transition-all duration-200 hover:bg-[#FF7003] hover:text-white"
-              >
-                Post a Job
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {userJobs.slice(0, 3).map((job) => (
-              <JobCard key={job.id} job={job} showApplications={job.clientAddress === address} />
-            ))}
-          </div>
-        )}
-      </motion.div>
+      {isLoading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <p className="mb-4 text-sm text-gray-500">Loading income dashboard…</p>
+          <DashboardSkeletonCards />
+        </motion.div>
+      )}
+
+      {showFreelancerSections && !isLoading && summary && (
+        <>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <IncomeMetricCard
+              title="Total Earned"
+              value={formatAssetAmountList(summary.totalEarnedByAsset)}
+              subtitle="Completed escrow payments via Stellar"
+              icon={DollarSign}
+              colorClass="from-emerald-500 to-emerald-600"
+              bgColorClass="from-emerald-500/10 to-emerald-600/10"
+              animationDelay={0.3}
+            />
+
+            <IncomeMetricCard
+              title="Pending Escrow"
+              value={formatAssetAmountList(summary.pendingEscrowByAsset)}
+              subtitle="Funds already locked by clients"
+              icon={Clock}
+              colorClass="from-blue-500 to-blue-600"
+              bgColorClass="from-blue-500/10 to-blue-600/10"
+              animationDelay={0.35}
+            />
+
+            <IncomeMetricCard
+              title="Completed Jobs"
+              value={summary.completedJobs.toString()}
+              subtitle="Payments released through Stellar escrow"
+              icon={CheckCircle}
+              colorClass="from-[#FF7003] to-[#FF8801]"
+              bgColorClass="from-[#FF7003]/10 to-[#FF8801]/10"
+              animationDelay={0.4}
+            />
+
+            <IncomeMetricCard
+              title="Active Jobs"
+              value={summary.activeJobs.toString()}
+              subtitle="Funded or submitted, awaiting release"
+              icon={Briefcase}
+              colorClass="from-violet-500 to-violet-600"
+              bgColorClass="from-violet-500/10 to-violet-600/10"
+              animationDelay={0.45}
+            />
+
+            <IncomeMetricCard
+              title="Awaiting Funding"
+              value={summary.awaitingFunding.toString()}
+              subtitle="Escrows created but not yet funded by client"
+              icon={Hourglass}
+              colorClass="from-gray-400 to-gray-500"
+              bgColorClass="from-gray-400/10 to-gray-500/10"
+              animationDelay={0.5}
+            />
+          </motion.div>
+
+          <RecentPayoutsList payouts={summary.recentPayouts} />
+        </>
+      )}
+
+      {showFreelancerSections && <AppliedJobsSection />}
+
+      {showFreelancerSections && <OngoingJobsSection />}
+
+      {showClientSections && <PostedJobsSection />}
+
+      <QuickActions />
     </div>
   );
 }
