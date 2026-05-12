@@ -39,7 +39,7 @@ const ON_CHAIN_STATUS_MAP: Record<string, TEscrowStatus> = {
 export type TOnChainEscrow = {
   escrow_id: bigint;
   client: string;
-  freelancer: string;
+  freelancer?: string | null;
   asset: string;
   amount: bigint;
   job_hash: Uint8Array;

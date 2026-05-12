@@ -24,6 +24,7 @@ export type TCreateJobFormState = {
   description: string;
   budget: string;
   asset: string;
+  fundEscrowNow: boolean;
 };
 
 export type TCreateJobFormErrors = {

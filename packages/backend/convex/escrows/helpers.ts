@@ -15,6 +15,7 @@ import { TRANSACTION_TYPES } from "../transactions/schema";
 const TX_TYPE_TO_ESCROW_FIELD_MAP: Record<TEscrowTransactionType, TEscrowTxField> = {
   [TRANSACTION_TYPES.create_escrow]: "createTxHash",
   [TRANSACTION_TYPES.fund_escrow]: "fundTxHash",
+  [TRANSACTION_TYPES.assign_freelancer]: "assignTxHash",
   [TRANSACTION_TYPES.submit_work]: "submitTxHash",
   [TRANSACTION_TYPES.release_payment]: "releaseTxHash",
   [TRANSACTION_TYPES.cancel_escrow]: "cancelTxHash",
@@ -74,7 +75,7 @@ export async function assertEscrowCreationAllowed(
     jobId: Id<"jobs">;
     escrowId: string;
     clientWallet: string;
-    freelancerWallet: string;
+    freelancerWallet?: string;
   },
 ) {
   const job = await ctx.db.get(params.jobId);
@@ -87,7 +88,10 @@ export async function assertEscrowCreationAllowed(
     throw new ForbiddenError("clientWallet must match the job client.");
   }
 
-  if (job.selectedFreelancerWallet !== params.freelancerWallet) {
+  if (
+    params.freelancerWallet !== undefined &&
+    job.selectedFreelancerWallet !== params.freelancerWallet
+  ) {
     throw new ForbiddenError("freelancerWallet must match selectedFreelancerWallet on the job.");
   }
 

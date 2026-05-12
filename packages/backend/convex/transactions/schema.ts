@@ -6,6 +6,7 @@ import { createStringEnum } from "../_shared/enum";
 const transactionTypeEnum = createStringEnum([
   "create_escrow",
   "fund_escrow",
+  "assign_freelancer",
   "submit_work",
   "release_payment",
   "record_reputation",

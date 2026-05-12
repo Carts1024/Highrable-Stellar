@@ -103,6 +103,12 @@ export function getJobSafetyBadgeClassName(status: TJobSafetyStatus): string {
   return JOB_SAFETY_META[status].badgeClassName;
 }
 
+export function getApplicationTrustSafetyNoticeType(
+  status: TJobSafetyStatus,
+): "verified_funded" | "unfunded" {
+  return status === "verified_funded" ? "verified_funded" : "unfunded";
+}
+
 export function getJobSafetySortRank(status: TJobSafetyStatus): number {
   return JOB_SAFETY_META[status].sortRank;
 }

@@ -23,7 +23,8 @@ export async function assertCanApplyToJob(
     throw new NotFoundError("Job not found.");
   }
 
-  if (job.status !== "open") {
+  const isFundedAndUnassigned = job.status === "funded" && !job.selectedFreelancerWallet;
+  if (job.status !== "open" && !isFundedAndUnassigned) {
     throw new ForbiddenError("Applications are only allowed for open jobs.");
   }
 

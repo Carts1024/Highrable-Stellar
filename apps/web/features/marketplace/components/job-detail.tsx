@@ -251,7 +251,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
               jobTitle={job.title}
               escrowId={mergedEscrow.escrowId}
               clientWallet={mergedEscrow.clientWallet}
-              freelancerWallet={mergedEscrow.freelancerWallet}
+              freelancerWallet={mergedEscrow.freelancerWallet ?? ""}
               amount={mergedEscrow.amount}
               asset={mergedEscrow.asset}
               rating={reputationRecord.rating}
@@ -297,6 +297,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
         <h2 className="text-lg font-semibold text-[#0a0a0a]">Applications</h2>
         <ApplicationsList
           job={job}
+          escrow={mergedEscrow}
           applications={applications}
           isLoading={applications === undefined}
           onSelected={() => {}}

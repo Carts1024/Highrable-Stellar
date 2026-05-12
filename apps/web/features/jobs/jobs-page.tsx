@@ -10,6 +10,7 @@ import { TrustSafetyNotice } from "@/features/marketplace/components/trust-safet
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   compareJobsBySafetyThenNewest,
+  getApplicationTrustSafetyNoticeType,
   getJobSafetySortRank,
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
@@ -304,7 +305,10 @@ export function JobsPage() {
             {visibleJobs.map((row) => {
               const { job, escrow } = row;
               const canApply =
-                !!address && !isSameWallet(address, job.clientWallet) && job.status === "open";
+                !!address &&
+                !isSameWallet(address, job.clientWallet) &&
+                (job.status === "open" ||
+                  (job.status === "funded" && !job.selectedFreelancerWallet));
               const safetyStatus = getJobSafetyStatus(row);
 
               return (
@@ -386,6 +390,9 @@ export function JobsPage() {
         isOpen={!!selectedJobForApply}
         isSubmitting={!!applyingJobId}
         jobTitle={selectedJobForApply?.job.title ?? "this job"}
+        trustSafetyNoticeType={getApplicationTrustSafetyNoticeType(
+          selectedJobForApply ? getJobSafetyStatus(selectedJobForApply).status : "unfunded",
+        )}
         errorMessage={applyError}
         onOpenChange={(isOpen) => {
           if (!isOpen) {

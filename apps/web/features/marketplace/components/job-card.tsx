@@ -25,7 +25,9 @@ export function JobCard({
   isApplying: boolean;
 }) {
   const canApply =
-    !!connectedWallet && !isSameWallet(connectedWallet, job.clientWallet) && job.status === "open";
+    !!connectedWallet &&
+    !isSameWallet(connectedWallet, job.clientWallet) &&
+    (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
   const safetyStatus = getJobSafetyStatus({ job, escrow });
 
   return (

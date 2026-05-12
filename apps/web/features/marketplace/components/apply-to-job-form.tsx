@@ -35,7 +35,8 @@ export function ApplyToJobForm({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isJobOpen = job.status === "open";
+  const isJobOpen =
+    job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet);
   const isClient = isSameWallet(address, job.clientWallet);
 
   if (!isConnected) {
@@ -99,7 +100,11 @@ export function ApplyToJobForm({
 
   return (
     <form onSubmit={handleApply} className="rounded-xl border border-gray-200 bg-white p-4">
-      <TrustSafetyNotice type="unfunded" compact className="mb-3" />
+      <TrustSafetyNotice
+        type={job.status === "funded" ? "verified_funded" : "unfunded"}
+        compact
+        className="mb-3"
+      />
       <p className="mb-3 text-sm text-[#5f5f5f]">
         Only start work after this job shows Verified Funded.
       </p>

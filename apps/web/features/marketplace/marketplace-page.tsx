@@ -6,6 +6,7 @@ import { ProductPageHero } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   compareJobsBySafetyThenNewest,
+  getApplicationTrustSafetyNoticeType,
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
@@ -43,8 +44,9 @@ export function MarketplacePage() {
       .sort(compareJobsBySafetyThenNewest);
   }, [marketplaceRows, filter]);
 
-  const selectedJobForApply =
-    marketplaceRows?.find((row) => row.job._id === selectedJobForApplyId)?.job ?? null;
+  const selectedRowForApply =
+    marketplaceRows?.find((row) => row.job._id === selectedJobForApplyId) ?? null;
+  const selectedJobForApply = selectedRowForApply?.job ?? null;
 
   const openApplyDialogFromList = (jobId: string) => {
     if (!address || !marketplaceRows) {
@@ -151,6 +153,9 @@ export function MarketplacePage() {
         isOpen={!!selectedJobForApply}
         isSubmitting={!!applyingJobId}
         jobTitle={selectedJobForApply?.title ?? "this job"}
+        trustSafetyNoticeType={getApplicationTrustSafetyNoticeType(
+          selectedRowForApply ? getJobSafetyStatus(selectedRowForApply).status : "unfunded",
+        )}
         errorMessage={applyError}
         onOpenChange={(isOpen) => {
           if (!isOpen) {

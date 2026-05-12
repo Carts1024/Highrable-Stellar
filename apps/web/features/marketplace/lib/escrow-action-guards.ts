@@ -102,6 +102,10 @@ export function getEscrowActionGuard(input: TEscrowActionGuardInput): TEscrowAct
     }
 
     case "submit_work": {
+      if (!input.job.selectedFreelancerWallet) {
+        return blocked("A freelancer must be selected before work can be submitted.");
+      }
+
       if (input.role !== "selectedFreelancer") {
         return blocked("Only the selected freelancer can submit work.");
       }
@@ -114,6 +118,10 @@ export function getEscrowActionGuard(input: TEscrowActionGuardInput): TEscrowAct
     }
 
     case "release_payment": {
+      if (!input.job.selectedFreelancerWallet) {
+        return blocked("A freelancer must be selected before payment can be released.");
+      }
+
       if (input.role !== "client") {
         return blocked("Only the client wallet can release payment.");
       }
@@ -141,6 +149,10 @@ export function getEscrowActionGuard(input: TEscrowActionGuardInput): TEscrowAct
     }
 
     case "mark_disputed": {
+      if (!input.job.selectedFreelancerWallet) {
+        return blocked("A freelancer must be selected before escrow can be disputed.");
+      }
+
       if (input.role !== "client" && input.role !== "selectedFreelancer") {
         return blocked("Only the client or selected freelancer can mark escrow disputed.");
       }

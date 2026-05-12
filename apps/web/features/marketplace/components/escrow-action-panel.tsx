@@ -445,7 +445,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             role === "selectedFreelancer"
               ? "Submit completed work. Client will review and approve payment release."
               : role === "client"
-                ? "Escrow funded and locked. Waiting for freelancer to submit work."
+                ? job.selectedFreelancerWallet
+                  ? "Escrow funded and locked. Waiting for freelancer to submit work."
+                  : "Escrow funded and locked. Select a freelancer from the applications list."
                 : undefined
           }
         >
@@ -493,20 +495,22 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               >
                 {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
               </AppButton>
-              <AppButton
-                type="button"
-                variant="secondary"
-                disabled={isPending || !actionGuards.markDisputed.canAct}
-                onClick={() => void markDisputed()}
-                className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Mark escrow as disputed"
-              >
-                {getActionButtonLabel(
-                  "Dispute",
-                  pendingAction === "mark_disputed",
-                  "Marking Disputed...",
-                )}
-              </AppButton>
+              {job.selectedFreelancerWallet ? (
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  disabled={isPending || !actionGuards.markDisputed.canAct}
+                  onClick={() => void markDisputed()}
+                  className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Mark escrow as disputed"
+                >
+                  {getActionButtonLabel(
+                    "Dispute",
+                    pendingAction === "mark_disputed",
+                    "Marking Disputed...",
+                  )}
+                </AppButton>
+              ) : null}
             </div>
           ) : null}
         </EscrowSection>
@@ -606,7 +610,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               jobTitle={job.title}
               escrowId={escrow.escrowId}
               clientWallet={escrow.clientWallet}
-              freelancerWallet={escrow.freelancerWallet}
+              freelancerWallet={escrow.freelancerWallet ?? ""}
               amount={escrow.amount}
               asset={escrow.asset}
               rating={reputationRecord.rating}

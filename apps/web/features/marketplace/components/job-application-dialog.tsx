@@ -1,7 +1,10 @@
 "use client";
 
 import { sanitizeMultilineInput } from "@/features/common";
-import { TrustSafetyNotice } from "@/features/marketplace/components/trust-safety-notice";
+import {
+  TrustSafetyNotice,
+  type TTrustSafetyNoticeType,
+} from "@/features/marketplace/components/trust-safety-notice";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
@@ -18,6 +21,7 @@ interface IJobApplicationDialogProps {
   readonly isOpen: boolean;
   readonly isSubmitting: boolean;
   readonly jobTitle: string;
+  readonly trustSafetyNoticeType: Extract<TTrustSafetyNoticeType, "unfunded" | "verified_funded">;
   readonly errorMessage: string | null;
   readonly onOpenChange: (isOpen: boolean) => void;
   readonly onSubmit: (proposal: string) => Promise<void>;
@@ -34,6 +38,7 @@ export function JobApplicationDialog({
   isOpen,
   isSubmitting,
   jobTitle,
+  trustSafetyNoticeType,
   errorMessage,
   onOpenChange,
   onSubmit,
@@ -72,7 +77,7 @@ export function JobApplicationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <TrustSafetyNotice type="unfunded" compact />
+          <TrustSafetyNotice type={trustSafetyNoticeType} compact />
           <p className="text-sm text-[#5f5f5f]">
             Only start work after this job shows Verified Funded.
           </p>

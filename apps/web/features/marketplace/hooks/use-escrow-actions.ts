@@ -130,8 +130,14 @@ export function useEscrowActions({
         throw new Error("Job is missing the client wallet.");
       }
 
-      if (!job.selectedFreelancerWallet) {
-        throw new Error("Select a freelancer before creating escrow.");
+      const actionRequiresSelectedFreelancer =
+        action === "create_escrow" ||
+        action === "submit_work" ||
+        action === "release_payment" ||
+        action === "mark_disputed";
+
+      if (actionRequiresSelectedFreelancer && !job.selectedFreelancerWallet) {
+        throw new Error("Select a freelancer before using this escrow action.");
       }
 
       if (!job.asset) {
