@@ -14,6 +14,7 @@ import {
   sanitizeOptionalTxHash,
 } from "./helpers";
 import { escrowStatusValidator, escrowTransactionTypeValidator } from "./schema";
+import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 
 export const createEscrowRecord = mutation({
   args: {
@@ -176,7 +177,15 @@ export const updateEscrowStatus = mutation({
 
     await ctx.db.patch(escrow._id, escrowPatch);
 
-    if (
+    if (escrow.milestoneId !== undefined) {
+      await patchMilestoneForEscrowStatus(ctx, {
+        milestoneId: escrow.milestoneId,
+        escrowId,
+        status: args.status,
+        ...(txHash !== undefined ? { txHash } : {}),
+        ...(args.txType !== undefined ? { txType: args.txType } : {}),
+      });
+    } else if (
       args.status === "funded" ||
       args.status === "submitted" ||
       args.status === "released" ||

@@ -304,7 +304,9 @@ export function JobsPage() {
           <div className="grid gap-4">
             {visibleJobs.map((row) => {
               const { job, escrow } = row;
+              const isMilestoneProject = (job.jobType ?? "micro_gig") === "milestone_project";
               const canApply =
+                !isMilestoneProject &&
                 !!address &&
                 !isSameWallet(address, job.clientWallet) &&
                 (job.status === "open" ||
@@ -340,6 +342,9 @@ export function JobsPage() {
                       ) : null}
                       <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-600">
                         <span className="rounded-full bg-gray-100 px-3 py-1">
+                          {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+                        </span>
+                        <span className="rounded-full bg-gray-100 px-3 py-1">
                           Client {shortenWalletAddress(job.clientWallet)}
                         </span>
                         <span className="rounded-full bg-gray-100 px-3 py-1 break-all">
@@ -347,7 +352,7 @@ export function JobsPage() {
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          Escrow-ready
+                          {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
                         </span>
                       </div>
                     </div>
@@ -355,9 +360,11 @@ export function JobsPage() {
                     <div className="flex shrink-0 flex-col gap-3 lg:w-48 lg:items-end">
                       <div className="lg:text-right">
                         <div className="text-2xl font-bold text-[#B94A00]">
-                          {formatBudget(job.budget)}
+                          {formatBudget(job.totalBudget ?? job.budget)}
                         </div>
-                        <div className="text-xs font-medium text-gray-500">Budget</div>
+                        <div className="text-xs font-medium text-gray-500">
+                          {isMilestoneProject ? "Total budget" : "Budget"}
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2 lg:justify-end">
                         <Link

@@ -159,6 +159,34 @@ fn create_escrow_works() {
 }
 
 #[test]
+fn multiple_milestone_escrows_can_share_parent_parties_with_distinct_hashes() {
+    let context = setup();
+
+    let first_milestone_escrow_id = create_escrow(&context, 100, 51);
+    let second_milestone_escrow_id = create_escrow(&context, 250, 52);
+
+    assert_ne!(first_milestone_escrow_id, second_milestone_escrow_id);
+
+    let first_escrow: TEscrow = context
+        .escrow_client
+        .get_escrow(&first_milestone_escrow_id);
+    let second_escrow: TEscrow = context
+        .escrow_client
+        .get_escrow(&second_milestone_escrow_id);
+
+    assert_eq!(first_escrow.client, context.client);
+    assert_eq!(second_escrow.client, context.client);
+    assert_eq!(first_escrow.freelancer, Some(context.freelancer.clone()));
+    assert_eq!(second_escrow.freelancer, Some(context.freelancer.clone()));
+    assert_eq!(first_escrow.amount, 100);
+    assert_eq!(second_escrow.amount, 250);
+    assert_eq!(first_escrow.job_hash, hash_from_byte(&context.env, 51));
+    assert_eq!(second_escrow.job_hash, hash_from_byte(&context.env, 52));
+    assert_eq!(first_escrow.status, TEscrowStatus::Created);
+    assert_eq!(second_escrow.status, TEscrowStatus::Created);
+}
+
+#[test]
 fn create_open_escrow_works() {
     let context = setup();
 

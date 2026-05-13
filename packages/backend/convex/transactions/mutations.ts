@@ -17,6 +17,7 @@ export const createTransaction = mutation({
     clientRequestId: v.optional(v.string()),
     escrowId: v.optional(v.string()),
     jobId: v.optional(v.id("jobs")),
+    milestoneId: v.optional(v.id("milestones")),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
   },
@@ -40,6 +41,7 @@ export const createTransaction = mutation({
       ...(clientRequestId !== undefined ? { clientRequestId } : {}),
       ...(escrowId !== undefined ? { escrowId } : {}),
       ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
+      ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
     });
   },

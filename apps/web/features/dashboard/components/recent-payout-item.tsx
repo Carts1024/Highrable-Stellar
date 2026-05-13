@@ -29,6 +29,7 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   const {
     escrowId,
     jobTitle,
+    milestoneTitle,
     amount,
     asset,
     clientWallet,
@@ -42,9 +43,12 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   return (
     <div className="space-y-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
       <p className="truncate text-sm font-semibold text-gray-900">{jobTitle ?? "Untitled Job"}</p>
+      {milestoneTitle ? (
+        <p className="text-xs font-medium text-[#5f5f5f]">Milestone: {milestoneTitle}</p>
+      ) : null}
       <VerifiedReviewCard
         compact
-        jobTitle={jobTitle}
+        jobTitle={milestoneTitle ? `${jobTitle ?? "Untitled Job"} - ${milestoneTitle}` : jobTitle}
         escrowId={escrowId}
         clientWallet={clientWallet}
         freelancerWallet={freelancerWallet}
@@ -54,6 +58,7 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
         reviewText={reviewText}
         txHash={releaseTxHash}
         createdAt={releasedAt}
+        completionType={milestoneTitle ? "milestone" : "job"}
       />
       {rating !== undefined ? (
         <div className="flex items-center gap-2 text-xs text-gray-500">

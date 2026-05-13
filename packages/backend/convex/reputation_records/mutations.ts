@@ -7,6 +7,7 @@ export const createReputationRecord = mutation({
   args: {
     escrowId: v.string(),
     jobId: v.id("jobs"),
+    milestoneId: v.optional(v.id("milestones")),
     clientWallet: v.string(),
     freelancerWallet: v.string(),
     amount: v.number(),
@@ -20,11 +21,13 @@ export const createReputationRecord = mutation({
     await assertReputationCreationAllowed(ctx, {
       escrowId: sanitizedArgs.escrowId,
       jobId: args.jobId,
+      ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
     });
 
     return await ctx.db.insert("reputationRecords", {
       escrowId: sanitizedArgs.escrowId,
       jobId: args.jobId,
+      ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
       clientWallet: sanitizedArgs.clientWallet,
       freelancerWallet: sanitizedArgs.freelancerWallet,
       amount: sanitizedArgs.amount,

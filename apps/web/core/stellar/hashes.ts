@@ -28,3 +28,17 @@ export async function toBytesN32Hash(value: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", encodedValue);
   return new Uint8Array(digest);
 }
+
+export function createMilestoneHash({
+  jobId,
+  milestoneId,
+  order,
+  title,
+}: {
+  jobId: string;
+  milestoneId: string;
+  order: number;
+  title: string;
+}): string {
+  return `milestone:${jobId}:${milestoneId}:${order}:${title.trim()}`;
+}

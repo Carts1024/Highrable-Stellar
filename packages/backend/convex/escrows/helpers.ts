@@ -10,6 +10,7 @@ import {
   requireNonEmptyString,
   requirePositiveNumber,
 } from "../_shared/input";
+import { getJobType } from "../jobs/helpers";
 import { TRANSACTION_TYPES } from "../transactions/schema";
 
 const TX_TYPE_TO_ESCROW_FIELD_MAP: Record<TEscrowTransactionType, TEscrowTxField> = {
@@ -86,6 +87,10 @@ export async function assertEscrowCreationAllowed(
   // TODO: Replace walletAddress trust with signed wallet session/auth.
   if (job.clientWallet !== params.clientWallet) {
     throw new ForbiddenError("clientWallet must match the job client.");
+  }
+
+  if (getJobType(job) !== "micro_gig") {
+    throw new ForbiddenError("Use milestone escrow records for milestone projects.");
   }
 
   if (

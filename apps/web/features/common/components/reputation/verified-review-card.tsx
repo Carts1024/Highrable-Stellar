@@ -22,6 +22,7 @@ export type TVerifiedReviewCardProps = {
   txHash?: string;
   createdAt?: number;
   compact?: boolean;
+  completionType?: "job" | "milestone";
 };
 
 function normalizeRating(rating: number | undefined): number | undefined {
@@ -91,12 +92,16 @@ export function VerifiedReviewCard({
   reviewHash,
   txHash,
   compact = false,
+  completionType = "job",
 }: TVerifiedReviewCardProps) {
   const safeRating = normalizeRating(rating);
-  const title = compact ? "Verified completed job" : "Verified completed job";
-  const subtitle = compact
-    ? "Paid through Stellar escrow"
-    : "This review is linked to a paid Stellar escrow.";
+  const isMilestone = completionType === "milestone";
+  const title = isMilestone ? "Verified completed milestone" : "Verified completed job";
+  const subtitle = isMilestone
+    ? "This milestone review is linked to a paid Stellar escrow."
+    : compact
+      ? "Paid through Stellar escrow"
+      : "This review is linked to a paid Stellar escrow.";
 
   return (
     <article
@@ -104,7 +109,15 @@ export function VerifiedReviewCard({
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-1">
-          <VerifiedBadge label={compact ? "Verified Completed Job" : "Verified Review"} />
+          <VerifiedBadge
+            label={
+              isMilestone
+                ? "Verified Completed Milestone"
+                : compact
+                  ? "Verified Completed Job"
+                  : "Verified Review"
+            }
+          />
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <p className="text-sm text-emerald-800">{subtitle}</p>
         </div>

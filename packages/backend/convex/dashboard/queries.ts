@@ -18,7 +18,9 @@ type TAssetAmountRow = { asset: string; amount: number };
 type TRecentPayoutRow = {
   escrowId: string;
   jobId: Id<"jobs">;
+  milestoneId: Id<"milestones"> | undefined;
   jobTitle: string | undefined;
+  milestoneTitle: string | undefined;
   clientWallet: string;
   freelancerWallet: string;
   amount: number;
@@ -51,9 +53,11 @@ type TDerivedApplicationStatus =
 type TFreelancerAppliedJobRow = {
   applicationId: Id<"applications">;
   jobId: Id<"jobs">;
+  milestoneId: Id<"milestones"> | undefined;
   applicationCreatedAt: number;
   proposalPreview: string;
   title: string;
+  milestoneTitle: string | undefined;
   budget: number;
   asset: string;
   jobStatus: string;
@@ -66,7 +70,9 @@ type TFreelancerAppliedJobRow = {
 type TFreelancerOngoingJobRow = {
   escrowId: string;
   jobId: Id<"jobs">;
+  milestoneId: Id<"milestones"> | undefined;
   title: string;
+  milestoneTitle: string | undefined;
   budget: number;
   asset: string;
   clientWallet: string;
@@ -101,6 +107,7 @@ async function buildRecentPayoutRow(
   escrow: {
     escrowId: string;
     jobId: Id<"jobs">;
+    milestoneId?: Id<"milestones">;
     clientWallet: string;
     freelancerWallet: string;
     amount: number;
@@ -109,8 +116,9 @@ async function buildRecentPayoutRow(
     updatedAt: number;
   },
 ): Promise<TRecentPayoutRow> {
-  const [job, reputationRecord] = await Promise.all([
+  const [job, milestone, reputationRecord] = await Promise.all([
     ctx.db.get(escrow.jobId),
+    escrow.milestoneId ? ctx.db.get(escrow.milestoneId) : Promise.resolve(null),
     ctx.db
       .query("reputationRecords")
       .withIndex("by_escrowId", (q) => q.eq("escrowId", escrow.escrowId))
@@ -120,7 +128,9 @@ async function buildRecentPayoutRow(
   return {
     escrowId: escrow.escrowId,
     jobId: escrow.jobId,
+    milestoneId: escrow.milestoneId,
     jobTitle: job?.title,
+    milestoneTitle: milestone?.title,
     clientWallet: escrow.clientWallet,
     freelancerWallet: escrow.freelancerWallet,
     amount: escrow.amount,
@@ -136,12 +146,33 @@ function deriveApplicationStatus(args: {
   freelancerWallet: string;
   selectedFreelancerWallet: string | undefined;
   jobStatus: string;
+  milestoneStatus?: string;
 }): TDerivedApplicationStatus {
   const normalizedSelected = args.selectedFreelancerWallet?.toUpperCase();
   const isSelectedFreelancer = normalizedSelected === args.freelancerWallet;
 
   if (normalizedSelected && !isSelectedFreelancer) {
     return "not_selected";
+  }
+
+  if (args.milestoneStatus) {
+    if (args.milestoneStatus === "open") {
+      return "pending";
+    }
+    if (args.milestoneStatus === "assigned" || args.milestoneStatus === "escrow_created") {
+      return "selected";
+    }
+    if (args.milestoneStatus === "released") {
+      return "completed";
+    }
+    if (
+      args.milestoneStatus === "funded" ||
+      args.milestoneStatus === "submitted" ||
+      args.milestoneStatus === "cancelled" ||
+      args.milestoneStatus === "disputed"
+    ) {
+      return args.milestoneStatus;
+    }
   }
 
   if (args.jobStatus === "open") {
@@ -247,33 +278,46 @@ export const listFreelancerAppliedJobsPage = query({
 
     const rows = await Promise.all(
       page.page.map(async (application): Promise<TFreelancerAppliedJobRow | null> => {
-        const [job, escrow] = await Promise.all([
+        const [job, milestone] = await Promise.all([
           ctx.db.get(application.jobId),
-          ctx.db
-            .query("escrows")
-            .withIndex("by_jobId", (q) => q.eq("jobId", application.jobId))
-            .unique(),
+          application.milestoneId ? ctx.db.get(application.milestoneId) : Promise.resolve(null),
         ]);
 
         if (!job) {
           return null;
         }
 
+        const escrows = application.milestoneId
+          ? await ctx.db
+              .query("escrows")
+              .withIndex("by_milestoneId", (q) => q.eq("milestoneId", application.milestoneId!))
+              .take(1)
+          : await ctx.db
+              .query("escrows")
+              .withIndex("by_jobId", (q) => q.eq("jobId", application.jobId))
+              .take(1);
+        const escrow = escrows[0] ?? null;
+        const selectedFreelancerWallet =
+          milestone?.assignedFreelancerWallet ?? job.selectedFreelancerWallet;
+
         return {
           applicationId: application._id,
           jobId: application.jobId,
+          milestoneId: application.milestoneId,
           applicationCreatedAt: application.createdAt,
           proposalPreview: toProposalPreview(application.proposal),
           title: job.title,
-          budget: job.budget,
-          asset: job.asset,
+          milestoneTitle: milestone?.title,
+          budget: milestone?.amount ?? job.budget,
+          asset: milestone?.asset ?? job.asset,
           jobStatus: job.status,
           derivedApplicationStatus: deriveApplicationStatus({
             freelancerWallet,
-            selectedFreelancerWallet: job.selectedFreelancerWallet,
+            selectedFreelancerWallet,
             jobStatus: job.status,
+            milestoneStatus: milestone?.status,
           }),
-          selectedFreelancerWallet: job.selectedFreelancerWallet,
+          selectedFreelancerWallet,
           escrowStatus: escrow?.status,
           escrowUpdatedAt: escrow?.updatedAt,
         };
@@ -307,7 +351,10 @@ export const listFreelancerOngoingJobsPage = query({
           return null;
         }
 
-        const job = await ctx.db.get(escrow.jobId);
+        const [job, milestone] = await Promise.all([
+          ctx.db.get(escrow.jobId),
+          escrow.milestoneId ? ctx.db.get(escrow.milestoneId) : Promise.resolve(null),
+        ]);
 
         if (!job) {
           return null;
@@ -316,9 +363,11 @@ export const listFreelancerOngoingJobsPage = query({
         return {
           escrowId: escrow.escrowId,
           jobId: escrow.jobId,
+          milestoneId: escrow.milestoneId,
           title: job.title,
-          budget: job.budget,
-          asset: job.asset,
+          milestoneTitle: milestone?.title,
+          budget: milestone?.amount ?? job.budget,
+          asset: milestone?.asset ?? job.asset,
           clientWallet: escrow.clientWallet,
           escrowStatus: escrow.status as "funded" | "submitted",
           updatedAt: escrow.updatedAt,
@@ -353,9 +402,10 @@ export const listClientPostedJobsPage = query({
           ctx.db
             .query("escrows")
             .withIndex("by_jobId", (q) => q.eq("jobId", job._id))
-            .unique(),
+            .take(20),
           countApplicationsByJobId(ctx, job._id),
         ]);
+        const primaryEscrow = Array.isArray(escrow) ? escrow[0] : escrow;
 
         return {
           jobId: job._id,
@@ -366,7 +416,7 @@ export const listClientPostedJobsPage = query({
           jobStatus: job.status,
           selectedFreelancerWallet: job.selectedFreelancerWallet,
           applicationCount,
-          escrowStatus: escrow?.status,
+          escrowStatus: primaryEscrow?.status,
         };
       }),
     );

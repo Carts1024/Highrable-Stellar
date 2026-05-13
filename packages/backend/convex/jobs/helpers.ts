@@ -32,6 +32,10 @@ export function sanitizeCreateJobArgs(args: {
   };
 }
 
+export function getJobType(job: { jobType?: "micro_gig" | "milestone_project" }) {
+  return job.jobType ?? "micro_gig";
+}
+
 export async function getJobOrThrow(ctx: QueryCtx, jobId: Id<"jobs">) {
   const job = await ctx.db.get(jobId);
   if (!job) {
