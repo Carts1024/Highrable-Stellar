@@ -87,6 +87,12 @@ export function RecentCompletedPaymentsSection({
                       Release tx <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
                   ) : null}
+                  <Link
+                    href={`/proof/${encodeURIComponent(payment.escrowId)}`}
+                    className="block text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+                  >
+                    View proof
+                  </Link>
                   <p className="text-xs text-[#7f7f7f]">
                     Updated {formatShortDate(payment.updatedAt)}
                   </p>

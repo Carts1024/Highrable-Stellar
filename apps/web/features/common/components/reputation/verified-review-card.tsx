@@ -170,6 +170,13 @@ export function VerifiedReviewCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <p className="text-sm font-medium text-emerald-800">Paid through Stellar escrow</p>
+        <Link
+          href={`/proof/${encodeURIComponent(escrowId)}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+        >
+          View proof
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
         {txHash ? (
           <a
             href={getTxExplorerUrl(txHash)}

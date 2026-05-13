@@ -2,6 +2,7 @@
 
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { Star } from "lucide-react";
+import Link from "next/link";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -72,6 +73,12 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
         <p className="line-clamp-2 text-xs text-gray-500 italic">"{reviewText}"</p>
       ) : null}
       <div className="text-xs text-emerald-700">Paid through Stellar escrow</div>
+      <Link
+        href={`/proof/${encodeURIComponent(escrowId)}`}
+        className="inline-flex text-xs font-medium text-[#FF7003] hover:text-[#E85D00]"
+      >
+        View proof
+      </Link>
       {!releaseTxHash ? (
         <span className="text-xs text-gray-400">Transaction hash not stored</span>
       ) : null}

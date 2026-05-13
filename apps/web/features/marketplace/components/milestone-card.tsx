@@ -52,6 +52,14 @@ export function MilestoneCard({
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <StatusBadge label={milestone.status} />
+          {milestone.escrowId ? (
+            <Link
+              href={`/proof/${encodeURIComponent(milestone.escrowId)}`}
+              className="inline-flex items-center rounded-md border border-[#FF7003]/30 px-2.5 py-1 text-xs font-medium text-[#FF7003] hover:bg-[#FFF7ED]"
+            >
+              View proof
+            </Link>
+          ) : null}
         </div>
       </div>
 

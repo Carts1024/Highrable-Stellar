@@ -201,6 +201,14 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
         <div className="mt-5">
           <ReportJobButton jobId={convexJobId} />
+          {mergedEscrow ? (
+            <Link
+              href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}
+              className="mt-3 inline-flex text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+            >
+              View escrow proof
+            </Link>
+          ) : null}
         </div>
       </section>
 
