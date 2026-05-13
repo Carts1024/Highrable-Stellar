@@ -1,5 +1,11 @@
-import { APP_DESCRIPTION, APP_NAME } from "@/core/constants";
 import { AppProviders } from "@/core/providers/app-providers";
+import {
+  buildCanonicalUrl,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+  SEO_CONFIG,
+  SeoJsonLd,
+} from "@/core/seo";
 import { AppShell } from "@/features/common";
 import "@repo/ui/globals.css";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
@@ -20,12 +26,38 @@ const monoFont = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} | Web3 Freelancing on Stellar`,
-  description: APP_DESCRIPTION,
+  metadataBase: SEO_CONFIG.siteUrl,
+  title: {
+    default: SEO_CONFIG.defaultTitle,
+    template: SEO_CONFIG.titleTemplate,
+  },
+  description: SEO_CONFIG.description,
+  alternates: {
+    canonical: buildCanonicalUrl("/"),
+  },
   icons: {
     icon: [{ url: "/logo/highrable-icon.jpg", type: "image/jpeg" }, { url: "/favicon.ico" }],
     shortcut: "/logo/highrable-icon.jpg",
     apple: "/logo/highrable-icon.jpg",
+  },
+  openGraph: {
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.description,
+    url: buildCanonicalUrl("/"),
+    siteName: SEO_CONFIG.appName,
+    type: "website",
+    images: [
+      {
+        url: buildCanonicalUrl(SEO_CONFIG.defaultImagePath),
+        alt: SEO_CONFIG.appName,
+      },
+    ],
+  },
+  twitter: {
+    card: SEO_CONFIG.twitterCard,
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.description,
+    images: [buildCanonicalUrl(SEO_CONFIG.defaultImagePath).toString()],
   },
 };
 
@@ -34,6 +66,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className={`${sansFont.variable} ${monoFont.variable}`}>
         <AppProviders>
+          <SeoJsonLd id="website-json-ld" data={buildWebsiteJsonLd()} />
+          <SeoJsonLd id="organization-json-ld" data={buildOrganizationJsonLd()} />
           <AppShell>{children}</AppShell>
         </AppProviders>
       </body>
