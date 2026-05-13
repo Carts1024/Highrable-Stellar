@@ -30,6 +30,32 @@ export type TMilestoneStatus =
   | "cancelled"
   | "disputed";
 
+export type TApplicationGateStatus =
+  | "locked"
+  | "open"
+  | "continuation_pending"
+  | "continuation_rejected"
+  | "closed";
+
+export type TMilestoneApplicationGateReason =
+  | "first_milestone_open"
+  | "previous_milestone_unfinished"
+  | "waiting_client_decision"
+  | "replacement_applications_open"
+  | "continuation_offer_pending"
+  | "continuation_offer_rejected"
+  | "milestone_closed";
+
+export type TMilestoneApplicationGate = {
+  status: TApplicationGateStatus;
+  canApply: boolean;
+  reason: TMilestoneApplicationGateReason;
+  message: string;
+  previousMilestoneId?: string;
+  previousFreelancerWallet?: string;
+  continuationOfferFreelancerWallet?: string;
+};
+
 export type TActorRole = "client" | "selectedFreelancer" | "applicant" | "other" | "guest";
 
 export type TCreateJobFormState = {

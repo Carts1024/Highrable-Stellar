@@ -15,10 +15,21 @@ const milestoneStatusEnum = createStringEnum([
   "disputed",
 ] as const);
 
+const applicationGateStatusEnum = createStringEnum([
+  "locked",
+  "open",
+  "continuation_pending",
+  "continuation_rejected",
+  "closed",
+] as const);
+
 export const MILESTONE_STATUSES = milestoneStatusEnum.map;
 export const milestoneStatusValidator = milestoneStatusEnum.validator;
+export const APPLICATION_GATE_STATUSES = applicationGateStatusEnum.map;
+export const applicationGateStatusValidator = applicationGateStatusEnum.validator;
 
 export type TMilestoneStatus = Infer<typeof milestoneStatusValidator>;
+export type TApplicationGateStatus = Infer<typeof applicationGateStatusValidator>;
 
 export default defineTable({
   jobId: v.id("jobs"),
@@ -29,6 +40,10 @@ export default defineTable({
   asset: v.string(),
   status: milestoneStatusValidator,
   assignedFreelancerWallet: v.optional(v.string()),
+  applicationGateStatus: v.optional(applicationGateStatusValidator),
+  continuationOfferFreelancerWallet: v.optional(v.string()),
+  continuationOfferCreatedAt: v.optional(v.number()),
+  continuationOfferRespondedAt: v.optional(v.number()),
   escrowId: v.optional(v.string()),
   createTxHash: v.optional(v.string()),
   fundTxHash: v.optional(v.string()),

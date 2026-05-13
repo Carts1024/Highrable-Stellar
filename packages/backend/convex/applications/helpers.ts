@@ -4,6 +4,7 @@ import type { QueryCtx } from "../_generated/server";
 import { ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress, requireNonEmptyString } from "../_shared/input";
 import { getJobType } from "../jobs/helpers";
+import { assertMilestoneAcceptsApplications } from "../milestones/helpers";
 
 export function sanitizeApplicationWallet(walletAddress: string): string {
   return normalizeWalletAddress(walletAddress);
@@ -73,9 +74,11 @@ export async function assertCanApplyToMilestone(
     throw new ForbiddenError("Milestone does not belong to this job.");
   }
 
-  if (milestone.status !== "open" && milestone.status !== "assigned") {
+  if (milestone.status !== "open") {
     throw new ForbiddenError("Applications are only allowed for open milestones.");
   }
+
+  await assertMilestoneAcceptsApplications(ctx, milestone);
 
   if (job.clientWallet === freelancerWallet) {
     throw new ForbiddenError("Client cannot apply to their own milestone.");

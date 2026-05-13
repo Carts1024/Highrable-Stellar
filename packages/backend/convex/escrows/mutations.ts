@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
+import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import {
   assertEscrowCreationAllowed,
   getEscrowByEscrowIdOrThrow,
@@ -14,7 +15,6 @@ import {
   sanitizeOptionalTxHash,
 } from "./helpers";
 import { escrowStatusValidator, escrowTransactionTypeValidator } from "./schema";
-import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 
 export const createEscrowRecord = mutation({
   args: {

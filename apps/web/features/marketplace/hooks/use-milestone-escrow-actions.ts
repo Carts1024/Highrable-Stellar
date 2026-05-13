@@ -135,7 +135,9 @@ export function useMilestoneEscrowActions({
       }
 
       if (walletState.canWriteContracts === false) {
-        throw new Error("This wallet can view jobs but cannot sign escrow contract actions right now.");
+        throw new Error(
+          "This wallet can view jobs but cannot sign escrow contract actions right now.",
+        );
       }
 
       if (role !== "client" && action !== "submit_work" && action !== "mark_disputed") {
@@ -155,7 +157,9 @@ export function useMilestoneEscrowActions({
       }
 
       if (!isSameWallet(milestone.asset, config.stablecoinTokenContractId)) {
-        throw new Error("This milestone's payment asset does not match the configured MVP stablecoin.");
+        throw new Error(
+          "This milestone's payment asset does not match the configured MVP stablecoin.",
+        );
       }
 
       return config;
@@ -207,7 +211,12 @@ export function useMilestoneEscrowActions({
           status: "success",
         });
 
-        setState({ pendingAction: null, error: null, success: result.success, txHash: result.txHash });
+        setState({
+          pendingAction: null,
+          error: null,
+          success: result.success,
+          txHash: result.txHash,
+        });
         return true;
       } catch (error) {
         const errorMessage = normalizeStellarError(error);
@@ -294,7 +303,15 @@ export function useMilestoneEscrowActions({
         success: `Milestone escrow #${result.escrowId} created on Stellar.`,
       };
     });
-  }, [address, createMilestoneEscrowRecord, escrow, job, milestone, runEscrowAction, signTransaction]);
+  }, [
+    address,
+    createMilestoneEscrowRecord,
+    escrow,
+    job,
+    milestone,
+    runEscrowAction,
+    signTransaction,
+  ]);
 
   const fundEscrow = useCallback(async () => {
     return await runEscrowAction("fund_escrow", async ({ config }) => {
@@ -313,7 +330,9 @@ export function useMilestoneEscrowActions({
       });
 
       if (stablecoinBalance < requiredBalance) {
-        throw new Error(`You do not have enough ${stablecoinConfig.symbol} to fund this milestone.`);
+        throw new Error(
+          `You do not have enough ${stablecoinConfig.symbol} to fund this milestone.`,
+        );
       }
 
       const result = await fundEscrowOnChain({
@@ -336,7 +355,16 @@ export function useMilestoneEscrowActions({
 
       return { txHash: result.txHash, success: "Milestone escrow funded on Stellar." };
     });
-  }, [address, escrow, job.clientWallet, milestone._id, milestone.amount, runEscrowAction, signTransaction, updateMilestoneEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    job.clientWallet,
+    milestone._id,
+    milestone.amount,
+    runEscrowAction,
+    signTransaction,
+    updateMilestoneEscrowStatus,
+  ]);
 
   const submitWork = useCallback(async () => {
     return await runEscrowAction("submit_work", async ({ config }) => {
@@ -365,7 +393,15 @@ export function useMilestoneEscrowActions({
 
       return { txHash: result.txHash, success: "Milestone work submitted on Stellar." };
     });
-  }, [address, escrow, milestone._id, milestone.assignedFreelancerWallet, runEscrowAction, signTransaction, updateMilestoneEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    milestone._id,
+    milestone.assignedFreelancerWallet,
+    runEscrowAction,
+    signTransaction,
+    updateMilestoneEscrowStatus,
+  ]);
 
   const approveAndRelease = useCallback(
     async ({ rating, reviewText }: { rating: number; reviewText: string }) => {
@@ -377,7 +413,9 @@ export function useMilestoneEscrowActions({
 
         requireRating(rating);
         const normalizedReviewText = reviewText.trim();
-        const reviewHash = await toBytesN32Hash(normalizedReviewText || "Highrable milestone review");
+        const reviewHash = await toBytesN32Hash(
+          normalizedReviewText || "Highrable milestone review",
+        );
         const result = await approveAndReleaseOnChain({
           rpcUrl: config.rpcUrl,
           networkPassphrase: config.networkPassphrase,
@@ -411,7 +449,10 @@ export function useMilestoneEscrowActions({
           txHash: result.txHash,
         });
 
-        return { txHash: result.txHash, success: "Milestone payment released and reputation recorded." };
+        return {
+          txHash: result.txHash,
+          success: "Milestone payment released and reputation recorded.",
+        };
       });
     },
     [
@@ -456,7 +497,15 @@ export function useMilestoneEscrowActions({
 
       return { txHash: result.txHash, success: "Milestone escrow cancelled on Stellar." };
     });
-  }, [address, escrow, job.clientWallet, milestone._id, runEscrowAction, signTransaction, updateMilestoneEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    job.clientWallet,
+    milestone._id,
+    runEscrowAction,
+    signTransaction,
+    updateMilestoneEscrowStatus,
+  ]);
 
   const markDisputed = useCallback(async () => {
     return await runEscrowAction("mark_disputed", async ({ config }) => {
@@ -485,7 +534,14 @@ export function useMilestoneEscrowActions({
 
       return { txHash: result.txHash, success: "Milestone escrow marked disputed on Stellar." };
     });
-  }, [address, escrow, milestone._id, runEscrowAction, signTransaction, updateMilestoneEscrowStatus]);
+  }, [
+    address,
+    escrow,
+    milestone._id,
+    runEscrowAction,
+    signTransaction,
+    updateMilestoneEscrowStatus,
+  ]);
 
   return {
     ...state,

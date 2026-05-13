@@ -8,16 +8,19 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 
+import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 export function MilestoneApplicationsList({
   job,
   milestone,
+  applicationGate,
   applications,
   isLoading,
 }: {
   job: TConvexDoc<"jobs">;
   milestone: TConvexDoc<"milestones">;
+  applicationGate: TMilestoneApplicationGate;
   applications: TConvexDoc<"applications">[] | undefined;
   isLoading: boolean;
 }) {
@@ -28,9 +31,7 @@ export function MilestoneApplicationsList({
 
   const isClient = isSameWallet(address, job.clientWallet);
   const canAssign =
-    isConnected &&
-    isClient &&
-    (milestone.status === "open" || milestone.status === "assigned");
+    isConnected && isClient && milestone.status === "open" && applicationGate.canApply;
 
   const handleAssign = async (freelancerWallet: string) => {
     if (!address) {
@@ -75,7 +76,10 @@ export function MilestoneApplicationsList({
         );
 
         return (
-          <article key={application._id} className="rounded-lg border border-[#e8e8e8] bg-white p-3">
+          <article
+            key={application._id}
+            className="rounded-lg border border-[#e8e8e8] bg-white p-3"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[#0a0a0a]">

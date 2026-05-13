@@ -12,6 +12,7 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { z } from "zod";
 
+import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 const APPLY_PROPOSAL_SCHEMA = z
@@ -23,10 +24,12 @@ const APPLY_PROPOSAL_SCHEMA = z
 export function ApplyToMilestoneForm({
   job,
   milestone,
+  applicationGate,
   applications,
 }: {
   job: TConvexDoc<"jobs">;
   milestone: TConvexDoc<"milestones">;
+  applicationGate: TMilestoneApplicationGate;
   applications: TConvexDoc<"applications">[];
 }) {
   const { isConnected, address } = useWallet();
@@ -39,7 +42,11 @@ export function ApplyToMilestoneForm({
   const hasApplied = applications.some((application) =>
     isSameWallet(application.freelancerWallet, address),
   );
-  const canApply = milestone.status === "open" || milestone.status === "assigned";
+  const canApply = milestone.status === "open" && applicationGate.canApply;
+
+  if (!canApply) {
+    return <p className="text-sm text-gray-600">{applicationGate.message}</p>;
+  }
 
   if (!isConnected) {
     return (
@@ -48,10 +55,6 @@ export function ApplyToMilestoneForm({
         <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-3 py-2 text-sm font-medium text-white" />
       </div>
     );
-  }
-
-  if (!canApply) {
-    return <p className="text-sm text-gray-600">Applications are closed for this milestone.</p>;
   }
 
   if (isClient) {
@@ -95,7 +98,10 @@ export function ApplyToMilestoneForm({
   };
 
   return (
-    <form onSubmit={handleApply} className="space-y-3 rounded-lg border border-gray-200 bg-white p-3">
+    <form
+      onSubmit={handleApply}
+      className="space-y-3 rounded-lg border border-gray-200 bg-white p-3"
+    >
       <p className="text-sm text-[#5f5f5f]">
         Apply only for this milestone. Do not start until this milestone is Verified Funded.
       </p>

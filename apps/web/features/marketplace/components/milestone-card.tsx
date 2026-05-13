@@ -6,20 +6,24 @@ import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
+import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 import { ApplyToMilestoneForm } from "./apply-to-milestone-form";
 import { MilestoneActionPanel } from "./milestone-action-panel";
 import { MilestoneApplicationsList } from "./milestone-applications-list";
+import { MilestoneContinuationPanel } from "./milestone-continuation-panel";
 import { StatusBadge } from "./status-badge";
 import { TrustSafetyNotice } from "./trust-safety-notice";
 
 export function MilestoneCard({
   job,
   milestone,
+  applicationGate,
 }: {
   job: TConvexDoc<"jobs">;
   milestone: TConvexDoc<"milestones">;
+  applicationGate: TMilestoneApplicationGate;
 }) {
   const applications = useQuery(api.applications.listApplicationsByMilestone, {
     milestoneId: milestone._id as TConvexId<"milestones">,
@@ -79,15 +83,26 @@ export function MilestoneCard({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
         <div className="space-y-4">
+          <MilestoneContinuationPanel
+            job={job}
+            milestone={milestone}
+            applicationGate={applicationGate}
+          />
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-[#0a0a0a]">Apply</h4>
-            <ApplyToMilestoneForm job={job} milestone={milestone} applications={safeApplications} />
+            <ApplyToMilestoneForm
+              job={job}
+              milestone={milestone}
+              applicationGate={applicationGate}
+              applications={safeApplications}
+            />
           </div>
           <div className="space-y-3">
             <h4 className="text-sm font-semibold text-[#0a0a0a]">Applications</h4>
             <MilestoneApplicationsList
               job={job}
               milestone={milestone}
+              applicationGate={applicationGate}
               applications={applications}
               isLoading={applications === undefined}
             />
@@ -97,6 +112,7 @@ export function MilestoneCard({
         <MilestoneActionPanel
           job={job}
           milestone={milestone}
+          applicationGate={applicationGate}
           escrow={escrow}
           applications={safeApplications}
         />

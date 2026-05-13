@@ -3,11 +3,23 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { optionalNonEmptyString, requireNonEmptyString } from "../_shared/input";
-import { containsDisallowedJobPostLanguage, DISALLOWED_JOB_POST_MESSAGE } from "../jobs/scamSignals";
+import {
+  sanitizeEscrowAmount,
+  sanitizeEscrowAsset,
+  sanitizeEscrowId,
+  sanitizeOptionalTxHash,
+} from "../escrows/helpers";
+import { escrowStatusValidator, escrowTransactionTypeValidator } from "../escrows/schema";
+import {
+  containsDisallowedJobPostLanguage,
+  DISALLOWED_JOB_POST_MESSAGE,
+} from "../jobs/scamSignals";
 import { ensureUserWithRole } from "../users/helpers";
 import {
   assertMilestoneAssignable,
   assertMilestoneProjectClient,
+  deriveMilestoneApplicationGate,
+  getPreviousMilestone,
   getMilestoneOrThrow,
   patchMilestoneForEscrowStatus,
   patchParentJobStatusForMilestoneProject,
@@ -17,14 +29,6 @@ import {
   sanitizeMilestoneTitle,
   sanitizeMilestoneWallet,
 } from "./helpers";
-import { milestoneStatusValidator } from "./schema";
-import { escrowStatusValidator, escrowTransactionTypeValidator } from "../escrows/schema";
-import {
-  sanitizeEscrowAmount,
-  sanitizeEscrowAsset,
-  sanitizeEscrowId,
-  sanitizeOptionalTxHash,
-} from "../escrows/helpers";
 
 export const createMilestoneProject = mutation({
   args: {
@@ -61,7 +65,10 @@ export const createMilestoneProject = mutation({
       description: sanitizeMilestoneDescription(milestone.description),
       amount: sanitizeMilestoneAmount(milestone.amount),
     }));
-    const totalBudget = sanitizedMilestones.reduce((total, milestone) => total + milestone.amount, 0);
+    const totalBudget = sanitizedMilestones.reduce(
+      (total, milestone) => total + milestone.amount,
+      0,
+    );
 
     if (totalBudget <= 0) {
       throw new BadRequestError("Total milestone budget must be greater than zero.");
@@ -91,6 +98,7 @@ export const createMilestoneProject = mutation({
         amount: milestone.amount,
         asset,
         status: "open",
+        applicationGateStatus: index === 0 ? "open" : "locked",
         createdAt: now,
         updatedAt: now,
       });
@@ -135,6 +143,7 @@ export const addMilestoneToProject = mutation({
       amount,
       asset: job.asset,
       status: "open",
+      applicationGateStatus: "locked",
       createdAt: now,
       updatedAt: now,
     });
@@ -222,6 +231,10 @@ export const assignFreelancerToMilestone = mutation({
     });
 
     assertMilestoneAssignable(milestone.status);
+    const applicationGate = await deriveMilestoneApplicationGate(ctx, milestone);
+    if (!applicationGate.canApply) {
+      throw new ForbiddenError(applicationGate.message);
+    }
 
     if (job.clientWallet === freelancerWallet) {
       throw new ForbiddenError("Client cannot assign themselves to a milestone.");
@@ -230,10 +243,149 @@ export const assignFreelancerToMilestone = mutation({
     await ctx.db.patch(args.milestoneId, {
       assignedFreelancerWallet: freelancerWallet,
       status: "assigned",
+      applicationGateStatus: "closed",
       updatedAt: Date.now(),
     });
 
     await patchParentJobStatusForMilestoneProject(ctx, milestone.jobId);
+    return await getMilestoneOrThrow(ctx, args.milestoneId);
+  },
+});
+
+export const offerMilestoneContinuation = mutation({
+  args: {
+    milestoneId: v.id("milestones"),
+    clientWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const clientWallet = sanitizeMilestoneWallet(args.clientWallet);
+    const milestone = await getMilestoneOrThrow(ctx, args.milestoneId);
+
+    await assertMilestoneProjectClient(ctx, {
+      jobId: milestone.jobId,
+      clientWallet,
+    });
+
+    if (milestone.status !== "open") {
+      throw new ForbiddenError("Continuation can only be offered for open milestones.");
+    }
+
+    if (milestone.applicationGateStatus === "continuation_pending") {
+      throw new ConflictError("A continuation offer is already pending for this milestone.");
+    }
+
+    const applicationGate = await deriveMilestoneApplicationGate(ctx, milestone);
+    if (applicationGate.reason !== "waiting_client_decision") {
+      throw new ForbiddenError(applicationGate.message);
+    }
+
+    const previousMilestone = await getPreviousMilestone(ctx, milestone);
+    if (!previousMilestone || previousMilestone.status !== "released") {
+      throw new ForbiddenError("Previous milestone must be released before offering continuation.");
+    }
+
+    if (!previousMilestone.assignedFreelancerWallet) {
+      throw new BadRequestError("Previous milestone has no assigned freelancer to retain.");
+    }
+
+    await ctx.db.patch(args.milestoneId, {
+      applicationGateStatus: "continuation_pending",
+      continuationOfferFreelancerWallet: previousMilestone.assignedFreelancerWallet,
+      continuationOfferCreatedAt: Date.now(),
+      continuationOfferRespondedAt: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return await getMilestoneOrThrow(ctx, args.milestoneId);
+  },
+});
+
+export const openMilestoneForReplacement = mutation({
+  args: {
+    milestoneId: v.id("milestones"),
+    clientWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const clientWallet = sanitizeMilestoneWallet(args.clientWallet);
+    const milestone = await getMilestoneOrThrow(ctx, args.milestoneId);
+
+    await assertMilestoneProjectClient(ctx, {
+      jobId: milestone.jobId,
+      clientWallet,
+    });
+
+    if (milestone.status !== "open") {
+      throw new ForbiddenError("Applications can only be opened for open milestones.");
+    }
+
+    const applicationGate = await deriveMilestoneApplicationGate(ctx, milestone);
+    if (applicationGate.reason === "previous_milestone_unfinished") {
+      throw new ForbiddenError(applicationGate.message);
+    }
+
+    if (applicationGate.reason === "continuation_offer_pending") {
+      throw new ConflictError(
+        "Wait for the pending continuation offer response before opening applications.",
+      );
+    }
+
+    await ctx.db.patch(args.milestoneId, {
+      applicationGateStatus: "open",
+      continuationOfferFreelancerWallet: undefined,
+      continuationOfferCreatedAt: undefined,
+      continuationOfferRespondedAt: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return await getMilestoneOrThrow(ctx, args.milestoneId);
+  },
+});
+
+export const respondToMilestoneContinuation = mutation({
+  args: {
+    milestoneId: v.id("milestones"),
+    freelancerWallet: v.string(),
+    response: v.union(v.literal("accepted"), v.literal("rejected")),
+  },
+  handler: async (ctx, args) => {
+    const freelancerWallet = sanitizeMilestoneWallet(args.freelancerWallet);
+    const milestone = await getMilestoneOrThrow(ctx, args.milestoneId);
+
+    if (milestone.status !== "open") {
+      throw new ForbiddenError("Continuation offers can only be answered for open milestones.");
+    }
+
+    if (
+      milestone.applicationGateStatus !== "continuation_pending" ||
+      !milestone.continuationOfferFreelancerWallet
+    ) {
+      throw new ForbiddenError("No continuation offer is pending for this milestone.");
+    }
+
+    if (milestone.continuationOfferFreelancerWallet !== freelancerWallet) {
+      throw new ForbiddenError("Only the offered freelancer can answer this continuation offer.");
+    }
+
+    const now = Date.now();
+
+    if (args.response === "accepted") {
+      await ctx.db.patch(args.milestoneId, {
+        assignedFreelancerWallet: freelancerWallet,
+        status: "assigned",
+        applicationGateStatus: "closed",
+        continuationOfferRespondedAt: now,
+        updatedAt: now,
+      });
+      await patchParentJobStatusForMilestoneProject(ctx, milestone.jobId);
+      return await getMilestoneOrThrow(ctx, args.milestoneId);
+    }
+
+    await ctx.db.patch(args.milestoneId, {
+      applicationGateStatus: "continuation_rejected",
+      continuationOfferRespondedAt: now,
+      updatedAt: now,
+    });
+
     return await getMilestoneOrThrow(ctx, args.milestoneId);
   },
 });
@@ -269,9 +421,14 @@ export const assignFreelancerToMultipleMilestones = mutation({
         throw new BadRequestError("All milestones must belong to the selected job.");
       }
       assertMilestoneAssignable(milestone.status);
+      const applicationGate = await deriveMilestoneApplicationGate(ctx, milestone);
+      if (!applicationGate.canApply) {
+        throw new ForbiddenError(applicationGate.message);
+      }
       await ctx.db.patch(milestoneId, {
         assignedFreelancerWallet: freelancerWallet,
         status: "assigned",
+        applicationGateStatus: "closed",
         updatedAt: Date.now(),
       });
     }
@@ -411,14 +568,16 @@ export const updateMilestoneEscrowStatus = mutation({
       const txField =
         args.txType === "assign_freelancer"
           ? undefined
-          : ({
-              create_escrow: "createTxHash",
-              fund_escrow: "fundTxHash",
-              submit_work: "submitTxHash",
-              release_payment: "releaseTxHash",
-              cancel_escrow: "cancelTxHash",
-              mark_disputed: "disputeTxHash",
-            } as const)[args.txType];
+          : (
+              {
+                create_escrow: "createTxHash",
+                fund_escrow: "fundTxHash",
+                submit_work: "submitTxHash",
+                release_payment: "releaseTxHash",
+                cancel_escrow: "cancelTxHash",
+                mark_disputed: "disputeTxHash",
+              } as const
+            )[args.txType];
       if (txField) {
         escrowPatch[txField] = txHash;
       }

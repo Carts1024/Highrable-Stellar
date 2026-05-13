@@ -4,7 +4,7 @@ import type { TMilestoneStatus } from "./schema";
 
 import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
-import { getMilestoneOrThrow } from "./helpers";
+import { deriveMilestoneApplicationGate, getMilestoneOrThrow } from "./helpers";
 
 type TMilestoneCountsByStatus = Record<TMilestoneStatus, number>;
 
@@ -90,6 +90,9 @@ export const getMilestoneProjectSummary = query({
     return {
       job,
       milestones,
+      applicationGates: await Promise.all(
+        milestones.map((milestone) => deriveMilestoneApplicationGate(ctx, milestone)),
+      ),
       totalBudget,
       totalReleased,
       totalPending: totalBudget - totalReleased,

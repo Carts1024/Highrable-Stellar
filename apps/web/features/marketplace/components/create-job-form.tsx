@@ -209,10 +209,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     ? "Project budget is calculated from milestone amounts."
     : "This amount will be locked in Stellar escrow after the client funds the contract.";
 
-  const updateField = (
-    field: "title" | "description" | "budget" | "asset",
-    value: string,
-  ) => {
+  const updateField = (field: "title" | "description" | "budget" | "asset", value: string) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
     setErrors((currentValue) => ({ ...currentValue, [field]: undefined, submit: undefined }));
   };
@@ -593,9 +590,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               }`}
               aria-pressed={formState.jobType === "milestone_project"}
             >
-              <span className="block text-sm font-semibold text-[#0a0a0a]">
-                Milestone Project
-              </span>
+              <span className="block text-sm font-semibold text-[#0a0a0a]">Milestone Project</span>
               <span className="mt-1 block text-sm text-[#5f5f5f]">
                 Best for larger projects split into separate deliverables and payments.
               </span>
@@ -676,24 +671,24 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         <div className={`grid gap-4 ${isMilestoneProject ? "" : "sm:grid-cols-2"}`}>
           {!isMilestoneProject ? (
             <div>
-            <label
-              htmlFor="marketplace-job-budget"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Budget
-            </label>
-            <AppInput
-              id="marketplace-job-budget"
-              type="text"
-              inputMode="decimal"
-              value={formState.budget}
-              onChange={(event) => updateField("budget", event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
-              placeholder="500"
-            />
-            <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
-            {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
-          </div>
+              <label
+                htmlFor="marketplace-job-budget"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Budget
+              </label>
+              <AppInput
+                id="marketplace-job-budget"
+                type="text"
+                inputMode="decimal"
+                value={formState.budget}
+                onChange={(event) => updateField("budget", event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                placeholder="500"
+              />
+              <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
+              {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
+            </div>
           ) : null}
 
           <div>
@@ -733,8 +728,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               <div>
                 <h3 className="text-sm font-semibold text-[#0a0a0a]">Milestones</h3>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
-                  Define each deliverable and payment. Funding happens later per assigned
-                  milestone.
+                  Define each deliverable and payment. Funding happens later per assigned milestone.
                 </p>
               </div>
               <AppButton type="button" variant="secondary" onClick={addMilestone} className="gap-2">
@@ -825,40 +819,38 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               })}{" "}
               {formatAssetLabel(formState.asset)}
             </div>
-            {errors.milestones ? (
-              <p className="text-sm text-red-600">{errors.milestones}</p>
-            ) : null}
+            {errors.milestones ? <p className="text-sm text-red-600">{errors.milestones}</p> : null}
           </div>
         ) : null}
 
         {!isMilestoneProject ? (
           <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <label
-                htmlFor="fund-escrow-now"
-                className="block text-sm font-semibold text-[#0a0a0a]"
-              >
-                Create and fund escrow now
-              </label>
-              <p className="mt-1 text-sm text-[#5f5f5f]">
-                Lock the full budget in Stellar escrow while the job is still open for applicants.
-              </p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <label
+                  htmlFor="fund-escrow-now"
+                  className="block text-sm font-semibold text-[#0a0a0a]"
+                >
+                  Create and fund escrow now
+                </label>
+                <p className="mt-1 text-sm text-[#5f5f5f]">
+                  Lock the full budget in Stellar escrow while the job is still open for applicants.
+                </p>
+              </div>
+              <AppSwitch
+                id="fund-escrow-now"
+                checked={formState.fundEscrowNow}
+                onCheckedChange={updateFundEscrowNow}
+                disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
+                aria-label="Create and fund escrow when posting this job"
+              />
             </div>
-            <AppSwitch
-              id="fund-escrow-now"
-              checked={formState.fundEscrowNow}
-              onCheckedChange={updateFundEscrowNow}
-              disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
-              aria-label="Create and fund escrow when posting this job"
-            />
+            {formState.fundEscrowNow ? (
+              <p className="mt-3 text-xs text-[#5f5f5f]">
+                Your wallet will sign one atomic Soroban transaction after the job is created.
+              </p>
+            ) : null}
           </div>
-          {formState.fundEscrowNow ? (
-            <p className="mt-3 text-xs text-[#5f5f5f]">
-              Your wallet will sign one atomic Soroban transaction after the job is created.
-            </p>
-          ) : null}
-        </div>
         ) : (
           <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Milestone projects are not funded upfront. Assign and fund each milestone separately

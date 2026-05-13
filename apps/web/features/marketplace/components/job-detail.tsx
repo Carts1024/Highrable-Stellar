@@ -260,9 +260,22 @@ export function JobDetail({ jobId }: { jobId: string }) {
               No milestones found for this project.
             </p>
           ) : null}
-          {projectSummary?.milestones.map((milestone) => (
-            <MilestoneCard key={milestone._id} job={job} milestone={milestone} />
-          ))}
+          {projectSummary?.milestones.map((milestone, index) => {
+            const applicationGate = projectSummary.applicationGates[index];
+
+            if (!applicationGate) {
+              return null;
+            }
+
+            return (
+              <MilestoneCard
+                key={milestone._id}
+                job={job}
+                milestone={milestone}
+                applicationGate={applicationGate}
+              />
+            );
+          })}
         </section>
       ) : null}
 

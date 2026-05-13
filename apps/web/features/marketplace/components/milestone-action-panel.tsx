@@ -17,6 +17,7 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 
+import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { ReleasePaymentDialog } from "./release-payment-dialog";
@@ -28,11 +29,13 @@ import { TrustWarning } from "./trust-warning";
 export function MilestoneActionPanel({
   job,
   milestone,
+  applicationGate,
   escrow,
   applications,
 }: {
   job: TConvexDoc<"jobs">;
   milestone: TConvexDoc<"milestones">;
+  applicationGate: TMilestoneApplicationGate;
   escrow: TConvexDoc<"escrows"> | null | undefined;
   applications: TConvexDoc<"applications">[];
 }) {
@@ -111,7 +114,10 @@ export function MilestoneActionPanel({
         <TrustSafetyNotice type="selected_unfunded" compact />
       ) : null}
       {milestone.status === "escrow_created" ? (
-        <TrustSafetyNotice type={role === "client" ? "client_funding" : "selected_unfunded"} compact />
+        <TrustSafetyNotice
+          type={role === "client" ? "client_funding" : "selected_unfunded"}
+          compact
+        />
       ) : null}
       {milestone.status === "funded" || milestone.status === "submitted" ? (
         <div className="space-y-2">
@@ -124,7 +130,9 @@ export function MilestoneActionPanel({
 
       {!isStablecoinConfigured ? (
         <TrustWarning
-          message={stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."}
+          message={
+            stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
+          }
         />
       ) : null}
       {isStablecoinConfigured && !isMilestoneAssetConfiguredStablecoin ? (
@@ -133,8 +141,9 @@ export function MilestoneActionPanel({
 
       {milestone.status === "open" ? (
         <p className="text-sm text-[#5f5f5f]">
-          Freelancers can apply to this milestone. The client selects one freelancer for this
-          milestone only.
+          {applicationGate.canApply
+            ? "Freelancers can apply to this milestone. The client selects one freelancer for this milestone only."
+            : applicationGate.message}
         </p>
       ) : null}
 
