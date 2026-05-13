@@ -6,6 +6,7 @@ import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/w
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation } from "convex/react";
+import Link from "next/link";
 import { useState } from "react";
 
 import type { TMilestoneApplicationGate } from "../types";
@@ -82,9 +83,12 @@ export function MilestoneApplicationsList({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[#0a0a0a]">
+                <Link
+                  href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}
+                  className="text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+                >
                   {shortenWalletAddress(application.freelancerWallet)}
-                </p>
+                </Link>
                 <p className="text-xs text-[#7f7f7f]">
                   Applied {new Date(application.createdAt).toLocaleString()}
                 </p>

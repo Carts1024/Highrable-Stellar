@@ -9,6 +9,7 @@ import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/w
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation } from "convex/react";
+import Link from "next/link";
 import { useState } from "react";
 
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -193,9 +194,12 @@ export function ApplicationsList({
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-[#0a0a0a]">
+              <Link
+                href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}
+                className="text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+              >
                 {shortenWalletAddress(application.freelancerWallet)}
-              </p>
+              </Link>
               <p
                 className="font-mono text-[0.65rem] tracking-[0.06em] text-[#7f7f7f] uppercase"
                 role="doc-subtitle"

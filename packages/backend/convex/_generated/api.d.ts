@@ -34,6 +34,7 @@ import type * as milestones_helpers from "../milestones/helpers.js";
 import type * as milestones_mutations from "../milestones/mutations.js";
 import type * as milestones_queries from "../milestones/queries.js";
 import type * as milestones_types from "../milestones/types.js";
+import type * as profiles from "../profiles.js";
 import type * as reports from "../reports.js";
 import type * as reports_helpers from "../reports/helpers.js";
 import type * as reputation from "../reputation.js";
@@ -87,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "milestones/mutations": typeof milestones_mutations;
   "milestones/queries": typeof milestones_queries;
   "milestones/types": typeof milestones_types;
+  profiles: typeof profiles;
   reports: typeof reports;
   "reports/helpers": typeof reports_helpers;
   reputation: typeof reputation;

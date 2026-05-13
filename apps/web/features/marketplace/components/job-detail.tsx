@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/aler
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 import type { TConvexId } from "@repo/convex-client";
 
@@ -175,7 +176,16 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <div>
             <dt className="text-[#7f7f7f]">Selected freelancer wallet</dt>
             <dd className="font-semibold text-[#0a0a0a]">
-              {shortenWalletAddress(job.selectedFreelancerWallet)}
+              {job.selectedFreelancerWallet ? (
+                <Link
+                  href={`/freelancers/${encodeURIComponent(job.selectedFreelancerWallet)}`}
+                  className="hover:text-[#FF7003]"
+                >
+                  {shortenWalletAddress(job.selectedFreelancerWallet)}
+                </Link>
+              ) : (
+                shortenWalletAddress(job.selectedFreelancerWallet)
+              )}
             </dd>
           </div>
           <div>

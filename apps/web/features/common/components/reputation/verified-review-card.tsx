@@ -2,6 +2,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { ExternalLink, Star } from "lucide-react";
+import Link from "next/link";
 
 import { VerifiedBadge } from "./verified-badge";
 
@@ -22,7 +23,7 @@ export type TVerifiedReviewCardProps = {
   txHash?: string;
   createdAt?: number;
   compact?: boolean;
-  completionType?: "job" | "milestone";
+  completionType?: "job" | "micro_gig" | "milestone";
 };
 
 function normalizeRating(rating: number | undefined): number | undefined {
@@ -96,7 +97,12 @@ export function VerifiedReviewCard({
 }: TVerifiedReviewCardProps) {
   const safeRating = normalizeRating(rating);
   const isMilestone = completionType === "milestone";
-  const title = isMilestone ? "Verified completed milestone" : "Verified completed job";
+  const isMicroGig = completionType === "micro_gig";
+  const title = isMilestone
+    ? "Verified completed milestone"
+    : isMicroGig
+      ? "Verified completed gig"
+      : "Verified completed job";
   const subtitle = isMilestone
     ? "This milestone review is linked to a paid Stellar escrow."
     : compact
@@ -113,9 +119,11 @@ export function VerifiedReviewCard({
             label={
               isMilestone
                 ? "Verified Completed Milestone"
-                : compact
-                  ? "Verified Completed Job"
-                  : "Verified Review"
+                : isMicroGig
+                  ? "Verified Completed Gig"
+                  : compact
+                    ? "Verified Completed Job"
+                    : "Verified Review"
             }
           />
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
@@ -143,7 +151,12 @@ export function VerifiedReviewCard({
         </p>
         <p>
           <span className="font-medium text-gray-500">Freelancer:</span>{" "}
-          {shortenWalletAddress(freelancerWallet)}
+          <Link
+            href={`/freelancers/${encodeURIComponent(freelancerWallet)}`}
+            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+          >
+            {shortenWalletAddress(freelancerWallet)}
+          </Link>
         </p>
         <p className="break-all sm:col-span-2">
           <span className="font-medium text-gray-500">Escrow ID:</span> {escrowId}

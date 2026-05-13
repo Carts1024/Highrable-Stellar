@@ -5,6 +5,7 @@ import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
+import Link from "next/link";
 
 import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -64,7 +65,16 @@ export function MilestoneCard({
         <div>
           <dt className="text-[#7f7f7f]">Assigned freelancer</dt>
           <dd className="font-semibold text-[#0a0a0a]">
-            {shortenWalletAddress(milestone.assignedFreelancerWallet)}
+            {milestone.assignedFreelancerWallet ? (
+              <Link
+                href={`/freelancers/${encodeURIComponent(milestone.assignedFreelancerWallet)}`}
+                className="hover:text-[#FF7003]"
+              >
+                {shortenWalletAddress(milestone.assignedFreelancerWallet)}
+              </Link>
+            ) : (
+              shortenWalletAddress(milestone.assignedFreelancerWallet)
+            )}
           </dd>
         </div>
         <div>
