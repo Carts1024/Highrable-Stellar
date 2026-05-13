@@ -8,8 +8,8 @@ import { createSeoConvexClient, seoApi } from "@/core/seo/convex";
 import { EscrowProofPage } from "@/features/proof";
 import { notFound } from "next/navigation";
 
-import type { Metadata } from "next";
 import type { TEscrowProof } from "@/features/proof/types";
+import type { Metadata } from "next";
 
 interface IEscrowProofRouteProps {
   readonly params: Promise<{ readonly escrowId: string }>;
@@ -54,9 +54,7 @@ export async function generateMetadata({ params }: IEscrowProofRouteProps): Prom
   });
 }
 
-export default async function EscrowProofRoutePage({
-  params,
-}: IEscrowProofRouteProps) {
+export default async function EscrowProofRoutePage({ params }: IEscrowProofRouteProps) {
   const resolvedParams = await params;
   const parsedEscrowId = parseEscrowIdParam(resolvedParams.escrowId);
 

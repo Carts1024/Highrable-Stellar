@@ -19,19 +19,39 @@ export const TWalletAddressParamSchema = z
   .string()
   .trim()
   .transform((value) => decodeURIComponent(value))
-  .pipe(z.string().trim().toUpperCase().regex(/^G[A-Z2-7]{55}$/));
+  .pipe(
+    z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^G[A-Z2-7]{55}$/),
+  );
 
 export const TConvexIdParamSchema = z
   .string()
   .trim()
   .transform((value) => decodeURIComponent(value))
-  .pipe(z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/));
+  .pipe(
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9_-]+$/),
+  );
 
 export const TEscrowIdParamSchema = z
   .string()
   .trim()
   .transform((value) => decodeURIComponent(value))
-  .pipe(z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9:_-]+$/));
+  .pipe(
+    z
+      .string()
+      .trim()
+      .min(1)
+      .max(128)
+      .regex(/^[A-Za-z0-9:_-]+$/),
+  );
 
 export function sanitizeSeoText(value: string | null | undefined, fallback: string): string {
   const parsedValue = TSeoTextSchema.safeParse(value ?? "");
@@ -60,7 +80,8 @@ export function parseEscrowIdParam(value: string): string | null {
 
 export function normalizeSiteUrl(rawDomain: string | undefined, nodeEnv: string): URL {
   const trimmedDomain = rawDomain?.trim();
-  const candidateDomain = trimmedDomain && trimmedDomain.length > 0 ? trimmedDomain : DEFAULT_SITE_URL;
+  const candidateDomain =
+    trimmedDomain && trimmedDomain.length > 0 ? trimmedDomain : DEFAULT_SITE_URL;
   const urlCandidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(candidateDomain)
     ? candidateDomain
     : `${nodeEnv === "production" ? "https" : "http"}://${candidateDomain}`;
@@ -85,7 +106,10 @@ export function normalizeCanonicalPath(path: string): string {
     return "/";
   }
 
-  const parsedUrl = new URL(trimmedPath.startsWith("/") ? trimmedPath : `/${trimmedPath}`, DEFAULT_SITE_URL);
+  const parsedUrl = new URL(
+    trimmedPath.startsWith("/") ? trimmedPath : `/${trimmedPath}`,
+    DEFAULT_SITE_URL,
+  );
   const normalizedPath = parsedUrl.pathname.replace(/\/{2,}/g, "/");
 
   return normalizedPath === "" ? "/" : normalizedPath;

@@ -24,9 +24,7 @@ interface IMarketplaceJobDetailRouteProps {
 const NOT_FOUND_TITLE = "Job Not Found";
 const NOT_FOUND_DESCRIPTION = "This Highrable job could not be found or is no longer available.";
 
-async function getJobForSeo(
-  jobId: TSeoConvexId<"jobs">,
-): Promise<TSeoConvexDoc<"jobs"> | null> {
+async function getJobForSeo(jobId: TSeoConvexId<"jobs">): Promise<TSeoConvexDoc<"jobs"> | null> {
   try {
     const convex = createSeoConvexClient();
     return await convex.query(seoApi.jobs.getJob, { jobId });

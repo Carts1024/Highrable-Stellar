@@ -59,7 +59,10 @@ export function buildJobPostingJsonLd(input: {
     "@context": "https://schema.org",
     "@type": "JobPosting",
     title: sanitizeSeoText(input.title, "Highrable job"),
-    description: sanitizeSeoText(input.description, "Stellar escrow-backed freelance job on Highrable."),
+    description: sanitizeSeoText(
+      input.description,
+      "Stellar escrow-backed freelance job on Highrable.",
+    ),
     datePosted: new Date(input.createdAt).toISOString(),
     hiringOrganization: {
       "@type": "Organization",

@@ -8,8 +8,8 @@ import { createSeoConvexClient, seoApi } from "@/core/seo/convex";
 import { ClientProfilePage } from "@/features/client-profile";
 import { notFound } from "next/navigation";
 
-import type { Metadata } from "next";
 import type { TClientTrustProfileResponse } from "@/features/client-profile/types";
+import type { Metadata } from "next";
 
 interface IClientProfileRouteProps {
   readonly params: Promise<{ readonly walletAddress: string }>;
@@ -61,9 +61,7 @@ export async function generateMetadata({ params }: IClientProfileRouteProps): Pr
   });
 }
 
-export default async function ClientProfileRoutePage({
-  params,
-}: IClientProfileRouteProps) {
+export default async function ClientProfileRoutePage({ params }: IClientProfileRouteProps) {
   const resolvedParams = await params;
   const parsedWalletAddress = parseWalletAddressParam(resolvedParams.walletAddress);
 

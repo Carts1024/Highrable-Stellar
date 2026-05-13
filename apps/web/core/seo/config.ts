@@ -1,5 +1,5 @@
-import { APP_DESCRIPTION, APP_NAME } from "@/core/constants";
 import { env } from "@/core/config/env";
+import { APP_DESCRIPTION, APP_NAME } from "@/core/constants";
 import { normalizeCanonicalPath, normalizeSiteUrl } from "@/core/seo/schemas";
 
 export interface ISeoConfig {
@@ -60,7 +60,8 @@ export const STATIC_SEO_ROUTES: Record<TSeoRouteKey, IStaticSeoRoute> = {
   talent: {
     path: "/talent",
     title: "Find Stellar Freelance Talent",
-    description: "Discover wallet-based freelancers with escrow-verified work history on Highrable.",
+    description:
+      "Discover wallet-based freelancers with escrow-verified work history on Highrable.",
     index: true,
     changeFrequency: "weekly",
     priority: 0.8,
@@ -76,7 +77,8 @@ export const STATIC_SEO_ROUTES: Record<TSeoRouteKey, IStaticSeoRoute> = {
   marketplace: {
     path: "/marketplace",
     title: "Stellar Freelance Marketplace",
-    description: "Browse active Highrable jobs with escrow safety signals and Stellar payment flows.",
+    description:
+      "Browse active Highrable jobs with escrow safety signals and Stellar payment flows.",
     index: true,
     changeFrequency: "daily",
     priority: 0.9,

@@ -1,10 +1,9 @@
+import { env } from "@/core/config/env";
 import { ConvexHttpClient } from "convex/browser";
 
-import { env } from "@/core/config/env";
+import type { Doc, Id } from "../../../../packages/backend/convex/_generated/dataModel";
 
 import { api } from "../../../../packages/backend/convex/_generated/api";
-
-import type { Doc, Id } from "../../../../packages/backend/convex/_generated/dataModel";
 
 const DEFAULT_CONVEX_URL = "http://127.0.0.1:3210";
 

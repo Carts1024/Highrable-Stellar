@@ -8,8 +8,8 @@ import { createSeoConvexClient, seoApi } from "@/core/seo/convex";
 import { FreelancerProfilePage } from "@/features/profile";
 import { notFound } from "next/navigation";
 
-import type { Metadata } from "next";
 import type { TFreelancerProfileResponse } from "@/features/profile/types";
+import type { Metadata } from "next";
 
 interface IFreelancerProfileRouteProps {
   readonly params: Promise<{ readonly walletAddress: string }>;
@@ -64,9 +64,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function FreelancerProfileRoutePage({
-  params,
-}: IFreelancerProfileRouteProps) {
+export default async function FreelancerProfileRoutePage({ params }: IFreelancerProfileRouteProps) {
   const resolvedParams = await params;
   const parsedWalletAddress = parseWalletAddressParam(resolvedParams.walletAddress);
 
