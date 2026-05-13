@@ -147,7 +147,12 @@ export function VerifiedReviewCard({
         </p>
         <p>
           <span className="font-medium text-gray-500">Client:</span>{" "}
-          {shortenWalletAddress(clientWallet)}
+          <Link
+            href={`/clients/${encodeURIComponent(clientWallet)}`}
+            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+          >
+            {shortenWalletAddress(clientWallet)}
+          </Link>
         </p>
         <p>
           <span className="font-medium text-gray-500">Freelancer:</span>{" "}

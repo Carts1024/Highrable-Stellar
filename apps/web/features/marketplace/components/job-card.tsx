@@ -71,7 +71,14 @@ export function JobCard({
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Client wallet</dt>
-          <dd className="font-semibold text-[#0a0a0a]">{shortenWalletAddress(job.clientWallet)}</dd>
+          <dd className="font-semibold text-[#0a0a0a]">
+            <Link
+              href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+              className="hover:text-[#FF7003]"
+            >
+              {shortenWalletAddress(job.clientWallet)}
+            </Link>
+          </dd>
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Selected freelancer</dt>

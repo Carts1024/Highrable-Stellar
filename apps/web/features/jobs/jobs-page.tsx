@@ -345,7 +345,13 @@ export function JobsPage() {
                           {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
                         </span>
                         <span className="rounded-full bg-gray-100 px-3 py-1">
-                          Client {shortenWalletAddress(job.clientWallet)}
+                          Client{" "}
+                          <Link
+                            href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+                            className="hover:text-[#FF7003]"
+                          >
+                            {shortenWalletAddress(job.clientWallet)}
+                          </Link>
                         </span>
                         <span className="rounded-full bg-gray-100 px-3 py-1 break-all">
                           Asset {shortenWalletAddress(job.asset)}

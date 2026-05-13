@@ -1,74 +1,85 @@
 "use client";
 
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
+import {
+  formatShortDate,
+  getClientWorkTypeLabel,
+} from "@/features/client-profile/lib/client-profile-format";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
-import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { getWorkTypeLabel } from "@/features/profile/lib/profile-format";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
-import type { TFreelancerRecentContract } from "@/features/profile/types";
+import type { TClientEscrowActivity } from "@/features/client-profile/types";
 
-export function RecentContractsSection({
-  contracts,
+export function RecentCompletedPaymentsSection({
+  payments,
 }: {
-  readonly contracts: readonly TFreelancerRecentContract[];
+  readonly payments: readonly TClientEscrowActivity[];
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Recent paid contracts</h2>
-      {contracts.length === 0 ? (
+      <h2 className="text-xl font-semibold text-[#0a0a0a]">Recent completed payments</h2>
+      {payments.length === 0 ? (
         <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
-          No active or completed escrow-backed contracts yet.
+          No completed escrow payments yet.
         </p>
       ) : (
         <div className="space-y-3">
-          {contracts.map((contract) => (
+          {payments.map((payment) => (
             <article
-              key={contract.escrowId}
-              className="rounded-xl border border-[#e8e8e8] bg-white p-4 shadow-sm"
+              key={payment.escrowId}
+              className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4"
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="border-[#e8e8e8] bg-[#fafafa]">
-                      {getWorkTypeLabel(contract.workType)}
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-200 bg-white text-emerald-800"
+                    >
+                      {getClientWorkTypeLabel(payment.milestoneId ? "milestone" : "micro_gig")}
                     </Badge>
-                    <StatusBadge label={contract.status} />
+                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                      Paid through Stellar escrow
+                    </Badge>
                   </div>
                   <div>
                     <Link
-                      href={`/marketplace/jobs/${contract.jobId}`}
+                      href={`/marketplace/jobs/${payment.jobId}`}
                       className="font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
                     >
-                      {contract.jobTitle}
+                      {payment.jobTitle}
                     </Link>
-                    {contract.milestoneTitle ? (
+                    {payment.milestoneTitle ? (
                       <p className="mt-1 text-sm text-[#5f5f5f]">
-                        Milestone: {contract.milestoneTitle}
+                        Milestone: {payment.milestoneTitle}
                       </p>
                     ) : null}
                   </div>
                   <p className="text-sm text-[#5f5f5f]">
-                    Client{" "}
-                    <Link
-                      href={`/clients/${encodeURIComponent(contract.clientWallet)}`}
-                      className="font-medium text-[#FF7003] hover:text-[#E85D00]"
-                    >
-                      {shortenWalletAddress(contract.clientWallet)}
-                    </Link>
+                    Freelancer{" "}
+                    {payment.freelancerWallet ? (
+                      <Link
+                        href={`/freelancers/${encodeURIComponent(payment.freelancerWallet)}`}
+                        className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+                      >
+                        {shortenWalletAddress(payment.freelancerWallet)}
+                      </Link>
+                    ) : (
+                      "not recorded"
+                    )}
                   </p>
                 </div>
 
                 <div className="space-y-2 text-left md:text-right">
                   <p className="font-semibold text-[#0a0a0a]">
-                    {formatAmount(contract.amount)} {formatAsset(contract.asset)}
+                    {formatAmount(payment.amount)} {formatAsset(payment.asset)}
                   </p>
-                  {contract.releaseTxHash ? (
+                  {payment.releaseTxHash ? (
                     <Link
-                      href={getTxExplorerUrl(contract.releaseTxHash)}
+                      href={getTxExplorerUrl(payment.releaseTxHash)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
@@ -77,7 +88,7 @@ export function RecentContractsSection({
                     </Link>
                   ) : null}
                   <p className="text-xs text-[#7f7f7f]">
-                    Updated {new Date(contract.updatedAt).toLocaleString()}
+                    Updated {formatShortDate(payment.updatedAt)}
                   </p>
                 </div>
               </div>

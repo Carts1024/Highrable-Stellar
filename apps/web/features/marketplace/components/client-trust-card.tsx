@@ -13,6 +13,7 @@ import {
 } from "@repo/ui/components/ui/card";
 import { useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 interface IClientTrustCardProps {
   readonly clientWallet: string;
@@ -50,7 +51,13 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
           Client Trust Signals
         </CardTitle>
         <CardDescription>
-          Client trust signals are based on Highrable escrow activity.
+          Client trust signals are based on Highrable escrow activity.{" "}
+          <Link
+            href={`/clients/${encodeURIComponent(clientWallet)}`}
+            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+          >
+            View full client profile
+          </Link>
         </CardDescription>
       </CardHeader>
 

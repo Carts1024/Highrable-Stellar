@@ -8,8 +8,10 @@ import { normalizeWalletAddress } from "./_shared/input";
 import { findUserByWallet } from "./users/helpers";
 
 const ACTIVE_ESCROW_STATUSES = new Set(["funded", "submitted"] as const);
+const CLIENT_FUNDED_ESCROW_STATUSES = new Set(["funded", "submitted", "released"] as const);
 const REVIEW_LIMIT = 10;
 const CONTRACT_LIMIT = 10;
+const CLIENT_RECENT_LIMIT = 10;
 
 type TAssetAmountRow = {
   asset: string;
@@ -21,6 +23,15 @@ type TFreelancerProfilePatch = {
   bio?: string;
   skills?: string[];
   portfolioUrl?: string;
+  websiteUrl?: string;
+  location?: string;
+  updatedAt: number;
+};
+
+type TClientProfilePatch = {
+  name?: string;
+  companyName?: string;
+  bio?: string;
   websiteUrl?: string;
   location?: string;
   updatedAt: number;
@@ -98,6 +109,14 @@ function hasMilestoneId(escrow: Pick<Doc<"escrows">, "milestoneId">): boolean {
   return escrow.milestoneId !== undefined;
 }
 
+function getNullableRate(numerator: number, denominator: number): number | null {
+  if (denominator === 0) {
+    return null;
+  }
+
+  return numerator / denominator;
+}
+
 async function getEscrowByEscrowId(ctx: QueryCtx, escrowId: string) {
   return await ctx.db
     .query("escrows")
@@ -152,6 +171,59 @@ export const updateFreelancerProfile = mutation({
     const userId = await ctx.db.insert("users", {
       walletAddress,
       role: "freelancer",
+      createdAt: now,
+      ...patch,
+    });
+
+    return await ctx.db.get(userId);
+  },
+});
+
+export const updateClientProfile = mutation({
+  args: {
+    walletAddress: v.string(),
+    name: v.optional(v.string()),
+    companyName: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    websiteUrl: v.optional(v.string()),
+    location: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    const walletAddress = normalizeWalletAddress(args.walletAddress);
+    const now = Date.now();
+    const patch: TClientProfilePatch = {
+      updatedAt: now,
+      ...(args.name !== undefined
+        ? { name: sanitizeLimitedOptionalString(args.name, "name", 80) }
+        : {}),
+      ...(args.companyName !== undefined
+        ? { companyName: sanitizeLimitedOptionalString(args.companyName, "companyName", 100) }
+        : {}),
+      ...(args.bio !== undefined
+        ? { bio: sanitizeLimitedOptionalString(args.bio, "bio", 500) }
+        : {}),
+      ...(args.websiteUrl !== undefined
+        ? { websiteUrl: sanitizeOptionalUrl(args.websiteUrl, "websiteUrl") }
+        : {}),
+      ...(args.location !== undefined
+        ? { location: sanitizeLimitedOptionalString(args.location, "location", 80) }
+        : {}),
+    };
+
+    const existingUser = await findUserByWallet(ctx, walletAddress);
+
+    if (existingUser) {
+      await ctx.db.patch(existingUser._id, {
+        ...patch,
+        ...(existingUser.role === "client" ? { role: "client" as const } : {}),
+      });
+      return await ctx.db.get(existingUser._id);
+    }
+
+    const userId = await ctx.db.insert("users", {
+      walletAddress,
+      role: "client",
       createdAt: now,
       ...patch,
     });
@@ -317,6 +389,180 @@ export const getFreelancerProfile = query({
       },
       verifiedReviews: reviews,
       recentContracts,
+    };
+  },
+});
+
+export const getClientTrustProfile = query({
+  args: {
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = normalizeWalletAddress(args.walletAddress);
+    const [user, jobs, escrows] = await Promise.all([
+      findUserByWallet(ctx, walletAddress),
+      ctx.db
+        .query("jobs")
+        .withIndex("by_clientWallet", (q) => q.eq("clientWallet", walletAddress))
+        .take(500),
+      ctx.db
+        .query("escrows")
+        .withIndex("by_clientWallet", (q) => q.eq("clientWallet", walletAddress))
+        .take(500),
+    ]);
+
+    const hasClientData = user?.role === "client" || jobs.length > 0 || escrows.length > 0;
+
+    if (!hasClientData) {
+      return null;
+    }
+
+    const jobById = new Map(jobs.map((job) => [job._id, job]));
+    const milestonesByJob = await Promise.all(
+      jobs.map(async (job) => {
+        const milestones = await ctx.db
+          .query("milestones")
+          .withIndex("by_jobId", (q) => q.eq("jobId", job._id))
+          .take(200);
+
+        return { jobId: job._id, milestones };
+      }),
+    );
+    const milestones = milestonesByJob.flatMap((row) => row.milestones);
+    const milestoneById = new Map(milestones.map((milestone) => [milestone._id, milestone]));
+    const selectedFreelancerWallets = new Set<string>();
+
+    for (const job of jobs) {
+      if (job.selectedFreelancerWallet) {
+        selectedFreelancerWallets.add(job.selectedFreelancerWallet);
+      }
+    }
+
+    for (const milestone of milestones) {
+      if (milestone.assignedFreelancerWallet) {
+        selectedFreelancerWallets.add(milestone.assignedFreelancerWallet);
+      }
+    }
+
+    const fundedEscrows = escrows.filter((escrow) =>
+      CLIENT_FUNDED_ESCROW_STATUSES.has(escrow.status as "funded" | "submitted" | "released"),
+    );
+    const completedEscrows = escrows.filter((escrow) => escrow.status === "released");
+    const activeEscrows = escrows.filter((escrow) =>
+      ACTIVE_ESCROW_STATUSES.has(escrow.status as "funded" | "submitted"),
+    );
+    const disputedEscrows = escrows.filter((escrow) => escrow.status === "disputed");
+    const cancelledEscrows = escrows.filter((escrow) => escrow.status === "cancelled");
+    const microGigs = jobs.filter((job) => (job.jobType ?? "micro_gig") === "micro_gig");
+    const milestoneProjects = jobs.filter((job) => job.jobType === "milestone_project");
+    const jobReports = await Promise.all(
+      jobs.map(async (job) => {
+        const reports = await ctx.db
+          .query("jobReports")
+          .withIndex("by_jobId", (q) => q.eq("jobId", job._id))
+          .take(100);
+
+        return { jobId: job._id, reports };
+      }),
+    );
+    const reportedJobs = jobReports.filter((row) => row.reports.length > 0);
+    const totalReports = jobReports.reduce((total, row) => total + row.reports.length, 0);
+
+    const mapEscrowRow = async (escrow: Doc<"escrows">) => {
+      const job = jobById.get(escrow.jobId) ?? (await ctx.db.get(escrow.jobId));
+      const milestone = escrow.milestoneId
+        ? (milestoneById.get(escrow.milestoneId) ?? (await ctx.db.get(escrow.milestoneId)))
+        : null;
+
+      return {
+        escrowId: escrow.escrowId,
+        jobId: escrow.jobId,
+        ...(escrow.milestoneId !== undefined ? { milestoneId: escrow.milestoneId } : {}),
+        jobTitle: job?.title ?? "Untitled Job",
+        ...(milestone?.title ? { milestoneTitle: milestone.title } : {}),
+        freelancerWallet: escrow.freelancerWallet,
+        amount: escrow.amount,
+        asset: escrow.asset,
+        status: escrow.status,
+        ...(escrow.fundTxHash !== undefined ? { fundTxHash: escrow.fundTxHash } : {}),
+        ...(escrow.releaseTxHash !== undefined ? { releaseTxHash: escrow.releaseTxHash } : {}),
+        updatedAt: escrow.updatedAt,
+      };
+    };
+
+    const recentFundedEscrows = await Promise.all(
+      fundedEscrows
+        .slice()
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .slice(0, CLIENT_RECENT_LIMIT)
+        .map(mapEscrowRow),
+    );
+    const recentCompletedPayments = await Promise.all(
+      completedEscrows
+        .slice()
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .slice(0, CLIENT_RECENT_LIMIT)
+        .map(mapEscrowRow),
+    );
+
+    return {
+      profile: {
+        walletAddress,
+        name: user?.name,
+        companyName: user?.companyName,
+        bio: user?.bio,
+        websiteUrl: user?.websiteUrl,
+        location: user?.location,
+        walletType: user?.walletType,
+        createdAt:
+          user?.createdAt ??
+          Math.min(...[...jobs.map((job) => job.createdAt), ...escrows.map((e) => e.createdAt)]),
+        updatedAt: user?.updatedAt,
+      },
+      stats: {
+        jobsPosted: jobs.length,
+        microGigsPosted: microGigs.length,
+        milestoneProjectsPosted: milestoneProjects.length,
+        totalMilestonesCreated: milestones.length,
+        selectedFreelancers: selectedFreelancerWallets.size,
+        escrowsCreated: escrows.length,
+        fundedEscrows: fundedEscrows.length,
+        completedEscrows: completedEscrows.length,
+        completedMicroGigs: completedEscrows.filter((escrow) => !hasMilestoneId(escrow)).length,
+        completedMilestones: completedEscrows.filter(hasMilestoneId).length,
+        activeEscrows: activeEscrows.length,
+        disputedEscrows: disputedEscrows.length,
+        cancelledEscrows: cancelledEscrows.length,
+        totalEscrowFundedByAsset: sumByAsset(fundedEscrows),
+        totalPaidByAsset: sumByAsset(completedEscrows),
+        fundingReliabilityRate: getNullableRate(fundedEscrows.length, escrows.length),
+        completionRate: getNullableRate(completedEscrows.length, fundedEscrows.length),
+        disputeRate: getNullableRate(disputedEscrows.length, escrows.length),
+        cancellationRate: getNullableRate(cancelledEscrows.length, escrows.length),
+      },
+      recentJobs: jobs
+        .slice()
+        .sort((left, right) => right.createdAt - left.createdAt)
+        .slice(0, CLIENT_RECENT_LIMIT)
+        .map((job) => ({
+          jobId: job._id,
+          jobType: job.jobType ?? "micro_gig",
+          title: job.title,
+          status: job.status,
+          totalBudget: job.totalBudget ?? job.budget,
+          asset: job.asset,
+          createdAt: job.createdAt,
+        })),
+      recentFundedEscrows,
+      recentCompletedPayments,
+      ...(totalReports > 0
+        ? {
+            reportedJobsSummary: {
+              totalReports,
+              reportedJobsCount: reportedJobs.length,
+            },
+          }
+        : {}),
     };
   },
 });

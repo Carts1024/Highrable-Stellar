@@ -17,6 +17,7 @@ export default defineTable({
   walletAddress: v.string(),
   role: roleValidator,
   name: v.optional(v.string()),
+  companyName: v.optional(v.string()),
   bio: v.optional(v.string()),
   skills: v.optional(v.array(v.string())),
   avatarUrl: v.optional(v.string()),
