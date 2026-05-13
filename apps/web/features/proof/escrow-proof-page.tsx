@@ -4,6 +4,8 @@ import { api } from "@repo/convex-client";
 import { useAction, useQuery } from "convex/react";
 import { useCallback, useMemo, useState } from "react";
 
+import type { TEscrowProof } from "./types";
+
 import { EscrowProofExplanationCard } from "./components/escrow-proof-explanation-card";
 import { EscrowProofHeader } from "./components/escrow-proof-header";
 import { EscrowProofParticipants } from "./components/escrow-proof-participants";
@@ -14,8 +16,6 @@ import { EscrowProofSyncSection } from "./components/escrow-proof-sync-section";
 import { EscrowProofTimeline } from "./components/escrow-proof-timeline";
 import { EscrowProofWorkDetails } from "./components/escrow-proof-work-details";
 import { sanitizeEscrowIdParam } from "./lib/format";
-
-import type { TEscrowProof } from "./types";
 
 type TSyncResult = {
   readonly ok: boolean;
@@ -40,7 +40,9 @@ function formatSyncMessage(result: TSyncResult): string {
       return "Could not sync proof because the on-chain status would downgrade this escrow.";
     }
 
-    return result.errorMessage ? `Could not sync proof: ${result.errorMessage}` : "Could not sync proof.";
+    return result.errorMessage
+      ? `Could not sync proof: ${result.errorMessage}`
+      : "Could not sync proof.";
   }
 
   if (result.reason === "already_up_to_date" || result.reason === "already_exists") {
@@ -84,7 +86,9 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
         setSyncMessage(formatSyncMessage(result));
       } catch (error) {
         setSyncMessage(
-          error instanceof Error ? `Could not sync proof: ${error.message}` : "Could not sync proof.",
+          error instanceof Error
+            ? `Could not sync proof: ${error.message}`
+            : "Could not sync proof.",
         );
       } finally {
         setIsSyncing(false);

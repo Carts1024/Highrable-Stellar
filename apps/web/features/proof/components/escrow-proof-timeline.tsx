@@ -1,13 +1,13 @@
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { formatAmount } from "@/features/dashboard/lib/format";
-import { formatAssetLabel } from "@/core/stellar/assets";
 import { cn } from "@repo/ui/lib/utils";
 import { CheckCircle2, Circle, ExternalLink } from "lucide-react";
 
+import type { TEscrowProof } from "../types";
+
 import { formatProofDate } from "../lib/format";
 import { getTimelineEventState } from "../lib/proof-status";
-
-import type { TEscrowProof } from "../types";
 
 type TTimelineItem = {
   readonly label: string;

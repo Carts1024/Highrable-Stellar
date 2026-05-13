@@ -34,7 +34,7 @@ function ParticipantCard({
           </p>
           <Link
             href={href}
-            className="mt-1 inline-block break-all text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+            className="mt-1 inline-block text-sm font-medium break-all text-[#FF7003] hover:text-[#E85D00]"
           >
             {shortenWalletAddress(walletAddress)}
           </Link>

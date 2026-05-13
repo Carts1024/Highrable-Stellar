@@ -1,9 +1,9 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 
-import { formatProofDate } from "../lib/format";
-
 import type { TEscrowProof } from "../types";
+
+import { formatProofDate } from "../lib/format";
 
 function getJobTypeLabel(jobType: string): string {
   return jobType === "milestone_project" ? "Milestone Project" : "Micro Gig";
@@ -32,9 +32,7 @@ export function EscrowProofWorkDetails({ proof }: { readonly proof: TEscrowProof
             </p>
             <p className="mt-1 font-semibold text-[#0a0a0a]">{proof.milestone.title}</p>
             {proof.milestone.description ? (
-              <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">
-                {proof.milestone.description}
-              </p>
+              <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">{proof.milestone.description}</p>
             ) : null}
           </div>
         ) : null}

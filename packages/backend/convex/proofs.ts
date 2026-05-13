@@ -113,7 +113,9 @@ export const getEscrowProof = query({
         .withIndex("by_escrowId", (q) => q.eq("escrowId", escrow.escrowId))
         .unique(),
       findUserByWallet(ctx, escrow.clientWallet),
-      escrow.freelancerWallet ? findUserByWallet(ctx, escrow.freelancerWallet) : Promise.resolve(null),
+      escrow.freelancerWallet
+        ? findUserByWallet(ctx, escrow.freelancerWallet)
+        : Promise.resolve(null),
     ]);
 
     if (!job) {
@@ -208,7 +210,9 @@ export const getEscrowProof = query({
             freelancerProfile: {
               walletAddress: freelancerProfile.walletAddress,
               ...(freelancerProfile.name !== undefined ? { name: freelancerProfile.name } : {}),
-              ...(freelancerProfile.skills !== undefined ? { skills: freelancerProfile.skills } : {}),
+              ...(freelancerProfile.skills !== undefined
+                ? { skills: freelancerProfile.skills }
+                : {}),
             },
           }
         : {}),

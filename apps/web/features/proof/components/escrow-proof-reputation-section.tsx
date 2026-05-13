@@ -85,7 +85,7 @@ export function EscrowProofReputationSection({
           <p className="text-sm text-[#0a0a0a] italic">"{reputationRecord.reviewText}"</p>
         ) : null}
         {reputationRecord.reviewHash ? (
-          <p className="break-all text-xs text-[#5f5f5f]">
+          <p className="text-xs break-all text-[#5f5f5f]">
             Review hash: {reputationRecord.reviewHash}
           </p>
         ) : null}

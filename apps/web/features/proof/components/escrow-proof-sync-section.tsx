@@ -18,8 +18,8 @@ export function EscrowProofSyncSection({
         <div>
           <h2 className="text-xl font-semibold text-[#0a0a0a]">Stellar sync</h2>
           <p className="mt-2 text-sm text-[#5f5f5f]">
-            Convex mirrors public escrow state for this receipt. Sync reads the known Stellar
-            escrow and updates this proof when needed.
+            Convex mirrors public escrow state for this receipt. Sync reads the known Stellar escrow
+            and updates this proof when needed.
           </p>
         </div>
         <Button

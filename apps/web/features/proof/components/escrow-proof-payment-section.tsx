@@ -4,9 +4,9 @@ import { formatAmount } from "@/features/dashboard/lib/format";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 
-import { getPaymentProofCopy, PROOF_STATUS_LABELS } from "../lib/proof-status";
-
 import type { TEscrowProof } from "../types";
+
+import { getPaymentProofCopy, PROOF_STATUS_LABELS } from "../lib/proof-status";
 
 function TransactionHashRow({
   label,
@@ -23,7 +23,7 @@ function TransactionHashRow({
           href={getTxExplorerUrl(txHash)}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-1 inline-flex max-w-full items-center gap-1 break-all text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+          className="mt-1 inline-flex max-w-full items-center gap-1 text-sm font-medium break-all text-[#FF7003] hover:text-[#E85D00]"
         >
           {txHash}
           <ExternalLink className="h-3.5 w-3.5 shrink-0" />

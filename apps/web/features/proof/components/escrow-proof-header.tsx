@@ -1,8 +1,8 @@
-import { PROOF_STATUS_LABELS, PROOF_TYPE_LABELS, getProofSummary } from "../lib/proof-status";
+import { Badge } from "@repo/ui/components/ui/badge";
 
 import type { TEscrowProof } from "../types";
 
-import { Badge } from "@repo/ui/components/ui/badge";
+import { PROOF_STATUS_LABELS, PROOF_TYPE_LABELS, getProofSummary } from "../lib/proof-status";
 
 export function EscrowProofHeader({ proof }: { readonly proof: TEscrowProof }) {
   return (
@@ -18,9 +18,7 @@ export function EscrowProofHeader({ proof }: { readonly proof: TEscrowProof }) {
             </Badge>
           </div>
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0a0a0a]">
-              Escrow Proof
-            </h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0a0a0a]">Escrow Proof</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5f5f]">
               {getProofSummary(proof.proofStatus, proof.proofType)}
             </p>
