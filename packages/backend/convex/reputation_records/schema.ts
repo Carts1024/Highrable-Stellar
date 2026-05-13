@@ -4,6 +4,7 @@ import { v } from "convex/values";
 export default defineTable({
   escrowId: v.string(),
   jobId: v.id("jobs"),
+  milestoneId: v.optional(v.id("milestones")),
   clientWallet: v.string(),
   freelancerWallet: v.string(),
   amount: v.number(),
@@ -15,5 +16,6 @@ export default defineTable({
 })
   .index("by_escrowId", ["escrowId"])
   .index("by_jobId", ["jobId"])
+  .index("by_milestoneId", ["milestoneId"])
   .index("by_freelancerWallet", ["freelancerWallet"])
   .index("by_clientWallet", ["clientWallet"]);

@@ -16,6 +16,19 @@ export const listApplicationsByJob = query({
   },
 });
 
+export const listApplicationsByMilestone = query({
+  args: {
+    milestoneId: v.id("milestones"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("applications")
+      .withIndex("by_milestoneId", (q) => q.eq("milestoneId", args.milestoneId))
+      .order("desc")
+      .take(100);
+  },
+});
+
 export const listApplicationsByFreelancer = query({
   args: {
     freelancerWallet: v.string(),

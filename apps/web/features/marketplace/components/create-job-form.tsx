@@ -29,10 +29,16 @@ import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
+import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
-import type { TCreateJobFormErrors, TCreateJobFormState } from "@/features/marketplace/types";
+import type {
+  TCreateJobFormErrors,
+  TCreateJobFormState,
+  TCreateMilestoneFormState,
+  TJobType,
+} from "@/features/marketplace/types";
 
 const DEFAULT_STABLECOIN_ASSET = stablecoinConfig.tokenContractId ?? "";
 const MAX_HUMAN_BUDGET = 10_000_000;
@@ -67,7 +73,31 @@ const CREATE_JOB_SCHEMA = z.object({
     .pipe(z.string().max(255, "Payment asset is too long.")),
 });
 
+const CREATE_MILESTONE_SCHEMA = z.object({
+  title: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(2, "Milestone title is required."))
+    .pipe(z.string().max(120, "Milestone title must be under 120 characters.")),
+  description: z
+    .string()
+    .transform(sanitizeMultilineInput)
+    .pipe(z.string().max(1200, "Milestone description must be under 1200 characters.")),
+  amount: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(1, "Milestone amount is required."))
+    .transform((value) => Number(parseHumanAmount(value)))
+    .refine((value) => Number.isFinite(value) && value > 0, {
+      message: "Milestone amount must be greater than zero.",
+    })
+    .refine((value) => value <= MAX_HUMAN_BUDGET, {
+      message: "Milestone amount exceeds the allowed range.",
+    }),
+});
+
 type TCreateJobPayload = z.infer<typeof CREATE_JOB_SCHEMA>;
+type TCreateMilestonePayload = z.infer<typeof CREATE_MILESTONE_SCHEMA>;
 
 function createClientJobHash(): string {
   const uniqueId =
@@ -85,6 +115,20 @@ function createClientRequestId(jobId: string): string {
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   return `create_and_fund_open_escrow:${jobId}:${uniqueId}`;
+}
+
+function createDraftMilestone(): TCreateMilestoneFormState {
+  const uniqueId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return {
+    id: uniqueId,
+    title: "",
+    description: "",
+    amount: "",
+  };
 }
 
 function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErrors {
@@ -110,6 +154,7 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
 export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
   const { address, isConnected, signTransaction, walletState } = useWallet();
   const createJob = useMutation(api.jobs.createJob);
+  const createMilestoneProject = useMutation(api.milestones.createMilestoneProject);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
@@ -121,6 +166,15 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     budget: "",
     asset: DEFAULT_STABLECOIN_ASSET,
     fundEscrowNow: false,
+    jobType: "micro_gig",
+    milestones: [
+      {
+        id: "initial",
+        title: "",
+        description: "",
+        amount: "",
+      },
+    ],
   });
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,22 +197,94 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     return "Enter the stablecoin token contract ID only if you need an off-chain draft before central config is set.";
   }, [isStablecoinConfigured]);
 
-  const budgetHelperText = useMemo(
-    () => "This amount will be locked in Stellar escrow after the client funds the contract.",
-    [],
-  );
+  const isMilestoneProject = formState.jobType === "milestone_project";
+  const parsedMilestoneTotal = useMemo(() => {
+    return formState.milestones.reduce((total, milestone) => {
+      const amount = Number(parseHumanAmount(milestone.amount || "0"));
+      return Number.isFinite(amount) ? total + amount : total;
+    }, 0);
+  }, [formState.milestones]);
 
-  const updateField = (
-    field: Exclude<keyof TCreateJobFormState, "fundEscrowNow">,
-    value: string,
-  ) => {
+  const budgetHelperText = isMilestoneProject
+    ? "Project budget is calculated from milestone amounts."
+    : "This amount will be locked in Stellar escrow after the client funds the contract.";
+
+  const updateField = (field: "title" | "description" | "budget" | "asset", value: string) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
     setErrors((currentValue) => ({ ...currentValue, [field]: undefined, submit: undefined }));
+  };
+
+  const updateJobType = (jobType: TJobType) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      jobType,
+      fundEscrowNow: jobType === "milestone_project" ? false : currentValue.fundEscrowNow,
+    }));
+    setErrors({});
   };
 
   const updateFundEscrowNow = (value: boolean) => {
     setFormState((currentValue) => ({ ...currentValue, fundEscrowNow: value }));
     setErrors((currentValue) => ({ ...currentValue, submit: undefined }));
+  };
+
+  const updateMilestone = (
+    milestoneId: string,
+    field: keyof Omit<TCreateMilestoneFormState, "id">,
+    value: string,
+  ) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      milestones: currentValue.milestones.map((milestone) =>
+        milestone.id === milestoneId ? { ...milestone, [field]: value } : milestone,
+      ),
+    }));
+    setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
+  };
+
+  const addMilestone = () => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      milestones: [...currentValue.milestones, createDraftMilestone()],
+    }));
+  };
+
+  const removeMilestone = (milestoneId: string) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      milestones:
+        currentValue.milestones.length > 1
+          ? currentValue.milestones.filter((milestone) => milestone.id !== milestoneId)
+          : currentValue.milestones,
+    }));
+  };
+
+  const parseMilestones = (): TCreateMilestonePayload[] | null => {
+    const parsedMilestones: TCreateMilestonePayload[] = [];
+
+    if (formState.milestones.length < 1) {
+      setErrors({ milestones: "At least one milestone is required." });
+      return null;
+    }
+
+    for (const [index, milestone] of formState.milestones.entries()) {
+      const parsed = CREATE_MILESTONE_SCHEMA.safeParse(milestone);
+      if (!parsed.success) {
+        setErrors({
+          milestones: `Milestone ${index + 1}: ${parsed.error.issues[0]?.message ?? "Invalid milestone."}`,
+        });
+        return null;
+      }
+      parsedMilestones.push(parsed.data);
+    }
+
+    const totalBudget = parsedMilestones.reduce((total, milestone) => total + milestone.amount, 0);
+    if (totalBudget <= 0) {
+      setErrors({ milestones: "Total project budget must be greater than zero." });
+      return null;
+    }
+
+    return parsedMilestones;
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -178,7 +304,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       return;
     }
 
-    const validationErrors = buildCreateJobErrors(formState);
+    const validationErrors = buildCreateJobErrors({
+      ...formState,
+      budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
+    });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -188,9 +317,17 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     setErrors({});
 
     try {
-      const parsed = CREATE_JOB_SCHEMA.safeParse(formState);
+      const parsed = CREATE_JOB_SCHEMA.safeParse({
+        ...formState,
+        budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
+      });
       if (!parsed.success) {
-        setErrors(buildCreateJobErrors(formState));
+        setErrors(
+          buildCreateJobErrors({
+            ...formState,
+            budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
+          }),
+        );
         setIsSubmitting(false);
         return;
       }
@@ -204,6 +341,38 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       if (parsedScamAnalysis.isBlocked) {
         setErrors({ submit: DISALLOWED_JOB_POST_MESSAGE });
         setIsSubmitting(false);
+        return;
+      }
+
+      if (isMilestoneProject) {
+        const milestones = parseMilestones();
+        if (!milestones) {
+          setIsSubmitting(false);
+          return;
+        }
+
+        const createdJobId = await createMilestoneProject({
+          title: payload.title,
+          description: payload.description,
+          asset: payload.asset,
+          clientWallet: address,
+          milestones: milestones.map((milestone) => ({
+            title: milestone.title,
+            ...(milestone.description ? { description: milestone.description } : {}),
+            amount: milestone.amount,
+          })),
+        });
+
+        setFormState({
+          title: "",
+          description: "",
+          budget: "",
+          asset: DEFAULT_STABLECOIN_ASSET,
+          fundEscrowNow: false,
+          jobType: "micro_gig",
+          milestones: [createDraftMilestone()],
+        });
+        onCreated(createdJobId);
         return;
       }
 
@@ -351,6 +520,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         budget: "",
         asset: DEFAULT_STABLECOIN_ASSET,
         fundEscrowNow: false,
+        jobType: "micro_gig",
+        milestones: [createDraftMilestone()],
       });
       onCreated(createdJobId);
     } catch (error) {
@@ -391,6 +562,42 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       ) : null}
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <p className="text-sm font-semibold text-[#0a0a0a]">Work mode</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => updateJobType("micro_gig")}
+              className={`rounded-lg border p-4 text-left transition-colors ${
+                formState.jobType === "micro_gig"
+                  ? "border-[#FF7003] bg-white"
+                  : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
+              }`}
+              aria-pressed={formState.jobType === "micro_gig"}
+            >
+              <span className="block text-sm font-semibold text-[#0a0a0a]">Micro Gig</span>
+              <span className="mt-1 block text-sm text-[#5f5f5f]">
+                Best for small tasks with one freelancer and one payout.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => updateJobType("milestone_project")}
+              className={`rounded-lg border p-4 text-left transition-colors ${
+                formState.jobType === "milestone_project"
+                  ? "border-[#FF7003] bg-white"
+                  : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
+              }`}
+              aria-pressed={formState.jobType === "milestone_project"}
+            >
+              <span className="block text-sm font-semibold text-[#0a0a0a]">Milestone Project</span>
+              <span className="mt-1 block text-sm text-[#5f5f5f]">
+                Best for larger projects split into separate deliverables and payments.
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div>
           <label
             htmlFor="marketplace-job-title"
@@ -461,26 +668,28 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </Alert>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label
-              htmlFor="marketplace-job-budget"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Budget
-            </label>
-            <AppInput
-              id="marketplace-job-budget"
-              type="text"
-              inputMode="decimal"
-              value={formState.budget}
-              onChange={(event) => updateField("budget", event.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
-              placeholder="500"
-            />
-            <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
-            {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
-          </div>
+        <div className={`grid gap-4 ${isMilestoneProject ? "" : "sm:grid-cols-2"}`}>
+          {!isMilestoneProject ? (
+            <div>
+              <label
+                htmlFor="marketplace-job-budget"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Budget
+              </label>
+              <AppInput
+                id="marketplace-job-budget"
+                type="text"
+                inputMode="decimal"
+                value={formState.budget}
+                onChange={(event) => updateField("budget", event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                placeholder="500"
+              />
+              <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
+              {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
+            </div>
+          ) : null}
 
           <div>
             <label
@@ -513,33 +722,141 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <label
-                htmlFor="fund-escrow-now"
-                className="block text-sm font-semibold text-[#0a0a0a]"
-              >
-                Create and fund escrow now
-              </label>
-              <p className="mt-1 text-sm text-[#5f5f5f]">
-                Lock the full budget in Stellar escrow while the job is still open for applicants.
-              </p>
+        {isMilestoneProject ? (
+          <div className="space-y-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-[#0a0a0a]">Milestones</h3>
+                <p className="mt-1 text-sm text-[#5f5f5f]">
+                  Define each deliverable and payment. Funding happens later per assigned milestone.
+                </p>
+              </div>
+              <AppButton type="button" variant="secondary" onClick={addMilestone} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add milestone
+              </AppButton>
             </div>
-            <AppSwitch
-              id="fund-escrow-now"
-              checked={formState.fundEscrowNow}
-              onCheckedChange={updateFundEscrowNow}
-              disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
-              aria-label="Create and fund escrow when posting this job"
-            />
+
+            <div className="space-y-4">
+              {formState.milestones.map((milestone, index) => (
+                <div key={milestone.id} className="rounded-lg border border-[#e8e8e8] bg-white p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-[#0a0a0a]">Milestone {index + 1}</p>
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      disabled={formState.milestones.length === 1}
+                      onClick={() => removeMilestone(milestone.id)}
+                      className="h-8 gap-2 px-3 py-1.5 text-xs disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </AppButton>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                    <div>
+                      <label
+                        htmlFor={`milestone-title-${milestone.id}`}
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        Title
+                      </label>
+                      <AppInput
+                        id={`milestone-title-${milestone.id}`}
+                        value={milestone.title}
+                        maxLength={140}
+                        onChange={(event) =>
+                          updateMilestone(milestone.id, "title", event.target.value)
+                        }
+                        placeholder="Design landing page"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`milestone-amount-${milestone.id}`}
+                        className="mb-1 block text-sm font-medium text-gray-700"
+                      >
+                        Amount
+                      </label>
+                      <AppInput
+                        id={`milestone-amount-${milestone.id}`}
+                        value={milestone.amount}
+                        type="text"
+                        inputMode="decimal"
+                        onChange={(event) =>
+                          updateMilestone(milestone.id, "amount", event.target.value)
+                        }
+                        placeholder="50"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label
+                      htmlFor={`milestone-description-${milestone.id}`}
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Description
+                    </label>
+                    <AppTextarea
+                      id={`milestone-description-${milestone.id}`}
+                      value={milestone.description}
+                      rows={3}
+                      maxLength={1200}
+                      onChange={(event) =>
+                        updateMilestone(milestone.id, "description", event.target.value)
+                      }
+                      placeholder="Deliverable details and acceptance criteria"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-[#e8e8e8] bg-white p-3 text-sm">
+              <span className="font-medium text-[#0a0a0a]">Total project budget:</span>{" "}
+              {parsedMilestoneTotal.toLocaleString(undefined, {
+                maximumFractionDigits: 7,
+              })}{" "}
+              {formatAssetLabel(formState.asset)}
+            </div>
+            {errors.milestones ? <p className="text-sm text-red-600">{errors.milestones}</p> : null}
           </div>
-          {formState.fundEscrowNow ? (
-            <p className="mt-3 text-xs text-[#5f5f5f]">
-              Your wallet will sign one atomic Soroban transaction after the job is created.
-            </p>
-          ) : null}
-        </div>
+        ) : null}
+
+        {!isMilestoneProject ? (
+          <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <label
+                  htmlFor="fund-escrow-now"
+                  className="block text-sm font-semibold text-[#0a0a0a]"
+                >
+                  Create and fund escrow now
+                </label>
+                <p className="mt-1 text-sm text-[#5f5f5f]">
+                  Lock the full budget in Stellar escrow while the job is still open for applicants.
+                </p>
+              </div>
+              <AppSwitch
+                id="fund-escrow-now"
+                checked={formState.fundEscrowNow}
+                onCheckedChange={updateFundEscrowNow}
+                disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
+                aria-label="Create and fund escrow when posting this job"
+              />
+            </div>
+            {formState.fundEscrowNow ? (
+              <p className="mt-3 text-xs text-[#5f5f5f]">
+                Your wallet will sign one atomic Soroban transaction after the job is created.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Milestone projects are not funded upfront. Assign and fund each milestone separately
+            after applications arrive.
+          </p>
+        )}
 
         {errors.submit ? <p className="text-sm text-red-600">{errors.submit}</p> : null}
 
@@ -554,7 +871,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               : "Submitting..."
             : formState.fundEscrowNow
               ? "Create Job and Fund Escrow"
-              : "Create Job"}
+              : isMilestoneProject
+                ? "Create Milestone Project"
+                : "Create Job"}
         </AppButton>
       </form>
     </section>

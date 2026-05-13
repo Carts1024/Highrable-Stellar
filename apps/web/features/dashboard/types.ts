@@ -27,9 +27,11 @@ export type TConvexPaginationStatus =
 export interface IAppliedJobItem {
   readonly applicationId: TConvexId<"applications">;
   readonly jobId: TConvexId<"jobs">;
+  readonly milestoneId: TConvexId<"milestones"> | undefined;
   readonly applicationCreatedAt: number;
   readonly proposalPreview: string;
   readonly title: string;
+  readonly milestoneTitle: string | undefined;
   readonly budget: number;
   readonly asset: string;
   readonly jobStatus: string;
@@ -42,7 +44,9 @@ export interface IAppliedJobItem {
 export interface IOngoingJobItem {
   readonly escrowId: string;
   readonly jobId: TConvexId<"jobs">;
+  readonly milestoneId: TConvexId<"milestones"> | undefined;
   readonly title: string;
+  readonly milestoneTitle: string | undefined;
   readonly budget: number;
   readonly asset: string;
   readonly clientWallet: string;
@@ -65,7 +69,9 @@ export interface IPostedJobItem {
 export type TRecentPayout = {
   escrowId: string;
   jobId: TConvexId<"jobs">;
+  milestoneId: TConvexId<"milestones"> | undefined;
   jobTitle: string | undefined;
+  milestoneTitle: string | undefined;
   clientWallet: string;
   freelancerWallet: string;
   amount: number;

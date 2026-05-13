@@ -7,6 +7,7 @@ import { internalMutation } from "./_generated/server";
 import { getEscrowByEscrowId, getJobStatusFromEscrowStatus } from "./escrows/helpers";
 import { escrowStatusValidator } from "./escrows/schema";
 import { getStatusRank } from "./lib/stellarReads";
+import { patchMilestoneForEscrowStatus } from "./milestones/helpers";
 const TERMINAL_STATUSES = new Set(["released", "cancelled", "disputed"] as const);
 
 type TSyncMetadataOutcome = "success" | "failed";
@@ -99,7 +100,13 @@ export const applyEscrowStatusSync = internalMutation({
       }),
     });
 
-    if (incomingStatus !== "created") {
+    if (escrow.milestoneId !== undefined) {
+      await patchMilestoneForEscrowStatus(ctx, {
+        milestoneId: escrow.milestoneId,
+        escrowId: args.escrowId,
+        status: incomingStatus,
+      });
+    } else if (incomingStatus !== "created") {
       const jobStatusPatch = getJobStatusFromEscrowStatus(
         incomingStatus as "funded" | "submitted" | "released" | "cancelled" | "disputed",
       );
@@ -175,6 +182,7 @@ export const createReputationRecordFromSync = internalMutation({
     await ctx.db.insert("reputationRecords", {
       escrowId: args.escrowId,
       jobId: escrow.jobId,
+      ...(escrow.milestoneId !== undefined ? { milestoneId: escrow.milestoneId } : {}),
       clientWallet: args.clientWallet,
       freelancerWallet: args.freelancerWallet,
       amount: escrow.amount,

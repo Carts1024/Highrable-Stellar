@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/aler
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 import type { TConvexId } from "@repo/convex-client";
 
@@ -23,6 +24,7 @@ import { ClientTrustCard } from "./client-trust-card";
 import { EscrowActionPanel } from "./escrow-action-panel";
 import { FreelancerSafetyChecklist } from "./freelancer-safety-checklist";
 import { JobSafetyBadge } from "./job-safety-badge";
+import { MilestoneCard } from "./milestone-card";
 import { ReportJobButton } from "./report-job-button";
 import { StatusBadge } from "./status-badge";
 import { TrustSafetyNotice } from "./trust-safety-notice";
@@ -46,6 +48,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
     hasJobId ? { jobId: convexJobId } : "skip",
   );
   const escrow = useQuery(api.escrows.getEscrowByJobId, hasJobId ? { jobId: convexJobId } : "skip");
+  const milestoneSummary = useQuery(
+    api.milestones.getMilestoneProjectSummary,
+    hasJobId ? { jobId: convexJobId } : "skip",
+  );
 
   // Strictly typed reputation data retrieval.
   const verifiedReviewData = useQuery(
@@ -82,6 +88,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
     title: job.title,
     description: job.description,
   });
+  const jobType = job.jobType ?? "micro_gig";
+  const isMilestoneProject = jobType === "milestone_project";
+  const projectSummary = milestoneSummary;
 
   return (
     <div className="space-y-6">
@@ -143,9 +152,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
         <dl className="grid gap-4 text-sm text-[#5f5f5f] sm:grid-cols-2">
           <div>
+            <dt className="text-[#7f7f7f]">Work mode</dt>
+            <dd className="font-semibold text-[#0a0a0a]">
+              {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+            </dd>
+          </div>
+          <div>
             <dt className="text-[#7f7f7f]">Budget</dt>
             <dd className="font-semibold text-[#0a0a0a]">
-              {formatAmount(job.budget)} {formatAssetLabel(job.asset)}
+              {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
             </dd>
           </div>
           <div>
@@ -155,13 +170,27 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <div>
             <dt className="text-[#7f7f7f]">Client wallet</dt>
             <dd className="font-semibold text-[#0a0a0a]">
-              {shortenWalletAddress(job.clientWallet)}
+              <Link
+                href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+                className="hover:text-[#FF7003]"
+              >
+                {shortenWalletAddress(job.clientWallet)}
+              </Link>
             </dd>
           </div>
           <div>
             <dt className="text-[#7f7f7f]">Selected freelancer wallet</dt>
             <dd className="font-semibold text-[#0a0a0a]">
-              {shortenWalletAddress(job.selectedFreelancerWallet)}
+              {job.selectedFreelancerWallet ? (
+                <Link
+                  href={`/freelancers/${encodeURIComponent(job.selectedFreelancerWallet)}`}
+                  className="hover:text-[#FF7003]"
+                >
+                  {shortenWalletAddress(job.selectedFreelancerWallet)}
+                </Link>
+              ) : (
+                shortenWalletAddress(job.selectedFreelancerWallet)
+              )}
             </dd>
           </div>
           <div>
@@ -172,16 +201,108 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
         <div className="mt-5">
           <ReportJobButton jobId={convexJobId} />
+          {mergedEscrow ? (
+            <Link
+              href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}
+              className="mt-3 inline-flex text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+            >
+              View escrow proof
+            </Link>
+          ) : null}
         </div>
       </section>
 
       <ClientTrustCard clientWallet={job.clientWallet} />
 
-      <FreelancerSafetyChecklist job={job} escrow={mergedEscrow} connectedWallet={address} />
+      {!isMilestoneProject ? (
+        <>
+          <FreelancerSafetyChecklist job={job} escrow={mergedEscrow} connectedWallet={address} />
 
-      <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
+          <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
+        </>
+      ) : null}
 
-      {mergedEscrowWithSyncMetadata ? (
+      {isMilestoneProject ? (
+        <section className="space-y-5">
+          <div className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0a0a0a]">Milestone Progress</h2>
+                <p className="mt-1 text-sm text-[#5f5f5f]">
+                  Funding and Verified Funded status are tracked per milestone, not for the whole
+                  project.
+                </p>
+              </div>
+              <StatusBadge label={job.status} />
+            </div>
+
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
+              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+                <dt className="text-[#7f7f7f]">Total</dt>
+                <dd className="font-semibold text-[#0a0a0a]">
+                  {projectSummary?.milestones.length ?? job.milestoneCount ?? 0}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+                <dt className="text-[#7f7f7f]">Paid</dt>
+                <dd className="font-semibold text-[#0a0a0a]">
+                  {projectSummary?.milestoneCountsByStatus.released ?? 0}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+                <dt className="text-[#7f7f7f]">Funded</dt>
+                <dd className="font-semibold text-[#0a0a0a]">
+                  {projectSummary?.milestoneCountsByStatus.funded ?? 0}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+                <dt className="text-[#7f7f7f]">Open</dt>
+                <dd className="font-semibold text-[#0a0a0a]">
+                  {projectSummary?.milestoneCountsByStatus.open ?? 0}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+                <dt className="text-[#7f7f7f]">Disputed</dt>
+                <dd className="font-semibold text-[#0a0a0a]">
+                  {projectSummary?.milestoneCountsByStatus.disputed ?? 0}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mt-4 text-sm font-medium text-[#0a0a0a]">
+              {projectSummary?.milestoneCountsByStatus.released ?? 0} of{" "}
+              {projectSummary?.milestones.length ?? job.milestoneCount ?? 0} milestones paid
+            </p>
+          </div>
+
+          {projectSummary === undefined ? (
+            <p className="text-sm text-gray-500">Loading milestones...</p>
+          ) : null}
+          {projectSummary?.milestones.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
+              No milestones found for this project.
+            </p>
+          ) : null}
+          {projectSummary?.milestones.map((milestone, index) => {
+            const applicationGate = projectSummary.applicationGates[index];
+
+            if (!applicationGate) {
+              return null;
+            }
+
+            return (
+              <MilestoneCard
+                key={milestone._id}
+                job={job}
+                milestone={milestone}
+                applicationGate={applicationGate}
+              />
+            );
+          })}
+        </section>
+      ) : null}
+
+      {!isMilestoneProject && mergedEscrowWithSyncMetadata ? (
         <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Sync Status</h2>
@@ -242,7 +363,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </section>
       ) : null}
 
-      {hasReleasedCompletion ? (
+      {!isMilestoneProject && hasReleasedCompletion ? (
         <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[#0a0a0a]">Verified completion</h2>
 
@@ -288,21 +409,25 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </section>
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Apply</h2>
-        <ApplyToJobForm job={job} onApplied={() => {}} />
-      </section>
+      {!isMilestoneProject ? (
+        <>
+          <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Apply</h2>
+            <ApplyToJobForm job={job} onApplied={() => {}} />
+          </section>
 
-      <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Applications</h2>
-        <ApplicationsList
-          job={job}
-          escrow={mergedEscrow}
-          applications={applications}
-          isLoading={applications === undefined}
-          onSelected={() => {}}
-        />
-      </section>
+          <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Applications</h2>
+            <ApplicationsList
+              job={job}
+              escrow={mergedEscrow}
+              applications={applications}
+              isLoading={applications === undefined}
+              onSelected={() => {}}
+            />
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }
