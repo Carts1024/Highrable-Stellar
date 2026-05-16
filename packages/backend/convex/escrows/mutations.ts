@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
+import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import {
   assertEscrowCreationAllowed,
   getEscrowByEscrowIdOrThrow,
@@ -176,7 +177,15 @@ export const updateEscrowStatus = mutation({
 
     await ctx.db.patch(escrow._id, escrowPatch);
 
-    if (
+    if (escrow.milestoneId !== undefined) {
+      await patchMilestoneForEscrowStatus(ctx, {
+        milestoneId: escrow.milestoneId,
+        escrowId,
+        status: args.status,
+        ...(txHash !== undefined ? { txHash } : {}),
+        ...(args.txType !== undefined ? { txType: args.txType } : {}),
+      });
+    } else if (
       args.status === "funded" ||
       args.status === "submitted" ||
       args.status === "released" ||

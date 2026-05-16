@@ -2,6 +2,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { ExternalLink, Star } from "lucide-react";
+import Link from "next/link";
 
 import { VerifiedBadge } from "./verified-badge";
 
@@ -22,6 +23,7 @@ export type TVerifiedReviewCardProps = {
   txHash?: string;
   createdAt?: number;
   compact?: boolean;
+  completionType?: "job" | "micro_gig" | "milestone";
 };
 
 function normalizeRating(rating: number | undefined): number | undefined {
@@ -91,12 +93,21 @@ export function VerifiedReviewCard({
   reviewHash,
   txHash,
   compact = false,
+  completionType = "job",
 }: TVerifiedReviewCardProps) {
   const safeRating = normalizeRating(rating);
-  const title = compact ? "Verified completed job" : "Verified completed job";
-  const subtitle = compact
-    ? "Paid through Stellar escrow"
-    : "This review is linked to a paid Stellar escrow.";
+  const isMilestone = completionType === "milestone";
+  const isMicroGig = completionType === "micro_gig";
+  const title = isMilestone
+    ? "Verified completed milestone"
+    : isMicroGig
+      ? "Verified completed gig"
+      : "Verified completed job";
+  const subtitle = isMilestone
+    ? "This milestone review is linked to a paid Stellar escrow."
+    : compact
+      ? "Paid through Stellar escrow"
+      : "This review is linked to a paid Stellar escrow.";
 
   return (
     <article
@@ -104,7 +115,17 @@ export function VerifiedReviewCard({
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-1">
-          <VerifiedBadge label={compact ? "Verified Completed Job" : "Verified Review"} />
+          <VerifiedBadge
+            label={
+              isMilestone
+                ? "Verified Completed Milestone"
+                : isMicroGig
+                  ? "Verified Completed Gig"
+                  : compact
+                    ? "Verified Completed Job"
+                    : "Verified Review"
+            }
+          />
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           <p className="text-sm text-emerald-800">{subtitle}</p>
         </div>
@@ -126,11 +147,21 @@ export function VerifiedReviewCard({
         </p>
         <p>
           <span className="font-medium text-gray-500">Client:</span>{" "}
-          {shortenWalletAddress(clientWallet)}
+          <Link
+            href={`/clients/${encodeURIComponent(clientWallet)}`}
+            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+          >
+            {shortenWalletAddress(clientWallet)}
+          </Link>
         </p>
         <p>
           <span className="font-medium text-gray-500">Freelancer:</span>{" "}
-          {shortenWalletAddress(freelancerWallet)}
+          <Link
+            href={`/freelancers/${encodeURIComponent(freelancerWallet)}`}
+            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+          >
+            {shortenWalletAddress(freelancerWallet)}
+          </Link>
         </p>
         <p className="break-all sm:col-span-2">
           <span className="font-medium text-gray-500">Escrow ID:</span> {escrowId}
@@ -139,6 +170,13 @@ export function VerifiedReviewCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <p className="text-sm font-medium text-emerald-800">Paid through Stellar escrow</p>
+        <Link
+          href={`/proof/${encodeURIComponent(escrowId)}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+        >
+          View proof
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
         {txHash ? (
           <a
             href={getTxExplorerUrl(txHash)}

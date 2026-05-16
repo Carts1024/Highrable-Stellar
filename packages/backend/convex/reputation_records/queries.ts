@@ -50,6 +50,10 @@ export const getVerifiedReviewForJob = query({
       return null;
     }
 
+    if (escrow.milestoneId !== undefined) {
+      return null;
+    }
+
     const reputationRecord = await ctx.db
       .query("reputationRecords")
       .withIndex("by_escrowId", (q) => q.eq("escrowId", escrow.escrowId))
@@ -57,6 +61,43 @@ export const getVerifiedReviewForJob = query({
 
     return {
       job,
+      escrow,
+      reputationRecord,
+    };
+  },
+});
+
+export const getVerifiedReviewForMilestone = query({
+  args: {
+    milestoneId: v.id("milestones"),
+  },
+  handler: async (ctx, args) => {
+    const milestone = await ctx.db.get(args.milestoneId);
+
+    if (!milestone?.escrowId) {
+      return null;
+    }
+
+    const [job, escrow] = await Promise.all([
+      ctx.db.get(milestone.jobId),
+      ctx.db
+        .query("escrows")
+        .withIndex("by_escrowId", (q) => q.eq("escrowId", milestone.escrowId!))
+        .unique(),
+    ]);
+
+    if (!job || !escrow) {
+      return null;
+    }
+
+    const reputationRecord = await ctx.db
+      .query("reputationRecords")
+      .withIndex("by_escrowId", (q) => q.eq("escrowId", escrow.escrowId))
+      .unique();
+
+    return {
+      job,
+      milestone,
       escrow,
       reputationRecord,
     };

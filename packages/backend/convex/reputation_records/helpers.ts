@@ -37,6 +37,7 @@ export async function assertReputationCreationAllowed(
   params: {
     escrowId: string;
     jobId: Id<"jobs">;
+    milestoneId?: Id<"milestones">;
   },
 ) {
   const escrow = await ctx.db
@@ -54,6 +55,10 @@ export async function assertReputationCreationAllowed(
 
   if (escrow.jobId !== params.jobId) {
     throw new ForbiddenError("jobId does not match escrow jobId.");
+  }
+
+  if (escrow.milestoneId !== params.milestoneId) {
+    throw new ForbiddenError("milestoneId does not match escrow milestoneId.");
   }
 
   const existingRecord = await ctx.db

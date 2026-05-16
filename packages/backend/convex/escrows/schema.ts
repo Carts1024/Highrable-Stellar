@@ -30,6 +30,7 @@ export type TEscrowTransactionType = Infer<typeof escrowTransactionTypeValidator
 
 export default defineTable({
   jobId: v.id("jobs"),
+  milestoneId: v.optional(v.id("milestones")),
   escrowId: v.string(),
   clientWallet: v.string(),
   freelancerWallet: v.optional(v.string()),
@@ -51,6 +52,7 @@ export default defineTable({
   updatedAt: v.number(),
 })
   .index("by_jobId", ["jobId"])
+  .index("by_milestoneId", ["milestoneId"])
   .index("by_escrowId", ["escrowId"])
   .index("by_clientWallet", ["clientWallet"])
   .index("by_freelancerWallet", ["freelancerWallet"])

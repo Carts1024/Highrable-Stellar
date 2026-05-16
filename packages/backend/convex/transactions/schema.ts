@@ -32,6 +32,7 @@ export default defineTable({
   clientRequestId: v.optional(v.string()),
   escrowId: v.optional(v.string()),
   jobId: v.optional(v.id("jobs")),
+  milestoneId: v.optional(v.id("milestones")),
   status: transactionStatusValidator,
   errorMessage: v.optional(v.string()),
   createdAt: v.number(),
@@ -42,5 +43,6 @@ export default defineTable({
   .index("by_clientRequestId", ["clientRequestId"])
   .index("by_escrowId", ["escrowId"])
   .index("by_jobId", ["jobId"])
+  .index("by_milestoneId", ["milestoneId"])
   .index("by_status", ["status"])
   .index("by_type", ["type"]);

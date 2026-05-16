@@ -64,7 +64,14 @@ export function AppliedJobsSection() {
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.applicationId}>
-                  <TableCell className="max-w-55 truncate font-medium">{item.title}</TableCell>
+                  <TableCell className="max-w-55 font-medium">
+                    <p className="truncate">{item.title}</p>
+                    {item.milestoneTitle ? (
+                      <p className="truncate text-xs font-normal text-gray-500">
+                        Milestone: {item.milestoneTitle}
+                      </p>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{formatDate(item.applicationCreatedAt)}</TableCell>
                   <TableCell>
                     <StatusPill label={item.derivedApplicationStatus} />

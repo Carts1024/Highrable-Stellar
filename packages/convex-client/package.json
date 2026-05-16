@@ -9,11 +9,11 @@
     "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit"
   },
   "dependencies": {
-    "@repo/backend": "*",
+    "@repo/backend": "workspace:*",
     "convex": "^1.38.0"
   },
   "devDependencies": {
-    "@repo/typescript-config": "*",
+    "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "typescript": "5.9.2"
   }

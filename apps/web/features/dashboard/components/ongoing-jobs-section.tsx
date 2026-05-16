@@ -66,7 +66,14 @@ export function OngoingJobsSection() {
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.escrowId}>
-                  <TableCell className="max-w-60 truncate font-medium">{item.title}</TableCell>
+                  <TableCell className="max-w-60 font-medium">
+                    <p className="truncate">{item.title}</p>
+                    {item.milestoneTitle ? (
+                      <p className="truncate text-xs font-normal text-gray-500">
+                        Milestone: {item.milestoneTitle}
+                      </p>
+                    ) : null}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       <JobSafetyBadge status="verified_funded" compact />

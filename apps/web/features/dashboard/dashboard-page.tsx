@@ -168,6 +168,11 @@ export function DashboardPage() {
 
       {!isRoleLoading && isModeReady && (
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {address ? (
+            <AppButton asChild variant="secondary" size="sm">
+              <Link href={`/freelancers/${encodeURIComponent(address)}`}>View public profile</Link>
+            </AppButton>
+          ) : null}
           <DashboardModeLabel mode={selectedMode} />
           <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
         </div>

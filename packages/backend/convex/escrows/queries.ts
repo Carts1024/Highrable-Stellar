@@ -45,6 +45,20 @@ export const getEscrowByJobId = query({
   },
 });
 
+export const getEscrowByMilestoneId = query({
+  args: {
+    milestoneId: v.id("milestones"),
+  },
+  handler: async (ctx, args) => {
+    const escrows = await ctx.db
+      .query("escrows")
+      .withIndex("by_milestoneId", (q) => q.eq("milestoneId", args.milestoneId))
+      .take(1);
+
+    return escrows[0] ?? null;
+  },
+});
+
 export const listEscrowsByWallet = query({
   args: {
     walletAddress: v.string(),

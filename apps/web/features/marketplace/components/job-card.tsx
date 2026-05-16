@@ -24,7 +24,10 @@ export function JobCard({
   onApply: (jobId: string) => void;
   isApplying: boolean;
 }) {
+  const jobType = job.jobType ?? "micro_gig";
+  const isMilestoneProject = jobType === "milestone_project";
   const canApply =
+    !isMilestoneProject &&
     !!connectedWallet &&
     !isSameWallet(connectedWallet, job.clientWallet) &&
     (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
@@ -51,9 +54,15 @@ export function JobCard({
 
       <dl className="grid grid-cols-1 gap-3 text-sm text-[#5f5f5f] sm:grid-cols-2">
         <div>
+          <dt className="text-[#7f7f7f]">Work mode</dt>
+          <dd className="font-semibold text-[#0a0a0a]">
+            {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+          </dd>
+        </div>
+        <div>
           <dt className="text-[#7f7f7f]">Budget</dt>
           <dd className="font-semibold text-[#0a0a0a]">
-            {formatAmount(job.budget)} {formatAssetLabel(job.asset)}
+            {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
           </dd>
         </div>
         <div>
@@ -62,7 +71,14 @@ export function JobCard({
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Client wallet</dt>
-          <dd className="font-semibold text-[#0a0a0a]">{shortenWalletAddress(job.clientWallet)}</dd>
+          <dd className="font-semibold text-[#0a0a0a]">
+            <Link
+              href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+              className="hover:text-[#FF7003]"
+            >
+              {shortenWalletAddress(job.clientWallet)}
+            </Link>
+          </dd>
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Selected freelancer</dt>
@@ -89,6 +105,9 @@ export function JobCard({
           >
             {isApplying ? "Applying..." : "Apply"}
           </AppButton>
+        ) : null}
+        {isMilestoneProject ? (
+          <p className="text-sm text-[#5f5f5f]">Apply to specific milestones on the detail page.</p>
         ) : null}
       </div>
     </article>

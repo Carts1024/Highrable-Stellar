@@ -32,6 +32,9 @@ export const createJob = mutation({
     // TODO: Convert jobHash into the on-chain 32-byte format before contract calls.
     return await ctx.db.insert("jobs", {
       ...sanitizedArgs,
+      jobType: "micro_gig",
+      totalBudget: sanitizedArgs.budget,
+      milestoneCount: 0,
       status: "open",
       createdAt: Date.now(),
     });
