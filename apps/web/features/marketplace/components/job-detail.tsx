@@ -1,7 +1,7 @@
 "use client";
 
 import { formatAssetLabel } from "@/core/stellar/assets";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
@@ -37,7 +37,7 @@ type TEscrowSyncMetadata = {
 };
 
 export function JobDetail({ jobId }: { jobId: string }) {
-  const { address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const normalizedJobId = jobId.trim();
   const hasJobId = normalizedJobId.length > 0;
   const convexJobId = normalizedJobId as TConvexId<"jobs">;
@@ -83,7 +83,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const showPendingSyncState =
     hasReleasedCompletion && mergedEscrow?.status === "released" && !reputationRecord;
   const safetyStatus = getJobSafetyStatus({ job, escrow: mergedEscrow });
-  const isSelectedConnectedFreelancer = isSameWallet(address, job.selectedFreelancerWallet);
+  const isSelectedConnectedFreelancer = isSameWallet(
+    walletIdentity.walletAddress,
+    job.selectedFreelancerWallet,
+  );
   const scamAnalysis = analyzeJobScamSignals({
     title: job.title,
     description: job.description,
@@ -216,7 +219,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {!isMilestoneProject ? (
         <>
-          <FreelancerSafetyChecklist job={job} escrow={mergedEscrow} connectedWallet={address} />
+          <FreelancerSafetyChecklist
+            job={job}
+            escrow={mergedEscrow}
+            connectedWallet={walletIdentity.walletAddress}
+          />
 
           <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
         </>

@@ -29,6 +29,8 @@ export function ClientTrustProfileHeader({
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const walletTypeLabel =
+    profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
 
   const handleCopy = async () => {
     try {
@@ -59,6 +61,9 @@ export function ClientTrustProfileHeader({
               <div className="flex flex-wrap items-center gap-2 text-sm text-[#5f5f5f]">
                 <span className="font-mono break-all">
                   {shortenWalletAddress(profile.walletAddress)}
+                </span>
+                <span className="rounded-full border border-[#e8e8e8] bg-[#fafafa] px-2 py-1 text-xs font-medium text-[#5f5f5f]">
+                  {walletTypeLabel}
                 </span>
                 <AppButton
                   type="button"

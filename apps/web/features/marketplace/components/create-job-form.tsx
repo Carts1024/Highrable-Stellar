@@ -15,6 +15,7 @@ import {
 } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
@@ -153,6 +154,7 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
 
 export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
   const { address, isConnected, signTransaction, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createJob = useMutation(api.jobs.createJob);
   const createMilestoneProject = useMutation(api.milestones.createMilestoneProject);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
@@ -290,7 +292,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!isConnected || !address) {
+    if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
       setErrors({ submit: "Connect wallet to create a job." });
       return;
     }
@@ -355,7 +357,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           title: payload.title,
           description: payload.description,
           asset: payload.asset,
-          clientWallet: address,
+          clientWallet: walletIdentity.walletAddress,
+          ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
           milestones: milestones.map((milestone) => ({
             title: milestone.title,
             ...(milestone.description ? { description: milestone.description } : {}),
@@ -381,6 +384,15 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       let jobHashBytes: Uint8Array | null = null;
 
       if (formState.fundEscrowNow) {
+        if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
+          setErrors({
+            submit:
+              "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         if (!walletState.isTestnet) {
           setErrors({ submit: "Switch your wallet to Stellar Testnet before funding escrow." });
           setIsSubmitting(false);
@@ -439,7 +451,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: payload.description,
         budget: payload.budget,
         asset: payload.asset,
-        clientWallet: address,
+        clientWallet: walletIdentity.walletAddress,
+        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         jobHash,
       });
 
@@ -449,7 +462,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         let confirmedTxHash: string | null = null;
 
         await createTransaction({
-          walletAddress: address,
+          walletAddress: address!,
           type: "create_escrow",
           clientRequestId,
           jobId: createdJobId,
@@ -461,9 +474,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             rpcUrl: preFundingConfig.rpcUrl,
             networkPassphrase: preFundingConfig.networkPassphrase,
             escrowContractId: preFundingConfig.escrowContractId,
-            sourceAddress: address,
+            sourceAddress: address!,
             signTransaction,
-            client: address,
+            client: address!,
             asset: preFundingConfig.stablecoinTokenContractId,
             amount: payload.budget,
             jobHash: jobHashBytes,
@@ -474,7 +487,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           await createEscrowRecord({
             jobId: createdJobId,
             escrowId: result.escrowId,
-            clientWallet: address,
+            clientWallet: address!,
             amount: payload.budget,
             asset: preFundingConfig.stablecoinTokenContractId,
             status: "funded",
@@ -547,14 +560,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </p>
       ) : null}
 
-      {!isConnected ? (
+      {!walletIdentity.isConnected ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="mb-3">Connect wallet to create a job.</p>
+          <p className="mb-3">
+            Connect an external wallet or passkey smart account to create a job.
+          </p>
           <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white" />
         </div>
       ) : null}
 
-      {isConnected && walletState.isTestnet && walletState.isFunded === false ? (
+      {walletIdentity.walletType === "passkey_smart_account" ? (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Passkey transaction signing is coming next. You can create off-chain jobs with this smart
+          account, but use Freighter or WalletConnect for escrow actions.
+        </p>
+      ) : null}
+
+      {walletIdentity.walletType === "external_wallet" &&
+      walletState.isTestnet &&
+      walletState.isFunded === false ? (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           You can create off-chain jobs, but Stellar transactions in later steps require a funded
           testnet account.
@@ -841,10 +865,20 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 id="fund-escrow-now"
                 checked={formState.fundEscrowNow}
                 onCheckedChange={updateFundEscrowNow}
-                disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
+                disabled={
+                  !isStablecoinConfigured ||
+                  !walletIdentity.canSignEscrowTransactions ||
+                  isSubmitting
+                }
                 aria-label="Create and fund escrow when posting this job"
               />
             </div>
+            {walletIdentity.walletType === "passkey_smart_account" ? (
+              <p className="mt-3 text-xs text-amber-700">
+                Passkey smart account funding is handled separately and will be improved in the next
+                phase.
+              </p>
+            ) : null}
             {formState.fundEscrowNow ? (
               <p className="mt-3 text-xs text-[#5f5f5f]">
                 Your wallet will sign one atomic Soroban transaction after the job is created.
@@ -862,7 +896,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         <AppButton
           type="submit"
-          disabled={isSubmitting || !isConnected}
+          disabled={isSubmitting || !walletIdentity.isConnected}
           className="disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting

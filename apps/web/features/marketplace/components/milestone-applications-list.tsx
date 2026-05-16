@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -25,17 +25,20 @@ export function MilestoneApplicationsList({
   applications: TConvexDoc<"applications">[] | undefined;
   isLoading: boolean;
 }) {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const assignFreelancerToMilestone = useMutation(api.milestones.assignFreelancerToMilestone);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingWallet, setSelectingWallet] = useState<string | null>(null);
 
-  const isClient = isSameWallet(address, job.clientWallet);
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const canAssign =
-    isConnected && isClient && milestone.status === "open" && applicationGate.canApply;
+    walletIdentity.isConnected &&
+    isClient &&
+    milestone.status === "open" &&
+    applicationGate.canApply;
 
   const handleAssign = async (freelancerWallet: string) => {
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setSelectionError("Connect your wallet to assign a freelancer.");
       return;
     }
@@ -46,7 +49,7 @@ export function MilestoneApplicationsList({
     try {
       await assignFreelancerToMilestone({
         milestoneId: milestone._id as TConvexId<"milestones">,
-        clientWallet: address,
+        clientWallet: walletIdentity.walletAddress,
         freelancerWallet,
       });
     } catch (error) {

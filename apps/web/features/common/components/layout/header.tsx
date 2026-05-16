@@ -3,7 +3,7 @@
 import { APP_NAME } from "@/core/constants";
 import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { V2_THEME } from "@/features/common/lib/v2-theme";
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Briefcase, Menu, Users, X } from "lucide-react";
@@ -25,7 +25,7 @@ function isActivePath(pathname: string, href: string) {
 export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#e8e8e8] bg-white/95 backdrop-blur-sm">
@@ -63,7 +63,7 @@ export function Header() {
 
           <div className="flex items-center gap-4">
             <div className="hidden md:block">
-              {!isConnected ? (
+              {!walletIdentity.isConnected ? (
                 <WalletConnectTrigger
                   className={`rounded-lg px-6 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase transition-all hover:brightness-105 ${V2_THEME.gradients.primary}`}
                 />
@@ -107,7 +107,7 @@ export function Header() {
                   </Link>
                 ))}
                 <div className="border-t border-[#e8e8e8] pt-3">
-                  {!isConnected ? (
+                  {!walletIdentity.isConnected ? (
                     <WalletConnectTrigger
                       className={`w-full rounded-lg px-4 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase ${V2_THEME.gradients.primary}`}
                     />

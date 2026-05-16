@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
@@ -23,7 +23,7 @@ type TMarketplaceFilter = "all" | "verified_funded";
 
 export function MarketplacePage() {
   const router = useRouter();
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function MarketplacePage() {
   const selectedJobForApply = selectedRowForApply?.job ?? null;
 
   const openApplyDialogFromList = (jobId: string) => {
-    if (!address || !marketplaceRows) {
+    if (!walletIdentity.walletAddress || !marketplaceRows) {
       return;
     }
 
@@ -58,7 +58,7 @@ export function MarketplacePage() {
       return;
     }
 
-    if (isSameWallet(selectedJob.clientWallet, address)) {
+    if (isSameWallet(selectedJob.clientWallet, walletIdentity.walletAddress)) {
       setApplyError("Client cannot apply to their own job.");
       return;
     }
@@ -68,7 +68,7 @@ export function MarketplacePage() {
   };
 
   const handleApplyFromList = async (proposal: string) => {
-    if (!address || !selectedJobForApply) {
+    if (!walletIdentity.walletAddress || !selectedJobForApply) {
       return;
     }
 
@@ -78,7 +78,8 @@ export function MarketplacePage() {
     try {
       await applyToJob({
         jobId: selectedJobForApply._id,
-        freelancerWallet: address,
+        freelancerWallet: walletIdentity.walletAddress,
+        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         proposal,
       });
       setSelectedJobForApplyId(null);
@@ -109,7 +110,7 @@ export function MarketplacePage() {
         description="Wallet connect, client posting, freelancer applications, and selection all flow into escrow actions that drive on-chain execution."
       />
 
-      {isConnected ? <WalletStatusCard /> : null}
+      <WalletStatusCard />
 
       <CreateJobForm
         onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
@@ -143,7 +144,7 @@ export function MarketplacePage() {
         </div>
         <JobList
           jobs={visibleRows}
-          connectedWallet={address}
+          connectedWallet={walletIdentity.walletAddress}
           onApply={openApplyDialogFromList}
           applyingJobId={applyingJobId}
         />

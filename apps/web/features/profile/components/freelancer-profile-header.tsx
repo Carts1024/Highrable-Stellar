@@ -28,6 +28,8 @@ export function FreelancerProfileHeader({
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const walletTypeLabel =
+    profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
 
   const handleCopy = async () => {
     try {
@@ -59,6 +61,9 @@ export function FreelancerProfileHeader({
                 <span className="font-mono break-all">
                   {shortenWalletAddress(profile.walletAddress)}
                 </span>
+                <Badge variant="outline" className="border-[#e8e8e8] bg-[#fafafa]">
+                  {walletTypeLabel}
+                </Badge>
                 <AppButton
                   type="button"
                   variant="ghost"

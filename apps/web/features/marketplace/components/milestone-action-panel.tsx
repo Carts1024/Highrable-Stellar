@@ -8,6 +8,7 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
@@ -41,6 +42,7 @@ export function MilestoneActionPanel({
 }) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
   const { address, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const verifiedReviewData = useQuery(
     api.reputation_records.queries.getVerifiedReviewForMilestone,
     milestone._id ? { milestoneId: milestone._id } : "skip",
@@ -72,11 +74,13 @@ export function MilestoneActionPanel({
     enabled:
       milestone.status === "escrow_created" &&
       role === "client" &&
+      walletIdentity.canSignEscrowTransactions &&
       walletState.isConnected &&
       walletState.isTestnet,
   });
   const isFundEscrowDisabled =
     isPending ||
+    !walletIdentity.canSignEscrowTransactions ||
     role !== "client" ||
     escrow?.status !== "created" ||
     !isStablecoinConfigured ||
@@ -138,6 +142,9 @@ export function MilestoneActionPanel({
       {isStablecoinConfigured && !isMilestoneAssetConfiguredStablecoin ? (
         <TrustWarning message="This milestone uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
       ) : null}
+      {walletIdentity.walletType === "passkey_smart_account" ? (
+        <TrustWarning message="Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions." />
+      ) : null}
 
       {milestone.status === "open" ? (
         <p className="text-sm text-[#5f5f5f]">
@@ -152,7 +159,7 @@ export function MilestoneActionPanel({
           {role === "client" ? (
             <AppButton
               type="button"
-              disabled={isPending || escrow !== null}
+              disabled={isPending || escrow !== null || !walletIdentity.canSignEscrowTransactions}
               onClick={() => void createEscrow()}
               className="disabled:opacity-60"
             >
@@ -195,7 +202,7 @@ export function MilestoneActionPanel({
                 <AppButton
                   type="button"
                   variant="secondary"
-                  disabled={isPending}
+                  disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                   onClick={() => void cancelEscrow()}
                 >
                   {pendingAction === "cancel_escrow" ? "Cancelling..." : "Cancel"}
@@ -216,7 +223,7 @@ export function MilestoneActionPanel({
             <div className="flex flex-wrap gap-2">
               <AppButton
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 onClick={() => void submitWork()}
                 className="disabled:opacity-60"
               >
@@ -225,7 +232,7 @@ export function MilestoneActionPanel({
               <AppButton
                 type="button"
                 variant="secondary"
-                disabled={isPending}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 onClick={() => void markDisputed()}
                 className="border-red-300 text-red-700 hover:bg-red-50"
               >
@@ -244,7 +251,7 @@ export function MilestoneActionPanel({
             <div className="flex flex-wrap gap-2">
               <AppButton
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 onClick={() => setIsReleaseDialogOpen(true)}
                 className="disabled:opacity-60"
               >
@@ -253,7 +260,7 @@ export function MilestoneActionPanel({
               <AppButton
                 type="button"
                 variant="secondary"
-                disabled={isPending}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 onClick={() => void markDisputed()}
                 className="border-red-300 text-red-700 hover:bg-red-50"
               >

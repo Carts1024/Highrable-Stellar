@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { sanitizeMultilineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
@@ -32,15 +32,15 @@ export function ApplyToMilestoneForm({
   applicationGate: TMilestoneApplicationGate;
   applications: TConvexDoc<"applications">[];
 }) {
-  const { isConnected, address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const applyToMilestone = useMutation(api.applications.applyToMilestone);
   const [proposal, setProposal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isClient = isSameWallet(address, job.clientWallet);
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const hasApplied = applications.some((application) =>
-    isSameWallet(application.freelancerWallet, address),
+    isSameWallet(application.freelancerWallet, walletIdentity.walletAddress),
   );
   const canApply = milestone.status === "open" && applicationGate.canApply;
 
@@ -48,7 +48,7 @@ export function ApplyToMilestoneForm({
     return <p className="text-sm text-gray-600">{applicationGate.message}</p>;
   }
 
-  if (!isConnected) {
+  if (!walletIdentity.isConnected) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
         <p className="mb-2 text-sm text-gray-700">Connect wallet to apply to this milestone.</p>
@@ -68,7 +68,7 @@ export function ApplyToMilestoneForm({
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setError("Connect wallet to apply.");
       return;
     }
@@ -86,7 +86,8 @@ export function ApplyToMilestoneForm({
       await applyToMilestone({
         jobId: job._id as TConvexId<"jobs">,
         milestoneId: milestone._id as TConvexId<"milestones">,
-        freelancerWallet: address,
+        freelancerWallet: walletIdentity.walletAddress,
+        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         proposal: parsedProposal.data,
       });
       setProposal("");

@@ -15,6 +15,7 @@ import {
   DISALLOWED_JOB_POST_MESSAGE,
 } from "../jobs/scamSignals";
 import { ensureUserWithRole } from "../users/helpers";
+import { walletTypeValidator } from "../users/schema";
 import {
   assertMilestoneAssignable,
   assertMilestoneProjectClient,
@@ -36,6 +37,7 @@ export const createMilestoneProject = mutation({
     title: v.string(),
     description: v.string(),
     asset: v.string(),
+    walletType: v.optional(walletTypeValidator),
     milestones: v.array(
       v.object({
         title: v.string(),
@@ -58,7 +60,8 @@ export const createMilestoneProject = mutation({
       throw new BadRequestError("At least one milestone is required.");
     }
 
-    await ensureUserWithRole(ctx, clientWallet, "client");
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    await ensureUserWithRole(ctx, clientWallet, "client", args.walletType);
 
     const sanitizedMilestones = args.milestones.map((milestone) => ({
       title: sanitizeMilestoneTitle(milestone.title),

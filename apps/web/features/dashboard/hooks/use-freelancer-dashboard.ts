@@ -1,5 +1,6 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
@@ -20,21 +21,25 @@ export interface IFreelancerDashboardState {
  * Following strictly typed, maintainable, and reusable patterns.
  */
 export function useFreelancerDashboard(): IFreelancerDashboardState {
-  const { isConnected, address, walletState } = useWallet();
+  const { walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
 
   // Strictly typed query via Convex API bindings.
   const summary = useQuery(
     api.dashboard.queries.getFreelancerIncomeSummary,
-    isConnected && address ? { freelancerWallet: address } : "skip",
+    walletIdentity.isConnected && walletIdentity.walletAddress
+      ? { freelancerWallet: walletIdentity.walletAddress }
+      : "skip",
   );
 
-  const isLoading = isConnected && address != null && summary === undefined;
+  const isLoading =
+    walletIdentity.isConnected && walletIdentity.walletAddress != null && summary === undefined;
 
   return {
     summary: summary ?? undefined,
     isLoading,
-    isConnected,
-    address,
+    isConnected: walletIdentity.isConnected,
+    address: walletIdentity.walletAddress,
     isFunded: walletState.isFunded,
     isTestnet: walletState.isTestnet,
   };

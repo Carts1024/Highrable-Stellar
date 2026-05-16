@@ -18,6 +18,9 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_ESCROW_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH?: string;
+  readonly NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID?: string;
+  readonly NEXT_PUBLIC_PASSKEY_RP_NAME?: string;
   readonly NODE_ENV: "development" | "production" | "test";
 }
 
@@ -58,6 +61,13 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().trim().optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: z
+    .string()
+    .trim()
+    .regex(/^[a-fA-F0-9]{64}$/, "Invalid smart account WASM hash format")
+    .optional(),
+  NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
+  NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
@@ -88,6 +98,10 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
     NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+    NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: process.env.NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH,
+    NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID:
+      process.env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID,
+    NEXT_PUBLIC_PASSKEY_RP_NAME: process.env.NEXT_PUBLIC_PASSKEY_RP_NAME,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
   });

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { ForbiddenError, NotFoundError } from "../_shared/errors";
 import { ensureUserWithRole } from "../users/helpers";
+import { walletTypeValidator } from "../users/schema";
 import {
   getJobOrThrow,
   sanitizeClientWallet,
@@ -19,6 +20,7 @@ export const createJob = mutation({
     asset: v.string(),
     clientWallet: v.string(),
     jobHash: v.optional(v.string()),
+    walletType: v.optional(walletTypeValidator),
   },
   handler: async (ctx, args) => {
     const sanitizedArgs = sanitizeCreateJobArgs(args);
@@ -27,7 +29,8 @@ export const createJob = mutation({
       throw new ForbiddenError(DISALLOWED_JOB_POST_MESSAGE);
     }
 
-    await ensureUserWithRole(ctx, sanitizedArgs.clientWallet, "client");
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    await ensureUserWithRole(ctx, sanitizedArgs.clientWallet, "client", args.walletType);
 
     // TODO: Convert jobHash into the on-chain 32-byte format before contract calls.
     return await ctx.db.insert("jobs", {

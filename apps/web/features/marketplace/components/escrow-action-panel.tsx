@@ -8,6 +8,7 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
@@ -47,6 +48,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
   const { address, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const reputationRecord = useQuery(
     api.reputation.getReputationByEscrowId,
     escrow?.escrowId ? { escrowId: escrow.escrowId } : "skip",
@@ -86,10 +88,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
       fundEscrow: getEscrowActionGuard({
@@ -98,10 +101,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
       submitWork: getEscrowActionGuard({
@@ -110,10 +114,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
       releasePayment: getEscrowActionGuard({
@@ -122,10 +127,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
       cancelEscrow: getEscrowActionGuard({
@@ -134,10 +140,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
       markDisputed: getEscrowActionGuard({
@@ -146,10 +153,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
+          isConnected: walletIdentity.isConnected,
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          canWriteContracts:
+            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
         },
       }),
     }),
@@ -157,6 +165,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       escrow,
       job,
       role,
+      walletIdentity.canSignEscrowTransactions,
+      walletIdentity.isConnected,
       walletState.isConnected,
       walletState.canWriteContracts,
       walletState.isFunded,
@@ -170,6 +180,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     enabled:
       currentStatus === "created" &&
       role === "client" &&
+      walletIdentity.canSignEscrowTransactions &&
       walletState.isConnected &&
       walletState.isTestnet,
   });
@@ -275,6 +286,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       ) : null}
       {currentStatusMeta.trustWarning ? (
         <TrustWarning className="mt-2" message={currentStatusMeta.trustWarning} />
+      ) : null}
+      {walletIdentity.walletType === "passkey_smart_account" ? (
+        <div className="mt-3">
+          <TrustWarning message="Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions." />
+        </div>
       ) : null}
 
       <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">

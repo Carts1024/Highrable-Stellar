@@ -1,5 +1,6 @@
 docs/*
 !docs/deployment.md
+!docs/passkey-smart-accounts.md
 node_modules*
 .turbo
 .next

@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { api } from "@repo/convex-client";
 import { usePaginatedQuery } from "convex/react";
 
@@ -14,11 +14,13 @@ export interface IFreelancerOngoingJobsState extends IPaginatedDashboardState<IO
 }
 
 export function useFreelancerOngoingJobs(): IFreelancerOngoingJobsState {
-  const { isConnected, address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
 
   const { results, status, isLoading, loadMore } = usePaginatedQuery(
     api.dashboard.queries.listFreelancerOngoingJobsPage,
-    isConnected && address ? { freelancerWallet: address } : "skip",
+    walletIdentity.isConnected && walletIdentity.walletAddress
+      ? { freelancerWallet: walletIdentity.walletAddress }
+      : "skip",
     { initialNumItems: INITIAL_PAGE_SIZE },
   );
 

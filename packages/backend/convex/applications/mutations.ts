@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
+import { ensureUserWithRole } from "../users/helpers";
+import { walletTypeValidator } from "../users/schema";
 import {
   assertCanApplyToJob,
   assertCanApplyToMilestone,
@@ -13,12 +15,15 @@ export const applyToJob = mutation({
     jobId: v.id("jobs"),
     freelancerWallet: v.string(),
     proposal: v.string(),
+    walletType: v.optional(walletTypeValidator),
   },
   handler: async (ctx, args) => {
     const freelancerWallet = sanitizeApplicationWallet(args.freelancerWallet);
     const proposal = sanitizeProposal(args.proposal);
 
     await assertCanApplyToJob(ctx, args.jobId, freelancerWallet);
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    await ensureUserWithRole(ctx, freelancerWallet, "freelancer", args.walletType);
 
     return await ctx.db.insert("applications", {
       jobId: args.jobId,
@@ -35,12 +40,15 @@ export const applyToMilestone = mutation({
     milestoneId: v.id("milestones"),
     freelancerWallet: v.string(),
     proposal: v.string(),
+    walletType: v.optional(walletTypeValidator),
   },
   handler: async (ctx, args) => {
     const freelancerWallet = sanitizeApplicationWallet(args.freelancerWallet);
     const proposal = sanitizeProposal(args.proposal);
 
     await assertCanApplyToMilestone(ctx, args.jobId, args.milestoneId, freelancerWallet);
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    await ensureUserWithRole(ctx, freelancerWallet, "freelancer", args.walletType);
 
     return await ctx.db.insert("applications", {
       jobId: args.jobId,

@@ -15,6 +15,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
   getEscrowActionGuard,
@@ -94,6 +95,7 @@ export function useEscrowActions({
   applications: TConvexDoc<"applications">[];
 }) {
   const { address, walletState, signTransaction } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
@@ -106,13 +108,22 @@ export function useEscrowActions({
     txHash: null,
   });
 
-  const role = useMemo(() => detectRole(address, job, applications), [address, applications, job]);
+  const role = useMemo(
+    () => detectRole(walletIdentity.walletAddress, job, applications),
+    [applications, job, walletIdentity.walletAddress],
+  );
   const isPending = state.pendingAction !== null;
   const txExplorerUrl = state.txHash ? getTxExplorerUrl(state.txHash) : null;
 
   const validateBaseAction = useCallback(
     (action: TEscrowAction) => {
       const config = getRequiredEscrowActionConfig();
+
+      if (!walletIdentity.canSignEscrowTransactions) {
+        throw new Error(
+          "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+        );
+      }
 
       if (!address || !walletState.isConnected) {
         throw new Error("Connect a Stellar wallet before using escrow actions.");
@@ -175,6 +186,7 @@ export function useEscrowActions({
       address,
       job,
       role,
+      walletIdentity.canSignEscrowTransactions,
       walletState.isConnected,
       walletState.canWriteContracts,
       walletState.isFunded,

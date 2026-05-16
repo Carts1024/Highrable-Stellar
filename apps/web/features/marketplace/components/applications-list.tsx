@@ -3,6 +3,7 @@
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { assignFreelancerOnChain } from "@/core/stellar/escrow-contract";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -29,7 +30,8 @@ export function ApplicationsList({
   isLoading,
   onSelected,
 }: IApplicationsListProps) {
-  const { address, isConnected, signTransaction, walletState } = useWallet();
+  const { address, signTransaction, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const selectFreelancer = useMutation(api.jobs.selectFreelancer);
   const assignFreelancerToEscrow = useMutation(api.escrows.assignFreelancerToEscrow);
   const createTransaction = useMutation(api.transactions.createTransaction);
@@ -37,19 +39,25 @@ export function ApplicationsList({
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingWallet, setSelectingWallet] = useState<string | null>(null);
 
-  const isClient = isSameWallet(address, job.clientWallet);
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const isPreFundedOpenEscrow =
     job.status === "funded" &&
     !job.selectedFreelancerWallet &&
     escrow?.status === "funded" &&
     !escrow.freelancerWallet;
   const canSelectFreelancer =
-    isConnected && isClient && (job.status === "open" || isPreFundedOpenEscrow);
+    walletIdentity.isConnected && isClient && (job.status === "open" || isPreFundedOpenEscrow);
   const applicationCount = applications?.length ?? 0;
 
   const assignPreFundedEscrow = async (freelancerWallet: string) => {
     if (!address || !escrow?.escrowId) {
       throw new Error("Escrow record is missing the on-chain escrow ID.");
+    }
+
+    if (!walletIdentity.canSignEscrowTransactions) {
+      throw new Error(
+        "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+      );
     }
 
     if (!walletState.isTestnet) {
@@ -129,7 +137,7 @@ export function ApplicationsList({
   };
 
   const handleSelectFreelancer = async (freelancerWallet: string) => {
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setSelectionError("Connect your wallet to select a freelancer.");
       return;
     }
@@ -143,7 +151,7 @@ export function ApplicationsList({
       } else {
         await selectFreelancer({
           jobId: job._id as TConvexId<"jobs">,
-          clientWallet: address,
+          clientWallet: walletIdentity.walletAddress,
           freelancerWallet,
         });
       }

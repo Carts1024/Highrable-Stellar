@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
@@ -24,7 +24,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
     }
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
-  const { address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const hasWalletAddress = decodedWalletAddress.length > 0;
   const profileData = useQuery(
     api.profiles.getFreelancerProfile,
@@ -44,7 +44,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
-  const canEdit = isSameWallet(address, profile.walletAddress);
+  const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
 
   return (
     <div className="space-y-8">

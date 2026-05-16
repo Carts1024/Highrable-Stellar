@@ -1,7 +1,6 @@
 "use client";
 
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ProductPageHero } from "@/features/common";
 import { CreateJobForm } from "@/features/marketplace/components/create-job-form";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -11,7 +10,6 @@ import { useRouter } from "next/navigation";
 /** Standalone client job-posting page using the validated marketplace form flow. */
 export function PostJobPage() {
   const router = useRouter();
-  const { isConnected } = useWallet();
 
   return (
     <div className="space-y-8">
@@ -35,7 +33,7 @@ export function PostJobPage() {
         }
       />
 
-      {isConnected ? <WalletStatusCard /> : null}
+      <WalletStatusCard />
 
       <CreateJobForm
         onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}

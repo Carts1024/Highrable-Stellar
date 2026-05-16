@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -24,16 +24,18 @@ export function MilestoneContinuationPanel({
   milestone,
   applicationGate,
 }: IMilestoneContinuationPanelProps) {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const offerMilestoneContinuation = useMutation(api.milestones.offerMilestoneContinuation);
   const openMilestoneForReplacement = useMutation(api.milestones.openMilestoneForReplacement);
   const respondToMilestoneContinuation = useMutation(api.milestones.respondToMilestoneContinuation);
   const [pendingAction, setPendingAction] = useState<TPendingAction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isClient = isConnected && isSameWallet(address, job.clientWallet);
+  const isClient =
+    walletIdentity.isConnected && isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const isOfferedFreelancer =
-    isConnected && isSameWallet(address, applicationGate.continuationOfferFreelancerWallet);
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, applicationGate.continuationOfferFreelancerWallet);
   const canChooseContinuation =
     isClient && milestone.status === "open" && applicationGate.reason === "waiting_client_decision";
   const canRespondToOffer =
@@ -91,7 +93,7 @@ export function MilestoneContinuationPanel({
               void runAction("retain", () =>
                 offerMilestoneContinuation({
                   milestoneId: milestone._id as TConvexId<"milestones">,
-                  clientWallet: address ?? "",
+                  clientWallet: walletIdentity.walletAddress ?? "",
                 }),
               )
             }
@@ -107,7 +109,7 @@ export function MilestoneContinuationPanel({
               void runAction("replace", () =>
                 openMilestoneForReplacement({
                   milestoneId: milestone._id as TConvexId<"milestones">,
-                  clientWallet: address ?? "",
+                  clientWallet: walletIdentity.walletAddress ?? "",
                 }),
               )
             }
@@ -130,7 +132,7 @@ export function MilestoneContinuationPanel({
                 void runAction("accept", () =>
                   respondToMilestoneContinuation({
                     milestoneId: milestone._id as TConvexId<"milestones">,
-                    freelancerWallet: address ?? "",
+                    freelancerWallet: walletIdentity.walletAddress ?? "",
                     response: "accepted",
                   }),
                 )
@@ -147,7 +149,7 @@ export function MilestoneContinuationPanel({
                 void runAction("reject", () =>
                   respondToMilestoneContinuation({
                     milestoneId: milestone._id as TConvexId<"milestones">,
-                    freelancerWallet: address ?? "",
+                    freelancerWallet: walletIdentity.walletAddress ?? "",
                     response: "rejected",
                   }),
                 )

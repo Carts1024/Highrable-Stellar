@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { JobApplicationDialog } from "@/features/marketplace/components/job-application-dialog";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
@@ -62,7 +62,7 @@ function formatBudget(budget: number) {
 
 /** Renders the dedicated public job browsing experience backed by Convex jobs. */
 export function JobsPage() {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const applyToJob = useMutation(api.applications.applyToJob);
   const [searchTerm, setSearchTerm] = useState("");
@@ -111,13 +111,13 @@ export function JobsPage() {
 
   const openApplyDialog = (row: TMarketplaceJobRow) => {
     const { job } = row;
-    if (!address || !isConnected) {
+    if (!walletIdentity.walletAddress || !walletIdentity.isConnected) {
       setApplyError("Connect your wallet to apply for jobs.");
       setApplySuccess(null);
       return;
     }
 
-    if (isSameWallet(job.clientWallet, address)) {
+    if (isSameWallet(job.clientWallet, walletIdentity.walletAddress)) {
       setApplyError("Client cannot apply to their own job.");
       setApplySuccess(null);
       return;
@@ -128,7 +128,7 @@ export function JobsPage() {
   };
 
   const handleApply = async (proposal: string) => {
-    if (!selectedJobForApply || !address || !isConnected) {
+    if (!selectedJobForApply || !walletIdentity.walletAddress || !walletIdentity.isConnected) {
       return;
     }
 
@@ -139,7 +139,8 @@ export function JobsPage() {
     try {
       await applyToJob({
         jobId: selectedJobForApply.job._id,
-        freelancerWallet: address,
+        freelancerWallet: walletIdentity.walletAddress,
+        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         proposal,
       });
       setApplySuccess(`Application submitted for "${selectedJobForApply.job.title}".`);
@@ -175,7 +176,7 @@ export function JobsPage() {
               <AppButton asChild>
                 <Link href="/post-job">Post a Job</Link>
               </AppButton>
-              {!isConnected ? (
+              {!walletIdentity.isConnected ? (
                 <WalletConnectTrigger className="rounded-lg border border-[#e8e8e8] bg-white px-5 py-2.5 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]" />
               ) : null}
             </>
@@ -307,8 +308,8 @@ export function JobsPage() {
               const isMilestoneProject = (job.jobType ?? "micro_gig") === "milestone_project";
               const canApply =
                 !isMilestoneProject &&
-                !!address &&
-                !isSameWallet(address, job.clientWallet) &&
+                !!walletIdentity.walletAddress &&
+                !isSameWallet(walletIdentity.walletAddress, job.clientWallet) &&
                 (job.status === "open" ||
                   (job.status === "funded" && !job.selectedFreelancerWallet));
               const safetyStatus = getJobSafetyStatus(row);

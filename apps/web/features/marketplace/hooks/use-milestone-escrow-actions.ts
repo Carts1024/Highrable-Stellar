@@ -15,6 +15,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, createMilestoneHash, toBytesN32Hash } from "@/core/stellar/hashes";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -99,6 +100,7 @@ export function useMilestoneEscrowActions({
   applications: TConvexDoc<"applications">[];
 }) {
   const { address, walletState, signTransaction } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const createMilestoneEscrowRecord = useMutation(api.milestones.createMilestoneEscrowRecord);
@@ -112,8 +114,8 @@ export function useMilestoneEscrowActions({
   });
 
   const role = useMemo(
-    () => detectMilestoneRole(address, job, milestone, applications),
-    [address, applications, job, milestone],
+    () => detectMilestoneRole(walletIdentity.walletAddress, job, milestone, applications),
+    [applications, job, milestone, walletIdentity.walletAddress],
   );
   const isPending = state.pendingAction !== null;
   const txExplorerUrl = state.txHash ? getTxExplorerUrl(state.txHash) : null;
@@ -121,6 +123,12 @@ export function useMilestoneEscrowActions({
   const validateBaseAction = useCallback(
     (action: TMilestoneEscrowAction) => {
       const config = getRequiredEscrowActionConfig();
+
+      if (!walletIdentity.canSignEscrowTransactions) {
+        throw new Error(
+          "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+        );
+      }
 
       if (!address || !walletState.isConnected) {
         throw new Error("Connect a Stellar wallet before using escrow actions.");
@@ -169,6 +177,7 @@ export function useMilestoneEscrowActions({
       milestone.asset,
       milestone.assignedFreelancerWallet,
       role,
+      walletIdentity.canSignEscrowTransactions,
       walletState.canWriteContracts,
       walletState.isConnected,
       walletState.isFunded,

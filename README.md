@@ -324,6 +324,7 @@ UI screenshots are not yet versioned in this repository. Add them under `apps/we
 - End-to-end escrow workflow on Soroban: create, fund, submit, release, cancel, dispute.
 - Cross-contract completion recording from escrow contract into reputation contract.
 - Wallet-based auth challenge and signature verification routes.
+- Passkey smart account onboarding for off-chain marketplace identity. See `docs/passkey-smart-accounts.md`.
 - Convex data model and APIs for jobs, applications, escrows, transactions, and reputation.
 - Sync actions that reconcile Convex records with on-chain escrow/reputation state.
 - Freelancer dashboard with earnings aggregation and recent payouts.
