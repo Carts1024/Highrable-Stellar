@@ -70,6 +70,7 @@ export type TProofProfile = {
   readonly name?: string;
   readonly companyName?: string;
   readonly skills?: readonly string[];
+  readonly walletType?: "external_wallet" | "passkey_smart_account";
 };
 
 export type TProofTransaction = {

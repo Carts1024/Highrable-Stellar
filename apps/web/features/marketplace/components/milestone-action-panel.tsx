@@ -143,7 +143,7 @@ export function MilestoneActionPanel({
         <TrustWarning message="This milestone uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
       ) : null}
       {walletIdentity.walletType === "passkey_smart_account" ? (
-        <TrustWarning message="Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions." />
+        <TrustWarning message="Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action." />
       ) : null}
 
       {milestone.status === "open" ? (

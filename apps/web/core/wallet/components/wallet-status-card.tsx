@@ -1,9 +1,8 @@
 "use client";
 
 import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-account-card";
-import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { WalletModeSwitcher } from "@/core/wallet/components/wallet-mode-switcher";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 
 function getTransactionStatusCopy(lastTxStatus: "idle" | "pending" | "success" | "failed") {
   switch (lastTxStatus) {
@@ -43,42 +42,12 @@ export function WalletStatusCard() {
     fundTestnetAccount,
     clearWalletError,
   } = useWallet();
-  const walletIdentity = useHighrableWalletIdentity();
-  const { isPasskeyConnected } = usePasskeySmartAccount();
 
   const transactionState = getTransactionStatusCopy(walletState.lastTxStatus);
 
   return (
     <div className="space-y-4">
-      {walletState.isConnected && isPasskeyConnected ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-gray-900">Active Highrable identity</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => walletIdentity.setActiveWalletMode("external_wallet")}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                walletIdentity.activeWalletMode === "external_wallet"
-                  ? "border-[#FF7003] bg-[#FF7003]/10 text-[#FF7003]"
-                  : "border-gray-200 text-gray-700"
-              }`}
-            >
-              External Wallet
-            </button>
-            <button
-              type="button"
-              onClick={() => walletIdentity.setActiveWalletMode("passkey_smart_account")}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium ${
-                walletIdentity.activeWalletMode === "passkey_smart_account"
-                  ? "border-[#FF7003] bg-[#FF7003]/10 text-[#FF7003]"
-                  : "border-gray-200 text-gray-700"
-              }`}
-            >
-              Passkey Smart Account
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <WalletModeSwitcher />
       {walletState.isConnected ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

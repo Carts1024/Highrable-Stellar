@@ -126,7 +126,7 @@ export function useMilestoneEscrowActions({
 
       if (!walletIdentity.canSignEscrowTransactions) {
         throw new Error(
-          "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+          "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
         );
       }
 

@@ -38,6 +38,15 @@ function ParticipantCard({
           >
             {shortenWalletAddress(walletAddress)}
           </Link>
+          {profile?.walletType === "passkey_smart_account" ? (
+            <p className="mt-2 w-fit rounded-full bg-[#FF7003]/10 px-3 py-1 text-xs font-medium text-[#FF7003]">
+              Wallet type: Passkey Smart Account
+            </p>
+          ) : profile?.walletType === "external_wallet" ? (
+            <p className="mt-2 w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+              Wallet type: External Wallet
+            </p>
+          ) : null}
         </div>
       </div>
     </article>

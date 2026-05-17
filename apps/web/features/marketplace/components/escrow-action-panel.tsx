@@ -158,6 +158,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           isFunded: walletState.isFunded,
           canWriteContracts:
             walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
+          walletType: walletIdentity.walletType,
         },
       }),
     }),
@@ -167,6 +168,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       role,
       walletIdentity.canSignEscrowTransactions,
       walletIdentity.isConnected,
+      walletIdentity.walletType,
       walletState.isConnected,
       walletState.canWriteContracts,
       walletState.isFunded,
@@ -289,7 +291,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       ) : null}
       {walletIdentity.walletType === "passkey_smart_account" ? (
         <div className="mt-3">
-          <TrustWarning message="Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions." />
+          <TrustWarning message="Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action." />
         </div>
       ) : null}
 

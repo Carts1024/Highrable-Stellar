@@ -121,7 +121,7 @@ export function useEscrowActions({
 
       if (!walletIdentity.canSignEscrowTransactions) {
         throw new Error(
-          "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+          "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
         );
       }
 
@@ -173,6 +173,7 @@ export function useEscrowActions({
           isTestnet: walletState.isTestnet,
           isFunded: walletState.isFunded,
           canWriteContracts: walletState.canWriteContracts,
+          walletType: walletIdentity.walletType,
         },
       });
 
@@ -187,6 +188,7 @@ export function useEscrowActions({
       job,
       role,
       walletIdentity.canSignEscrowTransactions,
+      walletIdentity.walletType,
       walletState.isConnected,
       walletState.canWriteContracts,
       walletState.isFunded,

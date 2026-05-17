@@ -387,7 +387,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
           setErrors({
             submit:
-              "Passkey transaction signing is coming next. Use Freighter or WalletConnect for escrow actions.",
+              "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
           });
           setIsSubmitting(false);
           return;
@@ -571,8 +571,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       {walletIdentity.walletType === "passkey_smart_account" ? (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Passkey transaction signing is coming next. You can create off-chain jobs with this smart
-          account, but use Freighter or WalletConnect for escrow actions.
+          Passkey escrow signing is not enabled yet. You can create off-chain jobs with this smart
+          account, but switch to Freighter or WalletConnect for escrow actions.
         </p>
       ) : null}
 

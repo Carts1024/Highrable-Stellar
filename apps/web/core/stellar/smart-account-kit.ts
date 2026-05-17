@@ -9,6 +9,7 @@ import { IndexedDBStorage, LocalStorageAdapter, SmartAccountKit } from "smart-ac
 import type { StorageAdapter } from "smart-account-kit";
 
 type TSmartAccountKit = InstanceType<typeof SmartAccountKit>;
+const SMART_ACCOUNT_STORAGE_KEY = "highrable-passkey-smart-accounts";
 
 let smartAccountKit: TSmartAccountKit | null = null;
 
@@ -18,10 +19,10 @@ function createStorage(): StorageAdapter {
   }
 
   if ("indexedDB" in window) {
-    return new IndexedDBStorage("highrable-passkey-smart-accounts");
+    return new IndexedDBStorage(SMART_ACCOUNT_STORAGE_KEY);
   }
 
-  return new LocalStorageAdapter("highrable-passkey-smart-accounts");
+  return new LocalStorageAdapter(SMART_ACCOUNT_STORAGE_KEY);
 }
 
 export function getSmartAccountKit(): TSmartAccountKit {
@@ -45,4 +46,24 @@ export function getSmartAccountKit(): TSmartAccountKit {
   });
 
   return smartAccountKit;
+}
+
+export async function clearSmartAccountLocalSession(): Promise<void> {
+  if (typeof window === "undefined") {
+    throw new PasskeyConfigError("Passkey smart accounts can only be managed in the browser.");
+  }
+
+  try {
+    await createStorage().clearSession();
+  } catch {
+    await createStorage().clear();
+  }
+
+  if (smartAccountKit) {
+    try {
+      await smartAccountKit.disconnect();
+    } catch {
+      // The local storage clear above is the source of truth for this recovery action.
+    }
+  }
 }

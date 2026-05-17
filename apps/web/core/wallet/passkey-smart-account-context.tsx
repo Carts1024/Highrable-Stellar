@@ -6,7 +6,10 @@ import {
   PasskeyConfigError,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
-import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
+import {
+  clearSmartAccountLocalSession,
+  getSmartAccountKit,
+} from "@/core/stellar/smart-account-kit";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import {
@@ -25,6 +28,7 @@ export type TActiveWalletMode = THighrableWalletType;
 export type TPasskeySmartAccountState = {
   smartAccountAddress: string | null;
   credentialId: string | null;
+  sessionStatus: "none" | "restored" | "created" | "reconnected";
   isPasskeyConnected: boolean;
   isCreating: boolean;
   isReconnecting: boolean;
@@ -41,6 +45,7 @@ type TPasskeySmartAccountContextValue = TPasskeySmartAccountState & {
   reconnectPasskeyAccount: () => Promise<string | null>;
   restorePasskeySession: () => Promise<string | null>;
   disconnectPasskeyAccount: () => Promise<void>;
+  clearLocalPasskeySession: () => Promise<void>;
   clearPasskeyError: () => void;
   setActiveWalletMode: (mode: TActiveWalletMode) => void;
 };
@@ -58,6 +63,7 @@ const PASSKEY_USER_NAME_RANDOM_LENGTH = 8;
 const DEFAULT_STATE: TPasskeySmartAccountState = {
   smartAccountAddress: null,
   credentialId: null,
+  sessionStatus: "none",
   isPasskeyConnected: false,
   isCreating: false,
   isReconnecting: false,
@@ -140,19 +146,27 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   const isSupported = isWebAuthnSupported();
   const hasConfig = hasSmartAccountConfig();
 
-  const setConnectedState = useCallback((input: { contractId: string; credentialId: string }) => {
-    setState((currentValue) => ({
-      ...currentValue,
-      smartAccountAddress: input.contractId,
-      credentialId: input.credentialId,
-      isPasskeyConnected: true,
-      isCreating: false,
-      isReconnecting: false,
-      isRestoring: false,
-      error: null,
-    }));
-    setActiveWalletMode("passkey_smart_account");
-  }, []);
+  const setConnectedState = useCallback(
+    (input: {
+      contractId: string;
+      credentialId: string;
+      sessionStatus: TPasskeySmartAccountState["sessionStatus"];
+    }) => {
+      setState((currentValue) => ({
+        ...currentValue,
+        smartAccountAddress: input.contractId,
+        credentialId: input.credentialId,
+        sessionStatus: input.sessionStatus,
+        isPasskeyConnected: true,
+        isCreating: false,
+        isReconnecting: false,
+        isRestoring: false,
+        error: null,
+      }));
+      setActiveWalletMode("passkey_smart_account");
+    },
+    [],
+  );
 
   const persistIdentity = useCallback(
     async (walletAddress: string) => {
@@ -179,13 +193,15 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         return null;
       }
 
-      setConnectedState(result);
+      setConnectedState({ ...result, sessionStatus: "restored" });
       return result.contractId;
-    } catch {
+    } catch (error) {
       setState((currentValue) => ({
         ...currentValue,
         isRestoring: false,
-        error: null,
+        error: isCancellationError(error)
+          ? null
+          : "Could not restore passkey session. Try reconnecting.",
       }));
       return null;
     }
@@ -204,7 +220,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         },
       });
 
-      setConnectedState(result);
+      setConnectedState({ ...result, sessionStatus: "created" });
       await persistIdentity(result.contractId);
       return result.contractId;
     } catch (error) {
@@ -230,7 +246,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         return null;
       }
 
-      setConnectedState(result);
+      setConnectedState({ ...result, sessionStatus: "reconnected" });
       await persistIdentity(result.contractId);
       return result.contractId;
     } catch (error) {
@@ -253,6 +269,22 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
 
     setState(DEFAULT_STATE);
     setActiveWalletMode("external_wallet");
+  }, []);
+
+  const clearLocalPasskeySession = useCallback(async () => {
+    try {
+      await clearSmartAccountLocalSession();
+      setState(DEFAULT_STATE);
+      setActiveWalletMode("external_wallet");
+    } catch (error) {
+      setState((currentValue) => ({
+        ...currentValue,
+        isCreating: false,
+        isReconnecting: false,
+        isRestoring: false,
+        error: getErrorMessage(error),
+      }));
+    }
   }, []);
 
   const clearPasskeyError = useCallback(() => {
@@ -278,6 +310,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       reconnectPasskeyAccount,
       restorePasskeySession,
       disconnectPasskeyAccount,
+      clearLocalPasskeySession,
       clearPasskeyError,
       setActiveWalletMode,
     }),
@@ -285,6 +318,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       activeWalletMode,
       clearPasskeyError,
       createPasskeyAccount,
+      clearLocalPasskeySession,
       disconnectPasskeyAccount,
       hasConfig,
       isSupported,

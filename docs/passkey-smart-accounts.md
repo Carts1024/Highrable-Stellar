@@ -1,13 +1,105 @@
 # Passkey Smart Accounts
 
-Phase 21 adds passkey smart account onboarding for Highrable identity. A passkey smart account can create off-chain jobs, apply to work, edit its profile, and load dashboards by using the smart account contract address as the marketplace wallet address.
+Highrable supports two wallet identity modes:
 
-Escrow transaction execution is not enabled for passkeys in this phase. Freighter and WalletConnect remain the signing path for create, fund, submit, approve, cancel, and dispute escrow transactions.
+- External Wallet: Freighter or WalletConnect account.
+- Passkey Smart Account: Stellar smart account secured by WebAuthn through `smart-account-kit`.
 
-## External Wallet vs Passkey Smart Account
+## Current Capability Table
 
-- External Wallet: Freighter or WalletConnect account. Can sign escrow transactions and use Friendbot on Stellar testnet.
-- Passkey Smart Account: Stellar smart account secured by WebAuthn. Used as Highrable off-chain identity in Phase 21.
+| Capability | External Wallet | Passkey Smart Account |
+| --- | --- | --- |
+| Off-chain identity | Yes | Yes |
+| Escrow write transactions | Yes | No, Phase 23 |
+| Friendbot fallback | Yes | No/limited |
+| Stablecoin balance panel | Yes | Read-only if supported |
+
+## Phase 21: Onboarding Complete
+
+Phase 21 added passkey smart account creation and reconnect for Highrable identity. A passkey smart account can create off-chain jobs, apply to jobs or milestones, edit profiles, and load dashboards using the smart account contract address as the marketplace wallet address.
+
+Creation uses the installed `smart-account-kit` API:
+
+- `createWallet(appName, userName, { autoSubmit: true, ... })`
+- `connectWallet()` for silent restore
+- `connectWallet({ prompt: true })` for user-prompted reconnect
+
+The app stores passkey sessions through IndexedDB when available, with a localStorage fallback, and records the smart account address in Convex with `walletType = "passkey_smart_account"` when a user record can be linked.
+
+## Phase 22: Readiness Features
+
+Phase 22 improves readiness and UX before enabling escrow writes:
+
+- Silent session restore on client load without repeated WebAuthn prompts.
+- Recoverable warning when local passkey storage cannot be restored.
+- Reconnect Passkey and Clear local passkey session controls.
+- Smart account address and wallet type display.
+- Passkey readiness checklist.
+- Read-only balance checks where the address type can be queried safely.
+- Convex user linkage diagnostics.
+- Wallet mode switching between External Wallet and Passkey Smart Account.
+- Escrow guard messaging that clearly explains why passkey signing is disabled.
+- Profile and public proof wallet type badges.
+
+## What Passkey Smart Accounts Can Do Now
+
+Passkey smart accounts can be used as a Highrable off-chain identity:
+
+- Create off-chain jobs.
+- Apply to jobs.
+- Apply to milestones.
+- Edit freelancer and client profiles.
+- Load freelancer/client dashboards.
+- Appear on profile and public proof pages as `Wallet type: Passkey Smart Account`.
+
+This badge is not an identity verification badge.
+
+## What They Cannot Do Yet
+
+Passkey smart accounts cannot sign escrow write transactions in Phase 22. The following actions remain external-wallet-only:
+
+- Create Escrow
+- Fund Escrow
+- Submit Work
+- Approve and Release
+- Cancel Escrow
+- Mark Disputed
+
+Reason shown in the app:
+
+> Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.
+
+## Why Escrow Writes Are Disabled
+
+The current passkey implementation is ready for identity, diagnostics, and read-only checks. Escrow write execution needs a separate Phase 23 implementation so transaction assembly, signing, sponsorship/funding, and contract auth behavior can be tested without risking the existing Freighter and WalletConnect escrow path.
+
+## Wallet Mode Switching
+
+If only an external wallet is connected, Highrable uses External Wallet mode. If only a passkey smart account is connected, Highrable uses Passkey Smart Account mode. If both are connected, the user can choose the active identity.
+
+Off-chain marketplace actions use the active identity. Escrow write actions only work in External Wallet mode until Phase 23.
+
+## Friendbot Limitation
+
+Friendbot funds external Stellar testnet accounts. Passkey smart account addresses may be contract IDs, not classic G-addresses, so the app does not reuse external-wallet Friendbot funding for passkey accounts.
+
+The UI states:
+
+> Friendbot funds external Stellar testnet accounts. Passkey smart account funding is handled separately and will be improved before escrow execution.
+
+## Balance Readiness
+
+Phase 22 attempts read-only balance checks only when the address type can be queried safely. If the smart account address is a contract address or the current read path cannot support it, the app shows:
+
+> Balance reading for passkey smart accounts is limited in this phase.
+
+The readiness panel does not fake funding readiness.
+
+## Browser and Device Limitations
+
+Passkey support depends on WebAuthn availability, browser support, device authenticator support, and user platform settings. Unsupported browsers show a readiness warning and do not attempt passkey creation or reconnect.
+
+Silent restore should not trigger a WebAuthn prompt. Prompted reconnect is only started when the user clicks Reconnect Passkey.
 
 ## Required Environment Variables
 
@@ -20,24 +112,18 @@ NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID=
 NEXT_PUBLIC_PASSKEY_RP_NAME=Highrable
 ```
 
-Missing smart account config disables only the passkey UI. The rest of the app and external wallet flow continue to work.
+Missing smart account config disables only passkey smart account features. External wallet connection and escrow execution remain available.
 
-## Create
+## Security Notes
 
-Open a wallet area that shows the passkey card and choose `Create Passkey Account`. The browser or device prompts for a passkey. On success, `smart-account-kit` deploys the smart account with `autoSubmit: true`, stores the session through IndexedDB, and Highrable stores the contract address with `walletType = "passkey_smart_account"`.
+Wallet-address-based identity is MVP-level and is not production authentication. Backend code keeps TODOs for replacing wallet address trust with signed wallet session/auth.
 
-## Reconnect and Restore
+## Future Phase 23
 
-On page load, Highrable calls the SDK silent restore path. If no session is stored, nothing is shown as an error. `Reconnect Passkey Account` prompts for passkey selection and reconnects the smart account.
+Phase 23 should implement passkey escrow transaction execution deliberately:
 
-## Limitations
-
-- Passkey escrow transaction execution is intentionally disabled.
-- Friendbot funding remains external-wallet-only. Passkey smart account funding is handled separately by the SDK and will be improved later.
-- Browser support depends on WebAuthn and the user device authenticator.
-- Wallet-address trust is still MVP-level. The backend has TODOs to replace wallet address trust with signed wallet session/auth.
-
-## Future Phases
-
-- Phase 22: passkey escrow transaction execution and funding UX.
-- Phase 23: policy, spending limit, recovery, multisig, and session key design.
+- Wire passkey accounts into escrow write helpers.
+- Validate smart account auth entries and transaction simulation.
+- Improve funding and fee sponsorship flows.
+- Preserve external wallet escrow execution as a supported path.
+- Add tests for micro gig and milestone escrow execution through passkey smart accounts.

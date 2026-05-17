@@ -202,6 +202,9 @@ export const getEscrowProof = query({
               ...(clientProfile.companyName !== undefined
                 ? { companyName: clientProfile.companyName }
                 : {}),
+              ...(clientProfile.walletType !== undefined
+                ? { walletType: clientProfile.walletType }
+                : {}),
             },
           }
         : {}),
@@ -212,6 +215,9 @@ export const getEscrowProof = query({
               ...(freelancerProfile.name !== undefined ? { name: freelancerProfile.name } : {}),
               ...(freelancerProfile.skills !== undefined
                 ? { skills: freelancerProfile.skills }
+                : {}),
+              ...(freelancerProfile.walletType !== undefined
+                ? { walletType: freelancerProfile.walletType }
                 : {}),
             },
           }

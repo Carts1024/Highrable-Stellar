@@ -20,6 +20,7 @@ type TWalletActionContext = {
   isTestnet: boolean;
   isFunded: boolean | null;
   canWriteContracts?: boolean;
+  walletType?: "external_wallet" | "passkey_smart_account" | null;
 };
 
 type TEscrowActionGuardInput = {
@@ -51,16 +52,22 @@ function getWalletGuardResult(input: TEscrowActionGuardInput): TEscrowActionGuar
     return blocked("Connect a Stellar wallet to continue.");
   }
 
+  if (input.wallet.walletType === "passkey_smart_account") {
+    return blocked(
+      "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
+    );
+  }
+
+  if (input.wallet.canWriteContracts === false) {
+    return blocked("This wallet can view jobs but cannot sign escrow contract actions right now.");
+  }
+
   if (!input.wallet.isTestnet) {
     return blocked("Switch your wallet to Stellar Testnet to continue.");
   }
 
   if (input.wallet.isFunded === false) {
     return blocked("Fund your testnet account with Friendbot before continuing.");
-  }
-
-  if (input.wallet.canWriteContracts === false) {
-    return blocked("This wallet can view jobs but cannot sign escrow contract actions right now.");
   }
 
   return null;
