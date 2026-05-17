@@ -4,6 +4,14 @@ import { PasskeyReadinessPanel } from "@/core/wallet/components/passkey-readines
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
 import { Check, Copy, KeyRound, LogOut, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -14,11 +22,15 @@ export function PasskeySmartAccountCard() {
     isCreating,
     isReconnecting,
     isRestoring,
+    discoveredContracts,
     error,
     isSupported,
     hasConfig,
+    isContractPickerOpen,
     createPasskeyAccount,
     reconnectPasskeyAccount,
+    selectDiscoveredPasskeyContract,
+    dismissContractPicker,
     disconnectPasskeyAccount,
     clearLocalPasskeySession,
     clearPasskeyError,
@@ -93,11 +105,20 @@ export function PasskeySmartAccountCard() {
                     </AppButton>
                   </div>
                 </div>
-                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  Escrow transaction signing with passkeys is not enabled yet. Use Freighter or
-                  WalletConnect for escrow actions.
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Passkey smart account connected. Escrow signing enabled with passkey when fee
+                  funding or relayer readiness passes.
                 </p>
                 <div className="flex flex-wrap gap-2">
+                  <AppButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => void reconnectPasskeyAccount()}
+                    disabled={isCreating || isReconnecting || isRestoring}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Switch Passkey Account
+                  </AppButton>
                   <AppButton
                     type="button"
                     variant="outline"
@@ -188,6 +209,43 @@ export function PasskeySmartAccountCard() {
         </div>
       </section>
       <PasskeyReadinessPanel />
+      <Dialog open={isContractPickerOpen} onOpenChange={(open) => !open && dismissContractPicker()}>
+        <DialogContent className="max-w-2xl border-[#e8e8e8] bg-white">
+          <DialogHeader>
+            <DialogTitle>Select Smart Account</DialogTitle>
+            <DialogDescription>
+              This passkey can connect to multiple smart accounts. Choose the exact contract you
+              want to use before retrying escrow.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {discoveredContracts.map((contract) => (
+              <button
+                key={contract.contract_id}
+                type="button"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:border-[#FF7003]/40 hover:bg-[#FF7003]/5"
+                onClick={() => void selectDiscoveredPasskeyContract(contract.contract_id)}
+              >
+                <p className="font-mono text-sm text-gray-900">{contract.contract_id}</p>
+                <p className="mt-2 text-xs text-gray-600">
+                  {contract.context_rule_count} rule{contract.context_rule_count === 1 ? "" : "s"} ·{" "}
+                  {contract.external_signer_count + contract.delegated_signer_count} signer
+                  {contract.external_signer_count + contract.delegated_signer_count === 1
+                    ? ""
+                    : "s"}{" "}
+                  · last seen ledger {contract.last_seen_ledger}
+                </p>
+              </button>
+            ))}
+          </div>
+          <DialogFooter showCloseButton>
+            <span className="mr-auto text-xs text-gray-500">
+              Current connected account:{" "}
+              {smartAccountAddress ? shortenWalletAddress(smartAccountAddress) : "none"}
+            </span>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

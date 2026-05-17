@@ -1,6 +1,7 @@
 import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { STELLAR_HORIZON_URL } from "@/core/config/web3";
 import { getStablecoinBalanceOnChain } from "@/core/stellar/escrow-contract";
+import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
@@ -45,7 +46,7 @@ function toLimitedResult(): ISmartAccountBalanceResult {
   return {
     status: "limited",
     balance: null,
-    message: "Balance reading for passkey smart accounts is limited in this phase.",
+    message: "Native XLM balance reading is limited for contract smart accounts.",
   };
 }
 
@@ -115,16 +116,15 @@ export async function getSmartAccountStablecoinBalance(
     };
   }
 
-  if (!canReadSmartAccountBalance(sanitizedAddress)) {
-    return toLimitedResult();
-  }
-
   try {
+    const sourceAddress = CONTRACT_ACCOUNT_PATTERN.test(sanitizedAddress)
+      ? getSmartAccountKit().deployerPublicKey
+      : sanitizedAddress;
     const balance = await getStablecoinBalanceOnChain({
       rpcUrl: STELLAR_RPC_URL,
       networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       stablecoinTokenContractId: sanitizedTokenContractId,
-      sourceAddress: sanitizedAddress,
+      sourceAddress,
       walletAddress: sanitizedAddress,
     });
 

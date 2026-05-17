@@ -41,6 +41,7 @@ Highrable is built as a monorepo with three primary runtime layers:
    - Sync actions read on-chain state from Stellar RPC and reconcile Convex records.
 3. **Frontend (Next.js 16 / React 19):**
    - Wallet-first UX with Stellar Wallets Kit.
+   - Passkey smart accounts for WebAuthn-controlled Stellar contract accounts.
    - Marketplace, job application, escrow action panel, and freelancer dashboard.
    - Wallet auth challenge/verify routes for sign-in flows.
 
@@ -75,6 +76,8 @@ Alternative terminal paths:
 - Verify endpoint: `/api/auth/stellar/verify`
 - Signature verification uses Ed25519 public key derived from Stellar address.
 - Session cookie is HMAC-signed and time-limited.
+
+Passkey smart-account mode is also supported for escrow writes. In this mode the active wallet identity is a Soroban smart account contract address (`C...`) and the user approves smart-account authorization through WebAuthn. See `docs/passkey-smart-accounts.md`.
 
 ### 4. Convex-Powered Product Data and Sync
 
@@ -159,7 +162,7 @@ The frontend lives in `apps/web` and uses Next.js App Router with feature slices
 Core integrations:
 
 - `core/wallet/*`: wallet provider, hooks, challenge/verify auth service.
-- `core/stellar/*`: transaction building/signing/invocation helpers, trustline checks, explorer links.
+- `core/stellar/*`: transaction building/signing/invocation helpers, passkey smart-account execution, trustline checks, explorer links.
 - `@repo/convex-client`: typed Convex function access from UI.
 
 ---
@@ -261,8 +264,19 @@ Set required values:
 - `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_APP_DOMAIN`
+- `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH`
+- `NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID`
+- `NEXT_PUBLIC_PASSKEY_RP_NAME`
+- `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL` (optional)
 
 Payment readiness notes for demos and testnet setup: `docs/stablecoin-payments.md`
+
+Passkey smart-account docs:
+
+- Product and operations guide: `docs/passkey-smart-accounts.md`
+- Full implementation internals: `docs/passkey-smart-account-implementation.md`
+- Historical debug report: `docs/passkey-escrow-debug-progress.md`
 
 Run frontend:
 
@@ -324,7 +338,7 @@ UI screenshots are not yet versioned in this repository. Add them under `apps/we
 - End-to-end escrow workflow on Soroban: create, fund, submit, release, cancel, dispute.
 - Cross-contract completion recording from escrow contract into reputation contract.
 - Wallet-based auth challenge and signature verification routes.
-- Passkey smart account onboarding for off-chain marketplace identity. See `docs/passkey-smart-accounts.md`.
+- Passkey smart account onboarding and escrow execution across create/fund/submit/release/dispute flows. See `docs/passkey-smart-accounts.md` and `docs/passkey-smart-account-implementation.md`.
 - Convex data model and APIs for jobs, applications, escrows, transactions, and reputation.
 - Sync actions that reconcile Convex records with on-chain escrow/reputation state.
 - Freelancer dashboard with earnings aggregation and recent payouts.

@@ -71,6 +71,9 @@ importers:
       smart-account-kit:
         specifier: ^0.2.10
         version: 0.2.10(@jsr/creit-tech__stellar-wallets-kit@2.2.0(@solana/sysvars@5.5.1(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.2))(@stellar/stellar-sdk@14.2.0)(@trezor/connect@9.7.2(@solana/sysvars@5.5.1(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.2))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(tslib@2.8.1)(typescript@5.9.2)(utf-8-validate@6.0.6)(ws@8.20.1(bufferutil@4.1.0)(utf-8-validate@6.0.6)))(@types/react@19.2.13)(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(near-api-js@5.1.1)(react@19.2.6)(tslib@2.8.1)(typescript@5.9.2)(use-sync-external-store@1.6.0(react@19.2.6))(utf-8-validate@6.0.6)(ws@8.20.1(bufferutil@4.1.0)(utf-8-validate@6.0.6))(zod@4.4.3))(@stellar/stellar-sdk@14.2.0)
+      smart-account-kit-bindings:
+        specifier: 0.1.2
+        version: 0.1.2(@stellar/stellar-sdk@14.2.0)
       zod:
         specifier: ^4.3.6
         version: 4.4.3

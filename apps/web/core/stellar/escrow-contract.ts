@@ -1,16 +1,23 @@
 import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 
 import type { TConfirmedContractTx, TSignedTransactionSubmitter } from "./transaction";
+import type { TWalletExecutionMode } from "./transactionExecutor";
 
 import { toTokenAmount } from "./amounts";
-import { invokeContract, simulateContractCall } from "./transaction";
+import { getSmartAccountKit } from "./smart-account-kit";
+import { simulateContractCall } from "./transaction";
+import { executeHighrableContractCall } from "./transactionExecutor";
+
+const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
+const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 
 type TBaseEscrowCallParams = {
   rpcUrl: string;
   networkPassphrase: string;
   escrowContractId: string;
   sourceAddress: string;
-  signTransaction: TSignedTransactionSubmitter;
+  signTransaction?: TSignedTransactionSubmitter;
+  walletType?: TWalletExecutionMode;
 };
 
 type TEscrowResult = TConfirmedContractTx;
@@ -53,6 +60,44 @@ function bytesN32ScVal(bytes: Uint8Array): xdr.ScVal {
   return nativeToScVal(bytes, { type: "bytes" });
 }
 
+async function executeEscrowContract(
+  params: TBaseEscrowCallParams & {
+    method: string;
+    args: readonly xdr.ScVal[];
+  },
+): Promise<TConfirmedContractTx> {
+  return await executeHighrableContractCall({
+    walletType: params.walletType ?? "external_wallet",
+    walletAddress: params.sourceAddress,
+    action: params.method,
+    contractId: params.escrowContractId,
+    method: params.method,
+    args: params.args,
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    signTransaction: params.signTransaction,
+  });
+}
+
+function resolveReadSourceAddress(sourceAddress: string): string {
+  const normalizedSourceAddress = sourceAddress.trim();
+
+  if (CLASSIC_ACCOUNT_PATTERN.test(normalizedSourceAddress)) {
+    return normalizedSourceAddress;
+  }
+
+  if (CONTRACT_ACCOUNT_PATTERN.test(normalizedSourceAddress)) {
+    const deployerPublicKey = getSmartAccountKit().deployerPublicKey.trim();
+    if (CLASSIC_ACCOUNT_PATTERN.test(deployerPublicKey)) {
+      return deployerPublicKey;
+    }
+
+    throw new Error("Passkey smart account transaction fees are not configured.");
+  }
+
+  return normalizedSourceAddress;
+}
+
 function normalizeOnChainEscrow(value: unknown): TOnChainEscrow {
   const record = value as Partial<TOnChainEscrow> | undefined;
   if (!record || typeof record !== "object" || record.escrow_id === undefined) {
@@ -60,6 +105,130 @@ function normalizeOnChainEscrow(value: unknown): TOnChainEscrow {
   }
 
   return record as TOnChainEscrow;
+}
+
+function normalizeOptionalAddress(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) {
+    return false;
+  }
+
+  return left.every((byte, index) => byte === right[index]);
+}
+
+async function getNextEscrowIdOnChain(params: {
+  rpcUrl: string;
+  networkPassphrase: string;
+  escrowContractId: string;
+  sourceAddress: string;
+}): Promise<bigint> {
+  const result = await simulateContractCall<unknown>({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: resolveReadSourceAddress(params.sourceAddress),
+    contractId: params.escrowContractId,
+    method: "get_next_escrow_id",
+    args: [],
+  });
+
+  if (typeof result === "bigint") {
+    return result;
+  }
+
+  if (typeof result === "number") {
+    return BigInt(result);
+  }
+
+  throw new Error("Escrow contract did not return a readable next escrow ID.");
+}
+
+async function findCreatedEscrowIdFromState(params: {
+  rpcUrl: string;
+  networkPassphrase: string;
+  escrowContractId: string;
+  sourceAddress: string;
+  startEscrowId: bigint;
+  endEscrowId: bigint;
+  client: string;
+  freelancer?: string | null;
+  asset: string;
+  amount: bigint;
+  jobHash: Uint8Array;
+}): Promise<string> {
+  const normalizedClient = params.client.trim();
+  const normalizedFreelancer = normalizeOptionalAddress(params.freelancer);
+  const normalizedAsset = params.asset.trim();
+
+  for (let escrowId = params.startEscrowId; escrowId < params.endEscrowId; escrowId += 1n) {
+    const escrow = await getEscrowOnChain({
+      rpcUrl: params.rpcUrl,
+      networkPassphrase: params.networkPassphrase,
+      escrowContractId: params.escrowContractId,
+      sourceAddress: params.sourceAddress,
+      escrowId: escrowId.toString(),
+    }).catch(() => null);
+
+    if (!escrow) {
+      continue;
+    }
+
+    if (escrow.client.trim() !== normalizedClient) {
+      continue;
+    }
+
+    if (normalizeOptionalAddress(escrow.freelancer ?? undefined) !== normalizedFreelancer) {
+      continue;
+    }
+
+    if (escrow.asset.trim() !== normalizedAsset) {
+      continue;
+    }
+
+    if (escrow.amount !== params.amount) {
+      continue;
+    }
+
+    if (!bytesEqual(escrow.job_hash, params.jobHash)) {
+      continue;
+    }
+
+    return escrowId.toString();
+  }
+
+  throw new Error(
+    "Create escrow transaction succeeded, but the created escrow ID could not be recovered from on-chain state.",
+  );
+}
+
+function resolveEscrowId(result: TEscrowResult, actionLabel: string): string {
+  const nativeValue =
+    typeof result.result === "bigint" || typeof result.result === "number"
+      ? result.result
+      : result.returnValue
+        ? scValToNative(result.returnValue)
+        : undefined;
+
+  if (nativeValue === undefined) {
+    throw new Error(`${actionLabel} transaction did not return an escrow ID.`);
+  }
+
+  if (typeof nativeValue !== "bigint" && typeof nativeValue !== "number") {
+    throw new Error(`${actionLabel} return value was not a u64 escrow ID.`);
+  }
+
+  return nativeValue.toString();
+}
+
+function tryResolveEscrowId(result: TEscrowResult): string | null {
+  try {
+    return resolveEscrowId(result, "Create escrow");
+  } catch {
+    return null;
+  }
 }
 
 export async function createEscrowOnChain(
@@ -71,11 +240,18 @@ export async function createEscrowOnChain(
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
-  const result = await invokeContract({
+  const nextEscrowIdBefore = await getNextEscrowIdOnChain({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    escrowContractId: params.escrowContractId,
+    sourceAddress: params.sourceAddress,
+  });
+
+  const result = await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "create_escrow",
     args: [
       addressScVal(params.client),
@@ -85,20 +261,33 @@ export async function createEscrowOnChain(
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 
-  if (!result.returnValue) {
-    throw new Error("Create escrow transaction did not return an escrow ID.");
-  }
-
-  const escrowId = scValToNative(result.returnValue);
-  if (typeof escrowId !== "bigint" && typeof escrowId !== "number") {
-    throw new Error("Create escrow return value was not a u64 escrow ID.");
-  }
+  const escrowId =
+    tryResolveEscrowId(result) ??
+    (await findCreatedEscrowIdFromState({
+      rpcUrl: params.rpcUrl,
+      networkPassphrase: params.networkPassphrase,
+      escrowContractId: params.escrowContractId,
+      sourceAddress: params.sourceAddress,
+      startEscrowId: nextEscrowIdBefore,
+      endEscrowId: await getNextEscrowIdOnChain({
+        rpcUrl: params.rpcUrl,
+        networkPassphrase: params.networkPassphrase,
+        escrowContractId: params.escrowContractId,
+        sourceAddress: params.sourceAddress,
+      }),
+      client: params.client,
+      freelancer: params.freelancer,
+      asset: params.asset,
+      amount: toTokenAmount(params.amount),
+      jobHash: params.jobHash,
+    }));
 
   return {
     ...result,
-    escrowId: escrowId.toString(),
+    escrowId,
   };
 }
 
@@ -110,11 +299,18 @@ export async function createOpenEscrowOnChain(
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
-  const result = await invokeContract({
+  const nextEscrowIdBefore = await getNextEscrowIdOnChain({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    escrowContractId: params.escrowContractId,
+    sourceAddress: params.sourceAddress,
+  });
+
+  const result = await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "create_open_escrow",
     args: [
       addressScVal(params.client),
@@ -123,20 +319,33 @@ export async function createOpenEscrowOnChain(
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 
-  if (!result.returnValue) {
-    throw new Error("Create open escrow transaction did not return an escrow ID.");
-  }
-
-  const escrowId = scValToNative(result.returnValue);
-  if (typeof escrowId !== "bigint" && typeof escrowId !== "number") {
-    throw new Error("Create open escrow return value was not a u64 escrow ID.");
-  }
+  const escrowId =
+    tryResolveEscrowId(result) ??
+    (await findCreatedEscrowIdFromState({
+      rpcUrl: params.rpcUrl,
+      networkPassphrase: params.networkPassphrase,
+      escrowContractId: params.escrowContractId,
+      sourceAddress: params.sourceAddress,
+      startEscrowId: nextEscrowIdBefore,
+      endEscrowId: await getNextEscrowIdOnChain({
+        rpcUrl: params.rpcUrl,
+        networkPassphrase: params.networkPassphrase,
+        escrowContractId: params.escrowContractId,
+        sourceAddress: params.sourceAddress,
+      }),
+      client: params.client,
+      freelancer: null,
+      asset: params.asset,
+      amount: toTokenAmount(params.amount),
+      jobHash: params.jobHash,
+    }));
 
   return {
     ...result,
-    escrowId: escrowId.toString(),
+    escrowId,
   };
 }
 
@@ -148,11 +357,18 @@ export async function createAndFundOpenEscrowOnChain(
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
-  const result = await invokeContract({
+  const nextEscrowIdBefore = await getNextEscrowIdOnChain({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    escrowContractId: params.escrowContractId,
+    sourceAddress: params.sourceAddress,
+  });
+
+  const result = await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "create_and_fund_open_escrow",
     args: [
       addressScVal(params.client),
@@ -161,62 +377,78 @@ export async function createAndFundOpenEscrowOnChain(
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 
-  if (!result.returnValue) {
-    throw new Error("Create and fund open escrow transaction did not return an escrow ID.");
-  }
-
-  const escrowId = scValToNative(result.returnValue);
-  if (typeof escrowId !== "bigint" && typeof escrowId !== "number") {
-    throw new Error("Create and fund open escrow return value was not a u64 escrow ID.");
-  }
+  const escrowId =
+    tryResolveEscrowId(result) ??
+    (await findCreatedEscrowIdFromState({
+      rpcUrl: params.rpcUrl,
+      networkPassphrase: params.networkPassphrase,
+      escrowContractId: params.escrowContractId,
+      sourceAddress: params.sourceAddress,
+      startEscrowId: nextEscrowIdBefore,
+      endEscrowId: await getNextEscrowIdOnChain({
+        rpcUrl: params.rpcUrl,
+        networkPassphrase: params.networkPassphrase,
+        escrowContractId: params.escrowContractId,
+        sourceAddress: params.sourceAddress,
+      }),
+      client: params.client,
+      freelancer: null,
+      asset: params.asset,
+      amount: toTokenAmount(params.amount),
+      jobHash: params.jobHash,
+    }));
 
   return {
     ...result,
-    escrowId: escrowId.toString(),
+    escrowId,
   };
 }
 
 export async function fundEscrowOnChain(
   params: TBaseEscrowCallParams & { client: string; escrowId: string },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "fund_escrow",
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
 export async function assignFreelancerOnChain(
   params: TBaseEscrowCallParams & { client: string; freelancer: string; escrowId: string },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "assign_freelancer",
     args: [addressScVal(params.client), u64ScVal(params.escrowId), addressScVal(params.freelancer)],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
 export async function submitWorkOnChain(
   params: TBaseEscrowCallParams & { freelancer: string; escrowId: string },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "submit_work",
     args: [addressScVal(params.freelancer), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
@@ -228,11 +460,11 @@ export async function approveAndReleaseOnChain(
     reviewHash: Uint8Array;
   },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "approve_and_release",
     args: [
       addressScVal(params.client),
@@ -241,34 +473,37 @@ export async function approveAndReleaseOnChain(
       bytesN32ScVal(params.reviewHash),
     ],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
 export async function cancelEscrowOnChain(
   params: TBaseEscrowCallParams & { client: string; escrowId: string },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "cancel_escrow",
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
 export async function markDisputedOnChain(
   params: TBaseEscrowCallParams & { caller: string; escrowId: string },
 ): Promise<TEscrowResult> {
-  return await invokeContract({
+  return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: params.sourceAddress,
-    contractId: params.escrowContractId,
+    escrowContractId: params.escrowContractId,
     method: "mark_disputed",
     args: [addressScVal(params.caller), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
+    walletType: params.walletType,
   });
 }
 
@@ -278,7 +513,7 @@ export async function getEscrowOnChain(
   const result = await simulateContractCall<unknown>({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
-    sourceAddress: params.sourceAddress,
+    sourceAddress: resolveReadSourceAddress(params.sourceAddress),
     contractId: params.escrowContractId,
     method: "get_escrow",
     args: [u64ScVal(params.escrowId)],
@@ -297,7 +532,7 @@ export async function getStablecoinBalanceOnChain(params: {
   const result = await simulateContractCall<unknown>({
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
-    sourceAddress: params.sourceAddress,
+    sourceAddress: resolveReadSourceAddress(params.sourceAddress),
     contractId: params.stablecoinTokenContractId,
     method: "balance",
     args: [addressScVal(params.walletAddress)],

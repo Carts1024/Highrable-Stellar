@@ -3,8 +3,9 @@
 import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { fromTokenUnits, toTokenUnits } from "@/core/stellar/amounts";
 import { getStablecoinBalanceOnChain } from "@/core/stellar/escrow-contract";
+import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { stablecoinConfig, validateStablecoinConfig } from "@/core/stellar/stablecoin-config";
-import { TStellarPublicKeySchema } from "@/core/wallet/validation";
+import { TStellarAddressSchema } from "@/core/wallet/validation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type TStablecoinReadinessState = {
@@ -67,7 +68,7 @@ export function useStablecoinReadiness({
     }
 
     try {
-      return TStellarPublicKeySchema.parse(walletAddress);
+      return TStellarAddressSchema.parse(walletAddress);
     } catch {
       return null;
     }
@@ -154,11 +155,15 @@ export function useStablecoinReadiness({
     }));
 
     try {
+      const sourceAddress = sanitizedWalletAddress.startsWith("C")
+        ? getSmartAccountKit().deployerPublicKey
+        : sanitizedWalletAddress;
+
       const balanceAtomic = await getStablecoinBalanceOnChain({
         rpcUrl: STELLAR_RPC_URL,
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
         stablecoinTokenContractId: resolvedTokenContractId,
-        sourceAddress: sanitizedWalletAddress,
+        sourceAddress,
         walletAddress: sanitizedWalletAddress,
       });
 

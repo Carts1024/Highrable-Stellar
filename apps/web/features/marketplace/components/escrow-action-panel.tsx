@@ -47,7 +47,7 @@ function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: s
 export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPanelProps) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
 
-  const { address, walletState } = useWallet();
+  const { walletState } = useWallet();
   const walletIdentity = useHighrableWalletIdentity();
   const reputationRecord = useQuery(
     api.reputation.getReputationByEscrowId,
@@ -80,6 +80,27 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
   const safetyStatus = getJobSafetyStatus({ job, escrow });
+  const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
+  const walletGuardContext = useMemo(
+    () => ({
+      isConnected: walletIdentity.isConnected,
+      isTestnet: isPasskeyMode ? true : walletState.isTestnet,
+      isFunded: isPasskeyMode ? null : walletState.isFunded,
+      canWriteContracts: isPasskeyMode
+        ? true
+        : walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
+      walletType: walletIdentity.walletType,
+    }),
+    [
+      isPasskeyMode,
+      walletIdentity.canSignEscrowTransactions,
+      walletIdentity.isConnected,
+      walletIdentity.walletType,
+      walletState.canWriteContracts,
+      walletState.isFunded,
+      walletState.isTestnet,
+    ],
+  );
   const actionGuards = useMemo(
     () => ({
       createEscrow: getEscrowActionGuard({
@@ -87,104 +108,56 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-        },
+        wallet: walletGuardContext,
       }),
       fundEscrow: getEscrowActionGuard({
         action: "fund_escrow",
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-        },
+        wallet: walletGuardContext,
       }),
       submitWork: getEscrowActionGuard({
         action: "submit_work",
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-        },
+        wallet: walletGuardContext,
       }),
       releasePayment: getEscrowActionGuard({
         action: "release_payment",
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-        },
+        wallet: walletGuardContext,
       }),
       cancelEscrow: getEscrowActionGuard({
         action: "cancel_escrow",
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-        },
+        wallet: walletGuardContext,
       }),
       markDisputed: getEscrowActionGuard({
         action: "mark_disputed",
         role,
         job,
         escrow,
-        wallet: {
-          isConnected: walletIdentity.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts:
-            walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-          walletType: walletIdentity.walletType,
-        },
+        wallet: walletGuardContext,
       }),
     }),
-    [
-      escrow,
-      job,
-      role,
-      walletIdentity.canSignEscrowTransactions,
-      walletIdentity.isConnected,
-      walletIdentity.walletType,
-      walletState.isConnected,
-      walletState.canWriteContracts,
-      walletState.isFunded,
-      walletState.isTestnet,
-    ],
+    [escrow, job, role, walletGuardContext],
   );
   const stablecoinReadiness = useStablecoinReadiness({
-    walletAddress: address,
+    walletAddress: walletIdentity.walletAddress,
     requiredAmount: job.budget,
     tokenContractId: job.asset || stablecoinConfig.tokenContractId,
     enabled:
       currentStatus === "created" &&
       role === "client" &&
       walletIdentity.canSignEscrowTransactions &&
-      walletState.isConnected &&
-      walletState.isTestnet,
+      walletIdentity.isConnected &&
+      (isPasskeyMode || walletState.isTestnet),
   });
   const isFundEscrowDisabled =
     isPending ||
@@ -201,8 +174,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const readinessChecklist = [
     {
       label: "Stellar network",
-      isReady: walletState.isTestnet,
-      value: walletState.isTestnet ? "testnet" : "not testnet",
+      isReady: isPasskeyMode || walletState.isTestnet,
+      value: isPasskeyMode || walletState.isTestnet ? "testnet" : "not testnet",
     },
     {
       label: "Stablecoin token configured",
@@ -213,13 +186,17 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     },
     {
       label: "Wallet connected",
-      isReady: walletState.isConnected,
-      value: walletState.isConnected ? "connected" : "not connected",
+      isReady: walletIdentity.isConnected,
+      value: walletIdentity.isConnected ? "connected" : "not connected",
     },
     {
-      label: "Wallet has testnet XLM",
-      isReady: walletState.isFunded !== false,
-      value: walletState.isFunded === false ? "missing" : "ready",
+      label: isPasskeyMode ? "Fee funding or relayer" : "Wallet has testnet XLM",
+      isReady: isPasskeyMode || walletState.isFunded !== false,
+      value: isPasskeyMode
+        ? "checked during signing"
+        : walletState.isFunded === false
+          ? "missing"
+          : "ready",
     },
     {
       label: "Job uses MVP stablecoin",
@@ -289,10 +266,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       {currentStatusMeta.trustWarning ? (
         <TrustWarning className="mt-2" message={currentStatusMeta.trustWarning} />
       ) : null}
-      {walletIdentity.walletType === "passkey_smart_account" ? (
-        <div className="mt-3">
-          <TrustWarning message="Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action." />
-        </div>
+      {walletIdentity.walletType ? (
+        <p className="mt-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+          {isPasskeyMode
+            ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
+            : "Signing with Freighter or WalletConnect."}
+        </p>
       ) : null}
 
       <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
@@ -412,7 +391,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             <div className="space-y-3">
               <TrustSafetyNotice type="client_funding" compact />
               <StablecoinBalancePanel
-                walletAddress={address}
+                walletAddress={walletIdentity.walletAddress}
                 requiredAmount={job.budget}
                 tokenContractId={job.asset || stablecoinConfig.tokenContractId}
                 enabled={currentStatus === "created" && role === "client"}

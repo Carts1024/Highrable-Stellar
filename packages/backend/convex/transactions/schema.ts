@@ -15,18 +15,22 @@ const transactionTypeEnum = createStringEnum([
 ] as const);
 
 const transactionStatusEnum = createStringEnum(["pending", "success", "failed"] as const);
+const walletTypeEnum = createStringEnum(["external_wallet", "passkey_smart_account"] as const);
 
 export const TRANSACTION_TYPES = transactionTypeEnum.map;
 export const TRANSACTION_STATUSES = transactionStatusEnum.map;
 
 export const transactionTypeValidator = transactionTypeEnum.validator;
 export const transactionStatusValidator = transactionStatusEnum.validator;
+export const walletTypeValidator = walletTypeEnum.validator;
 
 export type TTransactionType = Infer<typeof transactionTypeValidator>;
 export type TTransactionStatus = Infer<typeof transactionStatusValidator>;
+export type TWalletType = Infer<typeof walletTypeValidator>;
 
 export default defineTable({
   walletAddress: v.string(),
+  walletType: v.optional(walletTypeValidator),
   type: transactionTypeValidator,
   txHash: v.optional(v.string()),
   clientRequestId: v.optional(v.string()),

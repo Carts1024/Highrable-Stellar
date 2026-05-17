@@ -20,6 +20,7 @@ export type TInvokeContractParams = {
 
 export type TConfirmedContractTx = {
   txHash: string;
+  result?: unknown;
   returnValue?: xdr.ScVal;
 };
 
@@ -64,16 +65,32 @@ function getErrorMessage(error: unknown): string {
   return "Stellar transaction failed. Please try again.";
 }
 
+function isUserRejectedSigning(message: string): boolean {
+  return (
+    message.includes("user rejected") ||
+    message.includes("rejected by user") ||
+    message.includes("declined") ||
+    message.includes("denied") ||
+    message.includes("notallowederror") ||
+    message.includes("cancelled") ||
+    message.includes("canceled") ||
+    message.includes("abort")
+  );
+}
+
 export function normalizeStellarError(error: unknown): string {
   const message = getErrorMessage(error);
   const normalizedMessage = message.toLowerCase();
 
   if (
-    normalizedMessage.includes("user rejected") ||
-    normalizedMessage.includes("declined") ||
-    normalizedMessage.includes("denied") ||
-    normalizedMessage.includes("reject")
+    normalizedMessage.includes("smart account is not authorized") ||
+    normalizedMessage.includes("passkey smart account") ||
+    normalizedMessage.includes("__check_auth")
   ) {
+    return message;
+  }
+
+  if (isUserRejectedSigning(normalizedMessage)) {
     return "Wallet signing was rejected.";
   }
 
@@ -200,6 +217,9 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
 
   return {
     txHash: submittedTransaction.hash,
+    result: confirmedTransaction.returnValue
+      ? scValToNative(confirmedTransaction.returnValue)
+      : undefined,
     returnValue: confirmedTransaction.returnValue,
   };
 }

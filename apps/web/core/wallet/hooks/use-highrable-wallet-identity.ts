@@ -39,7 +39,7 @@ export function useHighrableWalletIdentity(): THighrableWalletIdentity {
         walletAddress: smartAccountAddress,
         walletType: "passkey_smart_account",
         isConnected: true,
-        canSignEscrowTransactions: false,
+        canSignEscrowTransactions: true,
         displayAddress: shortenWalletAddress(smartAccountAddress),
         source: "passkey_smart_account",
         activeWalletMode,

@@ -39,7 +39,7 @@ export interface IPasskeyReadinessState {
 }
 
 const PHASE_23_DESCRIPTION =
-  "Ready as Highrable identity. Escrow transaction signing will be enabled in Phase 23.";
+  "Passkey smart account connected. Escrow signing enabled with passkey when fee and stablecoin readiness pass.";
 
 function hasReadableBalance(
   nativeBalance: bigint | null,
@@ -94,7 +94,7 @@ export function getPasskeyReadinessState(input: IPasskeyReadinessInput): IPasske
     {
       label: "Escrow write transactions enabled",
       passed: input.canSignEscrowTransactions,
-      description: "False for passkey smart accounts until Phase 23.",
+      description: "Requires a connected session plus fee funding or relayer support.",
     },
   ];
 

@@ -5,6 +5,13 @@ export const TStellarPublicKeySchema = z
   .trim()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar public key format");
 
+export const TStellarContractIdSchema = z
+  .string()
+  .trim()
+  .regex(/^C[A-Z2-7]{55}$/, "Invalid Stellar contract ID format");
+
+export const TStellarAddressSchema = z.union([TStellarPublicKeySchema, TStellarContractIdSchema]);
+
 export const TSignatureSchema = z
   .string()
   .trim()

@@ -384,10 +384,18 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       let jobHashBytes: Uint8Array | null = null;
 
       if (formState.fundEscrowNow) {
-        if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
+        if (walletIdentity.walletType === "passkey_smart_account") {
           setErrors({
             submit:
-              "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
+              "Create the job with your passkey smart account, then create and fund escrow from the escrow action panel.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
+          setErrors({
+            submit: "Connect a Stellar wallet before funding escrow.",
           });
           setIsSubmitting(false);
           return;
@@ -570,9 +578,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       ) : null}
 
       {walletIdentity.walletType === "passkey_smart_account" ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Passkey escrow signing is not enabled yet. You can create off-chain jobs with this smart
-          account, but switch to Freighter or WalletConnect for escrow actions.
+        <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          Passkey smart account connected. Escrow signing is enabled with passkey from the escrow
+          action panel after the job is created.
         </p>
       ) : null}
 
@@ -868,6 +876,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 disabled={
                   !isStablecoinConfigured ||
                   !walletIdentity.canSignEscrowTransactions ||
+                  walletIdentity.walletType === "passkey_smart_account" ||
                   isSubmitting
                 }
                 aria-label="Create and fund escrow when posting this job"
@@ -875,8 +884,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             </div>
             {walletIdentity.walletType === "passkey_smart_account" ? (
               <p className="mt-3 text-xs text-amber-700">
-                Passkey smart account funding is handled separately and will be improved in the next
-                phase.
+                Passkey smart accounts create and fund escrow after posting so role checks use the
+                smart account address consistently.
               </p>
             ) : null}
             {formState.fundEscrowNow ? (

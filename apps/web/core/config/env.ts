@@ -21,6 +21,7 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH?: string;
   readonly NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_PASSKEY_RP_NAME?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL?: string;
   readonly NODE_ENV: "development" | "production" | "test";
 }
 
@@ -68,6 +69,7 @@ const ClientEnvSchema = z.object({
     .optional(),
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.string().url().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
@@ -102,6 +104,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID:
       process.env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID,
     NEXT_PUBLIC_PASSKEY_RP_NAME: process.env.NEXT_PUBLIC_PASSKEY_RP_NAME,
+    NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
   });

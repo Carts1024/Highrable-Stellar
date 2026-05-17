@@ -54,9 +54,12 @@ export function ApplicationsList({
       throw new Error("Escrow record is missing the on-chain escrow ID.");
     }
 
-    if (!walletIdentity.canSignEscrowTransactions) {
+    if (
+      !walletIdentity.canSignEscrowTransactions ||
+      walletIdentity.walletType === "passkey_smart_account"
+    ) {
       throw new Error(
-        "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
+        "Assigning a pre-funded open escrow from passkey mode is not supported in this phase. Use the standard create escrow flow.",
       );
     }
 

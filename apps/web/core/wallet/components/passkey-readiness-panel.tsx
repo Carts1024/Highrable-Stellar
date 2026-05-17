@@ -17,7 +17,7 @@ import { AlertTriangle, Check, Circle, Link2, RefreshCw, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const PASSKEY_ESCROW_DISABLED_REASON =
-  "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.";
+  "Escrow signing enabled with passkey when the smart account has fee funding or relayer support.";
 
 function formatNativeBalance(balance: bigint | null): string {
   if (balance === null) {
@@ -178,8 +178,8 @@ export function PasskeyReadinessPanel() {
         <div>
           <p className="text-sm font-semibold text-gray-900">Passkey Smart Account Readiness</p>
           <p className="mt-1 text-sm text-gray-600">
-            Your passkey smart account can be used as your Highrable identity. Escrow transactions
-            still require Freighter or WalletConnect until Phase 23.
+            Your passkey smart account can be used as your Highrable identity and for escrow signing
+            when funding and relayer readiness pass.
           </p>
         </div>
         <span

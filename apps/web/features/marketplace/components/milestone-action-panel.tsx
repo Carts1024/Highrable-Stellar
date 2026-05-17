@@ -41,7 +41,7 @@ export function MilestoneActionPanel({
   applications: TConvexDoc<"applications">[];
 }) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
-  const { address, walletState } = useWallet();
+  const { walletState } = useWallet();
   const walletIdentity = useHighrableWalletIdentity();
   const verifiedReviewData = useQuery(
     api.reputation_records.queries.getVerifiedReviewForMilestone,
@@ -67,16 +67,17 @@ export function MilestoneActionPanel({
   const isStablecoinConfigured = hasStablecoinConfig();
   const stablecoinConfigValidation = validateStablecoinConfig();
   const isMilestoneAssetConfiguredStablecoin = isConfiguredStablecoin(milestone.asset);
+  const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
   const stablecoinReadiness = useStablecoinReadiness({
-    walletAddress: address,
+    walletAddress: walletIdentity.walletAddress,
     requiredAmount: milestone.amount,
     tokenContractId: milestone.asset || stablecoinConfig.tokenContractId,
     enabled:
       milestone.status === "escrow_created" &&
       role === "client" &&
       walletIdentity.canSignEscrowTransactions &&
-      walletState.isConnected &&
-      walletState.isTestnet,
+      walletIdentity.isConnected &&
+      (isPasskeyMode || walletState.isTestnet),
   });
   const isFundEscrowDisabled =
     isPending ||
@@ -142,8 +143,12 @@ export function MilestoneActionPanel({
       {isStablecoinConfigured && !isMilestoneAssetConfiguredStablecoin ? (
         <TrustWarning message="This milestone uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
       ) : null}
-      {walletIdentity.walletType === "passkey_smart_account" ? (
-        <TrustWarning message="Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action." />
+      {walletIdentity.walletType ? (
+        <p className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-sm text-[#3f3f3f]">
+          {isPasskeyMode
+            ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
+            : "Signing with Freighter or WalletConnect."}
+        </p>
       ) : null}
 
       {milestone.status === "open" ? (
@@ -178,7 +183,7 @@ export function MilestoneActionPanel({
           {role === "client" ? (
             <>
               <StablecoinBalancePanel
-                walletAddress={address}
+                walletAddress={walletIdentity.walletAddress}
                 requiredAmount={milestone.amount}
                 tokenContractId={milestone.asset || stablecoinConfig.tokenContractId}
                 enabled

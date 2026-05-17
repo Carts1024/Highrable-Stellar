@@ -31,8 +31,7 @@ export function WalletModeSwitcher() {
         <div>
           <p className="text-sm font-semibold text-gray-900">Active Highrable identity</p>
           <p className="mt-1 text-sm text-gray-600">
-            Off-chain actions use the active identity. Escrow write actions require an external
-            wallet until Phase 23.
+            Off-chain and escrow actions use the active identity.
           </p>
         </div>
         <span className="w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
@@ -70,9 +69,7 @@ export function WalletModeSwitcher() {
             <KeyRound className="mt-0.5 h-4 w-4 text-[#FF7003]" aria-hidden="true" />
             <span>
               <span className="block font-semibold">Passkey Smart Account</span>
-              <span className="mt-1 block text-xs text-amber-700">
-                Escrow signing not enabled yet.
-              </span>
+              <span className="mt-1 block text-xs text-emerald-700">Escrow signing enabled.</span>
             </span>
           </button>
         ) : null}

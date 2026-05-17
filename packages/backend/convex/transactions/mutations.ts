@@ -7,11 +7,16 @@ import {
   sanitizeOptionalTransactionRef,
   sanitizeTransactionWallet,
 } from "./helpers";
-import { transactionStatusValidator, transactionTypeValidator } from "./schema";
+import {
+  transactionStatusValidator,
+  transactionTypeValidator,
+  walletTypeValidator,
+} from "./schema";
 
 export const createTransaction = mutation({
   args: {
     walletAddress: v.string(),
+    walletType: v.optional(walletTypeValidator),
     type: transactionTypeValidator,
     txHash: v.optional(v.string()),
     clientRequestId: v.optional(v.string()),
@@ -33,6 +38,7 @@ export const createTransaction = mutation({
     const now = Date.now();
     return await ctx.db.insert("transactions", {
       walletAddress,
+      ...(args.walletType !== undefined ? { walletType: args.walletType } : {}),
       type: args.type,
       status: args.status,
       createdAt: now,

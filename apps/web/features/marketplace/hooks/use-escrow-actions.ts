@@ -13,6 +13,8 @@ import {
 } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
+import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
+import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
@@ -114,27 +116,38 @@ export function useEscrowActions({
   );
   const isPending = state.pendingAction !== null;
   const txExplorerUrl = state.txHash ? getTxExplorerUrl(state.txHash) : null;
+  const activeWalletAddress = walletIdentity.walletAddress;
+  const activeWalletType = walletIdentity.walletType ?? "external_wallet";
 
   const validateBaseAction = useCallback(
-    (action: TEscrowAction) => {
+    async (action: TEscrowAction) => {
       const config = getRequiredEscrowActionConfig();
 
-      if (!walletIdentity.canSignEscrowTransactions) {
+      if (!activeWalletAddress || !walletIdentity.isConnected) {
         throw new Error(
-          "Passkey escrow signing is not enabled yet. Switch to Freighter or WalletConnect to perform this action.",
+          "Connect a Stellar wallet or passkey smart account before using escrow actions.",
         );
       }
 
-      if (!address || !walletState.isConnected) {
-        throw new Error("Connect a Stellar wallet before using escrow actions.");
-      }
+      if (walletIdentity.walletType === "passkey_smart_account") {
+        const readiness = await getPasskeyEscrowExecutionReadiness();
+        if (!readiness.canExecute) {
+          throw new Error(
+            readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
+          );
+        }
+      } else {
+        if (!address || !walletState.isConnected) {
+          throw new Error("Connect a Stellar wallet before using escrow actions.");
+        }
 
-      if (!walletState.isTestnet) {
-        throw new Error("Switch your wallet to Stellar Testnet before using escrow actions.");
-      }
+        if (!walletState.isTestnet) {
+          throw new Error("Switch your wallet to Stellar Testnet before using escrow actions.");
+        }
 
-      if (walletState.isFunded === false) {
-        throw new Error("Fund your Stellar testnet account with Friendbot before using escrow.");
+        if (walletState.isFunded === false) {
+          throw new Error("Fund your Stellar testnet account with Friendbot before using escrow.");
+        }
       }
 
       if (!job.clientWallet) {
@@ -169,10 +182,15 @@ export function useEscrowActions({
         job,
         escrow,
         wallet: {
-          isConnected: walletState.isConnected,
-          isTestnet: walletState.isTestnet,
-          isFunded: walletState.isFunded,
-          canWriteContracts: walletState.canWriteContracts,
+          isConnected: walletIdentity.isConnected,
+          isTestnet:
+            walletIdentity.walletType === "passkey_smart_account" ? true : walletState.isTestnet,
+          isFunded:
+            walletIdentity.walletType === "passkey_smart_account" ? null : walletState.isFunded,
+          canWriteContracts:
+            walletIdentity.walletType === "passkey_smart_account"
+              ? true
+              : walletState.canWriteContracts,
           walletType: walletIdentity.walletType,
         },
       });
@@ -185,9 +203,11 @@ export function useEscrowActions({
     },
     [
       address,
+      activeWalletAddress,
+      escrow,
       job,
       role,
-      walletIdentity.canSignEscrowTransactions,
+      walletIdentity.isConnected,
       walletIdentity.walletType,
       walletState.isConnected,
       walletState.canWriteContracts,
@@ -217,12 +237,13 @@ export function useEscrowActions({
       });
 
       try {
-        const config = validateBaseAction(action);
+        const config = await validateBaseAction(action);
         const escrowId = escrow?.escrowId;
 
         await createTransaction({
-          walletAddress: address!,
+          walletAddress: activeWalletAddress!,
           type: action,
+          walletType: activeWalletType,
           clientRequestId,
           ...(escrowId ? { escrowId } : {}),
           jobId: job._id,
@@ -278,6 +299,8 @@ export function useEscrowActions({
     },
     [
       address,
+      activeWalletAddress,
+      activeWalletType,
       createTransaction,
       escrow?.escrowId,
       job._id,
@@ -298,8 +321,9 @@ export function useEscrowActions({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: address!,
+        sourceAddress: activeWalletAddress!,
         signTransaction,
+        walletType: activeWalletType,
         client: job.clientWallet,
         freelancer: job.selectedFreelancerWallet!,
         asset: config.stablecoinTokenContractId,
@@ -322,7 +346,15 @@ export function useEscrowActions({
         success: `Escrow #${result.escrowId} created on Stellar.`,
       };
     });
-  }, [address, createEscrowRecord, escrow, job, runEscrowAction, signTransaction]);
+  }, [
+    activeWalletAddress,
+    activeWalletType,
+    createEscrowRecord,
+    escrow,
+    job,
+    runEscrowAction,
+    signTransaction,
+  ]);
 
   const fundEscrow = useCallback(async () => {
     return await runEscrowAction("fund_escrow", async ({ config }) => {
@@ -336,20 +368,28 @@ export function useEscrowActions({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         stablecoinTokenContractId: config.stablecoinTokenContractId,
-        sourceAddress: address!,
-        walletAddress: address!,
+        sourceAddress:
+          activeWalletType === "passkey_smart_account"
+            ? getSmartAccountKit().deployerPublicKey
+            : activeWalletAddress!,
+        walletAddress: activeWalletAddress!,
       });
 
       if (stablecoinBalance < requiredBalance) {
-        throw new Error(`You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`);
+        throw new Error(
+          activeWalletType === "passkey_smart_account"
+            ? `Your passkey smart account does not have enough ${stablecoinConfig.symbol}.`
+            : `You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`,
+        );
       }
 
       const result = await fundEscrowOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: address!,
+        sourceAddress: activeWalletAddress!,
         signTransaction,
+        walletType: activeWalletType,
         client: job.clientWallet,
         escrowId,
       });
@@ -367,7 +407,8 @@ export function useEscrowActions({
       };
     });
   }, [
-    address,
+    activeWalletAddress,
+    activeWalletType,
     escrow,
     job.budget,
     job.clientWallet,
@@ -387,8 +428,9 @@ export function useEscrowActions({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: address!,
+        sourceAddress: activeWalletAddress!,
         signTransaction,
+        walletType: activeWalletType,
         freelancer: job.selectedFreelancerWallet!,
         escrowId,
       });
@@ -406,7 +448,8 @@ export function useEscrowActions({
       };
     });
   }, [
-    address,
+    activeWalletAddress,
+    activeWalletType,
     escrow,
     job.selectedFreelancerWallet,
     runEscrowAction,
@@ -431,8 +474,9 @@ export function useEscrowActions({
           rpcUrl: config.rpcUrl,
           networkPassphrase: config.networkPassphrase,
           escrowContractId: config.escrowContractId,
-          sourceAddress: address!,
+          sourceAddress: activeWalletAddress!,
           signTransaction,
+          walletType: activeWalletType,
           client: job.clientWallet,
           escrowId,
           rating,
@@ -465,7 +509,8 @@ export function useEscrowActions({
       });
     },
     [
-      address,
+      activeWalletAddress,
+      activeWalletType,
       createReputationRecord,
       escrow,
       job._id,
@@ -489,8 +534,9 @@ export function useEscrowActions({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: address!,
+        sourceAddress: activeWalletAddress!,
         signTransaction,
+        walletType: activeWalletType,
         client: job.clientWallet,
         escrowId,
       });
@@ -507,7 +553,15 @@ export function useEscrowActions({
         success: "Escrow cancelled on Stellar.",
       };
     });
-  }, [address, escrow, job.clientWallet, runEscrowAction, signTransaction, updateEscrowStatus]);
+  }, [
+    activeWalletAddress,
+    activeWalletType,
+    escrow,
+    job.clientWallet,
+    runEscrowAction,
+    signTransaction,
+    updateEscrowStatus,
+  ]);
 
   const markDisputed = useCallback(async () => {
     return await runEscrowAction("mark_disputed", async ({ config }) => {
@@ -520,9 +574,10 @@ export function useEscrowActions({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: address!,
+        sourceAddress: activeWalletAddress!,
         signTransaction,
-        caller: address!,
+        walletType: activeWalletType,
+        caller: activeWalletAddress!,
         escrowId,
       });
 
@@ -538,7 +593,14 @@ export function useEscrowActions({
         success: "Escrow marked disputed on Stellar.",
       };
     });
-  }, [address, escrow, runEscrowAction, signTransaction, updateEscrowStatus]);
+  }, [
+    activeWalletAddress,
+    activeWalletType,
+    escrow,
+    runEscrowAction,
+    signTransaction,
+    updateEscrowStatus,
+  ]);
 
   return {
     ...state,
