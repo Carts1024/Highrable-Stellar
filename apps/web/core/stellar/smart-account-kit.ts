@@ -5,11 +5,7 @@ import {
   type ISmartAccountConfig,
   PasskeyConfigError,
 } from "@/core/stellar/smart-account-config";
-import {
-  IndexedDBStorage,
-  LocalStorageAdapter,
-  SmartAccountKit,
-} from "smart-account-kit";
+import { IndexedDBStorage, LocalStorageAdapter, SmartAccountKit } from "smart-account-kit";
 
 import type {
   ConnectWalletResult,
@@ -62,21 +58,19 @@ function selectDiscoveredContract(
 
   if (preferredContractId) {
     return (
-      contracts.find((contract) => normalizeContractId(contract.contract_id) === preferredContractId) ??
-      null
+      contracts.find(
+        (contract) => normalizeContractId(contract.contract_id) === preferredContractId,
+      ) ?? null
     );
   }
 
-  return [...contracts].sort((left, right) => right.last_seen_ledger - left.last_seen_ledger)[0] ?? null;
+  return (
+    [...contracts].sort((left, right) => right.last_seen_ledger - left.last_seen_ledger)[0] ?? null
+  );
 }
 
 function isTransientIndexedDbError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "";
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   const normalizedMessage = message.toLowerCase();
 
   return (
@@ -242,7 +236,12 @@ export async function connectFreshPasskeySmartAccount(
     ? selectDiscoveredContract(discoveredContracts, preferredContractId)
     : null;
 
-  if (preferredContractId && discoveredContracts && discoveredContracts.length > 0 && !matchedContract) {
+  if (
+    preferredContractId &&
+    discoveredContracts &&
+    discoveredContracts.length > 0 &&
+    !matchedContract
+  ) {
     throw new Error(
       `The selected passkey is not linked to smart account ${preferredContractId}. Select the passkey that owns that smart account or switch to the matching smart account before retrying.`,
     );
@@ -250,7 +249,9 @@ export async function connectFreshPasskeySmartAccount(
 
   const result = await kit.connectWallet({
     credentialId,
-    contractId: matchedContract ? normalizeContractId(matchedContract.contract_id) : preferredContractId,
+    contractId: matchedContract
+      ? normalizeContractId(matchedContract.contract_id)
+      : preferredContractId,
     fresh: true,
   });
 
@@ -294,7 +295,8 @@ export async function ensureConnectedPasskeyWalletShape(params: {
   const credentialId = normalizeCredentialIdToHex(params.credentialId);
 
   const activeSigner = activeSigners.find(
-    (signer) => signer.credential_id && normalizeCredentialIdToHex(signer.credential_id) === credentialId,
+    (signer) =>
+      signer.credential_id && normalizeCredentialIdToHex(signer.credential_id) === credentialId,
   );
 
   if (!activeSigner) {

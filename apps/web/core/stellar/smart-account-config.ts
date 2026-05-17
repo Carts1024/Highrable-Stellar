@@ -55,7 +55,12 @@ function normalizeRpId(value: string): string {
   try {
     return new URL(trimmed).hostname;
   } catch {
-    return trimmed.replace(/^https?:\/\//i, "").split("/")[0]?.split(":")[0] ?? trimmed;
+    return (
+      trimmed
+        .replace(/^https?:\/\//i, "")
+        .split("/")[0]
+        ?.split(":")[0] ?? trimmed
+    );
   }
 }
 
