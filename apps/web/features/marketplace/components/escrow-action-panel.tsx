@@ -2,6 +2,7 @@
 
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
+import { XlmToUsdcTopUpPanel } from "@/core/stellar/components/xlm-to-usdc-top-up-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
 import {
   getEscrowAssetByContractId,
@@ -419,6 +420,23 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 readinessState={stablecoinReadiness}
                 isRefreshDisabled={isPending}
               />
+
+              {jobEscrowAsset?.kind === "stablecoin" &&
+              stablecoinReadiness.hasSufficientBalance === false ? (
+                <XlmToUsdcTopUpPanel
+                  walletAddress={walletIdentity.walletAddress}
+                  walletType={walletIdentity.walletType}
+                  missingUsdcAmount={stablecoinReadiness.deficitDisplay}
+                  usdcBalance={stablecoinReadiness.balanceDisplay}
+                  jobAssetContractId={job.asset || stablecoinConfig.tokenContractId}
+                  onRefreshBalance={stablecoinReadiness.refresh}
+                  onFundEscrow={async () => {
+                    await fundEscrow();
+                  }}
+                  canFundEscrow={false}
+                  isFundEscrowPending={pendingAction === "fund_escrow"}
+                />
+              ) : null}
 
               <div className="flex flex-wrap gap-2">
                 <AppButton

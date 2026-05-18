@@ -31,5 +31,9 @@ export function formatAssetLabel(assetContractId: string): string {
 }
 
 export function getUsdcAsset(): Asset {
+  if (!USDC_ISSUER) {
+    throw new Error("USDC issuer is missing. Set NEXT_PUBLIC_USDC_ASSET_ISSUER.");
+  }
+
   return new Asset(USDC_ASSET_CODE, USDC_ISSUER);
 }

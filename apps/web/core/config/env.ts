@@ -11,6 +11,8 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_CONVEX_URL: string;
   readonly NEXT_PUBLIC_STABLECOIN_ASSET_CODE: string;
   readonly NEXT_PUBLIC_STABLECOIN_ISSUER: string;
+  readonly NEXT_PUBLIC_USDC_ASSET_CODE?: string;
+  readonly NEXT_PUBLIC_USDC_ASSET_ISSUER?: string;
   readonly NEXT_PUBLIC_STABLECOIN_SYMBOL?: string;
   readonly NEXT_PUBLIC_STABLECOIN_DECIMALS?: number;
   readonly NEXT_PUBLIC_APP_DOMAIN: string;
@@ -53,9 +55,9 @@ const ClientEnvSchema = z.object({
     .default("Test SDF Network ; September 2015"),
   NEXT_PUBLIC_CONVEX_URL: z.string().url().default("http://127.0.0.1:3210"),
   NEXT_PUBLIC_STABLECOIN_ASSET_CODE: z.string().min(1).default("USDC"),
-  NEXT_PUBLIC_STABLECOIN_ISSUER: TStellarPublicKeySchema.default(
-    "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
-  ),
+  NEXT_PUBLIC_STABLECOIN_ISSUER: TStellarPublicKeySchema.optional(),
+  NEXT_PUBLIC_USDC_ASSET_CODE: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_USDC_ASSET_ISSUER: TStellarPublicKeySchema.optional(),
   NEXT_PUBLIC_STABLECOIN_SYMBOL: z.string().trim().min(1).optional(),
   NEXT_PUBLIC_STABLECOIN_DECIMALS: z.coerce.number().int().min(0).max(18).optional(),
   NEXT_PUBLIC_APP_DOMAIN: z.string().min(1).default("localhost"),
@@ -95,6 +97,8 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
     NEXT_PUBLIC_STABLECOIN_ASSET_CODE: process.env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE,
     NEXT_PUBLIC_STABLECOIN_ISSUER: process.env.NEXT_PUBLIC_STABLECOIN_ISSUER,
+    NEXT_PUBLIC_USDC_ASSET_CODE: process.env.NEXT_PUBLIC_USDC_ASSET_CODE,
+    NEXT_PUBLIC_USDC_ASSET_ISSUER: process.env.NEXT_PUBLIC_USDC_ASSET_ISSUER,
     NEXT_PUBLIC_STABLECOIN_SYMBOL: process.env.NEXT_PUBLIC_STABLECOIN_SYMBOL,
     NEXT_PUBLIC_STABLECOIN_DECIMALS: process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS,
     NEXT_PUBLIC_APP_DOMAIN: process.env.NEXT_PUBLIC_APP_DOMAIN,
