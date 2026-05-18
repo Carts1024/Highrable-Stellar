@@ -3,9 +3,9 @@ import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk
 import type { TConfirmedContractTx, TSignedTransactionSubmitter } from "./transaction";
 import type { TWalletExecutionMode } from "./transactionExecutor";
 
-import { stablecoinConfig } from "./stablecoin-config";
 import { toTokenUnits } from "./amounts";
 import { getSmartAccountKit } from "./smart-account-kit";
+import { stablecoinConfig } from "./stablecoin-config";
 import { simulateContractCall } from "./transaction";
 import { executeHighrableContractCall } from "./transactionExecutor";
 

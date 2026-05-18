@@ -3,7 +3,6 @@
 import { Buffer } from "buffer";
 
 import { toTokenUnits } from "@/core/stellar/amounts";
-import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { bytesToHex } from "@/core/stellar/hashes";
 import {
   getSmartAccountConfig,
@@ -16,6 +15,7 @@ import {
   connectFreshPasskeySmartAccount,
   getSmartAccountKit,
 } from "@/core/stellar/smart-account-kit";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import {
   Account,
   Address,

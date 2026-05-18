@@ -1,11 +1,8 @@
 import { STABLECOIN_ASSET_CODE, STABLECOIN_ISSUER } from "@/core/config/stellar-contracts";
 import { Asset } from "@stellar/stellar-sdk";
 
+import { getEscrowAssetByContractId, isStablecoinEscrowAsset } from "./payment-assets";
 import { stablecoinConfig } from "./stablecoin-config";
-import {
-  getEscrowAssetByContractId,
-  isStablecoinEscrowAsset,
-} from "./payment-assets";
 
 export const USDC_ASSET_CODE = STABLECOIN_ASSET_CODE;
 export const USDC_ISSUER = STABLECOIN_ISSUER;

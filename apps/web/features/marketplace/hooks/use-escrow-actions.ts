@@ -12,12 +12,12 @@ import {
 } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
+import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import {
   parseEscrowAssetAmount,
   requireSupportedEscrowAsset,
   type TEscrowPaymentAsset,
 } from "@/core/stellar/payment-assets";
-import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
