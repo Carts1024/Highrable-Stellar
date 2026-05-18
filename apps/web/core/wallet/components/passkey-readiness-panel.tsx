@@ -2,7 +2,9 @@
 
 import { getPasskeyReadinessState } from "@/core/passkeys/passkey-readiness";
 import { fromTokenUnits } from "@/core/stellar/amounts";
+import { getEscrowAssetBySymbol } from "@/core/stellar/payment-assets";
 import {
+  getSmartAccountEscrowTokenBalance,
   getSmartAccountNativeBalance,
   getSmartAccountStablecoinBalance,
   type ISmartAccountBalanceResult,
@@ -35,6 +37,14 @@ function formatStablecoinBalance(balance: bigint | null): string {
   }
 
   return `${fromTokenUnits(balance, stablecoinConfig.decimals)} ${stablecoinConfig.symbol}`;
+}
+
+function formatXlmEscrowBalance(balance: bigint | null): string {
+  if (balance === null) {
+    return "Limited";
+  }
+
+  return `${fromTokenUnits(balance, 7)} XLM`;
 }
 
 function getBalanceText(
@@ -80,6 +90,7 @@ export function PasskeyReadinessPanel() {
   const [stablecoinBalance, setStablecoinBalance] = useState<ISmartAccountBalanceResult | null>(
     null,
   );
+  const [xlmEscrowBalance, setXlmEscrowBalance] = useState<ISmartAccountBalanceResult | null>(null);
   const [isCheckingBalances, setIsCheckingBalances] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
 
@@ -95,13 +106,15 @@ export function PasskeyReadinessPanel() {
     if (!smartAccountAddress || !isPasskeyConnected) {
       setNativeBalance(null);
       setStablecoinBalance(null);
+      setXlmEscrowBalance(null);
       return;
     }
 
     setIsCheckingBalances(true);
 
     try {
-      const [nativeResult, stablecoinResult] = await Promise.all([
+      const nativeXlmEscrowAsset = getEscrowAssetBySymbol("XLM");
+      const [nativeResult, stablecoinResult, xlmEscrowResult] = await Promise.all([
         getSmartAccountNativeBalance(smartAccountAddress),
         stablecoinConfig.tokenContractId
           ? getSmartAccountStablecoinBalance(smartAccountAddress, stablecoinConfig.tokenContractId)
@@ -109,6 +122,17 @@ export function PasskeyReadinessPanel() {
               status: "limited",
               balance: null,
               message: "Stablecoin token contract is not configured.",
+            }),
+        nativeXlmEscrowAsset?.isConfigured
+          ? getSmartAccountEscrowTokenBalance(
+              smartAccountAddress,
+              nativeXlmEscrowAsset.tokenContractId,
+              "XLM escrow is not configured for this deployment.",
+            )
+          : Promise.resolve<ISmartAccountBalanceResult>({
+              status: "limited",
+              balance: null,
+              message: "XLM escrow is not configured for this deployment.",
             }),
       ]);
 
@@ -118,6 +142,7 @@ export function PasskeyReadinessPanel() {
 
       setNativeBalance(nativeResult);
       setStablecoinBalance(stablecoinResult);
+      setXlmEscrowBalance(xlmEscrowResult);
     } finally {
       if (requestIdRef.current === requestId) {
         setIsCheckingBalances(false);
@@ -231,7 +256,7 @@ export function PasskeyReadinessPanel() {
           </dd>
         </div>
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-          <dt className="text-xs font-medium text-gray-500">Native balance</dt>
+          <dt className="text-xs font-medium text-gray-500">XLM for network fees</dt>
           <dd className="mt-1 text-sm font-semibold text-gray-900">
             {isCheckingBalances
               ? "Checking..."
@@ -239,11 +264,19 @@ export function PasskeyReadinessPanel() {
           </dd>
         </div>
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-          <dt className="text-xs font-medium text-gray-500">Stablecoin balance</dt>
+          <dt className="text-xs font-medium text-gray-500">USDC escrow balance</dt>
           <dd className="mt-1 text-sm font-semibold text-gray-900">
             {isCheckingBalances
               ? "Checking..."
               : getBalanceText(stablecoinBalance, formatStablecoinBalance)}
+          </dd>
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+          <dt className="text-xs font-medium text-gray-500">XLM escrow balance</dt>
+          <dd className="mt-1 text-sm font-semibold text-gray-900">
+            {isCheckingBalances
+              ? "Checking..."
+              : getBalanceText(xlmEscrowBalance, formatXlmEscrowBalance)}
           </dd>
         </div>
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">

@@ -3,7 +3,8 @@ import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk
 import type { TConfirmedContractTx, TSignedTransactionSubmitter } from "./transaction";
 import type { TWalletExecutionMode } from "./transactionExecutor";
 
-import { toTokenAmount } from "./amounts";
+import { stablecoinConfig } from "./stablecoin-config";
+import { toTokenUnits } from "./amounts";
 import { getSmartAccountKit } from "./smart-account-kit";
 import { simulateContractCall } from "./transaction";
 import { executeHighrableContractCall } from "./transactionExecutor";
@@ -58,6 +59,10 @@ function bytesN32ScVal(bytes: Uint8Array): xdr.ScVal {
   }
 
   return nativeToScVal(bytes, { type: "bytes" });
+}
+
+function toEscrowTokenAmount(amount: number, decimals = stablecoinConfig.decimals): bigint {
+  return toTokenUnits(amount, decimals);
 }
 
 async function executeEscrowContract(
@@ -237,6 +242,7 @@ export async function createEscrowOnChain(
     freelancer: string;
     asset: string;
     amount: number;
+    assetDecimals?: number;
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
@@ -257,7 +263,7 @@ export async function createEscrowOnChain(
       addressScVal(params.client),
       addressScVal(params.freelancer),
       addressScVal(params.asset),
-      i128ScVal(toTokenAmount(params.amount)),
+      i128ScVal(toEscrowTokenAmount(params.amount, params.assetDecimals)),
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
@@ -281,7 +287,7 @@ export async function createEscrowOnChain(
       client: params.client,
       freelancer: params.freelancer,
       asset: params.asset,
-      amount: toTokenAmount(params.amount),
+      amount: toEscrowTokenAmount(params.amount, params.assetDecimals),
       jobHash: params.jobHash,
     }));
 
@@ -296,6 +302,7 @@ export async function createOpenEscrowOnChain(
     client: string;
     asset: string;
     amount: number;
+    assetDecimals?: number;
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
@@ -315,7 +322,7 @@ export async function createOpenEscrowOnChain(
     args: [
       addressScVal(params.client),
       addressScVal(params.asset),
-      i128ScVal(toTokenAmount(params.amount)),
+      i128ScVal(toEscrowTokenAmount(params.amount, params.assetDecimals)),
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
@@ -339,7 +346,7 @@ export async function createOpenEscrowOnChain(
       client: params.client,
       freelancer: null,
       asset: params.asset,
-      amount: toTokenAmount(params.amount),
+      amount: toEscrowTokenAmount(params.amount, params.assetDecimals),
       jobHash: params.jobHash,
     }));
 
@@ -354,6 +361,7 @@ export async function createAndFundOpenEscrowOnChain(
     client: string;
     asset: string;
     amount: number;
+    assetDecimals?: number;
     jobHash: Uint8Array;
   },
 ): Promise<TEscrowResult & { escrowId: string }> {
@@ -373,7 +381,7 @@ export async function createAndFundOpenEscrowOnChain(
     args: [
       addressScVal(params.client),
       addressScVal(params.asset),
-      i128ScVal(toTokenAmount(params.amount)),
+      i128ScVal(toEscrowTokenAmount(params.amount, params.assetDecimals)),
       bytesN32ScVal(params.jobHash),
     ],
     signTransaction: params.signTransaction,
@@ -397,7 +405,7 @@ export async function createAndFundOpenEscrowOnChain(
       client: params.client,
       freelancer: null,
       asset: params.asset,
-      amount: toTokenAmount(params.amount),
+      amount: toEscrowTokenAmount(params.amount, params.assetDecimals),
       jobHash: params.jobHash,
     }));
 
@@ -522,10 +530,10 @@ export async function getEscrowOnChain(
   return normalizeOnChainEscrow(result);
 }
 
-export async function getStablecoinBalanceOnChain(params: {
+export async function getTokenBalanceOnChain(params: {
   rpcUrl: string;
   networkPassphrase: string;
-  stablecoinTokenContractId: string;
+  tokenContractId: string;
   sourceAddress: string;
   walletAddress: string;
 }): Promise<bigint> {
@@ -533,7 +541,7 @@ export async function getStablecoinBalanceOnChain(params: {
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     sourceAddress: resolveReadSourceAddress(params.sourceAddress),
-    contractId: params.stablecoinTokenContractId,
+    contractId: params.tokenContractId,
     method: "balance",
     args: [addressScVal(params.walletAddress)],
   });
@@ -547,4 +555,20 @@ export async function getStablecoinBalanceOnChain(params: {
   }
 
   return 0n;
+}
+
+export async function getStablecoinBalanceOnChain(params: {
+  rpcUrl: string;
+  networkPassphrase: string;
+  stablecoinTokenContractId: string;
+  sourceAddress: string;
+  walletAddress: string;
+}): Promise<bigint> {
+  return await getTokenBalanceOnChain({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    tokenContractId: params.stablecoinTokenContractId,
+    sourceAddress: params.sourceAddress,
+    walletAddress: params.walletAddress,
+  });
 }

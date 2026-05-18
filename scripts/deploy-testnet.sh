@@ -14,6 +14,8 @@ HORIZON_URL="https://horizon-testnet.stellar.org"
 
 DEPLOYER="${DEPLOYER:-${1:-}}"
 PLATFORM_ADMIN="${PLATFORM_ADMIN:-${2:-${DEPLOYER:-}}}"
+STABLECOIN_TOKEN_CONTRACT_ID="${NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID:-${STABLECOIN_TOKEN_CONTRACT_ID:-}}"
+NATIVE_XLM_TOKEN_CONTRACT_ID="${NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID:-${NATIVE_XLM_TOKEN_CONTRACT_ID:-}}"
 
 fail() {
   printf "Error: %s\n" "$1" >&2
@@ -131,6 +133,26 @@ verify_contract_wiring() {
   printf "  Escrow next escrow id: %s\n" "${next_escrow_id}"
 }
 
+allow_asset_if_configured() {
+  local escrow_id="$1"
+  local asset_id="$2"
+  local label="$3"
+
+  if [[ -z "${asset_id}" ]]; then
+    printf "%s is not configured; skipping allowlist.\n" "${label}"
+    return 0
+  fi
+
+  assert_is_contract_id "${asset_id}" "${label}"
+
+  printf "Allowlisting %s...\n" "${label}"
+  invoke_contract "${escrow_id}" add_allowed_asset --platform_admin "${PLATFORM_ADMIN}" --asset "${asset_id}" >/dev/null
+
+  local allowed
+  allowed="$(normalize_output "$(invoke_contract "${escrow_id}" is_allowed_asset --asset "${asset_id}")")"
+  [[ "${allowed}" == "true" ]] || fail "Verification failed: ${label} was not allowlisted."
+}
+
 write_artifact() {
   local reputation_id="$1"
   local escrow_id="$2"
@@ -212,6 +234,8 @@ main() {
 
   printf "Running deployment verification...\n"
   verify_contract_wiring "${reputation_contract_id}" "${escrow_contract_id}"
+  allow_asset_if_configured "${escrow_contract_id}" "${STABLECOIN_TOKEN_CONTRACT_ID}" "NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID"
+  allow_asset_if_configured "${escrow_contract_id}" "${NATIVE_XLM_TOKEN_CONTRACT_ID}" "NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID"
 
   write_artifact "${reputation_contract_id}" "${escrow_contract_id}" "${deployer_address}"
 
@@ -226,6 +250,8 @@ main() {
   printf "NEXT_PUBLIC_STELLAR_HORIZON_URL=%s\n" "${HORIZON_URL}"
   printf "NEXT_PUBLIC_REPUTATION_CONTRACT_ID=%s\n" "${reputation_contract_id}"
   printf "NEXT_PUBLIC_ESCROW_CONTRACT_ID=%s\n" "${escrow_contract_id}"
+  printf "NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID=%s\n" "${STABLECOIN_TOKEN_CONTRACT_ID}"
+  printf "NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID=%s\n" "${NATIVE_XLM_TOKEN_CONTRACT_ID}"
 
   printf "\nAdd these to backend/Convex environment:\n"
   printf "STELLAR_NETWORK=%s\n" "${NETWORK}"

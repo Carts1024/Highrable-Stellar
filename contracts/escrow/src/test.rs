@@ -15,12 +15,14 @@ struct TTestContext {
     escrow_client: EscrowContractClient<'static>,
     reputation_client: ReputationContractClient<'static>,
     mock_usdc_client: token::Client<'static>,
+    mock_xlm_client: token::Client<'static>,
     escrow_contract_id: Address,
     platform_admin: Address,
     client: Address,
     freelancer: Address,
     outsider: Address,
     mock_usdc_token: Address,
+    mock_xlm_token: Address,
 }
 
 fn hash_from_byte(env: &Env, value: u8) -> BytesN<32> {
@@ -48,6 +50,9 @@ fn setup() -> TTestContext {
     let mock_usdc_admin = Address::generate(&env);
     let mock_usdc_token_contract = env.register_stellar_asset_contract_v2(mock_usdc_admin.clone());
     let mock_usdc_token = mock_usdc_token_contract.address();
+    let mock_xlm_admin = Address::generate(&env);
+    let mock_xlm_token_contract = env.register_stellar_asset_contract_v2(mock_xlm_admin.clone());
+    let mock_xlm_token = mock_xlm_token_contract.address();
 
     let reputation_contract_id = env.register(ReputationContract, ());
     let escrow_contract_id = env.register(EscrowContract, ());
@@ -62,18 +67,22 @@ fn setup() -> TTestContext {
 
     let token_admin_client = token::StellarAssetClient::new(env_ref, &mock_usdc_token);
     token_admin_client.mint(&client, &10_000);
+    let xlm_admin_client = token::StellarAssetClient::new(env_ref, &mock_xlm_token);
+    xlm_admin_client.mint(&client, &20_000);
 
     TTestContext {
         env: env_ref.clone(),
         escrow_client,
         reputation_client,
         mock_usdc_client: token::Client::new(env_ref, &mock_usdc_token),
+        mock_xlm_client: token::Client::new(env_ref, &mock_xlm_token),
         escrow_contract_id,
         platform_admin,
         client,
         freelancer,
         outsider,
         mock_usdc_token,
+        mock_xlm_token,
     }
 }
 
@@ -969,6 +978,120 @@ fn allowlist_rejects_non_allowed_assets_when_configured() {
         &other_asset,
         &200,
         &hash_from_byte(&context.env, 53),
+    );
+
+    assert_eq!(result, Err(Ok(Error::AssetNotAllowed)));
+}
+
+#[test]
+fn platform_admin_can_allow_native_xlm_sac_asset() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    assert_eq!(
+        context.escrow_client.is_allowed_asset(&context.mock_xlm_token),
+        true
+    );
+}
+
+#[test]
+fn xlm_sac_escrow_lifecycle_uses_token_transfer_semantics() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_usdc_token);
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    let escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &1_500,
+        &hash_from_byte(&context.env, 58),
+    );
+    context
+        .escrow_client
+        .fund_escrow(&context.client, &escrow_id);
+    context
+        .escrow_client
+        .submit_work(&context.freelancer, &escrow_id);
+    context.escrow_client.approve_and_release(
+        &context.client,
+        &escrow_id,
+        &5,
+        &hash_from_byte(&context.env, 59),
+    );
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.asset, context.mock_xlm_token);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_xlm_client.balance(&context.client), 18_500);
+    assert_eq!(context.mock_xlm_client.balance(&context.freelancer), 1_500);
+    assert_eq!(
+        context.mock_xlm_client.balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn funded_xlm_sac_escrow_cancel_refunds_client() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    let escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &2_000,
+        &hash_from_byte(&context.env, 60),
+    );
+    context
+        .escrow_client
+        .fund_escrow(&context.client, &escrow_id);
+    context
+        .escrow_client
+        .cancel_escrow(&context.client, &escrow_id);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.status, TEscrowStatus::Cancelled);
+    assert_eq!(context.mock_xlm_client.balance(&context.client), 20_000);
+    assert_eq!(
+        context.mock_xlm_client.balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn removing_xlm_sac_from_allowlist_blocks_new_escrows() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+    context
+        .escrow_client
+        .remove_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_usdc_token);
+
+    let result = context.escrow_client.try_create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &500,
+        &hash_from_byte(&context.env, 61),
     );
 
     assert_eq!(result, Err(Ok(Error::AssetNotAllowed)));

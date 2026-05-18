@@ -2,7 +2,8 @@
 
 import { Buffer } from "buffer";
 
-import { toTokenAmount } from "@/core/stellar/amounts";
+import { toTokenUnits } from "@/core/stellar/amounts";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { bytesToHex } from "@/core/stellar/hashes";
 import {
   getSmartAccountConfig,
@@ -100,6 +101,10 @@ function u32ScVal(value: number): xdr.ScVal {
 
 function i128ScVal(amount: bigint): xdr.ScVal {
   return nativeToScVal(amount, { type: "i128" });
+}
+
+function toEscrowTokenAmount(amount: number, decimals = stablecoinConfig.decimals): bigint {
+  return toTokenUnits(amount, decimals);
 }
 
 function bytesN32ScVal(bytes: Uint8Array): xdr.ScVal {
@@ -1344,6 +1349,7 @@ export async function createEscrowWithPasskey(
     readonly freelancerWallet: string;
     readonly assetContractId: string;
     readonly amount: number;
+    readonly assetDecimals?: number;
     readonly jobHashOrMilestoneHash: Uint8Array;
   },
 ): Promise<IPasskeySmartAccountExecutionResult> {
@@ -1356,7 +1362,7 @@ export async function createEscrowWithPasskey(
       addressScVal(params.smartAccountAddress),
       addressScVal(params.freelancerWallet),
       addressScVal(params.assetContractId),
-      i128ScVal(toTokenAmount(params.amount)),
+      i128ScVal(toEscrowTokenAmount(params.amount, params.assetDecimals)),
       bytesN32ScVal(params.jobHashOrMilestoneHash),
     ],
     rpcUrl: params.rpcUrl,

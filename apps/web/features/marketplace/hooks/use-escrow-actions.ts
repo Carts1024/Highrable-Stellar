@@ -1,21 +1,24 @@
 "use client";
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
-import { toTokenAmount } from "@/core/stellar/amounts";
 import {
   approveAndReleaseOnChain,
   cancelEscrowOnChain,
   createEscrowOnChain,
   fundEscrowOnChain,
-  getStablecoinBalanceOnChain,
+  getTokenBalanceOnChain,
   markDisputedOnChain,
   submitWorkOnChain,
 } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { bytesToHex, toBytesN32Hash } from "@/core/stellar/hashes";
+import {
+  parseEscrowAssetAmount,
+  requireSupportedEscrowAsset,
+  type TEscrowPaymentAsset,
+} from "@/core/stellar/payment-assets";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
-import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -164,13 +167,7 @@ export function useEscrowActions({
         throw new Error("Select a freelancer before using this escrow action.");
       }
 
-      if (!job.asset) {
-        throw new Error("Job is missing the stablecoin token contract ID.");
-      }
-
-      if (!isSameWallet(job.asset, config.stablecoinTokenContractId)) {
-        throw new Error("This job's payment asset does not match the configured MVP stablecoin.");
-      }
+      const escrowAsset = requireSupportedEscrowAsset(job.asset);
 
       if (!job.jobHash) {
         throw new Error("Job is missing a hash for the escrow contract.");
@@ -199,7 +196,7 @@ export function useEscrowActions({
         throw new Error(guardResult.reason ?? "This escrow action is not currently available.");
       }
 
-      return config;
+      return { config, escrowAsset };
     },
     [
       address,
@@ -222,6 +219,7 @@ export function useEscrowActions({
       callback: (params: {
         clientRequestId: string;
         config: ReturnType<typeof getRequiredEscrowActionConfig>;
+        escrowAsset: TEscrowPaymentAsset;
       }) => Promise<{ txHash: string; success: string }>,
     ): Promise<boolean> => {
       if (state.pendingAction) {
@@ -237,7 +235,7 @@ export function useEscrowActions({
       });
 
       try {
-        const config = await validateBaseAction(action);
+        const { config, escrowAsset } = await validateBaseAction(action);
         const escrowId = escrow?.escrowId;
 
         await createTransaction({
@@ -250,7 +248,7 @@ export function useEscrowActions({
           status: "pending",
         });
 
-        const result = await callback({ clientRequestId, config });
+        const result = await callback({ clientRequestId, config, escrowAsset });
 
         await updateTransactionStatus({
           clientRequestId,
@@ -311,7 +309,7 @@ export function useEscrowActions({
   );
 
   const createEscrow = useCallback(async () => {
-    return await runEscrowAction("create_escrow", async ({ config }) => {
+    return await runEscrowAction("create_escrow", async ({ config, escrowAsset }) => {
       if (job.status !== "selected" || escrow) {
         throw new Error("Escrow can only be created after a freelancer is selected.");
       }
@@ -326,8 +324,9 @@ export function useEscrowActions({
         walletType: activeWalletType,
         client: job.clientWallet,
         freelancer: job.selectedFreelancerWallet!,
-        asset: config.stablecoinTokenContractId,
+        asset: escrowAsset.tokenContractId,
         amount: job.budget,
+        assetDecimals: escrowAsset.decimals,
         jobHash,
       });
 
@@ -337,7 +336,7 @@ export function useEscrowActions({
         clientWallet: job.clientWallet,
         freelancerWallet: job.selectedFreelancerWallet!,
         amount: job.budget,
-        asset: config.stablecoinTokenContractId,
+        asset: escrowAsset.tokenContractId,
         createTxHash: result.txHash,
       });
 
@@ -357,17 +356,17 @@ export function useEscrowActions({
   ]);
 
   const fundEscrow = useCallback(async () => {
-    return await runEscrowAction("fund_escrow", async ({ config }) => {
+    return await runEscrowAction("fund_escrow", async ({ config, escrowAsset }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "created") {
         throw new Error("Escrow must be created before it can be funded.");
       }
 
-      const requiredBalance = toTokenAmount(job.budget);
-      const stablecoinBalance = await getStablecoinBalanceOnChain({
+      const requiredBalance = parseEscrowAssetAmount(escrowAsset, job.budget);
+      const escrowTokenBalance = await getTokenBalanceOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
-        stablecoinTokenContractId: config.stablecoinTokenContractId,
+        tokenContractId: escrowAsset.tokenContractId,
         sourceAddress:
           activeWalletType === "passkey_smart_account"
             ? getSmartAccountKit().deployerPublicKey
@@ -375,11 +374,11 @@ export function useEscrowActions({
         walletAddress: activeWalletAddress!,
       });
 
-      if (stablecoinBalance < requiredBalance) {
+      if (escrowTokenBalance < requiredBalance) {
         throw new Error(
           activeWalletType === "passkey_smart_account"
-            ? `Your passkey smart account does not have enough ${stablecoinConfig.symbol}.`
-            : `You do not have enough ${stablecoinConfig.symbol} to fund this escrow.`,
+            ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
+            : `You do not have enough ${escrowAsset.symbol} to fund this escrow.`,
         );
       }
 

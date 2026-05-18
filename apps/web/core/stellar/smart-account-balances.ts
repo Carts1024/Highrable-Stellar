@@ -1,6 +1,6 @@
 import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { STELLAR_HORIZON_URL } from "@/core/config/web3";
-import { getStablecoinBalanceOnChain } from "@/core/stellar/escrow-contract";
+import { getTokenBalanceOnChain } from "@/core/stellar/escrow-contract";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
@@ -105,6 +105,18 @@ export async function getSmartAccountStablecoinBalance(
   address: string,
   tokenContractId: string,
 ): Promise<ISmartAccountBalanceResult> {
+  return await getSmartAccountEscrowTokenBalance(
+    address,
+    tokenContractId,
+    "Stablecoin token contract is not configured.",
+  );
+}
+
+export async function getSmartAccountEscrowTokenBalance(
+  address: string,
+  tokenContractId: string,
+  missingConfigMessage = "Escrow token contract is not configured.",
+): Promise<ISmartAccountBalanceResult> {
   const sanitizedAddress = sanitizeSmartAccountAddress(address);
   const sanitizedTokenContractId = tokenContractId.trim();
 
@@ -112,7 +124,7 @@ export async function getSmartAccountStablecoinBalance(
     return {
       status: "limited",
       balance: null,
-      message: "Stablecoin token contract is not configured.",
+      message: missingConfigMessage,
     };
   }
 
@@ -120,10 +132,10 @@ export async function getSmartAccountStablecoinBalance(
     const sourceAddress = CONTRACT_ACCOUNT_PATTERN.test(sanitizedAddress)
       ? getSmartAccountKit().deployerPublicKey
       : sanitizedAddress;
-    const balance = await getStablecoinBalanceOnChain({
+    const balance = await getTokenBalanceOnChain({
       rpcUrl: STELLAR_RPC_URL,
       networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-      stablecoinTokenContractId: sanitizedTokenContractId,
+      tokenContractId: sanitizedTokenContractId,
       sourceAddress,
       walletAddress: sanitizedAddress,
     });
@@ -137,7 +149,7 @@ export async function getSmartAccountStablecoinBalance(
     return {
       status: "error",
       balance: null,
-      message: error instanceof Error ? error.message : "Could not read stablecoin balance.",
+      message: error instanceof Error ? error.message : "Could not read escrow token balance.",
     };
   }
 }

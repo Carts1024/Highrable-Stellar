@@ -2,6 +2,7 @@
 
 import { formatTokenAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel } from "@/core/stellar/assets";
+import { getEscrowAssetByContractId } from "@/core/stellar/payment-assets";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { sanitizeMultilineInput } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -61,6 +62,7 @@ export function ReleasePaymentDialog({
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const escrowAsset = getEscrowAssetByContractId(asset);
 
   useEffect(() => {
     if (!isOpen) {
@@ -108,7 +110,11 @@ export function ReleasePaymentDialog({
           </p>
           <p>
             <span className="font-medium text-[#0a0a0a]">Amount:</span>{" "}
-            {formatTokenAmount(amount, formatAssetLabel(asset), stablecoinConfig.decimals)}
+            {formatTokenAmount(
+              amount,
+              formatAssetLabel(asset),
+              escrowAsset?.decimals ?? stablecoinConfig.decimals,
+            )}
           </p>
           <p>
             <span className="font-medium text-[#0a0a0a]">Asset:</span> {formatAssetLabel(asset)}

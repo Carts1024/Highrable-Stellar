@@ -1,13 +1,20 @@
 "use client";
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
-import { parseHumanAmount, toTokenAmount } from "@/core/stellar/amounts";
+import { parseHumanAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import {
   createAndFundOpenEscrowOnChain,
-  getStablecoinBalanceOnChain,
+  getTokenBalanceOnChain,
 } from "@/core/stellar/escrow-contract";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
+import {
+  getPrimaryEscrowAsset,
+  getSupportedEscrowAssets,
+  isSupportedEscrowAsset,
+  parseEscrowAssetAmount,
+  requireSupportedEscrowAsset,
+} from "@/core/stellar/payment-assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -41,7 +48,7 @@ import type {
   TJobType,
 } from "@/features/marketplace/types";
 
-const DEFAULT_STABLECOIN_ASSET = stablecoinConfig.tokenContractId ?? "";
+const DEFAULT_STABLECOIN_ASSET = getPrimaryEscrowAsset().tokenContractId;
 const MAX_HUMAN_BUDGET = 10_000_000;
 
 const CREATE_JOB_SCHEMA = z.object({
@@ -162,6 +169,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const stablecoinValidation = useMemo(() => validateStablecoinConfig(), []);
   const isStablecoinConfigured = useMemo(() => hasStablecoinConfig(), []);
+  const supportedEscrowAssets = useMemo(() => getSupportedEscrowAssets(), []);
   const [formState, setFormState] = useState<TCreateJobFormState>({
     title: "",
     description: "",
@@ -178,6 +186,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       },
     ],
   });
+  const isSelectedEscrowAssetSupported = isSupportedEscrowAsset(formState.asset);
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scamAnalysis = useMemo(
@@ -191,7 +200,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
   const helperText = useMemo(() => {
     if (isStablecoinConfigured && stablecoinConfig.tokenContractId) {
-      return `${stablecoinConfig.symbol} is configured for MVP escrow payments (${shortenContractId(
+      return `${stablecoinConfig.symbol} escrow is recommended because the job value stays stable (${shortenContractId(
         stablecoinConfig.tokenContractId,
       )}).`;
     }
@@ -335,6 +344,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       }
 
       const payload: TCreateJobPayload = parsed.data;
+      const selectedEscrowAsset = requireSupportedEscrowAsset(payload.asset);
       const parsedScamAnalysis = analyzeJobScamSignals({
         title: payload.title,
         description: payload.description,
@@ -425,27 +435,18 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         preFundingConfig = getRequiredEscrowActionConfig();
 
-        if (payload.asset !== preFundingConfig.stablecoinTokenContractId) {
-          setErrors({
-            submit:
-              "This job's payment asset must match the configured stablecoin to pre-fund escrow.",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-
-        const requiredBalance = toTokenAmount(payload.budget);
-        const stablecoinBalance = await getStablecoinBalanceOnChain({
+        const requiredBalance = parseEscrowAssetAmount(selectedEscrowAsset, payload.budget);
+        const escrowTokenBalance = await getTokenBalanceOnChain({
           rpcUrl: preFundingConfig.rpcUrl,
           networkPassphrase: preFundingConfig.networkPassphrase,
-          stablecoinTokenContractId: preFundingConfig.stablecoinTokenContractId,
+          tokenContractId: selectedEscrowAsset.tokenContractId,
           sourceAddress: address,
           walletAddress: address,
         });
 
-        if (stablecoinBalance < requiredBalance) {
+        if (escrowTokenBalance < requiredBalance) {
           setErrors({
-            submit: `You do not have enough ${stablecoinConfig.symbol} to pre-fund this escrow.`,
+            submit: `You do not have enough ${selectedEscrowAsset.symbol} to pre-fund this escrow.`,
           });
           setIsSubmitting(false);
           return;
@@ -485,8 +486,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             sourceAddress: address!,
             signTransaction,
             client: address!,
-            asset: preFundingConfig.stablecoinTokenContractId,
+            asset: selectedEscrowAsset.tokenContractId,
             amount: payload.budget,
+            assetDecimals: selectedEscrowAsset.decimals,
             jobHash: jobHashBytes,
           });
           confirmedEscrowId = result.escrowId;
@@ -497,7 +499,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             escrowId: result.escrowId,
             clientWallet: address!,
             amount: payload.budget,
-            asset: preFundingConfig.stablecoinTokenContractId,
+            asset: selectedEscrowAsset.tokenContractId,
             status: "funded",
             createTxHash: result.txHash,
             fundTxHash: result.txHash,
@@ -731,13 +733,58 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               Payment asset
             </label>
             {isStablecoinConfigured ? (
-              <div className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900">
-                <p className="font-medium text-[#0a0a0a]">
-                  Payment asset: {formatAssetLabel(stablecoinConfig.tokenContractId ?? "")}
-                </p>
-                <p className="mt-1 font-mono text-xs break-all text-[#5f5f5f]">
-                  {stablecoinConfig.tokenContractId}
-                </p>
+              <div className="space-y-3">
+                <div className="grid gap-3">
+                  {supportedEscrowAssets.map((asset) => {
+                    const isSelected = formState.asset === asset.tokenContractId;
+                    const isDisabled = !asset.isConfigured;
+
+                    return (
+                      <button
+                        key={asset.kind}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => updateField("asset", asset.tokenContractId)}
+                        className={`rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                          isSelected
+                            ? "border-[#FF7003] bg-white"
+                            : "border-gray-300 bg-gray-50 hover:border-[#FF7003]/50"
+                        }`}
+                        aria-pressed={isSelected}
+                      >
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-[#0a0a0a]">{asset.displayName}</span>
+                          {asset.isPrimary ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                              Recommended
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                              Advanced
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-1 block text-sm text-[#5f5f5f]">
+                          {asset.kind === "stablecoin"
+                            ? "Recommended. Stable job value for freelance escrow."
+                            : asset.isConfigured
+                              ? "Advanced. Job value may fluctuate with XLM market price."
+                              : "XLM escrow is not configured for this deployment."}
+                        </span>
+                        {asset.kind === "native_xlm" && asset.isConfigured ? (
+                          <span className="mt-1 block text-xs text-amber-800">
+                            XLM escrow is available, but the job value may fluctuate.
+                          </span>
+                        ) : null}
+                        {asset.tokenContractId ? (
+                          <span className="mt-1 block font-mono text-xs break-all text-[#5f5f5f]">
+                            {asset.tokenContractId}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <AppInput
@@ -874,7 +921,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 checked={formState.fundEscrowNow}
                 onCheckedChange={updateFundEscrowNow}
                 disabled={
-                  !isStablecoinConfigured ||
+                  !isSelectedEscrowAssetSupported ||
                   !walletIdentity.canSignEscrowTransactions ||
                   walletIdentity.walletType === "passkey_smart_account" ||
                   isSubmitting

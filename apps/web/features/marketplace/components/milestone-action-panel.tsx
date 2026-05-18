@@ -1,8 +1,13 @@
 "use client";
 
-import { formatAssetLabel, isConfiguredStablecoin } from "@/core/stellar/assets";
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
+import {
+  getEscrowAssetByContractId,
+  getUnsupportedEscrowAssetMessage,
+  isSupportedEscrowAsset,
+} from "@/core/stellar/payment-assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -66,12 +71,14 @@ export function MilestoneActionPanel({
 
   const isStablecoinConfigured = hasStablecoinConfig();
   const stablecoinConfigValidation = validateStablecoinConfig();
-  const isMilestoneAssetConfiguredStablecoin = isConfiguredStablecoin(milestone.asset);
+  const milestoneEscrowAsset = getEscrowAssetByContractId(milestone.asset);
+  const isMilestoneAssetSupported = isSupportedEscrowAsset(milestone.asset);
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
   const stablecoinReadiness = useStablecoinReadiness({
     walletAddress: walletIdentity.walletAddress,
     requiredAmount: milestone.amount,
     tokenContractId: milestone.asset || stablecoinConfig.tokenContractId,
+    asset: milestoneEscrowAsset ?? undefined,
     enabled:
       milestone.status === "escrow_created" &&
       role === "client" &&
@@ -84,8 +91,7 @@ export function MilestoneActionPanel({
     !walletIdentity.canSignEscrowTransactions ||
     role !== "client" ||
     escrow?.status !== "created" ||
-    !isStablecoinConfigured ||
-    !isMilestoneAssetConfiguredStablecoin ||
+    !isMilestoneAssetSupported ||
     stablecoinReadiness.isLoading ||
     stablecoinReadiness.requiredAmountAtomic === null ||
     stablecoinReadiness.error !== null ||
@@ -133,15 +139,20 @@ export function MilestoneActionPanel({
         </div>
       ) : null}
 
-      {!isStablecoinConfigured ? (
+      {!isStablecoinConfigured && milestoneEscrowAsset?.kind === "stablecoin" ? (
         <TrustWarning
           message={
             stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
           }
         />
       ) : null}
-      {isStablecoinConfigured && !isMilestoneAssetConfiguredStablecoin ? (
-        <TrustWarning message="This milestone uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
+      {!isMilestoneAssetSupported ? (
+        <TrustWarning
+          message={milestoneEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage()}
+        />
+      ) : null}
+      {milestoneEscrowAsset?.kind === "native_xlm" ? (
+        <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
       ) : null}
       {walletIdentity.walletType ? (
         <p className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-sm text-[#3f3f3f]">
@@ -186,13 +197,14 @@ export function MilestoneActionPanel({
                 walletAddress={walletIdentity.walletAddress}
                 requiredAmount={milestone.amount}
                 tokenContractId={milestone.asset || stablecoinConfig.tokenContractId}
+                asset={milestoneEscrowAsset ?? undefined}
                 enabled
                 readinessState={stablecoinReadiness}
                 isRefreshDisabled={isPending}
               />
               {stablecoinReadiness.hasSufficientBalance === false ? (
                 <TrustWarning
-                  message={`Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`}
+                  message={`Insufficient ${milestoneEscrowAsset?.symbol ?? stablecoinConfig.symbol} balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${milestoneEscrowAsset?.symbol ?? stablecoinConfig.symbol}.`}
                 />
               ) : null}
               <div className="flex flex-wrap gap-2">

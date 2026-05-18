@@ -10,6 +10,7 @@
 
 import type * as _shared_enum from "../_shared/enum.js";
 import type * as _shared_errors from "../_shared/errors.js";
+import type * as _shared_escrowAssets from "../_shared/escrowAssets.js";
 import type * as _shared_input from "../_shared/input.js";
 import type * as applications from "../applications.js";
 import type * as applications_helpers from "../applications/helpers.js";
@@ -65,6 +66,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_shared/enum": typeof _shared_enum;
   "_shared/errors": typeof _shared_errors;
+  "_shared/escrowAssets": typeof _shared_escrowAssets;
   "_shared/input": typeof _shared_input;
   applications: typeof applications;
   "applications/helpers": typeof applications_helpers;

@@ -1,8 +1,13 @@
 "use client";
 
-import { formatAssetLabel, isConfiguredStablecoin } from "@/core/stellar/assets";
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
+import {
+  getEscrowAssetByContractId,
+  getUnsupportedEscrowAssetMessage,
+  isSupportedEscrowAsset,
+} from "@/core/stellar/payment-assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -75,7 +80,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
   const isStablecoinConfigured = hasStablecoinConfig();
   const stablecoinConfigValidation = validateStablecoinConfig();
-  const isJobAssetConfiguredStablecoin = isConfiguredStablecoin(job.asset);
+  const jobEscrowAsset = getEscrowAssetByContractId(job.asset);
+  const isJobAssetSupported = isSupportedEscrowAsset(job.asset);
 
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
@@ -152,6 +158,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     walletAddress: walletIdentity.walletAddress,
     requiredAmount: job.budget,
     tokenContractId: job.asset || stablecoinConfig.tokenContractId,
+    asset: jobEscrowAsset ?? undefined,
     enabled:
       currentStatus === "created" &&
       role === "client" &&
@@ -162,8 +169,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const isFundEscrowDisabled =
     isPending ||
     !actionGuards.fundEscrow.canAct ||
-    !isStablecoinConfigured ||
-    !isJobAssetConfiguredStablecoin ||
+    !isJobAssetSupported ||
     stablecoinReadiness.isLoading ||
     stablecoinReadiness.requiredAmountAtomic === null ||
     stablecoinReadiness.error !== null ||
@@ -178,11 +184,10 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       value: isPasskeyMode || walletState.isTestnet ? "testnet" : "not testnet",
     },
     {
-      label: "Stablecoin token configured",
-      isReady: isStablecoinConfigured,
-      value: isStablecoinConfigured
-        ? formatAssetLabel(stablecoinConfig.tokenContractId ?? "")
-        : "missing",
+      label:
+        jobEscrowAsset?.kind === "native_xlm" ? "XLM escrow configured" : "USDC escrow configured",
+      isReady: isJobAssetSupported,
+      value: isJobAssetSupported ? formatAssetLabel(job.asset) : "missing",
     },
     {
       label: "Wallet connected",
@@ -199,8 +204,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           : "ready",
     },
     {
-      label: "Job uses MVP stablecoin",
-      isReady: isJobAssetConfiguredStablecoin,
+      label: "Job uses supported escrow asset",
+      isReady: isJobAssetSupported,
       value: formatAssetLabel(job.asset),
     },
     {
@@ -209,7 +214,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       value: stablecoinReadiness.requiredAmountDisplay ?? "invalid",
     },
     {
-      label: `Enough ${stablecoinConfig.symbol}`,
+      label: `Enough ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol}`,
       isReady:
         stablecoinReadiness.hasSufficientBalance === null
           ? stablecoinReadiness.error === null
@@ -275,7 +280,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       ) : null}
 
       <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-        <h3 className="text-sm font-semibold text-[#0a0a0a]">Stablecoin readiness checklist</h3>
+        <h3 className="text-sm font-semibold text-[#0a0a0a]">Escrow readiness checklist</h3>
         <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           {readinessChecklist.map((item) => (
             <li
@@ -292,9 +297,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           ))}
         </ul>
         <p className="mt-3 text-xs text-[#5f5f5f]">
-          Trustlines are treated as legacy wallet infrastructure in this MVP. Escrow readiness is
-          determined by the configured stablecoin token, wallet balance, and Stellar testnet fee
-          funding.
+          Fee XLM and escrow token balances are checked separately. XLM escrow uses the native XLM
+          token contract and still requires network fee funding.
         </p>
       </div>
 
@@ -308,9 +312,23 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         </div>
       ) : null}
 
-      {isStablecoinConfigured && !isJobAssetConfiguredStablecoin ? (
+      {!isJobAssetSupported ? (
         <div className="mt-4">
-          <TrustWarning message="This job uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
+          <TrustWarning
+            message={jobEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage()}
+          />
+        </div>
+      ) : null}
+
+      {jobEscrowAsset?.kind === "native_xlm" ? (
+        <div className="mt-4">
+          <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+          {isPasskeyMode ? (
+            <p className="mt-2 rounded-lg border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+              XLM escrow will be funded through your passkey smart account using the native XLM
+              token contract.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -374,12 +392,14 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           warningText={
             role === "selectedFreelancer"
               ? "Escrow created. Waiting for client to fund and confirm work can begin."
-              : role === "client" && !isStablecoinConfigured
+              : role === "client" &&
+                  !isStablecoinConfigured &&
+                  jobEscrowAsset?.kind === "stablecoin"
                 ? stablecoinConfigValidation.message
-                : role === "client" && !isJobAssetConfiguredStablecoin
-                  ? "This job uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety."
+                : role === "client" && !isJobAssetSupported
+                  ? (jobEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage())
                   : role === "client" && stablecoinReadiness.hasSufficientBalance === false
-                    ? `Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`
+                    ? `Insufficient ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol} balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol}.`
                     : role === "client" && stablecoinReadiness.error
                       ? stablecoinReadiness.error
                       : role === "client" && !actionGuards.fundEscrow.canAct
@@ -394,6 +414,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 walletAddress={walletIdentity.walletAddress}
                 requiredAmount={job.budget}
                 tokenContractId={job.asset || stablecoinConfig.tokenContractId}
+                asset={jobEscrowAsset ?? undefined}
                 enabled={currentStatus === "created" && role === "client"}
                 readinessState={stablecoinReadiness}
                 isRefreshDisabled={isPending}

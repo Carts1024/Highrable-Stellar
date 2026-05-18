@@ -2,7 +2,12 @@
 
 import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { fromTokenUnits, toTokenUnits } from "@/core/stellar/amounts";
-import { getStablecoinBalanceOnChain } from "@/core/stellar/escrow-contract";
+import { getTokenBalanceOnChain } from "@/core/stellar/escrow-contract";
+import {
+  getEscrowAssetByContractId,
+  getPrimaryEscrowAsset,
+  type TEscrowPaymentAsset,
+} from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { stablecoinConfig, validateStablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { TStellarAddressSchema } from "@/core/wallet/validation";
@@ -18,6 +23,7 @@ interface IUseStablecoinReadinessParams {
   readonly walletAddress: string | null | undefined;
   readonly requiredAmount?: number | string;
   readonly tokenContractId?: string;
+  readonly asset?: TEscrowPaymentAsset;
   readonly enabled?: boolean;
 }
 
@@ -30,7 +36,7 @@ function toErrorMessage(error: unknown): string {
     return error.trim();
   }
 
-  return "Could not read stablecoin balance. Check the token contract ID and network.";
+  return "Could not read escrow token balance. Check the token contract ID and network.";
 }
 
 export type TStablecoinReadinessResult = {
@@ -53,6 +59,7 @@ export function useStablecoinReadiness({
   walletAddress,
   requiredAmount,
   tokenContractId,
+  asset,
   enabled = true,
 }: IUseStablecoinReadinessParams): TStablecoinReadinessResult {
   const activeRequestRef = useRef(0);
@@ -74,15 +81,25 @@ export function useStablecoinReadiness({
     }
   }, [walletAddress]);
 
-  const resolvedTokenContractId = tokenContractId ?? stablecoinConfig.tokenContractId;
-  const configValidation = useMemo(
-    () =>
-      validateStablecoinConfig({
+  const resolvedTokenContractId =
+    tokenContractId ?? asset?.tokenContractId ?? stablecoinConfig.tokenContractId;
+  const resolvedAsset = useMemo(
+    () => asset ?? getEscrowAssetByContractId(resolvedTokenContractId) ?? getPrimaryEscrowAsset(),
+    [asset, resolvedTokenContractId],
+  );
+  const configValidation = useMemo(() => {
+    if (resolvedAsset.kind === "stablecoin") {
+      return validateStablecoinConfig({
         ...stablecoinConfig,
         tokenContractId: resolvedTokenContractId,
-      }),
-    [resolvedTokenContractId],
-  );
+      });
+    }
+
+    return {
+      isValid: resolvedAsset.isConfigured,
+      message: resolvedAsset.readinessMessage ?? null,
+    };
+  }, [resolvedAsset, resolvedTokenContractId]);
 
   const requiredAmountAtomic = useMemo(() => {
     if (
@@ -94,11 +111,11 @@ export function useStablecoinReadiness({
     }
 
     try {
-      return toTokenUnits(requiredAmount, stablecoinConfig.decimals);
+      return toTokenUnits(requiredAmount, resolvedAsset.decimals);
     } catch {
       return null;
     }
-  }, [requiredAmount]);
+  }, [requiredAmount, resolvedAsset.decimals]);
 
   const refresh = useCallback(async () => {
     const requestId = activeRequestRef.current + 1;
@@ -118,7 +135,7 @@ export function useStablecoinReadiness({
         ...currentValue,
         balanceAtomic: null,
         isLoading: false,
-        error: configValidation.message ?? "Stablecoin token contract is not configured.",
+        error: configValidation.message ?? "Escrow token contract is not configured.",
       }));
       return;
     }
@@ -128,7 +145,7 @@ export function useStablecoinReadiness({
         ...currentValue,
         balanceAtomic: null,
         isLoading: false,
-        error: "Connect a valid Stellar wallet to check stablecoin readiness.",
+        error: "Connect a valid Stellar wallet to check escrow token readiness.",
       }));
       return;
     }
@@ -159,10 +176,10 @@ export function useStablecoinReadiness({
         ? getSmartAccountKit().deployerPublicKey
         : sanitizedWalletAddress;
 
-      const balanceAtomic = await getStablecoinBalanceOnChain({
+      const balanceAtomic = await getTokenBalanceOnChain({
         rpcUrl: STELLAR_RPC_URL,
         networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-        stablecoinTokenContractId: resolvedTokenContractId,
+        tokenContractId: resolvedTokenContractId,
         sourceAddress,
         walletAddress: sanitizedWalletAddress,
       });
@@ -193,6 +210,7 @@ export function useStablecoinReadiness({
     enabled,
     requiredAmount,
     requiredAmountAtomic,
+    resolvedAsset.decimals,
     resolvedTokenContractId,
     sanitizedWalletAddress,
   ]);
@@ -220,22 +238,22 @@ export function useStablecoinReadiness({
   }, [requiredAmountAtomic, state.balanceAtomic]);
 
   return {
-    symbol: stablecoinConfig.symbol,
-    decimals: stablecoinConfig.decimals,
+    symbol: resolvedAsset.symbol,
+    decimals: resolvedAsset.decimals,
     tokenContractId: resolvedTokenContractId,
     requiredAmountAtomic,
     requiredAmountDisplay:
       requiredAmountAtomic === null
         ? null
-        : fromTokenUnits(requiredAmountAtomic, stablecoinConfig.decimals),
+        : fromTokenUnits(requiredAmountAtomic, resolvedAsset.decimals),
     balanceAtomic: state.balanceAtomic,
     balanceDisplay:
       state.balanceAtomic === null
         ? null
-        : fromTokenUnits(state.balanceAtomic, stablecoinConfig.decimals),
+        : fromTokenUnits(state.balanceAtomic, resolvedAsset.decimals),
     deficitAtomic,
     deficitDisplay:
-      deficitAtomic === null ? null : fromTokenUnits(deficitAtomic, stablecoinConfig.decimals),
+      deficitAtomic === null ? null : fromTokenUnits(deficitAtomic, resolvedAsset.decimals),
     hasSufficientBalance,
     isLoading: state.isLoading,
     error: state.error,

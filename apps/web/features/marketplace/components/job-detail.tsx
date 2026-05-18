@@ -1,6 +1,7 @@
 "use client";
 
 import { formatAssetLabel } from "@/core/stellar/assets";
+import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
@@ -93,6 +94,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
   });
   const jobType = job.jobType ?? "micro_gig";
   const isMilestoneProject = jobType === "milestone_project";
+  const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
   const projectSummary = milestoneSummary;
 
   return (
@@ -169,6 +171,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <div>
             <dt className="text-[#7f7f7f]">Asset</dt>
             <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
+            {isNativeXlmJob ? (
+              <p className="mt-1 text-xs text-amber-800">
+                XLM escrow is volatile. Final fiat value may change.
+              </p>
+            ) : null}
           </div>
           <div>
             <dt className="text-[#7f7f7f]">Client wallet</dt>

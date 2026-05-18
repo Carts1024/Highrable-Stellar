@@ -2,6 +2,10 @@
 
 import { formatTokenAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel } from "@/core/stellar/assets";
+import {
+  getEscrowAssetByContractId,
+  type TEscrowPaymentAsset,
+} from "@/core/stellar/payment-assets";
 import { stablecoinConfig, validateStablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 
@@ -14,6 +18,7 @@ interface IStablecoinBalancePanelProps {
   readonly walletAddress: string | null | undefined;
   readonly requiredAmount?: number | string;
   readonly tokenContractId?: string;
+  readonly asset?: TEscrowPaymentAsset;
   readonly enabled?: boolean;
   readonly isRefreshDisabled?: boolean;
   readonly readinessState?: TStablecoinReadinessResult;
@@ -23,6 +28,7 @@ export function StablecoinBalancePanel({
   walletAddress,
   requiredAmount,
   tokenContractId,
+  asset,
   enabled = true,
   isRefreshDisabled,
   readinessState,
@@ -33,6 +39,7 @@ export function StablecoinBalancePanel({
       walletAddress,
       requiredAmount,
       tokenContractId,
+      asset,
       enabled,
     });
 
@@ -40,6 +47,7 @@ export function StablecoinBalancePanel({
     ...stablecoinConfig,
     tokenContractId: tokenContractId ?? stablecoinConfig.tokenContractId,
   });
+  const escrowAsset = getEscrowAssetByContractId(readiness.tokenContractId);
 
   const readinessLabel =
     readiness.hasSufficientBalance === null
@@ -60,7 +68,9 @@ export function StablecoinBalancePanel({
   return (
     <div className="space-y-3 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-[#0a0a0a]">Stablecoin balance</h3>
+        <h3 className="text-sm font-semibold text-[#0a0a0a]">
+          {escrowAsset?.kind === "native_xlm" ? "XLM escrow balance" : "USDC escrow balance"}
+        </h3>
         <span
           className={`inline-flex rounded-full border px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase ${readinessClassName}`}
         >
@@ -105,10 +115,10 @@ export function StablecoinBalancePanel({
       ) : null}
 
       <p className="text-xs text-[#5f5f5f]">
-        Friendbot funds testnet XLM for fees. It does not fund {assetLabel}.
+        You still need a small amount of XLM for network fees.
       </p>
 
-      {!configValidation.isValid ? (
+      {escrowAsset?.kind === "stablecoin" && !configValidation.isValid ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {configValidation.message}
         </p>

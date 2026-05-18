@@ -4,6 +4,7 @@ import type { TEscrowTransactionType } from "./schema";
 import type { TEscrowTxField, TJobStatusPatch } from "./types";
 
 import { ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
+import { sanitizeSupportedEscrowAsset } from "../_shared/escrowAssets";
 import {
   normalizeWalletAddress,
   optionalNonEmptyString,
@@ -47,7 +48,7 @@ export function sanitizeEscrowAmount(amount: number): number {
 }
 
 export function sanitizeEscrowAsset(asset: string): string {
-  return requireNonEmptyString(asset, "asset");
+  return sanitizeSupportedEscrowAsset(asset);
 }
 
 export function sanitizeOptionalTxHash(txHash: string | undefined): string | undefined {
