@@ -63,12 +63,13 @@ const TStellarPublicKeySchema = z
   .string()
   .trim()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar public key format");
-const Hash64Schema = z.string().trim().regex(/^[a-fA-F0-9]{64}$/, "Invalid 32-byte hash format");
+const Hash64Schema = z
+  .string()
+  .trim()
+  .regex(/^[a-fA-F0-9]{64}$/, "Invalid 32-byte hash format");
 
 const ClientEnvSchema = z.object({
-  NEXT_PUBLIC_STELLAR_NETWORK: z
-    .enum(["local", "testnet", "mainnet", "public"])
-    .default("testnet"),
+  NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["local", "testnet", "mainnet", "public"]).default("testnet"),
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url().default("https://soroban-testnet.stellar.org"),
   NEXT_PUBLIC_STELLAR_HORIZON_URL: z.string().url().default("https://horizon-testnet.stellar.org"),
   NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: z
@@ -156,16 +157,14 @@ function validateEnv(): IServerEnv {
       process.env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID,
     NEXT_PUBLIC_PASSKEY_RP_NAME: process.env.NEXT_PUBLIC_PASSKEY_RP_NAME,
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL,
-    NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND:
-      process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
+    NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
     SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,
     SMART_ACCOUNT_RELAYER_PUBLIC_KEY: process.env.SMART_ACCOUNT_RELAYER_PUBLIC_KEY,
     SMART_ACCOUNT_CHANNELS_API_KEY: process.env.SMART_ACCOUNT_CHANNELS_API_KEY,
     SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS: process.env.SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS,
-    SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX:
-      process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX,
+    SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX: process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX,
     SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY:
       process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY,
     SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE:
