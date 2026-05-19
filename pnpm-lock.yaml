@@ -100,8 +100,8 @@ importers:
         specifier: ^14.2.0
         version: 14.2.0
       convex:
-        specifier: ^1.38.0
-        version: 1.39.0(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
+        specifier: 1.38.0
+        version: 1.38.0(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6)
     devDependencies:
       '@types/node':
         specifier: ^25.2.3
@@ -3243,6 +3243,25 @@ packages:
 
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
+
+  convex@1.38.0:
+    resolution: {integrity: sha512-122AC6y5lUS7mr39cluLw9+TOtRX5d/XxeivHhHObs/NTXoVvOnIgDzexVcxaz6Rk0oLFSoydSR1rDCltEz/0A==}
+    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@auth0/auth0-react': ^2.0.1
+      '@clerk/clerk-react': ^4.12.8 || ^5.0.0
+      '@clerk/react': ^6.4.3
+      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
+    peerDependenciesMeta:
+      '@auth0/auth0-react':
+        optional: true
+      '@clerk/clerk-react':
+        optional: true
+      '@clerk/react':
+        optional: true
+      react:
+        optional: true
 
   convex@1.39.0:
     resolution: {integrity: sha512-7ZP/Yi1EL0RUxVDT6knKNThoAoIOinDp+XnWTGTN3+fD3bzdxVYqiBKNbuUo/SvrU80drft11ZLnAv/MjbAHEg==}
@@ -8904,6 +8923,17 @@ snapshots:
   commander@14.0.3: {}
 
   commander@2.20.3: {}
+
+  convex@1.38.0(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6):
+    dependencies:
+      esbuild: 0.27.0
+      prettier: 3.8.3
+      ws: 8.18.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+    optionalDependencies:
+      react: 19.2.6
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   convex@1.39.0(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@6.0.6):
     dependencies:

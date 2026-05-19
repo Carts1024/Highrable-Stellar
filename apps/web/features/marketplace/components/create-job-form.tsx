@@ -24,13 +24,14 @@ import { normalizeStellarError } from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AttachmentUploader } from "@/features/attachments/components";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   analyzeJobScamSignals,
   DISALLOWED_JOB_POST_MESSAGE,
 } from "@/features/marketplace/lib/scam-signals";
-import { api } from "@repo/convex-client";
+import { api, type TConvexId } from "@repo/convex-client";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
@@ -41,6 +42,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
+import type { TDraftAttachment } from "@/features/attachments/types";
 import type {
   TCreateJobFormErrors,
   TCreateJobFormState,
@@ -164,6 +166,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const walletIdentity = useHighrableWalletIdentity();
   const createJob = useMutation(api.jobs.createJob);
   const createMilestoneProject = useMutation(api.milestones.createMilestoneProject);
+  const attachFilesToParent = useMutation(api.attachments.attachFilesToParent);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
@@ -188,6 +191,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   });
   const isSelectedEscrowAssetSupported = isSupportedEscrowAsset(formState.asset);
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
+  const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scamAnalysis = useMemo(
     () =>
@@ -298,6 +302,44 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     return parsedMilestones;
   };
 
+  const attachDraftAttachmentsToJob = async (jobId: string) => {
+    if (!walletIdentity.walletAddress) {
+      throw new Error("Missing wallet identity.");
+    }
+
+    const attachmentIds = draftAttachments
+      .filter((attachment) => attachment.status === "ready")
+      .map((attachment) => attachment.id as TConvexId<"attachments">);
+
+    if (attachmentIds.length === 0) {
+      return;
+    }
+
+    await attachFilesToParent({
+      attachmentIds,
+      walletAddress: walletIdentity.walletAddress,
+      parentType: "job",
+      parentId: jobId,
+      visibility: "public",
+    });
+  };
+
+  const attachDraftAttachmentsOrReport = async (jobId: string): Promise<boolean> => {
+    try {
+      await attachDraftAttachmentsToJob(jobId);
+      return true;
+    } catch (error) {
+      setErrors({
+        submit: `Job was created, but attachments could not be linked. ${getReadableErrorMessage(
+          error,
+          "Please try attaching them again.",
+        )}`,
+      });
+      onCreated(jobId);
+      return false;
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -321,6 +363,19 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     });
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    if (draftAttachments.some((attachment) => attachment.status === "uploading")) {
+      setErrors({ submit: "Wait for attachment uploads to finish before creating the job." });
+      return;
+    }
+
+    const failedAttachment = draftAttachments.find((attachment) => attachment.status === "failed");
+    if (failedAttachment) {
+      setErrors({
+        submit: failedAttachment.error ?? "Remove failed attachments before creating the job.",
+      });
       return;
     }
 
@@ -375,6 +430,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             amount: milestone.amount,
           })),
         });
+        const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
+        if (!attachmentsLinked) {
+          return;
+        }
 
         setFormState({
           title: "",
@@ -385,6 +444,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           jobType: "micro_gig",
           milestones: [createDraftMilestone()],
         });
+        setDraftAttachments([]);
         onCreated(createdJobId);
         return;
       }
@@ -464,6 +524,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         jobHash,
       });
+      const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
+      if (!attachmentsLinked) {
+        return;
+      }
 
       if (formState.fundEscrowNow && preFundingConfig && jobHashBytes) {
         const clientRequestId = createClientRequestId(createdJobId);
@@ -546,6 +610,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         jobType: "micro_gig",
         milestones: [createDraftMilestone()],
       });
+      setDraftAttachments([]);
       onCreated(createdJobId);
     } catch (error) {
       setErrors({
@@ -800,6 +865,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             {errors.asset ? <p className="mt-1 text-xs text-red-600">{errors.asset}</p> : null}
           </div>
         </div>
+
+        <AttachmentUploader
+          value={draftAttachments}
+          onChange={setDraftAttachments}
+          disabled={isSubmitting}
+        />
 
         {isMilestoneProject ? (
           <div className="space-y-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">

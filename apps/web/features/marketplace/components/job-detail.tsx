@@ -3,6 +3,7 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { AttachmentList } from "@/features/attachments/components";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
@@ -52,6 +53,16 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const milestoneSummary = useQuery(
     api.milestones.getMilestoneProjectSummary,
     hasJobId ? { jobId: convexJobId } : "skip",
+  );
+  const attachments = useQuery(
+    api.attachments.listByParent,
+    hasJobId
+      ? {
+          parentType: "job",
+          parentId: convexJobId,
+          ...(walletIdentity.walletAddress ? { viewerWallet: walletIdentity.walletAddress } : {}),
+        }
+      : "skip",
   );
 
   // Strictly typed reputation data retrieval.
@@ -220,6 +231,27 @@ export function JobDetail({ jobId }: { jobId: string }) {
             </Link>
           ) : null}
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Attachments</h2>
+            <p className="mt-1 text-sm text-[#5f5f5f]">
+              Reference files and links supplied by the client for this work.
+            </p>
+          </div>
+          {attachments ? (
+            <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+              {attachments.length} item{attachments.length === 1 ? "" : "s"}
+            </p>
+          ) : null}
+        </div>
+        {attachments === undefined ? (
+          <p className="text-sm text-gray-500">Loading attachments...</p>
+        ) : (
+          <AttachmentList attachments={attachments} readOnly />
+        )}
       </section>
 
       <ClientTrustCard clientWallet={job.clientWallet} />

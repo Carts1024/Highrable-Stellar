@@ -1,6 +1,7 @@
 import { defineSchema } from "convex/server";
 
 import applications from "./applications/schema";
+import attachments from "./attachments/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
@@ -10,6 +11,7 @@ import transactions from "./transactions/schema";
 import users from "./users/schema";
 
 export default defineSchema({
+  attachments,
   users,
   jobs,
   milestones,
