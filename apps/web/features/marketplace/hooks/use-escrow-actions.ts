@@ -433,6 +433,7 @@ export function useEscrowActions({
         walletType: activeWalletType,
         freelancer: job.selectedFreelancerWallet!,
         escrowId,
+        proofHash: await toBytesN32Hash(`legacy-submit-work:${escrowId}:${job._id}`),
       });
 
       await updateEscrowStatus({

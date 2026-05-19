@@ -26,6 +26,7 @@ import {
   getMarketplaceStatusMeta,
 } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
+import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
@@ -70,7 +71,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     txExplorerUrl,
     createEscrow,
     fundEscrow,
-    submitWork,
     approveAndRelease,
     cancelEscrow,
     markDisputed,
@@ -129,13 +129,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       }),
       fundEscrow: getEscrowActionGuard({
         action: "fund_escrow",
-        role,
-        job,
-        escrow,
-        wallet: walletGuardContext,
-      }),
-      submitWork: getEscrowActionGuard({
-        action: "submit_work",
         role,
         job,
         escrow,
@@ -505,20 +498,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           }
         >
           {role === "selectedFreelancer" ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                type="button"
-                disabled={isPending || !actionGuards.submitWork.canAct}
-                onClick={() => void submitWork()}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Submit completed work for client review"
-              >
-                {getActionButtonLabel(
-                  "Submit Work",
-                  pendingAction === "submit_work",
-                  "Submitting Work...",
-                )}
-              </AppButton>
+            <div className="space-y-3">
+              <WorkProofSubmissionPanel job={job} escrow={escrow} />
               <AppButton
                 type="button"
                 variant="secondary"
@@ -582,6 +563,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 : undefined
           }
         >
+          {escrow ? <WorkProofSubmissionPanel job={job} escrow={escrow} /> : null}
           {role === "client" ? (
             <>
               <div className="flex flex-wrap gap-2">

@@ -53,3 +53,24 @@ export const getById = query({
     return await withAttachmentUrl(ctx, attachment);
   },
 });
+
+export const getManyByIds = query({
+  args: {
+    attachmentIds: v.array(v.id("attachments")),
+    viewerWallet: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = [];
+    for (const attachmentId of args.attachmentIds) {
+      const attachment = await ctx.db.get(attachmentId);
+      if (!attachment) {
+        continue;
+      }
+
+      await assertCanViewAttachment(ctx, attachment, args.viewerWallet);
+      results.push(await withAttachmentUrl(ctx, attachment));
+    }
+
+    return results;
+  },
+});

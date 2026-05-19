@@ -339,10 +339,12 @@ export function AttachmentUploader({
   value,
   onChange,
   disabled,
+  ownerRole = "client",
 }: {
   value: TDraftAttachment[];
   onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
   disabled?: boolean;
+  ownerRole?: "client" | "freelancer";
 }) {
   const walletIdentity = useHighrableWalletIdentity();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
@@ -414,7 +416,7 @@ export function AttachmentUploader({
         storageId,
         uploadedByWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
-        ownerRole: "client",
+        ownerRole,
         name: file.name,
         size: file.size,
         ...(file.type ? { mimeType: file.type } : {}),
@@ -454,7 +456,7 @@ export function AttachmentUploader({
       externalUrl: input.url,
       uploadedByWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
-      ownerRole: "client",
+      ownerRole,
       type: input.type,
       name: input.url,
       parentType: "unknown",

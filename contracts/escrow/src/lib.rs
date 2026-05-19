@@ -40,6 +40,7 @@ pub struct TEscrow {
     pub asset: Address,
     pub amount: i128,
     pub job_hash: BytesN<32>,
+    pub proof_hash: Option<BytesN<32>>,
     pub status: TEscrowStatus,
     pub created_at: u64,
     pub funded_at: u64,
@@ -300,7 +301,12 @@ impl EscrowContract {
         Ok(())
     }
 
-    pub fn submit_work(env: Env, freelancer: Address, escrow_id: u64) -> Result<(), Error> {
+    pub fn submit_work(
+        env: Env,
+        freelancer: Address,
+        escrow_id: u64,
+        proof_hash: BytesN<32>,
+    ) -> Result<(), Error> {
         touch_instance(&env);
         require_initialized(&env)?;
 
@@ -315,6 +321,7 @@ impl EscrowContract {
         }
 
         escrow.status = TEscrowStatus::Submitted;
+        escrow.proof_hash = Some(proof_hash);
         escrow.submitted_at = now(&env);
 
         write_escrow(&env, &escrow);
@@ -507,6 +514,7 @@ fn create_escrow_internal(
         asset,
         amount,
         job_hash,
+        proof_hash: None,
         status,
         created_at: now(env),
         funded_at,

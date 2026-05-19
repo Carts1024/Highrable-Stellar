@@ -30,6 +30,7 @@ export type TOnChainEscrow = {
   asset: string;
   amount: bigint;
   job_hash: Uint8Array;
+  proof_hash?: Uint8Array | null;
   status: unknown;
   created_at: bigint;
   funded_at: bigint;
@@ -446,7 +447,7 @@ export async function assignFreelancerOnChain(
 }
 
 export async function submitWorkOnChain(
-  params: TBaseEscrowCallParams & { freelancer: string; escrowId: string },
+  params: TBaseEscrowCallParams & { freelancer: string; escrowId: string; proofHash: Uint8Array },
 ): Promise<TEscrowResult> {
   return await executeEscrowContract({
     rpcUrl: params.rpcUrl,
@@ -454,7 +455,11 @@ export async function submitWorkOnChain(
     sourceAddress: params.sourceAddress,
     escrowContractId: params.escrowContractId,
     method: "submit_work",
-    args: [addressScVal(params.freelancer), u64ScVal(params.escrowId)],
+    args: [
+      addressScVal(params.freelancer),
+      u64ScVal(params.escrowId),
+      bytesN32ScVal(params.proofHash),
+    ],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
   });

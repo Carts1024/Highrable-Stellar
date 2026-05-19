@@ -244,6 +244,27 @@ export async function assertCanAttachToParent(
     return;
   }
 
+  if (input.parentType === "work_submission") {
+    const submission = await ctx.db.get(input.parentId as Id<"workSubmissions">);
+    if (!submission || submission.status === "cancelled") {
+      throw new NotFoundError("Proof submission was not found.");
+    }
+    if (submission.submittedByWallet !== walletAddress) {
+      throw new ForbiddenError("You do not have permission to attach files to this proof.");
+    }
+    if (
+      submission.status !== "draft" &&
+      submission.status !== "anchor_failed" &&
+      submission.status !== "submitted"
+    ) {
+      throw new ForbiddenError("Submitted proof attachments are read-only.");
+    }
+    if (input.ownerRole !== "freelancer") {
+      throw new ForbiddenError("Only the assigned freelancer can add proof attachments.");
+    }
+    return;
+  }
+
   throw new BadRequestError("This attachment parent type is not supported yet.");
 }
 
@@ -311,6 +332,22 @@ export async function assertCanViewAttachment(
     return;
   }
 
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "work_submission" &&
+    attachment.parentId
+  ) {
+    const submission = await ctx.db.get(attachment.parentId as Id<"workSubmissions">);
+    if (
+      submission &&
+      (submission.clientWallet === normalizedViewerWallet ||
+        submission.freelancerWallet === normalizedViewerWallet ||
+        submission.submittedByWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
   throw new ForbiddenError("You do not have permission to view this attachment.");
 }
 
@@ -327,6 +364,17 @@ export async function assertCanModifyAttachment(
   const normalizedWallet = normalizeWalletAddress(walletAddress);
   if (attachment.uploadedByWallet !== normalizedWallet) {
     throw new ForbiddenError("You do not have permission to modify this attachment.");
+  }
+
+  if (attachment.parentType === "work_submission" && attachment.parentId) {
+    const submission = await ctx.db.get(attachment.parentId as Id<"workSubmissions">);
+    if (
+      submission &&
+      submission.status !== "draft" &&
+      submission.status !== "anchor_failed"
+    ) {
+      throw new ForbiddenError("Submitted proof attachments are read-only.");
+    }
   }
 
   return attachment;

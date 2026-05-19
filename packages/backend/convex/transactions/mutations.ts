@@ -23,6 +23,8 @@ export const createTransaction = mutation({
     escrowId: v.optional(v.string()),
     jobId: v.optional(v.id("jobs")),
     milestoneId: v.optional(v.id("milestones")),
+    onChainEscrowId: v.optional(v.string()),
+    proofHash: v.optional(v.string()),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
   },
@@ -31,6 +33,8 @@ export const createTransaction = mutation({
     const txHash = sanitizeOptionalTransactionRef(args.txHash, "txHash");
     const clientRequestId = sanitizeOptionalTransactionRef(args.clientRequestId, "clientRequestId");
     const escrowId = sanitizeOptionalTransactionRef(args.escrowId, "escrowId");
+    const onChainEscrowId = sanitizeOptionalTransactionRef(args.onChainEscrowId, "onChainEscrowId");
+    const proofHash = sanitizeOptionalTransactionRef(args.proofHash, "proofHash");
     const errorMessage = sanitizeOptionalTransactionRef(args.errorMessage, "errorMessage");
 
     assertTransactionLookupKey(txHash, clientRequestId);
@@ -46,6 +50,8 @@ export const createTransaction = mutation({
       ...(txHash !== undefined ? { txHash } : {}),
       ...(clientRequestId !== undefined ? { clientRequestId } : {}),
       ...(escrowId !== undefined ? { escrowId } : {}),
+      ...(onChainEscrowId !== undefined ? { onChainEscrowId } : {}),
+      ...(proofHash !== undefined ? { proofHash } : {}),
       ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
       ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
@@ -59,6 +65,7 @@ export const updateTransactionStatus = mutation({
     clientRequestId: v.optional(v.string()),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
+    confirmedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const txHash = sanitizeOptionalTransactionRef(args.txHash, "txHash");
@@ -76,6 +83,7 @@ export const updateTransactionStatus = mutation({
     await ctx.db.patch(transaction._id, {
       status: args.status,
       updatedAt: Date.now(),
+      ...(args.confirmedAt !== undefined ? { confirmedAt: args.confirmedAt } : {}),
       ...(txHash !== undefined ? { txHash } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
     });

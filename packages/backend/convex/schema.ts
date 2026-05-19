@@ -9,6 +9,7 @@ import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
+import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
   attachments,
@@ -20,4 +21,5 @@ export default defineSchema({
   jobReports,
   reputationRecords,
   transactions,
+  workSubmissions,
 });

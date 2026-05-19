@@ -419,6 +419,7 @@ export function useMilestoneEscrowActions({
         walletType: activeWalletType,
         freelancer: milestone.assignedFreelancerWallet!,
         escrowId,
+        proofHash: await toBytesN32Hash(`legacy-submit-work:${escrowId}:${milestone._id}`),
       });
 
       await updateMilestoneEscrowStatus({

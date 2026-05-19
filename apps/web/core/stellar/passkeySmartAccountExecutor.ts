@@ -1439,14 +1439,18 @@ export async function fundEscrowWithPasskey(
 }
 
 export async function submitWorkWithPasskey(
-  params: IPasskeyEscrowWrapperBase & { readonly escrowId: string },
+  params: IPasskeyEscrowWrapperBase & { readonly escrowId: string; readonly proofHash: Uint8Array },
 ): Promise<IPasskeySmartAccountExecutionResult> {
   return await executeWithPasskeySmartAccount({
     smartAccountAddress: params.smartAccountAddress,
     actionLabel: "submit_work",
     contractId: params.escrowContractId,
     method: "submit_work",
-    args: [addressScVal(params.smartAccountAddress), u64ScVal(params.escrowId)],
+    args: [
+      addressScVal(params.smartAccountAddress),
+      u64ScVal(params.escrowId),
+      bytesN32ScVal(params.proofHash),
+    ],
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
   });

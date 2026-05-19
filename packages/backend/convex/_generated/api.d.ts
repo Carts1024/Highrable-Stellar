@@ -60,6 +60,10 @@ import type * as users_helpers from "../users/helpers.js";
 import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
 import type * as users_types from "../users/types.js";
+import type * as work_submissions from "../work_submissions.js";
+import type * as work_submissions_helpers from "../work_submissions/helpers.js";
+import type * as work_submissions_mutations from "../work_submissions/mutations.js";
+import type * as work_submissions_queries from "../work_submissions/queries.js";
 
 import type {
   ApiFromModules,
@@ -120,6 +124,10 @@ declare const fullApi: ApiFromModules<{
   "users/mutations": typeof users_mutations;
   "users/queries": typeof users_queries;
   "users/types": typeof users_types;
+  work_submissions: typeof work_submissions;
+  "work_submissions/helpers": typeof work_submissions_helpers;
+  "work_submissions/mutations": typeof work_submissions_mutations;
+  "work_submissions/queries": typeof work_submissions_queries;
 }>;
 
 /**

@@ -18,6 +18,7 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
+import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
@@ -63,7 +64,6 @@ export function MilestoneActionPanel({
     txExplorerUrl,
     createEscrow,
     fundEscrow,
-    submitWork,
     approveAndRelease,
     cancelEscrow,
     markDisputed,
@@ -237,15 +237,8 @@ export function MilestoneActionPanel({
       {milestone.status === "funded" && escrow?.status === "funded" ? (
         <div className="space-y-3">
           {role === "selectedFreelancer" ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                type="button"
-                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
-                onClick={() => void submitWork()}
-                className="disabled:opacity-60"
-              >
-                {pendingAction === "submit_work" ? "Submitting..." : "Submit Work"}
-              </AppButton>
+            <div className="space-y-3">
+              <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
               <AppButton
                 type="button"
                 variant="secondary"
@@ -264,6 +257,7 @@ export function MilestoneActionPanel({
 
       {milestone.status === "submitted" && escrow?.status === "submitted" ? (
         <div className="space-y-3">
+          <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
           {role === "client" ? (
             <div className="flex flex-wrap gap-2">
               <AppButton
