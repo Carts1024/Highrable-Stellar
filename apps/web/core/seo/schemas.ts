@@ -24,7 +24,7 @@ export const TWalletAddressParamSchema = z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^G[A-Z2-7]{55}$/),
+      .regex(/^[CG][A-Z2-7]{55}$/),
   );
 
 export const TConvexIdParamSchema = z
