@@ -10,7 +10,6 @@ import { findUserByWallet } from "./users/helpers";
 const ACTIVE_ESCROW_STATUSES = new Set(["funded", "submitted"] as const);
 const CLIENT_FUNDED_ESCROW_STATUSES = new Set(["funded", "submitted", "released"] as const);
 const REVIEW_LIMIT = 10;
-const CONTRACT_LIMIT = 10;
 const CLIENT_RECENT_LIMIT = 10;
 
 type TAssetAmountRow = {
@@ -336,7 +335,6 @@ export const getFreelancerProfile = query({
         )
         .slice()
         .sort((left, right) => right.updatedAt - left.updatedAt)
-        .slice(0, CONTRACT_LIMIT)
         .map(async (escrow) => {
           const [job, milestone] = await Promise.all([
             ctx.db.get(escrow.jobId),

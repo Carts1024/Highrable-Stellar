@@ -67,7 +67,7 @@ export function MarketplacePage() {
     setSelectedJobForApplyId(jobId);
   };
 
-  const handleApplyFromList = async (proposal: string) => {
+  const handleApplyFromList = async (proposal: string, showcasedWorkEscrowId: string | null) => {
     if (!walletIdentity.walletAddress || !selectedJobForApply) {
       return;
     }
@@ -80,6 +80,7 @@ export function MarketplacePage() {
         jobId: selectedJobForApply._id,
         freelancerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal,
       });
       setSelectedJobForApplyId(null);

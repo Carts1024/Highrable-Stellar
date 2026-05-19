@@ -96,21 +96,43 @@ export function MilestoneApplicationsList({
                   Applied {new Date(application.createdAt).toLocaleString()}
                 </p>
               </div>
-              {canAssign ? (
+              <div className="flex flex-wrap justify-end gap-2">
                 <AppButton
-                  type="button"
+                  asChild
                   variant="secondary"
-                  disabled={selectingWallet === application.freelancerWallet || isAssigned}
-                  onClick={() => void handleAssign(application.freelancerWallet)}
-                  className="h-8 px-3 py-1.5 text-xs disabled:opacity-60"
+                  className="h-8 border-[#e8e8e8] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
                 >
-                  {isAssigned
-                    ? "Assigned"
-                    : selectingWallet === application.freelancerWallet
-                      ? "Assigning..."
-                      : "Assign"}
+                  <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
+                    View profile
+                  </Link>
                 </AppButton>
-              ) : null}
+                {application.showcasedWorkEscrowId ? (
+                  <AppButton
+                    asChild
+                    variant="secondary"
+                    className="h-8 border-[#FF7003] px-3 py-1.5 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
+                  >
+                    <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
+                      View showcased work
+                    </Link>
+                  </AppButton>
+                ) : null}
+                {canAssign ? (
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    disabled={selectingWallet === application.freelancerWallet || isAssigned}
+                    onClick={() => void handleAssign(application.freelancerWallet)}
+                    className="h-8 px-3 py-1.5 text-xs disabled:opacity-60"
+                  >
+                    {isAssigned
+                      ? "Assigned"
+                      : selectingWallet === application.freelancerWallet
+                        ? "Assigning..."
+                        : "Assign"}
+                  </AppButton>
+                ) : null}
+              </div>
             </div>
             <p className="mt-2 text-sm text-[#5f5f5f]">{application.proposal}</p>
           </article>

@@ -15,6 +15,8 @@ import { z } from "zod";
 import type { TMilestoneApplicationGate } from "../types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
+import { ShowcaseWorkSelector } from "./showcase-work-selector";
+
 const APPLY_PROPOSAL_SCHEMA = z
   .string()
   .transform(sanitizeMultilineInput)
@@ -35,6 +37,7 @@ export function ApplyToMilestoneForm({
   const walletIdentity = useHighrableWalletIdentity();
   const applyToMilestone = useMutation(api.applications.applyToMilestone);
   const [proposal, setProposal] = useState("");
+  const [showcasedWorkEscrowId, setShowcasedWorkEscrowId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,9 +91,11 @@ export function ApplyToMilestoneForm({
         milestoneId: milestone._id as TConvexId<"milestones">,
         freelancerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal: parsedProposal.data,
       });
       setProposal("");
+      setShowcasedWorkEscrowId(null);
     } catch (caughtError) {
       setError(getReadableErrorMessage(caughtError, "Failed to submit milestone application."));
     } finally {
@@ -115,6 +120,11 @@ export function ApplyToMilestoneForm({
           setError(null);
         }}
         placeholder="Proposal for this milestone"
+      />
+      <ShowcaseWorkSelector
+        freelancerWallet={walletIdentity.walletAddress}
+        selectedEscrowId={showcasedWorkEscrowId}
+        onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
       />
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <AppButton type="submit" disabled={isSubmitting} className="disabled:opacity-60">

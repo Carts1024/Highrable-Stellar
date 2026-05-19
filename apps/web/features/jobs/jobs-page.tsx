@@ -127,7 +127,7 @@ export function JobsPage() {
     setSelectedJobForApply(row);
   };
 
-  const handleApply = async (proposal: string) => {
+  const handleApply = async (proposal: string, showcasedWorkEscrowId: string | null) => {
     if (!selectedJobForApply || !walletIdentity.walletAddress || !walletIdentity.isConnected) {
       return;
     }
@@ -141,6 +141,7 @@ export function JobsPage() {
         jobId: selectedJobForApply.job._id,
         freelancerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal,
       });
       setApplySuccess(`Application submitted for "${selectedJobForApply.job.title}".`);

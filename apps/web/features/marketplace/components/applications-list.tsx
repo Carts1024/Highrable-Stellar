@@ -219,19 +219,41 @@ export function ApplicationsList({
               </p>
             </div>
 
-            {canSelectFreelancer ? (
+            <div className="flex flex-wrap justify-end gap-2">
               <AppButton
-                type="button"
-                onClick={() => void handleSelectFreelancer(application.freelancerWallet)}
-                disabled={selectingWallet === application.freelancerWallet}
+                asChild
                 variant="secondary"
-                className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label={`Select ${shortenWalletAddress(application.freelancerWallet)} as freelancer for ${job.title}`}
-                aria-busy={selectingWallet === application.freelancerWallet}
+                className="h-8 border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
               >
-                {selectingWallet === application.freelancerWallet ? "Selecting..." : "Select"}
+                <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
+                  View profile
+                </Link>
               </AppButton>
-            ) : null}
+              {application.showcasedWorkEscrowId ? (
+                <AppButton
+                  asChild
+                  variant="secondary"
+                  className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
+                >
+                  <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
+                    View showcased work
+                  </Link>
+                </AppButton>
+              ) : null}
+              {canSelectFreelancer ? (
+                <AppButton
+                  type="button"
+                  onClick={() => void handleSelectFreelancer(application.freelancerWallet)}
+                  disabled={selectingWallet === application.freelancerWallet}
+                  variant="secondary"
+                  className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={`Select ${shortenWalletAddress(application.freelancerWallet)} as freelancer for ${job.title}`}
+                  aria-busy={selectingWallet === application.freelancerWallet}
+                >
+                  {selectingWallet === application.freelancerWallet ? "Selecting..." : "Select"}
+                </AppButton>
+              ) : null}
+            </div>
           </div>
 
           <p className="mt-3 text-sm leading-relaxed text-[#5f5f5f]">{application.proposal}</p>

@@ -88,6 +88,16 @@ export type TApplyFormState = {
   proposal: string;
 };
 
+export type TShowcaseableCompletedWork = {
+  readonly escrowId: string;
+  readonly jobTitle: string;
+  readonly milestoneTitle?: string;
+  readonly amount: number;
+  readonly asset: string;
+  readonly workType: "micro_gig" | "milestone";
+  readonly updatedAt: number;
+};
+
 export type TMarketplaceJobRow = {
   job: TConvexDoc<"jobs">;
   escrow: TConvexDoc<"escrows"> | null;

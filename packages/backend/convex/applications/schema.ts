@@ -6,6 +6,7 @@ export default defineTable({
   milestoneId: v.optional(v.id("milestones")),
   freelancerWallet: v.string(),
   proposal: v.string(),
+  showcasedWorkEscrowId: v.optional(v.string()),
   createdAt: v.number(),
 })
   .index("by_jobId", ["jobId"])

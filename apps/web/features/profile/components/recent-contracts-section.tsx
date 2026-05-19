@@ -18,7 +18,7 @@ export function RecentContractsSection({
 }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Recent paid contracts</h2>
+      <h2 className="text-xl font-semibold text-[#0a0a0a]">Work history</h2>
       {contracts.length === 0 ? (
         <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
           No active or completed escrow-backed contracts yet.

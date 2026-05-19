@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
+import { ShowcaseWorkSelector } from "./showcase-work-selector";
 import { TrustSafetyNotice } from "./trust-safety-notice";
 
 const APPLY_PROPOSAL_SCHEMA = z
@@ -32,6 +33,7 @@ export function ApplyToJobForm({
   const walletIdentity = useHighrableWalletIdentity();
   const applyToJob = useMutation(api.applications.applyToJob);
   const [proposal, setProposal] = useState("");
+  const [showcasedWorkEscrowId, setShowcasedWorkEscrowId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -78,10 +80,12 @@ export function ApplyToJobForm({
         jobId: job._id as TConvexId<"jobs">,
         freelancerWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+        ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal: parsedProposal.data,
       });
 
       setProposal("");
+      setShowcasedWorkEscrowId(null);
       onApplied();
     } catch (caughtError) {
       const readableError = getReadableErrorMessage(
@@ -123,6 +127,14 @@ export function ApplyToJobForm({
         }}
         placeholder="Highlight your relevant experience and timeline"
       />
+
+      <div className="mt-3">
+        <ShowcaseWorkSelector
+          freelancerWallet={walletIdentity.walletAddress}
+          selectedEscrowId={showcasedWorkEscrowId}
+          onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
+        />
+      </div>
 
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
 

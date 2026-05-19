@@ -1,5 +1,6 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { sanitizeMultilineInput } from "@/features/common";
 import {
   TrustSafetyNotice,
@@ -17,6 +18,8 @@ import {
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { ShowcaseWorkSelector } from "./showcase-work-selector";
+
 interface IJobApplicationDialogProps {
   readonly isOpen: boolean;
   readonly isSubmitting: boolean;
@@ -24,7 +27,7 @@ interface IJobApplicationDialogProps {
   readonly trustSafetyNoticeType: Extract<TTrustSafetyNoticeType, "unfunded" | "verified_funded">;
   readonly errorMessage: string | null;
   readonly onOpenChange: (isOpen: boolean) => void;
-  readonly onSubmit: (proposal: string) => Promise<void>;
+  readonly onSubmit: (proposal: string, showcasedWorkEscrowId: string | null) => Promise<void>;
 }
 
 const APPLY_PROPOSAL_SCHEMA = z
@@ -43,12 +46,15 @@ export function JobApplicationDialog({
   onOpenChange,
   onSubmit,
 }: IJobApplicationDialogProps) {
+  const walletIdentity = useHighrableWalletIdentity();
   const [proposal, setProposal] = useState("");
+  const [showcasedWorkEscrowId, setShowcasedWorkEscrowId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setProposal("");
+      setShowcasedWorkEscrowId(null);
       setValidationError(null);
     }
   }, [isOpen]);
@@ -63,7 +69,7 @@ export function JobApplicationDialog({
     }
 
     setValidationError(null);
-    await onSubmit(parsed.data);
+    await onSubmit(parsed.data, showcasedWorkEscrowId);
   };
 
   return (
@@ -101,6 +107,12 @@ export function JobApplicationDialog({
               placeholder="Highlight your relevant experience and expected delivery timeline."
             />
           </div>
+
+          <ShowcaseWorkSelector
+            freelancerWallet={walletIdentity.walletAddress}
+            selectedEscrowId={showcasedWorkEscrowId}
+            onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
+          />
 
           {validationError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
