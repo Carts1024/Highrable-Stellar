@@ -265,6 +265,21 @@ export async function assertCanAttachToParent(
     return;
   }
 
+  if (input.parentType === "chat_message") {
+    const message = await ctx.db.get(input.parentId as Id<"messages">);
+    if (!message || message.status !== "sent") {
+      throw new NotFoundError("Chat message was not found.");
+    }
+    const conversation = await ctx.db.get(message.conversationId);
+    if (!conversation || !conversation.participantWallets.includes(walletAddress)) {
+      throw new ForbiddenError("You do not have permission to attach files to this message.");
+    }
+    if (message.senderWallet !== walletAddress) {
+      throw new ForbiddenError("You can only attach files to your own message.");
+    }
+    return;
+  }
+
   throw new BadRequestError("This attachment parent type is not supported yet.");
 }
 
@@ -343,6 +358,23 @@ export async function assertCanViewAttachment(
       (submission.clientWallet === normalizedViewerWallet ||
         submission.freelancerWallet === normalizedViewerWallet ||
         submission.submittedByWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "chat_message" &&
+    attachment.parentId
+  ) {
+    const message = await ctx.db.get(attachment.parentId as Id<"messages">);
+    const conversation = message ? await ctx.db.get(message.conversationId) : null;
+    if (
+      message &&
+      message.status !== "hidden" &&
+      conversation &&
+      conversation.participantWallets.includes(normalizedViewerWallet)
     ) {
       return;
     }

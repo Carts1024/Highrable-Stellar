@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
+import { createSystemMessageForEvent } from "../conversations/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertAttachmentsOwnedBySubmitter,
@@ -107,6 +108,19 @@ export const submitWorkProofMetadata = mutation({
       updatedAt: now,
     });
 
+    await createSystemMessageForEvent(ctx, {
+      parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
+      parentId: submission.escrowId ?? args.submissionId,
+      eventType: "work_submitted",
+      body: "Proof of work was submitted.",
+      eventPayload: {
+        workSubmissionId: args.submissionId,
+        escrowId: submission.escrowId,
+        onChainEscrowId: submission.onChainEscrowId,
+        proofHash,
+      },
+    });
+
     return await getSubmissionOrThrow(ctx, args.submissionId);
   },
 });
@@ -154,6 +168,21 @@ export const markSubmissionAnchored = mutation({
       anchoredAt: now,
       updatedAt: now,
       anchorErrorMessage: undefined,
+    });
+
+    await createSystemMessageForEvent(ctx, {
+      parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
+      parentId: submission.escrowId ?? args.submissionId,
+      eventType: "proof_anchored",
+      body: "Proof hash was anchored on-chain.",
+      eventPayload: {
+        workSubmissionId: args.submissionId,
+        escrowId: submission.escrowId,
+        onChainEscrowId: submission.onChainEscrowId,
+        proofHash: submission.proofHash,
+        transactionHash: args.transactionHash.trim(),
+        ...(args.stellarExpertUrl ? { stellarExpertUrl: args.stellarExpertUrl.trim() } : {}),
+      },
     });
 
     return await getSubmissionOrThrow(ctx, args.submissionId);

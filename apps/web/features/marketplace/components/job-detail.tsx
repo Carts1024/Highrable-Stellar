@@ -4,6 +4,7 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AttachmentList } from "@/features/attachments/components";
+import { ConversationThread } from "@/features/chat";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
@@ -107,6 +108,18 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const isMilestoneProject = jobType === "milestone_project";
   const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
   const projectSummary = milestoneSummary;
+  const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow);
+  const chatParent = mergedEscrow
+    ? ({
+        parentType: "escrow" as const,
+        parentId: mergedEscrow._id,
+        title: `${job.title} escrow chat`,
+      } as const)
+    : ({
+        parentType: "job" as const,
+        parentId: convexJobId,
+        title: `${job.title} work chat`,
+      } as const);
 
   return (
     <div className="space-y-6">
@@ -266,6 +279,14 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
           <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
         </>
+      ) : null}
+
+      {!isMilestoneProject && canShowWorkChat ? (
+        <ConversationThread
+          parentType={chatParent.parentType}
+          parentId={chatParent.parentId}
+          title={chatParent.title}
+        />
       ) : null}
 
       {isMilestoneProject ? (
