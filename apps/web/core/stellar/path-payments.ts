@@ -200,10 +200,13 @@ export function validatePathPaymentConfig(config: TPathPaymentConfig = getPathPa
 
   try {
     const url = new URL(config.horizonUrl);
-    if (STELLAR_NETWORK === "public" && url.hostname.includes("testnet")) {
+    if (
+      (STELLAR_NETWORK === "public" || STELLAR_NETWORK === "mainnet") &&
+      url.hostname.includes("testnet")
+    ) {
       return {
         isValid: false,
-        message: "Configured Horizon URL looks like testnet while Highrable is on public network.",
+        message: "Configured Horizon URL looks like testnet while Highrable is on mainnet.",
       };
     }
   } catch {

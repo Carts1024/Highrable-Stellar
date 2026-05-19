@@ -4,6 +4,7 @@ import { Buffer } from "buffer";
 
 import { toTokenUnits } from "@/core/stellar/amounts";
 import { bytesToHex } from "@/core/stellar/hashes";
+import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
   getSmartAccountConfig,
   KNOWN_INCOMPATIBLE_SMART_ACCOUNT_WASM_HASHES,
@@ -1113,7 +1114,7 @@ async function readReturnValue(params: {
   return transaction.returnValue;
 }
 
-async function readSmartAccountWasmHash(params: {
+export async function readSmartAccountWasmHash(params: {
   readonly rpcUrl: string;
   readonly contractId: string;
 }): Promise<string> {
@@ -1224,10 +1225,18 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
   const kit = getSmartAccountKit();
   const usesRelayer = kit.relayer !== null;
   const feeSourceAddress = kit.deployerPublicKey;
+  let sourceAccountFunded: boolean | null = null;
+  let connectedAccountWasmHash: string | undefined;
 
   if (kit.isConnected) {
     try {
       await assertSmartAccountKitCompatibility(kit);
+      if (kit.contractId) {
+        connectedAccountWasmHash = await readSmartAccountWasmHash({
+          rpcUrl: config.rpcUrl,
+          contractId: kit.contractId,
+        }).catch(() => undefined);
+      }
     } catch (error) {
       return {
         canExecute: false,
@@ -1242,9 +1251,21 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
   }
 
   if (usesRelayer) {
+    const readiness = evaluateSmartAccountMainnetReadiness({
+      connectedAccountAddress: kit.contractId,
+      connectedAccountWasmHash,
+      sourceAccount: feeSourceAddress,
+      sourceAccountFunded: null,
+    });
+    const canExecute = readiness.isMainnet
+      ? readiness.capabilities.canExecuteMainnetPasskeyEscrow
+      : true;
     return {
-      canExecute: true,
-      reason: null,
+      canExecute,
+      reason: canExecute
+        ? null
+        : (readiness.blockingIssues[0] ??
+          "Mainnet passkey escrow is blocked until readiness issues are resolved."),
       usesRelayer,
       feeSourceAddress,
     };
@@ -1252,6 +1273,23 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 
   try {
     await createRpcServer(config.rpcUrl).getAccount(feeSourceAddress);
+    sourceAccountFunded = true;
+    const readiness = evaluateSmartAccountMainnetReadiness({
+      connectedAccountAddress: kit.contractId,
+      connectedAccountWasmHash,
+      sourceAccount: feeSourceAddress,
+      sourceAccountFunded,
+    });
+    if (readiness.isMainnet && !readiness.capabilities.canExecuteMainnetPasskeyEscrow) {
+      return {
+        canExecute: false,
+        reason:
+          readiness.blockingIssues[0] ??
+          "Mainnet passkey escrow is blocked until readiness issues are resolved.",
+        usesRelayer,
+        feeSourceAddress,
+      };
+    }
     return {
       canExecute: true,
       reason: null,
@@ -1259,10 +1297,19 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
       feeSourceAddress,
     };
   } catch {
+    sourceAccountFunded = false;
+    const readiness = evaluateSmartAccountMainnetReadiness({
+      connectedAccountAddress: kit.contractId,
+      connectedAccountWasmHash,
+      sourceAccount: feeSourceAddress,
+      sourceAccountFunded,
+    });
     return {
       canExecute: false,
-      reason:
-        "Passkey escrow transactions require smart account fee funding or relayer support. Configure this before using passkey escrow execution.",
+      reason: readiness.isMainnet
+        ? (readiness.blockingIssues[0] ??
+          "No fee path is available for passkey smart-account execution. Configure OpenZeppelin Channels, a custom relayer, or a funded source account.")
+        : "Passkey escrow transactions require smart account fee funding or relayer support. Configure this before using passkey escrow execution.",
       usesRelayer,
       feeSourceAddress,
     };
@@ -1295,6 +1342,13 @@ export async function executeWithPasskeySmartAccount(
 
   try {
     await assertSmartAccountKitCompatibility(kit);
+    const readiness = await getPasskeyEscrowExecutionReadiness();
+    if (!readiness.canExecute) {
+      throw new Error(
+        readiness.reason ??
+          "Mainnet passkey escrow is blocked until the issues below are resolved.",
+      );
+    }
 
     const assembledTransaction = await buildSmartAccountExecuteTransaction({
       smartAccountAddress,

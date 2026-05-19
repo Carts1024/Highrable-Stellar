@@ -20,6 +20,7 @@ type TWalletActionContext = {
   isTestnet: boolean;
   isFunded: boolean | null;
   canWriteContracts?: boolean;
+  writeRestrictionReason?: string | null;
   walletType?: "external_wallet" | "passkey_smart_account" | null;
 };
 
@@ -59,7 +60,10 @@ function getWalletGuardResult(input: TEscrowActionGuardInput): TEscrowActionGuar
   }
 
   if (input.wallet.canWriteContracts === false) {
-    return blocked("This wallet can view jobs but cannot sign escrow contract actions right now.");
+    return blocked(
+      input.wallet.writeRestrictionReason ??
+        "This wallet can view jobs but cannot sign escrow contract actions right now.",
+    );
   }
 
   if (!input.wallet.isTestnet) {

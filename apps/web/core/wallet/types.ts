@@ -5,7 +5,7 @@ export type TWalletConnectionStatus =
   | "disconnecting"
   | "error";
 
-export type TWalletNetwork = "testnet";
+export type TWalletNetwork = "local" | "testnet" | "mainnet";
 export type TWalletTransactionStatus = "idle" | "pending" | "success" | "failed";
 export type TFriendbotResponse = Readonly<Record<string, unknown>>;
 

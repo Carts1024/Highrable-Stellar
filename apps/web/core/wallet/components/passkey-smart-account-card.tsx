@@ -1,5 +1,6 @@
 "use client";
 
+import { SmartAccountMainnetReadinessPanel } from "@/core/stellar/components/smart-account-mainnet-readiness-panel";
 import { PasskeyReadinessPanel } from "@/core/wallet/components/passkey-readiness-panel";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -36,6 +37,15 @@ export function PasskeySmartAccountCard() {
     clearPasskeyError,
   } = usePasskeySmartAccount();
   const [copied, setCopied] = useState(false);
+
+  const runPasskeyUiAction = async (action: () => Promise<unknown>): Promise<void> => {
+    try {
+      await action();
+    } catch {
+      // The provider stores the user-facing error. Swallow here so cancelled
+      // WebAuthn prompts do not become unhandled Next.js runtime errors.
+    }
+  };
 
   const handleCopy = async () => {
     if (!smartAccountAddress) {
@@ -113,7 +123,7 @@ export function PasskeySmartAccountCard() {
                   <AppButton
                     type="button"
                     variant="outline"
-                    onClick={() => void reconnectPasskeyAccount()}
+                    onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
                     disabled={isCreating || isReconnecting || isRestoring}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -161,7 +171,7 @@ export function PasskeySmartAccountCard() {
                 <div className="flex flex-wrap gap-2">
                   <AppButton
                     type="button"
-                    onClick={() => void createPasskeyAccount()}
+                    onClick={() => void runPasskeyUiAction(createPasskeyAccount)}
                     disabled={isCreating || isReconnecting || isRestoring}
                   >
                     <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -170,7 +180,7 @@ export function PasskeySmartAccountCard() {
                   <AppButton
                     type="button"
                     variant="outline"
-                    onClick={() => void reconnectPasskeyAccount()}
+                    onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
                     disabled={isCreating || isReconnecting || isRestoring}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -209,6 +219,7 @@ export function PasskeySmartAccountCard() {
         </div>
       </section>
       <PasskeyReadinessPanel />
+      <SmartAccountMainnetReadinessPanel />
       <Dialog open={isContractPickerOpen} onOpenChange={(open) => !open && dismissContractPicker()}>
         <DialogContent className="max-w-2xl border-[#e8e8e8] bg-white">
           <DialogHeader>
@@ -224,7 +235,11 @@ export function PasskeySmartAccountCard() {
                 key={contract.contract_id}
                 type="button"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-left transition-colors hover:border-[#FF7003]/40 hover:bg-[#FF7003]/5"
-                onClick={() => void selectDiscoveredPasskeyContract(contract.contract_id)}
+                onClick={() =>
+                  void runPasskeyUiAction(() =>
+                    selectDiscoveredPasskeyContract(contract.contract_id),
+                  )
+                }
               >
                 <p className="font-mono text-sm text-gray-900">{contract.contract_id}</p>
                 <p className="mt-2 text-xs text-gray-600">

@@ -188,6 +188,7 @@ export function useEscrowActions({
             walletIdentity.walletType === "passkey_smart_account"
               ? true
               : walletState.canWriteContracts,
+          writeRestrictionReason: null,
           walletType: walletIdentity.walletType,
         },
       });

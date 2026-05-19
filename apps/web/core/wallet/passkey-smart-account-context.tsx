@@ -1,6 +1,7 @@
 "use client";
 
 import { isWebAuthnSupported } from "@/core/passkeys/webauthn-support";
+import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
   assertSmartAccountConfigCanDeployCompatibleAccount,
   hasSmartAccountConfig,
@@ -123,6 +124,14 @@ function ensurePasskeyReady(): void {
   }
 
   assertSmartAccountConfigCanDeployCompatibleAccount();
+
+  const readiness = evaluateSmartAccountMainnetReadiness();
+  if (readiness.isMainnet && !readiness.capabilities.canCreatePasskeyAccount) {
+    throw new Error(
+      readiness.blockingIssues[0] ??
+        "Mainnet passkey smart-account creation is blocked until readiness issues are resolved.",
+    );
+  }
 }
 
 function formatCreateError(error: unknown): string {

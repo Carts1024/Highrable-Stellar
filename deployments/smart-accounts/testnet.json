@@ -1,0 +1,23 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "rpcUrl": "",
+  "horizonUrl": "",
+  "accountWasmHash": "",
+  "accountWasmSha256": "",
+  "webauthnVerifierContractId": "",
+  "webauthnVerifierWasmSha256": "",
+  "factoryContractId": "",
+  "deploymentLabel": "highrable-smart-accounts-v1",
+  "deploymentVersion": "1.0.0",
+  "sourceRepo": "",
+  "deployerAddress": "",
+  "relayerKind": "sdk_source_account",
+  "relayerPublicKey": "",
+  "allowedTargetContracts": [],
+  "deployedAt": "",
+  "verifiedAt": "",
+  "notes": [
+    "Testnet artifact placeholder. Fill with verified deployment values before relying on this file."
+  ]
+}

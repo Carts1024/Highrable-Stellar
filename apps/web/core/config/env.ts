@@ -4,7 +4,7 @@ import { z } from "zod";
  * Interface for the validated client-side application environment.
  */
 export interface IClientEnv {
-  readonly NEXT_PUBLIC_STELLAR_NETWORK: "testnet" | "public";
+  readonly NEXT_PUBLIC_STELLAR_NETWORK: "local" | "testnet" | "mainnet" | "public";
   readonly NEXT_PUBLIC_STELLAR_RPC_URL: string;
   readonly NEXT_PUBLIC_STELLAR_HORIZON_URL: string;
   readonly NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: string;
@@ -22,9 +22,21 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?: string;
   readonly NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_FACTORY_CONTRACT_ID?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_LABEL?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_VERSION?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_SOURCE_REPO?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_WASM_SHA256?: string;
+  readonly NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256?: string;
   readonly NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_PASSKEY_RP_NAME?: string;
   readonly NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL?: string;
+  readonly NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND?:
+    | "none"
+    | "custom"
+    | "openzeppelin_channels"
+    | "sdk_source_account"
+    | "unknown";
   readonly NODE_ENV: "development" | "production" | "test";
 }
 
@@ -33,6 +45,13 @@ export interface IClientEnv {
  */
 export interface IServerEnv extends IClientEnv {
   readonly WALLET_SESSION_SECRET?: string;
+  readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
+  readonly SMART_ACCOUNT_RELAYER_PUBLIC_KEY?: string;
+  readonly SMART_ACCOUNT_CHANNELS_API_KEY?: string;
+  readonly SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS?: string;
+  readonly SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX?: string;
+  readonly SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY?: string;
+  readonly SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE?: string;
 }
 
 const TContractIdSchema = z
@@ -44,9 +63,12 @@ const TStellarPublicKeySchema = z
   .string()
   .trim()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar public key format");
+const Hash64Schema = z.string().trim().regex(/^[a-fA-F0-9]{64}$/, "Invalid 32-byte hash format");
 
 const ClientEnvSchema = z.object({
-  NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["testnet", "public"]).default("testnet"),
+  NEXT_PUBLIC_STELLAR_NETWORK: z
+    .enum(["local", "testnet", "mainnet", "public"])
+    .default("testnet"),
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url().default("https://soroban-testnet.stellar.org"),
   NEXT_PUBLIC_STELLAR_HORIZON_URL: z.string().url().default("https://horizon-testnet.stellar.org"),
   NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: z
@@ -66,19 +88,31 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().trim().optional(),
-  NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: z
-    .string()
-    .trim()
-    .regex(/^[a-fA-F0-9]{64}$/, "Invalid smart account WASM hash format")
-    .optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: Hash64Schema.optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_FACTORY_CONTRACT_ID: TContractIdSchema.optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_LABEL: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_VERSION: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_SOURCE_REPO: z.string().trim().min(1).optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_WASM_SHA256: Hash64Schema.optional(),
+  NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256: Hash64Schema.optional(),
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
   NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: z
+    .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
+    .optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
 const ServerEnvSchema = ClientEnvSchema.extend({
   WALLET_SESSION_SECRET: z.string().min(1).optional(),
+  SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),
+  SMART_ACCOUNT_RELAYER_PUBLIC_KEY: TStellarPublicKeySchema.optional(),
+  SMART_ACCOUNT_CHANNELS_API_KEY: z.string().trim().min(1).optional(),
+  SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS: z.string().trim().min(1).optional(),
+  SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX: z.string().trim().min(1).optional(),
+  SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY: z.string().trim().min(1).optional(),
+  SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE: z.string().trim().min(1).optional(),
 });
 
 function formatZodError(error: z.ZodError): string {
@@ -108,12 +142,34 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID,
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
     NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: process.env.NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH,
+    NEXT_PUBLIC_SMART_ACCOUNT_FACTORY_CONTRACT_ID:
+      process.env.NEXT_PUBLIC_SMART_ACCOUNT_FACTORY_CONTRACT_ID,
+    NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_LABEL:
+      process.env.NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_LABEL,
+    NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_VERSION:
+      process.env.NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_VERSION,
+    NEXT_PUBLIC_SMART_ACCOUNT_SOURCE_REPO: process.env.NEXT_PUBLIC_SMART_ACCOUNT_SOURCE_REPO,
+    NEXT_PUBLIC_SMART_ACCOUNT_WASM_SHA256: process.env.NEXT_PUBLIC_SMART_ACCOUNT_WASM_SHA256,
+    NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256:
+      process.env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256,
     NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID:
       process.env.NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID,
     NEXT_PUBLIC_PASSKEY_RP_NAME: process.env.NEXT_PUBLIC_PASSKEY_RP_NAME,
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL,
+    NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND:
+      process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
+    SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,
+    SMART_ACCOUNT_RELAYER_PUBLIC_KEY: process.env.SMART_ACCOUNT_RELAYER_PUBLIC_KEY,
+    SMART_ACCOUNT_CHANNELS_API_KEY: process.env.SMART_ACCOUNT_CHANNELS_API_KEY,
+    SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS: process.env.SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS,
+    SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX:
+      process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX,
+    SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY:
+      process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY,
+    SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE:
+      process.env.SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE,
   });
 
   if (!result.success) {

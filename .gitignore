@@ -1,6 +1,7 @@
 docs/*
 !docs/deployment.md
 !docs/passkey-smart-accounts.md
+!docs/mainnet-smart-account-readiness.md
 node_modules*
 .turbo
 .next

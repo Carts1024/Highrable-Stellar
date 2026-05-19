@@ -4,7 +4,7 @@ export interface IStablecoinConfig {
   readonly tokenContractId?: string;
   readonly symbol: string;
   readonly decimals: number;
-  readonly network: "testnet" | "public";
+  readonly network: "local" | "testnet" | "mainnet" | "public";
 }
 
 export interface IStablecoinConfigValidationResult {

@@ -9,6 +9,7 @@ import {
   getUnsupportedEscrowAssetMessage,
   isSupportedEscrowAsset,
 } from "@/core/stellar/payment-assets";
+import { getStaticSmartAccountReadiness } from "@/core/stellar/smart-account-mainnet-checks";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -88,18 +89,27 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
   const safetyStatus = getJobSafetyStatus({ job, escrow });
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
+  const passkeyReadiness = useMemo(() => getStaticSmartAccountReadiness(), []);
+  const passkeyMainnetBlocked =
+    isPasskeyMode &&
+    passkeyReadiness.isMainnet &&
+    !passkeyReadiness.capabilities.canExecuteMainnetPasskeyEscrow;
   const walletGuardContext = useMemo(
     () => ({
       isConnected: walletIdentity.isConnected,
       isTestnet: isPasskeyMode ? true : walletState.isTestnet,
       isFunded: isPasskeyMode ? null : walletState.isFunded,
       canWriteContracts: isPasskeyMode
-        ? true
+        ? !passkeyMainnetBlocked
         : walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
+      writeRestrictionReason: passkeyMainnetBlocked
+        ? "Mainnet passkey escrow is blocked until the issues below are resolved."
+        : null,
       walletType: walletIdentity.walletType,
     }),
     [
       isPasskeyMode,
+      passkeyMainnetBlocked,
       walletIdentity.canSignEscrowTransactions,
       walletIdentity.isConnected,
       walletIdentity.walletType,
@@ -181,8 +191,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const readinessChecklist = [
     {
       label: "Stellar network",
-      isReady: isPasskeyMode || walletState.isTestnet,
-      value: isPasskeyMode || walletState.isTestnet ? "testnet" : "not testnet",
+      isReady: isPasskeyMode ? !passkeyMainnetBlocked : walletState.isTestnet,
+      value: isPasskeyMode
+        ? passkeyReadiness.network
+        : walletState.isTestnet
+          ? "testnet"
+          : "not testnet",
     },
     {
       label:
@@ -278,6 +292,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
             : "Signing with Freighter or WalletConnect."}
         </p>
+      ) : null}
+      {passkeyMainnetBlocked ? (
+        <TrustWarning message="Mainnet passkey escrow is blocked until the issues below are resolved." />
       ) : null}
 
       <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
