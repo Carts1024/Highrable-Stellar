@@ -95,8 +95,8 @@ export function WorkProofSubmissionPanel({
   const hasProofBody = normalizeSubmissionNotes(notes).length > 0 || attachmentIds.length > 0;
   const isImmutable = Boolean(
     latestSubmission &&
-      latestSubmission.status !== "draft" &&
-      latestSubmission.status !== "cancelled",
+    latestSubmission.status !== "draft" &&
+    latestSubmission.status !== "cancelled",
   );
 
   const generatedPreview = useMemo(() => {
@@ -346,13 +346,13 @@ export function WorkProofSubmissionPanel({
             ) : null}
           </div>
           {latestSubmission.notes ? (
-            <p className="whitespace-pre-wrap text-sm text-[#3f3f3f]">{latestSubmission.notes}</p>
+            <p className="text-sm whitespace-pre-wrap text-[#3f3f3f]">{latestSubmission.notes}</p>
           ) : null}
           <AttachmentList attachments={latestSubmission.attachments ?? []} readOnly />
           <dl className="grid gap-2 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-[#7f7f7f]">Proof hash</dt>
-              <dd className="break-all font-mono text-xs text-[#0a0a0a]">
+              <dd className="font-mono text-xs break-all text-[#0a0a0a]">
                 {generatedPreview ?? "Pending"}
               </dd>
             </div>
@@ -362,13 +362,13 @@ export function WorkProofSubmissionPanel({
             </div>
             <div>
               <dt className="text-[#7f7f7f]">Transaction</dt>
-              <dd className="break-all font-mono text-xs text-[#0a0a0a]">
+              <dd className="font-mono text-xs break-all text-[#0a0a0a]">
                 {latestSubmission.stellarExpertUrl ? (
                   <a href={latestSubmission.stellarExpertUrl} target="_blank" rel="noreferrer">
                     {latestSubmission.transactionHash}
                   </a>
                 ) : (
-                  latestSubmission.transactionHash ?? "Pending"
+                  (latestSubmission.transactionHash ?? "Pending")
                 )}
               </dd>
             </div>

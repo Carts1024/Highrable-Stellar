@@ -41,7 +41,9 @@ export async function getSubmissionOrThrow(ctx: QueryCtx, submissionId: Id<"work
 export async function getEscrowByOnChainIdOrThrow(ctx: QueryCtx, onChainEscrowId: string) {
   const escrow = await ctx.db
     .query("escrows")
-    .withIndex("by_escrowId", (q) => q.eq("escrowId", requireNonEmptyString(onChainEscrowId, "escrowId")))
+    .withIndex("by_escrowId", (q) =>
+      q.eq("escrowId", requireNonEmptyString(onChainEscrowId, "escrowId")),
+    )
     .unique();
 
   if (!escrow) {
@@ -91,10 +93,7 @@ export async function assertCanCreateSubmission(
   };
 }
 
-export function assertSubmissionIsMutable(submission: {
-  status: string;
-  onChainStatus: string;
-}) {
+export function assertSubmissionIsMutable(submission: { status: string; onChainStatus: string }) {
   if (IMMUTABLE_STATUSES.has(submission.status) || submission.onChainStatus === "confirmed") {
     throw new ForbiddenError("Submitted proof is read-only.");
   }
@@ -176,8 +175,7 @@ export async function assertAttachmentsOwnedBySubmitter(
     }
     if (
       attachment.parentType !== "unknown" &&
-      (attachment.parentType !== "work_submission" ||
-        attachment.parentId !== input.submissionId)
+      (attachment.parentType !== "work_submission" || attachment.parentId !== input.submissionId)
     ) {
       throw new BadRequestError("Attachment is already linked to another immutable proof.");
     }

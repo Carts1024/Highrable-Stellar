@@ -368,11 +368,7 @@ export async function assertCanModifyAttachment(
 
   if (attachment.parentType === "work_submission" && attachment.parentId) {
     const submission = await ctx.db.get(attachment.parentId as Id<"workSubmissions">);
-    if (
-      submission &&
-      submission.status !== "draft" &&
-      submission.status !== "anchor_failed"
-    ) {
+    if (submission && submission.status !== "draft" && submission.status !== "anchor_failed") {
       throw new ForbiddenError("Submitted proof attachments are read-only.");
     }
   }

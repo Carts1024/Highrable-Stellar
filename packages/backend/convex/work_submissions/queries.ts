@@ -14,9 +14,9 @@ import { workSubmissionParentTypeValidator } from "./schema";
 
 type TWorkSubmissionDoc = Awaited<ReturnType<typeof getSubmissionOrThrow>>;
 
-function sortSubmissionsNewestFirst<TSubmission extends { submittedAt?: number; createdAt: number }>(
-  submissions: TSubmission[],
-): TSubmission[] {
+function sortSubmissionsNewestFirst<
+  TSubmission extends { submittedAt?: number; createdAt: number },
+>(submissions: TSubmission[]): TSubmission[] {
   return [...submissions].sort((left, right) => {
     const leftTimestamp = left.submittedAt ?? left.createdAt;
     const rightTimestamp = right.submittedAt ?? right.createdAt;
@@ -75,7 +75,9 @@ export const getSubmissionsByParent = query({
   handler: async (ctx, args) => {
     const submissions = await ctx.db
       .query("workSubmissions")
-      .withIndex("by_parent", (q) => q.eq("parentType", args.parentType).eq("parentId", args.parentId))
+      .withIndex("by_parent", (q) =>
+        q.eq("parentType", args.parentType).eq("parentId", args.parentId),
+      )
       .order("desc")
       .take(50);
 
