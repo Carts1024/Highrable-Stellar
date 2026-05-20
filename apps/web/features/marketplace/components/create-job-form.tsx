@@ -38,9 +38,9 @@ import {
   DISALLOWED_JOB_POST_MESSAGE,
 } from "@/features/marketplace/lib/scam-signals";
 import { api, type TConvexId } from "@repo/convex-client";
+import { DateTimePicker } from "@repo/ui/components/ui-customs/date-time-picker";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { DateTimePicker } from "@repo/ui/components/ui-customs/date-time-picker";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
@@ -1065,11 +1065,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       min={minimumDeadlineInputValue}
                       value={milestone.deadlineAt}
                       onValueChange={(value) =>
-                        updateMilestone(
-                          milestone.id,
-                          "deadlineAt",
-                          clampDeadlineInputValue(value),
-                        )
+                        updateMilestone(milestone.id, "deadlineAt", clampDeadlineInputValue(value))
                       }
                     />
                     <p className="mt-1 font-mono text-xs text-gray-500">

@@ -10,8 +10,10 @@ import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
-export interface IDateTimePickerProps
-  extends Omit<React.ComponentProps<typeof Button>, "value" | "onChange" | "type"> {
+export interface IDateTimePickerProps extends Omit<
+  React.ComponentProps<typeof Button>,
+  "value" | "onChange" | "type"
+> {
   value: string;
   onValueChange: (value: string) => void;
   min?: string;
