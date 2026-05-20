@@ -10,6 +10,7 @@ import {
   validateDeadlineAt,
   validateMilestoneDeadlineOrder,
 } from "../deadlines/helpers";
+import { validateRevisionPolicy } from "../revisions/helpers";
 import {
   sanitizeEscrowAmount,
   sanitizeEscrowAsset,
@@ -52,6 +53,10 @@ export const createMilestoneProject = mutation({
         requiredOutput: v.optional(v.string()),
         amount: v.number(),
         deadlineAt: v.number(),
+        revisionPolicy: v.optional(
+          v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited")),
+        ),
+        revisionLimit: v.optional(v.union(v.number(), v.null())),
       }),
     ),
   },
@@ -82,6 +87,10 @@ export const createMilestoneProject = mutation({
         sanitizeMilestoneTitle(milestone.title),
       amount: sanitizeMilestoneAmount(milestone.amount),
       deadlineAt: validateDeadlineAt(milestone.deadlineAt),
+      revisionConfig: validateRevisionPolicy({
+        revisionPolicy: milestone.revisionPolicy,
+        revisionLimit: milestone.revisionLimit,
+      }),
     }));
     const totalBudget = sanitizedMilestones.reduce(
       (total, milestone) => total + milestone.amount,
@@ -116,8 +125,12 @@ export const createMilestoneProject = mutation({
         requiredOutput: milestone.requiredOutput,
         amount: milestone.amount,
         asset,
-        status: "open",
-        deadlineAt: milestone.deadlineAt,
+      status: "open",
+      revisionPolicy: milestone.revisionConfig.revisionPolicy,
+      revisionLimit: milestone.revisionConfig.revisionLimit,
+      revisionCount: 0,
+      revisionStatus: "none",
+      deadlineAt: milestone.deadlineAt,
         deadlineStatus: computeDeadlineStatus({
           deadlineAt: milestone.deadlineAt,
           workStatus: "open",
@@ -165,6 +178,8 @@ export const addMilestoneToProject = mutation({
     requiredOutput: v.optional(v.string()),
     amount: v.number(),
     deadlineAt: v.number(),
+    revisionPolicy: v.optional(v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited"))),
+    revisionLimit: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const clientWallet = sanitizeMilestoneWallet(args.clientWallet);
@@ -183,6 +198,10 @@ export const addMilestoneToProject = mutation({
     const nextOrder = (existing[0]?.order ?? 0) + 1;
     const amount = sanitizeMilestoneAmount(args.amount);
     const deadlineAt = validateDeadlineAt(args.deadlineAt);
+    const revisionConfig = validateRevisionPolicy({
+      revisionPolicy: args.revisionPolicy,
+      revisionLimit: args.revisionLimit,
+    });
     if (existing[0]?.deadlineAt !== undefined && deadlineAt < existing[0].deadlineAt) {
       throw new BadRequestError(
         `Milestone ${nextOrder} cannot be due before Milestone ${nextOrder - 1}.`,
@@ -201,6 +220,10 @@ export const addMilestoneToProject = mutation({
       amount,
       asset: job.asset,
       status: "open",
+      revisionPolicy: revisionConfig.revisionPolicy,
+      revisionLimit: revisionConfig.revisionLimit,
+      revisionCount: 0,
+      revisionStatus: "none",
       deadlineAt,
       deadlineStatus: computeDeadlineStatus({ deadlineAt, workStatus: "open", now }),
       applicationGateStatus: "locked",

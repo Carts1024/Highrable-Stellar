@@ -280,6 +280,20 @@ export async function assertCanAttachToParent(
     return;
   }
 
+  if (input.parentType === "revision_request") {
+    const revision = await ctx.db.get(input.parentId as Id<"revisionRequests">);
+    if (!revision || revision.status === "cancelled" || revision.status === "expired") {
+      throw new NotFoundError("Revision request was not found.");
+    }
+    if (revision.clientWallet !== walletAddress) {
+      throw new ForbiddenError("Only the client can attach files to this revision request.");
+    }
+    if (input.ownerRole !== "client") {
+      throw new ForbiddenError("Only client-owned files can be attached to revision requests.");
+    }
+    return;
+  }
+
   throw new BadRequestError("This attachment parent type is not supported yet.");
 }
 
@@ -375,6 +389,21 @@ export async function assertCanViewAttachment(
       message.status !== "hidden" &&
       conversation &&
       conversation.participantWallets.includes(normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "revision_request" &&
+    attachment.parentId
+  ) {
+    const revision = await ctx.db.get(attachment.parentId as Id<"revisionRequests">);
+    if (
+      revision &&
+      (revision.clientWallet === normalizedViewerWallet ||
+        revision.freelancerWallet === normalizedViewerWallet)
     ) {
       return;
     }

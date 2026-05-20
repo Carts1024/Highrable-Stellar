@@ -57,6 +57,10 @@ import type * as reputation_records_helpers from "../reputation_records/helpers.
 import type * as reputation_records_mutations from "../reputation_records/mutations.js";
 import type * as reputation_records_queries from "../reputation_records/queries.js";
 import type * as reputation_records_types from "../reputation_records/types.js";
+import type * as revisions from "../revisions.js";
+import type * as revisions_helpers from "../revisions/helpers.js";
+import type * as revisions_mutations from "../revisions/mutations.js";
+import type * as revisions_queries from "../revisions/queries.js";
 import type * as sync from "../sync.js";
 import type * as syncMutations from "../syncMutations.js";
 import type * as transactions from "../transactions.js";
@@ -130,6 +134,10 @@ declare const fullApi: ApiFromModules<{
   "reputation_records/mutations": typeof reputation_records_mutations;
   "reputation_records/queries": typeof reputation_records_queries;
   "reputation_records/types": typeof reputation_records_types;
+  revisions: typeof revisions;
+  "revisions/helpers": typeof revisions_helpers;
+  "revisions/mutations": typeof revisions_mutations;
+  "revisions/queries": typeof revisions_queries;
   sync: typeof sync;
   syncMutations: typeof syncMutations;
   transactions: typeof transactions;

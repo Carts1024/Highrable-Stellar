@@ -16,6 +16,8 @@ function createEmptyCounts(): TMilestoneCountsByStatus {
     escrow_created: 0,
     funded: 0,
     submitted: 0,
+    revision_requested: 0,
+    revision_submitted: 0,
     released: 0,
     cancelled: 0,
     disputed: 0,

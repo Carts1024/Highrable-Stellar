@@ -26,6 +26,7 @@ const attachmentParentTypeEnum = createStringEnum([
   "job",
   "milestone",
   "work_submission",
+  "revision_request",
   "dispute",
   "chat_message",
   "profile",

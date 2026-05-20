@@ -9,6 +9,13 @@ import {
   resolveDeadlineParent,
   upsertDeadlineReminders,
 } from "../deadlines/helpers";
+import {
+  assertCanSubmitRevision,
+  createRevisionEventMessage,
+  createRevisionNotification,
+  patchRevisionParent,
+  resolveRevisionParent,
+} from "../revisions/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertAttachmentsOwnedBySubmitter,
@@ -26,10 +33,18 @@ export const createWorkSubmissionDraft = mutation({
     onChainEscrowId: v.string(),
     submittedByWallet: v.string(),
     submittedByWalletType: walletTypeValidator,
+    revisionRequestId: v.optional(v.id("revisionRequests")),
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const context = await assertCanCreateSubmission(ctx, args);
+    const revisionContext =
+      args.revisionRequestId !== undefined
+        ? await assertCanSubmitRevision(ctx, {
+            revisionRequestId: args.revisionRequestId,
+            freelancerWallet: args.submittedByWallet,
+          })
+        : null;
     const now = Date.now();
 
     return await ctx.db.insert("workSubmissions", {
@@ -41,6 +56,13 @@ export const createWorkSubmissionDraft = mutation({
         : {}),
       escrowId: context.escrow._id,
       onChainEscrowId: context.escrow.escrowId,
+      ...(revisionContext
+        ? {
+            revisionRequestId: revisionContext.revision._id,
+            revisionNumber: revisionContext.revision.revisionNumber,
+            previousSubmissionId: revisionContext.revision.workSubmissionId,
+          }
+        : {}),
       clientWallet: context.escrow.clientWallet,
       freelancerWallet: context.escrow.freelancerWallet!,
       freelancerWalletType: args.submittedByWalletType,
@@ -50,7 +72,7 @@ export const createWorkSubmissionDraft = mutation({
       attachmentIds: [],
       hashAlgorithm: "sha256",
       hashEncoding: "hex",
-      proofVersion: "v1",
+      proofVersion: revisionContext ? "v1_revision" : "v1",
       status: "draft",
       onChainStatus: "not_submitted",
       createdAt: now,
@@ -129,6 +151,52 @@ export const submitWorkProofMetadata = mutation({
       updatedAt: now,
     });
 
+    if (submission.revisionRequestId !== undefined) {
+      const { revision } = await assertCanSubmitRevision(ctx, {
+        revisionRequestId: submission.revisionRequestId,
+        freelancerWallet: submittedByWallet,
+      });
+      const parentContext = await resolveRevisionParent(ctx, {
+        parentType: revision.parentType,
+        parentId: revision.parentId,
+      });
+      await ctx.db.patch(revision._id, {
+        revisionSubmissionId: args.submissionId,
+        status: "revision_submitted",
+        respondedAt: now,
+        updatedAt: now,
+      });
+      await patchRevisionParent(ctx, parentContext, {
+        status: "revision_submitted",
+        activeRevisionId: undefined,
+        revisionStatus: "revision_submitted",
+      });
+      await createRevisionEventMessage(ctx, {
+        parent: parentContext,
+        eventType: "revision_submitted",
+        body: `Revision submitted: Freelancer submitted revised proof for Revision #${revision.revisionNumber}.`,
+        revisionRequestId: revision._id,
+        workSubmissionId: args.submissionId,
+        proofHash,
+      });
+      await createRevisionNotification(ctx, {
+        recipientWallet: revision.clientWallet,
+        type: "revision_submitted",
+        title: "Revision submitted",
+        body: "Freelancer submitted revised proof for your review.",
+        parentType: parentContext.parentType === "milestone" ? "milestone" : "micro_gig",
+        parentId: parentContext.parentId,
+        jobId: parentContext.jobId,
+        milestoneId: parentContext.milestoneId,
+        escrowId: parentContext.escrowId,
+        metadata: {
+          revisionRequestId: revision._id,
+          workSubmissionId: args.submissionId,
+          proofHash,
+        },
+      });
+    }
+
     if (parent.parentType === "micro_gig") {
       await ctx.db.patch(parent.jobId, {
         submittedAt: args.submittedAt,
@@ -146,33 +214,35 @@ export const submitWorkProofMetadata = mutation({
       submittedAt: args.submittedAt,
     });
 
-    await createSystemMessageForEvent(ctx, {
-      parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
-      parentId: submission.escrowId ?? args.submissionId,
-      eventType: "work_submitted",
-      body: "Proof of work was submitted.",
-      eventPayload: {
-        workSubmissionId: args.submissionId,
-        escrowId: submission.escrowId,
-        onChainEscrowId: submission.onChainEscrowId,
-        proofHash,
-      },
-    });
+    if (submission.revisionRequestId === undefined) {
+      await createSystemMessageForEvent(ctx, {
+        parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
+        parentId: submission.escrowId ?? args.submissionId,
+        eventType: "work_submitted",
+        body: "Proof of work was submitted.",
+        eventPayload: {
+          workSubmissionId: args.submissionId,
+          escrowId: submission.escrowId,
+          onChainEscrowId: submission.onChainEscrowId,
+          proofHash,
+        },
+      });
 
-    await createSystemMessageForEvent(ctx, {
-      parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
-      parentId: submission.escrowId ?? args.submissionId,
-      eventType: "deadline_warning",
-      body:
-        deadlineStatus === "submitted_late"
-          ? "Proof submitted after the deadline."
-          : "Proof submitted on time.",
-      eventPayload: {
-        workSubmissionId: args.submissionId,
-        deadlineAt: parent.deadlineAt,
-        deadlineStatus,
-      },
-    });
+      await createSystemMessageForEvent(ctx, {
+        parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
+        parentId: submission.escrowId ?? args.submissionId,
+        eventType: "deadline_warning",
+        body:
+          deadlineStatus === "submitted_late"
+            ? "Proof submitted after the deadline."
+            : "Proof submitted on time.",
+        eventPayload: {
+          workSubmissionId: args.submissionId,
+          deadlineAt: parent.deadlineAt,
+          deadlineStatus,
+        },
+      });
+    }
 
     return await getSubmissionOrThrow(ctx, args.submissionId);
   },

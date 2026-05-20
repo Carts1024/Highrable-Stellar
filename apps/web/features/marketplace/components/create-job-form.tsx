@@ -55,6 +55,7 @@ import type {
   TCreateJobFormState,
   TCreateMilestoneFormState,
   TJobType,
+  TRevisionPolicy,
 } from "@/features/marketplace/types";
 
 const DEFAULT_STABLECOIN_ASSET = getPrimaryEscrowAsset().tokenContractId;
@@ -120,6 +121,10 @@ const CREATE_MILESTONE_SCHEMA = z.object({
 
 type TCreateJobPayload = z.infer<typeof CREATE_JOB_SCHEMA>;
 type TCreateMilestonePayload = z.infer<typeof CREATE_MILESTONE_SCHEMA>;
+type TParsedMilestonePayload = TCreateMilestonePayload & {
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
+};
 
 function createClientJobHash(): string {
   const uniqueId =
@@ -151,7 +156,100 @@ function createDraftMilestone(): TCreateMilestoneFormState {
     description: "",
     amount: "",
     deadlineAt: "",
+    revisionPolicy: "fixed",
+    revisionLimit: "2",
   };
+}
+
+function parseRevisionPolicy(input: {
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
+}): { revisionPolicy: TRevisionPolicy; revisionLimit: number | null } {
+  if (input.revisionPolicy === "none" || input.revisionPolicy === "unlimited") {
+    return { revisionPolicy: input.revisionPolicy, revisionLimit: null };
+  }
+
+  const limit = Number.parseInt(input.revisionLimit.trim(), 10);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25) {
+    throw new Error("Fixed revisions require a limit between 1 and 25.");
+  }
+
+  return { revisionPolicy: "fixed", revisionLimit: limit };
+}
+
+function RevisionPolicyControls({
+  idPrefix,
+  revisionPolicy,
+  revisionLimit,
+  disabled,
+  error,
+  onPolicyChange,
+  onLimitChange,
+}: {
+  idPrefix: string;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
+  disabled?: boolean;
+  error?: string;
+  onPolicyChange: (policy: TRevisionPolicy) => void;
+  onLimitChange: (limit: string) => void;
+}) {
+  const options: Array<{ value: TRevisionPolicy; label: string }> = [
+    { value: "none", label: "No revisions" },
+    { value: "fixed", label: "Fixed revisions" },
+    { value: "unlimited", label: "Unlimited revisions" },
+  ];
+
+  return (
+    <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+      <p className="text-sm font-semibold text-[#0a0a0a]">Revision policy</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPolicyChange(option.value)}
+            className={`rounded-lg border p-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+              revisionPolicy === option.value
+                ? "border-[#FF7003] bg-white text-[#0a0a0a]"
+                : "border-[#e8e8e8] bg-white text-[#5f5f5f] hover:border-[#FF7003]/50"
+            }`}
+            aria-pressed={revisionPolicy === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {revisionPolicy === "fixed" ? (
+        <div className="mt-3 max-w-48">
+          <label
+            htmlFor={`${idPrefix}-revision-limit`}
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
+            Revision limit
+          </label>
+          <AppInput
+            id={`${idPrefix}-revision-limit`}
+            type="number"
+            min={1}
+            max={25}
+            step={1}
+            value={revisionLimit}
+            disabled={disabled}
+            onChange={(event) => onLimitChange(event.target.value)}
+          />
+        </div>
+      ) : null}
+      {revisionPolicy === "unlimited" ? (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Unlimited revisions can delay completion. Use this only when both parties agree on a
+          flexible review process.
+        </p>
+      ) : null}
+      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
 }
 
 function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErrors {
@@ -205,6 +303,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     deadlineAt: "",
     fundEscrowNow: false,
     jobType: "micro_gig",
+    revisionPolicy: "fixed",
+    revisionLimit: "2",
     milestones: [
       {
         id: "initial",
@@ -212,6 +312,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: "",
         amount: "",
         deadlineAt: "",
+        revisionPolicy: "fixed",
+        revisionLimit: "2",
       },
     ],
   });
@@ -279,6 +381,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     setErrors({});
   };
 
+  const updateRevisionPolicy = (revisionPolicy: TRevisionPolicy) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      revisionPolicy,
+      revisionLimit: revisionPolicy === "fixed" ? currentValue.revisionLimit || "2" : "",
+    }));
+    setErrors((currentValue) => ({
+      ...currentValue,
+      revisionPolicy: undefined,
+      revisionLimit: undefined,
+      submit: undefined,
+    }));
+  };
+
+  const updateRevisionLimit = (revisionLimit: string) => {
+    setFormState((currentValue) => ({ ...currentValue, revisionLimit }));
+    setErrors((currentValue) => ({ ...currentValue, revisionLimit: undefined, submit: undefined }));
+  };
+
   const updateFundEscrowNow = (value: boolean) => {
     setFormState((currentValue) => ({ ...currentValue, fundEscrowNow: value }));
     setErrors((currentValue) => ({ ...currentValue, submit: undefined }));
@@ -293,6 +414,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       ...currentValue,
       milestones: currentValue.milestones.map((milestone) =>
         milestone.id === milestoneId ? { ...milestone, [field]: value } : milestone,
+      ),
+    }));
+    setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
+  };
+
+  const updateMilestoneRevisionPolicy = (
+    milestoneId: string,
+    revisionPolicy: TRevisionPolicy,
+  ) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      milestones: currentValue.milestones.map((milestone) =>
+        milestone.id === milestoneId
+          ? {
+              ...milestone,
+              revisionPolicy,
+              revisionLimit: revisionPolicy === "fixed" ? milestone.revisionLimit || "2" : "",
+            }
+          : milestone,
       ),
     }));
     setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
@@ -315,8 +455,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     }));
   };
 
-  const parseMilestones = (): TCreateMilestonePayload[] | null => {
-    const parsedMilestones: TCreateMilestonePayload[] = [];
+  const parseMilestones = (): TParsedMilestonePayload[] | null => {
+    const parsedMilestones: TParsedMilestonePayload[] = [];
 
     if (formState.milestones.length < 1) {
       setErrors({ milestones: "At least one milestone is required." });
@@ -347,7 +487,24 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         });
         return null;
       }
-      parsedMilestones.push(parsed.data);
+      try {
+        parseRevisionPolicy({
+          revisionPolicy: milestone.revisionPolicy,
+          revisionLimit: milestone.revisionLimit,
+        });
+      } catch (error) {
+        setErrors({
+          milestones: `Milestone ${index + 1}: ${
+            error instanceof Error ? error.message : "Invalid revision policy."
+          }`,
+        });
+        return null;
+      }
+      parsedMilestones.push({
+        ...parsed.data,
+        revisionPolicy: milestone.revisionPolicy,
+        revisionLimit: milestone.revisionLimit,
+      });
     }
 
     const totalBudget = parsedMilestones.reduce((total, milestone) => total + milestone.amount, 0);
@@ -489,6 +646,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             requiredOutput: milestone.description || milestone.title,
             amount: milestone.amount,
             deadlineAt: parseDatetimeLocalValue(milestone.deadlineAt)!,
+            ...parseRevisionPolicy({
+              revisionPolicy: milestone.revisionPolicy,
+              revisionLimit: milestone.revisionLimit,
+            }),
           })),
         });
         const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
@@ -504,6 +665,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           deadlineAt: "",
           fundEscrowNow: false,
           jobType: "micro_gig",
+          revisionPolicy: "fixed",
+          revisionLimit: "2",
           milestones: [createDraftMilestone()],
         });
         setDraftAttachments([]);
@@ -592,6 +755,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         asset: payload.asset,
         deadlineAt,
         clientWallet: walletIdentity.walletAddress,
+        ...parseRevisionPolicy({
+          revisionPolicy: formState.revisionPolicy,
+          revisionLimit: formState.revisionLimit,
+        }),
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         jobHash,
       });
@@ -680,6 +847,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         deadlineAt: "",
         fundEscrowNow: false,
         jobType: "micro_gig",
+        revisionPolicy: "fixed",
+        revisionLimit: "2",
         milestones: [createDraftMilestone()],
       });
       setDraftAttachments([]);
@@ -961,6 +1130,18 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </div>
         </div>
 
+        {!isMilestoneProject ? (
+          <RevisionPolicyControls
+            idPrefix="micro-gig"
+            revisionPolicy={formState.revisionPolicy}
+            revisionLimit={formState.revisionLimit}
+            disabled={isSubmitting}
+            error={errors.revisionPolicy ?? errors.revisionLimit}
+            onPolicyChange={updateRevisionPolicy}
+            onLimitChange={updateRevisionLimit}
+          />
+        ) : null}
+
         <AttachmentUploader
           value={draftAttachments}
           onChange={setDraftAttachments}
@@ -1071,6 +1252,20 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     <p className="mt-1 font-mono text-xs text-gray-500">
                       {getLocalTimezoneLabel()}
                     </p>
+                  </div>
+                  <div className="mt-3">
+                    <RevisionPolicyControls
+                      idPrefix={`milestone-${milestone.id}`}
+                      revisionPolicy={milestone.revisionPolicy}
+                      revisionLimit={milestone.revisionLimit}
+                      disabled={isSubmitting}
+                      onPolicyChange={(policy) =>
+                        updateMilestoneRevisionPolicy(milestone.id, policy)
+                      }
+                      onLimitChange={(limit) =>
+                        updateMilestone(milestone.id, "revisionLimit", limit)
+                      }
+                    />
                   </div>
                 </div>
               ))}

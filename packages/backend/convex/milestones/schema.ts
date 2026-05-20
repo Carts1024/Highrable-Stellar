@@ -2,7 +2,11 @@ import { defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
 
 import { createStringEnum } from "../_shared/enum";
-import { deadlineStatusValidator } from "../jobs/schema";
+import {
+  deadlineStatusValidator,
+  revisionPolicyValidator,
+  revisionStatusValidator,
+} from "../jobs/schema";
 
 const milestoneStatusEnum = createStringEnum([
   "draft",
@@ -11,6 +15,8 @@ const milestoneStatusEnum = createStringEnum([
   "escrow_created",
   "funded",
   "submitted",
+  "revision_requested",
+  "revision_submitted",
   "released",
   "cancelled",
   "disputed",
@@ -44,6 +50,12 @@ export default defineTable({
   deadlineAt: v.optional(v.number()),
   deadlineStatus: v.optional(deadlineStatusValidator),
   deadlineReminderState: v.optional(v.any()),
+  revisionPolicy: v.optional(revisionPolicyValidator),
+  revisionLimit: v.optional(v.union(v.number(), v.null())),
+  revisionCount: v.optional(v.number()),
+  activeRevisionId: v.optional(v.id("revisionRequests")),
+  lastRevisionRequestedAt: v.optional(v.number()),
+  revisionStatus: v.optional(revisionStatusValidator),
   submittedAt: v.optional(v.number()),
   completedAt: v.optional(v.number()),
   approvedAt: v.optional(v.number()),

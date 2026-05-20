@@ -21,7 +21,7 @@ import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
-import { RotateCcw, Send } from "lucide-react";
+import { GitPullRequest, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
@@ -47,6 +47,24 @@ function getStatusLabel(status: string): string {
   return status.replace(/_/g, " ");
 }
 
+function formatRevisionPolicy(input?: {
+  revisionPolicy: "none" | "fixed" | "unlimited";
+  revisionLimit: number | null;
+  revisionCount: number;
+  remainingRevisions: number | null;
+}): string {
+  if (!input || input.revisionPolicy === "fixed") {
+    const limit = input?.revisionLimit ?? 2;
+    const count = input?.revisionCount ?? 0;
+    return `${count} of ${limit} revisions used`;
+  }
+  if (input.revisionPolicy === "unlimited") {
+    return "Unlimited revisions";
+  }
+
+  return "No revisions allowed";
+}
+
 export function WorkProofSubmissionPanel({
   job,
   escrow,
@@ -56,15 +74,34 @@ export function WorkProofSubmissionPanel({
   const { signTransaction } = useWallet();
   const [notes, setNotes] = useState("");
   const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [requestedChanges, setRequestedChanges] = useState("");
+  const [revisionAttachments, setRevisionAttachments] = useState<TDraftAttachment[]>([]);
+  const [requestingRevision, setRequestingRevision] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const viewerWallet = walletIdentity.walletAddress ?? undefined;
+  const parentType = milestone ? "milestone" : "micro_gig";
+  const parentId = milestone?._id ?? job._id;
   const submissions = useQuery(
     api.work_submissions.getSubmissionsByEscrow,
     escrow?.escrowId && viewerWallet ? { onChainEscrowId: escrow.escrowId, viewerWallet } : "skip",
   );
+  const revisionPolicy = useQuery(
+    api.revisions.getRevisionPolicyForParent,
+    viewerWallet ? { parentType, parentId, viewerWallet } : "skip",
+  );
+  const activeRevision = useQuery(
+    api.revisions.getActiveRevisionRequest,
+    viewerWallet ? { parentType, parentId, viewerWallet } : "skip",
+  );
+  const revisionTimeline = useQuery(
+    api.revisions.getRevisionTimeline,
+    viewerWallet ? { parentType, parentId, viewerWallet } : "skip",
+  );
   const attachmentIds = getReadyAttachmentIds(draftAttachments);
+  const revisionAttachmentIds = getReadyAttachmentIds(revisionAttachments);
   const attachmentDocs = useQuery(
     api.attachments.getManyByIds,
     attachmentIds.length > 0 && viewerWallet ? { attachmentIds, viewerWallet } : "skip",
@@ -72,6 +109,7 @@ export function WorkProofSubmissionPanel({
 
   const createDraft = useMutation(api.work_submissions.createWorkSubmissionDraft);
   const submitMetadata = useMutation(api.work_submissions.submitWorkProofMetadata);
+  const requestRevision = useMutation(api.revisions.requestRevision);
   const markAnchoring = useMutation(api.work_submissions.markSubmissionAnchoring);
   const markAnchored = useMutation(api.work_submissions.markSubmissionAnchored);
   const markFailed = useMutation(api.work_submissions.markSubmissionAnchorFailed);
@@ -81,15 +119,34 @@ export function WorkProofSubmissionPanel({
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
 
   const latestSubmission = submissions?.[0] ?? null;
+  const latestSubmittedSubmission =
+    submissions?.find((submission) => submission.status !== "draft" && submission.status !== "cancelled") ??
+    null;
   const canViewProof =
     walletIdentity.isConnected &&
     (isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? null) ||
       isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null));
-  const canSubmit =
+  const canSubmitOriginal =
     Boolean(escrow?.escrowId) &&
     escrow?.status === "funded" &&
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
+  const canSubmitRevision =
+    Boolean(escrow?.escrowId) &&
+    escrow?.status === "submitted" &&
+    Boolean(activeRevision) &&
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
+  const canSubmit = canSubmitOriginal || canSubmitRevision;
+  const canRequestRevision =
+    Boolean(latestSubmittedSubmission) &&
+    Boolean(walletIdentity.walletType) &&
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet) &&
+    !activeRevision &&
+    escrow?.status === "submitted" &&
+    revisionPolicy?.revisionPolicy !== "none" &&
+    (revisionPolicy?.remainingRevisions === null || (revisionPolicy?.remainingRevisions ?? 0) > 0);
   const hasUploadingAttachment = draftAttachments.some(
     (attachment) => attachment.status === "uploading",
   );
@@ -213,6 +270,7 @@ export function WorkProofSubmissionPanel({
         onChainEscrowId: escrow.escrowId,
         submittedByWallet: walletIdentity.walletAddress,
         submittedByWalletType: walletIdentity.walletType,
+        ...(activeRevision ? { revisionRequestId: activeRevision._id } : {}),
       });
       const manifest = await buildNormalizedProofManifest({
         network: config.networkPassphrase,
@@ -230,6 +288,15 @@ export function WorkProofSubmissionPanel({
         submittedAt,
         notes,
         attachments: attachmentDocs ?? [],
+        ...(activeRevision
+          ? {
+              revisionContext: {
+                revisionRequestId: activeRevision._id,
+                revisionNumber: activeRevision.revisionNumber,
+                previousSubmissionId: activeRevision.workSubmissionId,
+              },
+            }
+          : {}),
       });
       const proofHash = await hashProofManifest(manifest);
       const submission = await submitMetadata({
@@ -242,6 +309,12 @@ export function WorkProofSubmissionPanel({
         submittedAt,
       });
 
+      if (activeRevision) {
+        setNotes("");
+        setDraftAttachments([]);
+        return;
+      }
+
       await anchorSubmission(submission);
       setNotes("");
       setDraftAttachments([]);
@@ -249,6 +322,43 @@ export function WorkProofSubmissionPanel({
       setError(getReadableAttachmentError(error, "Proof submission failed."));
     } finally {
       setPending(false);
+    }
+  };
+
+  const handleRequestRevision = async () => {
+    setError(null);
+    if (!latestSubmittedSubmission || !walletIdentity.walletAddress || !walletIdentity.walletType) {
+      setError("Client cannot request revision before proof is submitted.");
+      return;
+    }
+    if (!requestedChanges.trim()) {
+      setError("Add requested changes before sending the revision request.");
+      return;
+    }
+    if (revisionAttachments.some((attachment) => attachment.status === "uploading")) {
+      setError("Wait for revision attachments to finish uploading.");
+      return;
+    }
+
+    setRequestingRevision(true);
+    try {
+      await requestRevision({
+        parentType,
+        parentId,
+        workSubmissionId: latestSubmittedSubmission._id,
+        clientWallet: walletIdentity.walletAddress,
+        requestedByWalletType: walletIdentity.walletType,
+        reason: revisionReason || "Revision requested",
+        requestedChanges,
+        attachmentIds: revisionAttachmentIds,
+      });
+      setRevisionReason("");
+      setRequestedChanges("");
+      setRevisionAttachments([]);
+    } catch (error) {
+      setError(getReadableAttachmentError(error, "Revision request failed."));
+    } finally {
+      setRequestingRevision(false);
     }
   };
 
@@ -280,7 +390,19 @@ export function WorkProofSubmissionPanel({
         ) : null}
       </div>
 
-      {canSubmit && !isImmutable ? (
+      <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+        <p className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</p>
+        <p className="mt-1 text-sm font-medium text-[#0a0a0a]">
+          {formatRevisionPolicy(revisionPolicy ?? undefined)}
+        </p>
+        {activeRevision ? (
+          <p className="mt-2 text-sm text-[#5f5f5f]">
+            Active Revision #{activeRevision.revisionNumber}: {activeRevision.requestedChanges}
+          </p>
+        ) : null}
+      </div>
+
+      {canSubmit && (!isImmutable || canSubmitRevision) ? (
         <div className="space-y-3">
           <DeadlineBadge
             deadlineAt={milestone?.deadlineAt ?? job.deadlineAt}
@@ -294,7 +416,11 @@ export function WorkProofSubmissionPanel({
             value={notes}
             disabled={pending}
             onChange={(event) => setNotes(event.target.value)}
-            placeholder="Summarize completed work, delivery notes, links, or acceptance details."
+            placeholder={
+              canSubmitRevision
+                ? "Summarize the revised work and what changed from the previous submission."
+                : "Summarize completed work, delivery notes, links, or acceptance details."
+            }
             className="min-h-28 rounded-lg border-[#d8d8d8] bg-white"
           />
           <AttachmentUploader
@@ -311,13 +437,73 @@ export function WorkProofSubmissionPanel({
               className="gap-2 disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
-              {pending ? "Submitting Proof..." : "Submit Proof"}
+              {pending
+                ? canSubmitRevision
+                  ? "Submitting Revision..."
+                  : "Submitting Proof..."
+                : canSubmitRevision
+                  ? "Submit Revision"
+                  : "Submit Proof"}
             </AppButton>
             <p className="font-mono text-xs text-[#7f7f7f]">
               {attachmentIds.length} attachment{attachmentIds.length === 1 ? "" : "s"} ready
             </p>
           </div>
         </div>
+      ) : null}
+
+      {canRequestRevision ? (
+        <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-3">
+          <div>
+            <h4 className="text-sm font-semibold text-[#0a0a0a]">Request revision</h4>
+            <p className="mt-1 text-sm text-[#5f5f5f]">
+              This creates a structured revision request and notifies the freelancer.
+            </p>
+          </div>
+          <Textarea
+            value={revisionReason}
+            disabled={requestingRevision}
+            onChange={(event) => setRevisionReason(event.target.value)}
+            placeholder="Short reason"
+            className="min-h-20 rounded-lg border-[#d8d8d8] bg-white"
+          />
+          <Textarea
+            value={requestedChanges}
+            disabled={requestingRevision}
+            onChange={(event) => setRequestedChanges(event.target.value)}
+            placeholder="Requested changes"
+            className="min-h-28 rounded-lg border-[#d8d8d8] bg-white"
+          />
+          <AttachmentUploader
+            value={revisionAttachments}
+            onChange={setRevisionAttachments}
+            disabled={requestingRevision}
+            ownerRole="client"
+          />
+          <AppButton
+            type="button"
+            disabled={requestingRevision || !requestedChanges.trim()}
+            onClick={() => void handleRequestRevision()}
+            className="gap-2 disabled:opacity-60"
+          >
+            <GitPullRequest className="h-4 w-4" />
+            {requestingRevision ? "Sending..." : "Request Revision"}
+          </AppButton>
+        </div>
+      ) : latestSubmittedSubmission &&
+        walletIdentity.isConnected &&
+        isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet) ? (
+        <p className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm text-[#5f5f5f]">
+          {activeRevision
+            ? "There is already an active revision request."
+            : revisionPolicy?.revisionPolicy === "none"
+              ? "This work does not allow revisions."
+              : revisionPolicy?.remainingRevisions === 0
+                ? "The revision limit has already been reached."
+                : escrow?.status === "submitted"
+                  ? "Revision request is unavailable."
+                  : "Revisions can be requested after submitted work is ready for review."}
+        </p>
       ) : null}
 
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -399,6 +585,40 @@ export function WorkProofSubmissionPanel({
               {latestSubmission.anchorErrorMessage}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {revisionTimeline && revisionTimeline.length > 0 ? (
+        <div className="space-y-2 rounded-lg border border-[#e8e8e8] bg-white p-3">
+          <h4 className="text-sm font-semibold text-[#0a0a0a]">Revision Timeline</h4>
+          {revisionTimeline.map((event) => (
+            <div
+              key={`${event.kind}-${event.at}-${
+                event.submission?._id ?? event.revision?._id ?? "event"
+              }`}
+              className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Badge variant="secondary" className="rounded-md">
+                  {event.kind === "submission"
+                    ? event.submission?.revisionRequestId
+                      ? "revised submission"
+                      : "original submission"
+                    : "revision request"}
+                </Badge>
+                <span className="text-xs text-[#7f7f7f]">{formatDate(event.at)}</span>
+              </div>
+              {event.kind === "submission" ? (
+                <p className="mt-2 font-mono text-xs break-all text-[#0a0a0a]">
+                  {event.submission?.proofHash ?? "Proof hash pending"}
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-[#3f3f3f]">
+                  Revision #{event.revision?.revisionNumber}: {event.revision?.requestedChanges}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       ) : null}
     </section>

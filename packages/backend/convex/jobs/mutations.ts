@@ -8,6 +8,7 @@ import {
   upsertDeadlineReminders,
   validateDeadlineAt,
 } from "../deadlines/helpers";
+import { validateRevisionPolicy } from "../revisions/helpers";
 import { ensureUserWithRole } from "../users/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
@@ -26,6 +27,8 @@ export const createJob = mutation({
     asset: v.string(),
     clientWallet: v.string(),
     deadlineAt: v.number(),
+    revisionPolicy: v.optional(v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited"))),
+    revisionLimit: v.optional(v.union(v.number(), v.null())),
     jobHash: v.optional(v.string()),
     walletType: v.optional(walletTypeValidator),
   },
@@ -40,6 +43,10 @@ export const createJob = mutation({
     await ensureUserWithRole(ctx, sanitizedArgs.clientWallet, "client", args.walletType);
 
     const deadlineAt = validateDeadlineAt(args.deadlineAt);
+    const revisionConfig = validateRevisionPolicy({
+      revisionPolicy: args.revisionPolicy,
+      revisionLimit: args.revisionLimit,
+    });
     const now = Date.now();
     // TODO: Convert jobHash into the on-chain 32-byte format before contract calls.
     const jobId = await ctx.db.insert("jobs", {
@@ -50,6 +57,10 @@ export const createJob = mutation({
       status: "open",
       deadlineAt,
       deadlineStatus: computeDeadlineStatus({ deadlineAt, workStatus: "open", now }),
+      revisionPolicy: revisionConfig.revisionPolicy,
+      revisionLimit: revisionConfig.revisionLimit,
+      revisionCount: 0,
+      revisionStatus: "none",
       createdAt: now,
     });
 

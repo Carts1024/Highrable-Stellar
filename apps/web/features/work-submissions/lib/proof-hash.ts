@@ -21,7 +21,7 @@ export type TNormalizedProofAttachment = {
 };
 
 export type TNormalizedProofManifest = {
-  proofVersion: "v1";
+  proofVersion: "v1" | "v1_revision";
   platform: "Highrable";
   network: string;
   escrowContractId: string;
@@ -38,6 +38,11 @@ export type TNormalizedProofManifest = {
   submittedAt: string;
   notesHash: string;
   attachments: TNormalizedProofAttachment[];
+  revisionContext?: {
+    revisionRequestId: string;
+    revisionNumber: number;
+    previousSubmissionId: string;
+  };
 };
 
 export function normalizeSubmissionNotes(notes: string): string {
@@ -122,6 +127,11 @@ export async function buildNormalizedProofManifest(input: {
   submittedAt: number;
   notes: string;
   attachments: TProofAttachmentInput[];
+  revisionContext?: {
+    revisionRequestId: string;
+    revisionNumber: number;
+    previousSubmissionId: string;
+  };
 }): Promise<TNormalizedProofManifest> {
   const normalizedAttachments = await Promise.all(
     [...input.attachments]
@@ -134,7 +144,7 @@ export async function buildNormalizedProofManifest(input: {
   );
 
   return {
-    proofVersion: "v1",
+    proofVersion: input.revisionContext ? "v1_revision" : "v1",
     platform: "Highrable",
     network: input.network.trim(),
     escrowContractId: input.escrowContractId.trim(),
@@ -151,6 +161,15 @@ export async function buildNormalizedProofManifest(input: {
     submittedAt: new Date(input.submittedAt).toISOString(),
     notesHash: await hashText(normalizeSubmissionNotes(input.notes)),
     attachments: normalizedAttachments,
+    ...(input.revisionContext !== undefined
+      ? {
+          revisionContext: {
+            revisionRequestId: input.revisionContext.revisionRequestId,
+            revisionNumber: input.revisionContext.revisionNumber,
+            previousSubmissionId: input.revisionContext.previousSubmissionId,
+          },
+        }
+      : {}),
   };
 }
 

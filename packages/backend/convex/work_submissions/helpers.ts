@@ -8,6 +8,7 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
+import { assertCanSubmitRevision } from "../revisions/helpers";
 
 const PROOF_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const IMMUTABLE_STATUSES = new Set(["submitted", "anchoring", "anchored"]);
@@ -58,6 +59,7 @@ export async function assertCanCreateSubmission(
   input: {
     onChainEscrowId: string;
     submittedByWallet: string;
+    revisionRequestId?: Id<"revisionRequests">;
   },
 ) {
   const submittedByWallet = normalizeWalletAddress(input.submittedByWallet);
@@ -71,7 +73,18 @@ export async function assertCanCreateSubmission(
     throw new ForbiddenError("Only the assigned freelancer can submit proof for this escrow.");
   }
 
-  if (escrow.status !== "funded") {
+  if (input.revisionRequestId !== undefined) {
+    const { revision } = await assertCanSubmitRevision(ctx, {
+      revisionRequestId: input.revisionRequestId,
+      freelancerWallet: submittedByWallet,
+    });
+    if (revision.escrowId !== escrow._id) {
+      throw new BadRequestError("Revision request does not belong to this escrow.");
+    }
+    if (escrow.status !== "submitted") {
+      throw new BadRequestError("Revision proof can only be submitted after original work review starts.");
+    }
+  } else if (escrow.status !== "funded") {
     throw new BadRequestError("This escrow is not ready for proof submission.");
   }
 
@@ -90,6 +103,7 @@ export async function assertCanCreateSubmission(
     submittedByWallet,
     parentType,
     parentId,
+    ...(input.revisionRequestId !== undefined ? { revisionRequestId: input.revisionRequestId } : {}),
   };
 }
 

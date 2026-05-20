@@ -5,6 +5,8 @@ export type TJobStatus =
   | "selected"
   | "funded"
   | "submitted"
+  | "revision_requested"
+  | "revision_submitted"
   | "completed"
   | "cancelled"
   | "disputed";
@@ -13,11 +15,14 @@ export type TEscrowStatus =
   | "created"
   | "funded"
   | "submitted"
+  | "revision_requested"
+  | "revision_submitted"
   | "released"
   | "cancelled"
   | "disputed";
 
 export type TJobType = "micro_gig" | "milestone_project";
+export type TRevisionPolicy = "none" | "fixed" | "unlimited";
 
 export type TMilestoneStatus =
   | "draft"
@@ -66,6 +71,8 @@ export type TCreateJobFormState = {
   deadlineAt: string;
   fundEscrowNow: boolean;
   jobType: TJobType;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
   milestones: TCreateMilestoneFormState[];
 };
 
@@ -75,6 +82,8 @@ export type TCreateMilestoneFormState = {
   description: string;
   amount: string;
   deadlineAt: string;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
 };
 
 export type TCreateJobFormErrors = {
@@ -83,6 +92,8 @@ export type TCreateJobFormErrors = {
   budget?: string;
   asset?: string;
   deadlineAt?: string;
+  revisionPolicy?: string;
+  revisionLimit?: string;
   milestones?: string;
   submit?: string;
 };

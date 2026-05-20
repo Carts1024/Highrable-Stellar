@@ -43,6 +43,9 @@ export default defineTable({
   milestoneId: v.optional(v.id("milestones")),
   escrowId: v.optional(v.id("escrows")),
   onChainEscrowId: v.optional(v.string()),
+  revisionRequestId: v.optional(v.id("revisionRequests")),
+  revisionNumber: v.optional(v.number()),
+  previousSubmissionId: v.optional(v.id("workSubmissions")),
   clientWallet: v.string(),
   freelancerWallet: v.string(),
   freelancerWalletType: v.optional(walletTypeValidator),
@@ -54,7 +57,7 @@ export default defineTable({
   proofHash: v.optional(v.string()),
   hashAlgorithm: v.literal("sha256"),
   hashEncoding: v.literal("hex"),
-  proofVersion: v.literal("v1"),
+  proofVersion: v.union(v.literal("v1"), v.literal("v1_revision")),
   status: workSubmissionStatusValidator,
   onChainStatus: workSubmissionOnChainStatusValidator,
   transactionHash: v.optional(v.string()),
@@ -74,6 +77,7 @@ export default defineTable({
   .index("by_convex_escrow", ["escrowId", "status"])
   .index("by_job", ["jobId", "status"])
   .index("by_milestone", ["milestoneId", "status"])
+  .index("by_revisionRequest", ["revisionRequestId", "status"])
   .index("by_freelancer", ["freelancerWallet", "status"])
   .index("by_submitter", ["submittedByWallet", "status"])
   .index("by_proofHash", ["proofHash"]);

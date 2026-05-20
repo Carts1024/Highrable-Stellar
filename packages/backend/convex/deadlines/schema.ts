@@ -17,7 +17,13 @@ const deadlineReminderStatusEnum = createStringEnum([
   "skipped",
   "failed",
 ] as const);
-const notificationTypeEnum = createStringEnum(["deadline_warning", "deadline_overdue"] as const);
+const notificationTypeEnum = createStringEnum([
+  "deadline_warning",
+  "deadline_overdue",
+  "revision_requested",
+  "revision_submitted",
+  "revision_limit_reached",
+] as const);
 
 export const deadlineParentTypeValidator = deadlineParentTypeEnum.validator;
 export const deadlineReminderTypeValidator = deadlineReminderTypeEnum.validator;
