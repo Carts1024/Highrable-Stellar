@@ -531,7 +531,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                   className="disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label="Cancel escrow and refund freelancer"
                 >
-                  {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
+                  {getActionButtonLabel(
+                    "Cancel",
+                    pendingAction === "cancel_escrow",
+                    "Cancelling...",
+                  )}
                 </AppButton>
                 {job.selectedFreelancerWallet ? (
                   <AppButton

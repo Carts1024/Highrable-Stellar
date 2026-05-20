@@ -494,7 +494,9 @@ export function WorkProofSubmissionPanel({
           <div className="flex flex-wrap items-center gap-2">
             <AppButton
               type="button"
-              disabled={pending || isRevisionPolicyLoading || hasUploadingAttachment || !hasProofBody}
+              disabled={
+                pending || isRevisionPolicyLoading || hasUploadingAttachment || !hasProofBody
+              }
               onClick={() => void handleSubmit()}
               className="gap-2 disabled:opacity-60"
             >
@@ -601,8 +603,8 @@ export function WorkProofSubmissionPanel({
             ? "There is already an active revision request."
             : revisionPolicy?.revisionPolicy === "none"
               ? "This work does not allow revisions."
-            : revisionPolicy?.remainingRevisions === 0
-              ? "The revision limit has already been reached."
+              : revisionPolicy?.remainingRevisions === 0
+                ? "The revision limit has already been reached."
                 : escrow?.status === "funded" || escrow?.status === "submitted"
                   ? "Revision request is unavailable."
                   : "Revisions can be requested after submitted work is ready for review."}

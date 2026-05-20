@@ -354,7 +354,9 @@ export async function assertCanAcceptPreviewSubmission(
     TERMINAL_WORK_STATUSES.has(parent.status) ||
     TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")
   ) {
-    throw new BadRequestError("Preview cannot be accepted after release, cancellation, or dispute.");
+    throw new BadRequestError(
+      "Preview cannot be accepted after release, cancellation, or dispute.",
+    );
   }
   const config = getRevisionPolicyConfig(parent);
   if (!isRevisionEnabledPolicy(config.revisionPolicy)) {
@@ -462,7 +464,11 @@ export async function createRevisionEventMessage(
   ctx: MutationCtx,
   input: {
     parent: TRevisionParentContext;
-    eventType: "revision_requested" | "revision_submitted" | "preview_submitted" | "preview_accepted";
+    eventType:
+      | "revision_requested"
+      | "revision_submitted"
+      | "preview_submitted"
+      | "preview_accepted";
     body: string;
     revisionRequestId?: Id<"revisionRequests">;
     workSubmissionId: Id<"workSubmissions">;
