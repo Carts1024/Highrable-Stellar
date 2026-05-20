@@ -5,6 +5,7 @@ import type { MutationCtx } from "../_generated/server";
 import type { TWalletType } from "../users/schema";
 
 import { mutation } from "../_generated/server";
+import { isConfiguredAdminWallet } from "../_shared/adminAuth";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
 import { walletTypeValidator } from "../users/schema";
@@ -118,6 +119,26 @@ async function changeDisputeStatusInternal(
   });
 
   return true;
+}
+
+function resolveOnChainMarkActorRole(args: {
+  actorWallet: string;
+  dispute: {
+    clientWallet: string;
+    freelancerWallet: string;
+  };
+}) {
+  try {
+    return getDisputeRole(args.actorWallet, args.dispute);
+  } catch {
+    if (isConfiguredAdminWallet(args.actorWallet)) {
+      return "moderator" as const;
+    }
+
+    throw new ForbiddenError(
+      "Only dispute participants or the configured admin wallet can update on-chain dispute state.",
+    );
+  }
 }
 
 export const createDispute = mutation({
@@ -245,7 +266,10 @@ export const markDisputeOnChainStarted = mutation({
   },
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorRole = getDisputeRole(args.actorWallet, dispute);
+    const actorRole = resolveOnChainMarkActorRole({
+      actorWallet: args.actorWallet,
+      dispute,
+    });
 
     await ctx.db.patch(dispute._id, {
       onChainStatus: "marking",
@@ -273,7 +297,10 @@ export const markDisputeOnChainSucceeded = mutation({
   },
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorRole = getDisputeRole(args.actorWallet, dispute);
+    const actorRole = resolveOnChainMarkActorRole({
+      actorWallet: args.actorWallet,
+      dispute,
+    });
     const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
     if (!transactionHash) {
       throw new BadRequestError("transactionHash is required.");
@@ -335,7 +362,10 @@ export const markDisputeOnChainFailed = mutation({
   },
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorRole = getDisputeRole(args.actorWallet, dispute);
+    const actorRole = resolveOnChainMarkActorRole({
+      actorWallet: args.actorWallet,
+      dispute,
+    });
     const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
     await ctx.db.patch(dispute._id, {
       onChainStatus: "mark_failed",

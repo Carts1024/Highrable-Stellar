@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 
 import { createStringEnum } from "../_shared/enum";
 
-const roleEnum = createStringEnum(["client", "freelancer"] as const);
+const roleEnum = createStringEnum(["client", "freelancer", "admin"] as const);
 const walletTypeEnum = createStringEnum(["external_wallet", "passkey_smart_account"] as const);
 
 export const USER_ROLES = roleEnum.map;

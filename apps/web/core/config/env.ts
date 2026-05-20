@@ -45,6 +45,8 @@ export interface IClientEnv {
  */
 export interface IServerEnv extends IClientEnv {
   readonly WALLET_SESSION_SECRET?: string;
+  readonly HIGHRABLE_ADMIN_WALLET_ADDRESS?: string;
+  readonly HIGHRABLE_ADMIN_CONVEX_SECRET?: string;
   readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
   readonly SMART_ACCOUNT_RELAYER_PUBLIC_KEY?: string;
   readonly SMART_ACCOUNT_CHANNELS_API_KEY?: string;
@@ -107,6 +109,8 @@ const ClientEnvSchema = z.object({
 
 const ServerEnvSchema = ClientEnvSchema.extend({
   WALLET_SESSION_SECRET: z.string().min(1).optional(),
+  HIGHRABLE_ADMIN_WALLET_ADDRESS: TStellarPublicKeySchema.optional(),
+  HIGHRABLE_ADMIN_CONVEX_SECRET: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PUBLIC_KEY: TStellarPublicKeySchema.optional(),
   SMART_ACCOUNT_CHANNELS_API_KEY: z.string().trim().min(1).optional(),
@@ -160,6 +164,8 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
+    HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
+    HIGHRABLE_ADMIN_CONVEX_SECRET: process.env.HIGHRABLE_ADMIN_CONVEX_SECRET,
     SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,
     SMART_ACCOUNT_RELAYER_PUBLIC_KEY: process.env.SMART_ACCOUNT_RELAYER_PUBLIC_KEY,
     SMART_ACCOUNT_CHANNELS_API_KEY: process.env.SMART_ACCOUNT_CHANNELS_API_KEY,

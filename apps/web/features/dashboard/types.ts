@@ -5,7 +5,7 @@ export type TAssetAmount = {
   amount: number;
 };
 
-export type TDashboardRole = "client" | "freelancer";
+export type TDashboardRole = "client" | "freelancer" | "admin";
 export type TDashboardMode = "client" | "freelancer";
 
 export type TDerivedApplicationStatus =

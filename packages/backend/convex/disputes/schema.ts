@@ -71,6 +71,8 @@ export const disputeStatusValidator = disputeStatusEnum.validator;
 export const disputeOnChainStatusValidator = disputeOnChainStatusEnum.validator;
 export const disputeActorRoleValidator = disputeActorRoleEnum.validator;
 export const disputeEventTypeValidator = disputeEventTypeEnum.validator;
+export const DISPUTE_STATUSES = disputeStatusEnum.map;
+export const DISPUTE_ON_CHAIN_STATUSES = disputeOnChainStatusEnum.map;
 
 export type TDisputeParentType = Infer<typeof disputeParentTypeValidator>;
 export type TDisputeReasonCategory = Infer<typeof disputeReasonCategoryValidator>;
@@ -116,6 +118,13 @@ export const disputes = defineTable({
   onChainStatus: disputeOnChainStatusValidator,
   transactionHash: v.optional(v.string()),
   stellarExpertUrl: v.optional(v.string()),
+  resolutionTxHash: v.optional(v.string()),
+  resolutionStellarExpertUrl: v.optional(v.string()),
+  resolvedByWallet: v.optional(v.string()),
+  freelancerShareBps: v.optional(v.number()),
+  freelancerPayoutAmount: v.optional(v.number()),
+  clientRefundAmount: v.optional(v.number()),
+  resolutionNote: v.optional(v.string()),
   openedAt: v.number(),
   markedDisputedAt: v.optional(v.number()),
   resolvedAt: v.optional(v.number()),

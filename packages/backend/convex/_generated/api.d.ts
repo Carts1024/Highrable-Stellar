@@ -8,10 +8,15 @@
  * @module
  */
 
+import type * as _shared_adminAuth from "../_shared/adminAuth.js";
 import type * as _shared_enum from "../_shared/enum.js";
 import type * as _shared_errors from "../_shared/errors.js";
 import type * as _shared_escrowAssets from "../_shared/escrowAssets.js";
 import type * as _shared_input from "../_shared/input.js";
+import type * as admin from "../admin.js";
+import type * as admin_helpers from "../admin/helpers.js";
+import type * as admin_mutations from "../admin/mutations.js";
+import type * as admin_queries from "../admin/queries.js";
 import type * as applications from "../applications.js";
 import type * as applications_helpers from "../applications/helpers.js";
 import type * as applications_mutations from "../applications/mutations.js";
@@ -89,10 +94,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "_shared/adminAuth": typeof _shared_adminAuth;
   "_shared/enum": typeof _shared_enum;
   "_shared/errors": typeof _shared_errors;
   "_shared/escrowAssets": typeof _shared_escrowAssets;
   "_shared/input": typeof _shared_input;
+  admin: typeof admin;
+  "admin/helpers": typeof admin_helpers;
+  "admin/mutations": typeof admin_mutations;
+  "admin/queries": typeof admin_queries;
   applications: typeof applications;
   "applications/helpers": typeof applications_helpers;
   "applications/mutations": typeof applications_mutations;

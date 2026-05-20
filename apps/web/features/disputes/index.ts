@@ -1,4 +1,3 @@
-export * from "./components/admin-disputes-placeholder";
 export * from "./components/dispute-action-guard-notice";
 export * from "./components/dispute-detail-panel";
 export * from "./components/dispute-list";

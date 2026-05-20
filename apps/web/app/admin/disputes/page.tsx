@@ -1,9 +1,9 @@
-import { AdminDisputesPlaceholder } from "@/features/disputes";
+import { AdminDisputesPage as AdminDisputesConsolePage } from "@/features/admin";
 
-export default function AdminDisputesPage() {
+export default function AdminDisputesRoutePage() {
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <AdminDisputesPlaceholder />
+    <main className="mx-auto max-w-6xl px-4 py-10">
+      <AdminDisputesConsolePage />
     </main>
   );
 }

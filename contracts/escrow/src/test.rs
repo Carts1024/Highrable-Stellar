@@ -119,6 +119,15 @@ fn submit_work(context: &TTestContext, escrow_id: u64) {
     );
 }
 
+fn resolve_dispute(context: &TTestContext, escrow_id: u64, freelancer_share_bps: u32, hash: u8) {
+    context.escrow_client.resolve_dispute(
+        &context.platform_admin,
+        &escrow_id,
+        &freelancer_share_bps,
+        &hash_from_byte(&context.env, hash),
+    );
+}
+
 #[test]
 fn initialize_works() {
     let context = setup();
@@ -769,6 +778,21 @@ fn mark_disputed_works() {
 }
 
 #[test]
+fn platform_admin_can_mark_disputed_for_retry_flow() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 180, 35);
+    fund_escrow(&context, escrow_id);
+
+    context
+        .escrow_client
+        .mark_disputed(&context.platform_admin, &escrow_id);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Disputed);
+}
+
+#[test]
 fn unauthorized_dispute_fails() {
     let context = setup();
 
@@ -828,6 +852,134 @@ fn dispute_wrong_status_fails() {
         .escrow_client
         .try_mark_disputed(&context.client, &disputed_id);
     assert_eq!(already_disputed, Err(Ok(Error::InvalidStatus)));
+}
+
+#[test]
+fn resolve_dispute_refunds_client_for_zero_share() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 450, 66);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_550);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
+
+    resolve_dispute(&context, escrow_id, 0, 67);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Cancelled);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 10_000);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_releases_full_amount_to_freelancer_for_full_share() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 520, 68);
+    fund_escrow(&context, escrow_id);
+    submit_work(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.freelancer, &escrow_id);
+
+    resolve_dispute(&context, escrow_id, 10_000, 69);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_480);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 520);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_splits_amount_with_remainder_to_client() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 101, 70);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    resolve_dispute(&context, escrow_id, 3_333, 71);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_967);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 33);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_rejects_unauthorized_admin() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 300, 72);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    let unauthorized = context.escrow_client.try_resolve_dispute(
+        &context.outsider,
+        &escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 73),
+    );
+
+    assert_eq!(unauthorized, Err(Ok(Error::Unauthorized)));
+}
+
+#[test]
+fn resolve_dispute_rejects_invalid_share_or_status() {
+    let context = setup();
+
+    let disputed_escrow_id = create_escrow(&context, 300, 74);
+    fund_escrow(&context, disputed_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &disputed_escrow_id);
+
+    let invalid_share = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &disputed_escrow_id,
+        &10_001,
+        &hash_from_byte(&context.env, 75),
+    );
+
+    assert_eq!(invalid_share, Err(Ok(Error::InvalidShareBps)));
+
+    let funded_escrow_id = create_escrow(&context, 300, 76);
+    fund_escrow(&context, funded_escrow_id);
+
+    let wrong_status = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &funded_escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 77),
+    );
+
+    assert_eq!(wrong_status, Err(Ok(Error::InvalidStatus)));
 }
 
 #[test]

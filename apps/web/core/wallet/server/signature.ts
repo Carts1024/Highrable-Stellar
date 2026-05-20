@@ -1,6 +1,7 @@
-import { createPublicKey, verify } from "crypto";
+import { createHash, createPublicKey, verify } from "crypto";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const STELLAR_SIGNED_MESSAGE_PREFIX = "Stellar Signed Message:\n";
 
 function crc16Xmodem(bytes: Uint8Array): number {
   let crc = 0x0000;
@@ -94,10 +95,16 @@ export function verifyStellarMessageSignature(input: {
     const spki = toSpki(publicKeyRaw);
     const key = createPublicKey({ key: spki, format: "der", type: "spki" });
     const messageBytes = Buffer.from(input.message, "utf8");
+    const freighterMessageHash = createHash("sha256")
+      .update(`${STELLAR_SIGNED_MESSAGE_PREFIX}${input.message}`, "utf8")
+      .digest();
     const signature = normalizeSignature(input.signature);
 
     // Ed25519 signatures in Node must be verified with a null algorithm parameter.
-    return verify(null, messageBytes, key, signature);
+    return (
+      verify(null, freighterMessageHash, key, signature) ||
+      verify(null, messageBytes, key, signature)
+    );
   } catch {
     return false;
   }

@@ -520,6 +520,31 @@ export async function markDisputedOnChain(
   });
 }
 
+export async function resolveDisputeOnChain(
+  params: TBaseEscrowCallParams & {
+    platformAdmin: string;
+    escrowId: string;
+    freelancerShareBps: number;
+    resolutionHash: Uint8Array;
+  },
+): Promise<TEscrowResult> {
+  return await executeEscrowContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    escrowContractId: params.escrowContractId,
+    method: "resolve_dispute",
+    args: [
+      addressScVal(params.platformAdmin),
+      u64ScVal(params.escrowId),
+      u32ScVal(params.freelancerShareBps),
+      bytesN32ScVal(params.resolutionHash),
+    ],
+    signTransaction: params.signTransaction,
+    walletType: params.walletType,
+  });
+}
+
 export async function getEscrowOnChain(
   params: Omit<TBaseEscrowCallParams, "signTransaction"> & { escrowId: string },
 ): Promise<TOnChainEscrow> {

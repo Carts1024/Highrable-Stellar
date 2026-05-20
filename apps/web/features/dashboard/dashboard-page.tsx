@@ -1,6 +1,7 @@
 "use client";
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
+import { AdminDashboardPage } from "@/features/admin";
 import { ProductPageHero } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
@@ -169,6 +170,10 @@ export function DashboardPage() {
         description="Connect your Stellar wallet to view your income dashboard."
       />
     );
+  }
+
+  if (!isRoleLoading && role === "admin") {
+    return <AdminDashboardPage />;
   }
 
   return (
