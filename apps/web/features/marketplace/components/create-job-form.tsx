@@ -161,10 +161,10 @@ function createDraftMilestone(): TCreateMilestoneFormState {
   };
 }
 
-function parseRevisionPolicy(input: {
+function parseRevisionPolicy(input: { revisionPolicy: TRevisionPolicy; revisionLimit: string }): {
   revisionPolicy: TRevisionPolicy;
-  revisionLimit: string;
-}): { revisionPolicy: TRevisionPolicy; revisionLimit: number | null } {
+  revisionLimit: number | null;
+} {
   if (input.revisionPolicy === "none" || input.revisionPolicy === "unlimited") {
     return { revisionPolicy: input.revisionPolicy, revisionLimit: null };
   }
@@ -419,10 +419,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
   };
 
-  const updateMilestoneRevisionPolicy = (
-    milestoneId: string,
-    revisionPolicy: TRevisionPolicy,
-  ) => {
+  const updateMilestoneRevisionPolicy = (milestoneId: string, revisionPolicy: TRevisionPolicy) => {
     setFormState((currentValue) => ({
       ...currentValue,
       milestones: currentValue.milestones.map((milestone) =>

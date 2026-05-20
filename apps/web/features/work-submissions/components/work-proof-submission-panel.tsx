@@ -21,7 +21,7 @@ import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
-import { GitPullRequest, RotateCcw, Send } from "lucide-react";
+import { Check, GitPullRequest, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
@@ -78,6 +78,7 @@ export function WorkProofSubmissionPanel({
   const [requestedChanges, setRequestedChanges] = useState("");
   const [revisionAttachments, setRevisionAttachments] = useState<TDraftAttachment[]>([]);
   const [requestingRevision, setRequestingRevision] = useState(false);
+  const [acceptingPreview, setAcceptingPreview] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,6 +111,7 @@ export function WorkProofSubmissionPanel({
   const createDraft = useMutation(api.work_submissions.createWorkSubmissionDraft);
   const submitMetadata = useMutation(api.work_submissions.submitWorkProofMetadata);
   const requestRevision = useMutation(api.revisions.requestRevision);
+  const acceptPreview = useMutation(api.work_submissions.acceptPreviewSubmission);
   const markAnchoring = useMutation(api.work_submissions.markSubmissionAnchoring);
   const markAnchored = useMutation(api.work_submissions.markSubmissionAnchored);
   const markFailed = useMutation(api.work_submissions.markSubmissionAnchorFailed);
@@ -120,8 +122,22 @@ export function WorkProofSubmissionPanel({
 
   const latestSubmission = submissions?.[0] ?? null;
   const latestSubmittedSubmission =
-    submissions?.find((submission) => submission.status !== "draft" && submission.status !== "cancelled") ??
-    null;
+    submissions?.find(
+      (submission) => submission.status !== "draft" && submission.status !== "cancelled",
+    ) ?? null;
+  const latestReviewSubmission =
+    submissions?.find((submission) => submission.status === "submitted_for_review") ?? null;
+  const acceptedSubmission =
+    submissions?.find(
+      (submission) =>
+        submission.status === "accepted_for_final" ||
+        submission.status === "anchoring" ||
+        submission.status === "anchored" ||
+        submission.status === "anchor_failed",
+    ) ?? null;
+  const isPreviewEnabled =
+    revisionPolicy?.revisionPolicy === "fixed" || revisionPolicy?.revisionPolicy === "unlimited";
+  const isRevisionPolicyLoading = viewerWallet !== undefined && revisionPolicy === undefined;
   const canViewProof =
     walletIdentity.isConnected &&
     (isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? null) ||
@@ -129,12 +145,14 @@ export function WorkProofSubmissionPanel({
   const canSubmitOriginal =
     Boolean(escrow?.escrowId) &&
     escrow?.status === "funded" &&
+    !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
   const canSubmitRevision =
     Boolean(escrow?.escrowId) &&
-    escrow?.status === "submitted" &&
+    (escrow?.status === "funded" || escrow?.status === "submitted") &&
     Boolean(activeRevision) &&
+    !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
   const canSubmit = canSubmitOriginal || canSubmitRevision;
@@ -144,9 +162,23 @@ export function WorkProofSubmissionPanel({
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet) &&
     !activeRevision &&
-    escrow?.status === "submitted" &&
+    (escrow?.status === "funded" || escrow?.status === "submitted") &&
+    latestReviewSubmission !== null &&
     revisionPolicy?.revisionPolicy !== "none" &&
     (revisionPolicy?.remainingRevisions === null || (revisionPolicy?.remainingRevisions ?? 0) > 0);
+  const canAcceptPreview =
+    latestReviewSubmission !== null &&
+    !activeRevision &&
+    isPreviewEnabled &&
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet);
+  const canAnchorAcceptedPreview =
+    acceptedSubmission !== null &&
+    (acceptedSubmission.status === "accepted_for_final" ||
+      acceptedSubmission.status === "anchor_failed") &&
+    escrow?.status === "funded" &&
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
   const hasUploadingAttachment = draftAttachments.some(
     (attachment) => attachment.status === "uploading",
   );
@@ -250,7 +282,11 @@ export function WorkProofSubmissionPanel({
       return;
     }
     if (!canSubmit) {
-      setError("Only the assigned freelancer can submit proof for this escrow.");
+      setError(
+        isRevisionPolicyLoading
+          ? "Revision policy is still loading."
+          : "Only the assigned freelancer can submit proof for this escrow.",
+      );
       return;
     }
     if (!hasProofBody) {
@@ -309,7 +345,7 @@ export function WorkProofSubmissionPanel({
         submittedAt,
       });
 
-      if (activeRevision) {
+      if (activeRevision || isPreviewEnabled) {
         setNotes("");
         setDraftAttachments([]);
         return;
@@ -325,9 +361,29 @@ export function WorkProofSubmissionPanel({
     }
   };
 
+  const handleAcceptPreview = async () => {
+    setError(null);
+    if (!latestReviewSubmission || !walletIdentity.walletAddress) {
+      setError("No submitted preview is available to accept.");
+      return;
+    }
+
+    setAcceptingPreview(true);
+    try {
+      await acceptPreview({
+        submissionId: latestReviewSubmission._id,
+        clientWallet: walletIdentity.walletAddress,
+      });
+    } catch (error) {
+      setError(getReadableAttachmentError(error, "Preview acceptance failed."));
+    } finally {
+      setAcceptingPreview(false);
+    }
+  };
+
   const handleRequestRevision = async () => {
     setError(null);
-    if (!latestSubmittedSubmission || !walletIdentity.walletAddress || !walletIdentity.walletType) {
+    if (!latestReviewSubmission || !walletIdentity.walletAddress || !walletIdentity.walletType) {
       setError("Client cannot request revision before proof is submitted.");
       return;
     }
@@ -345,7 +401,7 @@ export function WorkProofSubmissionPanel({
       await requestRevision({
         parentType,
         parentId,
-        workSubmissionId: latestSubmittedSubmission._id,
+        workSubmissionId: latestReviewSubmission._id,
         clientWallet: walletIdentity.walletAddress,
         requestedByWalletType: walletIdentity.walletType,
         reason: revisionReason || "Revision requested",
@@ -374,13 +430,19 @@ export function WorkProofSubmissionPanel({
     }
   };
 
+  const submitButtonLabel = canSubmitRevision
+    ? "Submit Revision Preview"
+    : isPreviewEnabled
+      ? "Submit Preview"
+      : "Submit Proof";
+
   return (
     <section className="space-y-4 rounded-lg border border-[#e8e8e8] bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-[#0a0a0a]">Proof of Work</h3>
           <p className="mt-1 text-sm text-[#5f5f5f]">
-            Files stay in Convex storage. Only the manifest hash is anchored on Stellar.
+            Files stay in Convex storage. Accepted proof hashes are anchored on Stellar.
           </p>
         </div>
         {walletIdentity.walletType ? (
@@ -432,23 +494,64 @@ export function WorkProofSubmissionPanel({
           <div className="flex flex-wrap items-center gap-2">
             <AppButton
               type="button"
-              disabled={pending || hasUploadingAttachment || !hasProofBody}
+              disabled={pending || isRevisionPolicyLoading || hasUploadingAttachment || !hasProofBody}
               onClick={() => void handleSubmit()}
               className="gap-2 disabled:opacity-60"
             >
               <Send className="h-4 w-4" />
               {pending
                 ? canSubmitRevision
-                  ? "Submitting Revision..."
-                  : "Submitting Proof..."
-                : canSubmitRevision
-                  ? "Submit Revision"
-                  : "Submit Proof"}
+                  ? "Submitting Revision Preview..."
+                  : isPreviewEnabled
+                    ? "Submitting Preview..."
+                    : "Submitting Proof..."
+                : submitButtonLabel}
             </AppButton>
             <p className="font-mono text-xs text-[#7f7f7f]">
               {attachmentIds.length} attachment{attachmentIds.length === 1 ? "" : "s"} ready
             </p>
           </div>
+        </div>
+      ) : null}
+
+      {canAcceptPreview ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e8e8e8] bg-[#fffaf5] p-3">
+          <div>
+            <h4 className="text-sm font-semibold text-[#0a0a0a]">Preview ready for review</h4>
+            <p className="mt-1 text-sm text-[#5f5f5f]">
+              Accepting locks this proof hash as the final version the freelancer can submit
+              on-chain.
+            </p>
+          </div>
+          <AppButton
+            type="button"
+            disabled={acceptingPreview}
+            onClick={() => void handleAcceptPreview()}
+            className="gap-2 disabled:opacity-60"
+          >
+            <Check className="h-4 w-4" />
+            {acceptingPreview ? "Accepting..." : "Accept as Final"}
+          </AppButton>
+        </div>
+      ) : null}
+
+      {canAnchorAcceptedPreview && acceptedSubmission ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e8e8e8] bg-[#f7fff9] p-3">
+          <div>
+            <h4 className="text-sm font-semibold text-[#0a0a0a]">Final proof accepted</h4>
+            <p className="mt-1 text-sm text-[#5f5f5f]">
+              Submit the accepted preview hash on-chain to start client release review.
+            </p>
+          </div>
+          <AppButton
+            type="button"
+            disabled={pending}
+            onClick={() => void handleRetry(acceptedSubmission)}
+            className="gap-2 disabled:opacity-60"
+          >
+            <Send className="h-4 w-4" />
+            {pending ? "Submitting On-Chain..." : "Submit Final On-Chain"}
+          </AppButton>
         </div>
       ) : null}
 
@@ -498,9 +601,9 @@ export function WorkProofSubmissionPanel({
             ? "There is already an active revision request."
             : revisionPolicy?.revisionPolicy === "none"
               ? "This work does not allow revisions."
-              : revisionPolicy?.remainingRevisions === 0
-                ? "The revision limit has already been reached."
-                : escrow?.status === "submitted"
+            : revisionPolicy?.remainingRevisions === 0
+              ? "The revision limit has already been reached."
+                : escrow?.status === "funded" || escrow?.status === "submitted"
                   ? "Revision request is unavailable."
                   : "Revisions can be requested after submitted work is ready for review."}
         </p>
@@ -526,7 +629,8 @@ export function WorkProofSubmissionPanel({
             <Badge className="rounded-md bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]">
               {getStatusLabel(latestSubmission.status)}
             </Badge>
-            {latestSubmission.status === "anchor_failed" && canSubmit ? (
+            {latestSubmission.status === "anchor_failed" &&
+            (canSubmit || canAnchorAcceptedPreview) ? (
               <AppButton
                 type="button"
                 variant="secondary"

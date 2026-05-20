@@ -249,9 +249,13 @@ export function MilestoneActionPanel({
                 {pendingAction === "mark_disputed" ? "Disputing..." : "Dispute"}
               </AppButton>
             </div>
-          ) : (
+          ) : null}
+          {role === "client" ? (
+            <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
+          ) : null}
+          {role !== "selectedFreelancer" && role !== "client" ? (
             <p className="text-sm text-[#5f5f5f]">Waiting for freelancer submission.</p>
-          )}
+          ) : null}
         </div>
       ) : null}
 

@@ -8,10 +8,23 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
-import { assertCanSubmitRevision } from "../revisions/helpers";
+import {
+  assertCanSubmitRevision,
+  getRevisionPolicyConfig,
+  isRevisionEnabledPolicy,
+  resolveRevisionParent,
+} from "../revisions/helpers";
 
 const PROOF_HASH_PATTERN = /^[0-9a-f]{64}$/;
-const IMMUTABLE_STATUSES = new Set(["submitted", "anchoring", "anchored"]);
+const IMMUTABLE_STATUSES = new Set([
+  "submitted_for_review",
+  "revision_requested",
+  "revision_submitted",
+  "accepted_for_final",
+  "submitted",
+  "anchoring",
+  "anchored",
+]);
 
 export function sanitizeProofNotes(notes: string): string {
   return notes.replace(/\r\n?/g, "\n").trim().slice(0, 10_000);
@@ -81,8 +94,10 @@ export async function assertCanCreateSubmission(
     if (revision.escrowId !== escrow._id) {
       throw new BadRequestError("Revision request does not belong to this escrow.");
     }
-    if (escrow.status !== "submitted") {
-      throw new BadRequestError("Revision proof can only be submitted after original work review starts.");
+    if (escrow.status !== "funded" && escrow.status !== "submitted") {
+      throw new BadRequestError(
+        "Revision proof can only be submitted after original work review starts.",
+      );
     }
   } else if (escrow.status !== "funded") {
     throw new BadRequestError("This escrow is not ready for proof submission.");
@@ -103,7 +118,9 @@ export async function assertCanCreateSubmission(
     submittedByWallet,
     parentType,
     parentId,
-    ...(input.revisionRequestId !== undefined ? { revisionRequestId: input.revisionRequestId } : {}),
+    ...(input.revisionRequestId !== undefined
+      ? { revisionRequestId: input.revisionRequestId }
+      : {}),
   };
 }
 
@@ -139,6 +156,8 @@ export function assertCanViewSubmission(
 
 export function assertCanAnchorSubmission(
   submission: {
+    parentType: TWorkSubmissionParentType;
+    parentId: string;
     freelancerWallet: string;
     submittedByWallet: string;
     status: string;
@@ -146,6 +165,7 @@ export function assertCanAnchorSubmission(
     proofHash?: string;
   },
   walletAddress: string,
+  options?: { revisionEnabled?: boolean },
 ) {
   const normalizedWallet = normalizeWalletAddress(walletAddress);
   if (
@@ -159,13 +179,38 @@ export function assertCanAnchorSubmission(
     throw new BadRequestError("Proof metadata must be submitted before anchoring.");
   }
 
-  if (submission.status !== "submitted" && submission.status !== "anchor_failed") {
+  const expectedReadyStatus = options?.revisionEnabled ? "accepted_for_final" : "submitted";
+  const isRetryableFailure = submission.status === "anchor_failed";
+  if (submission.status !== expectedReadyStatus && !isRetryableFailure) {
     throw new BadRequestError("This proof submission is not ready for anchoring.");
   }
 
   if (submission.onChainStatus === "confirmed") {
     throw new BadRequestError("This proof submission is already anchored.");
   }
+}
+
+export async function assertCanAnchorSubmissionForCurrentPolicy(
+  ctx: QueryCtx,
+  submission: {
+    parentType: TWorkSubmissionParentType;
+    parentId: string;
+    freelancerWallet: string;
+    submittedByWallet: string;
+    status: string;
+    onChainStatus: string;
+    proofHash?: string;
+  },
+  walletAddress: string,
+) {
+  const parent = await resolveRevisionParent(ctx, {
+    parentType: submission.parentType,
+    parentId: submission.parentId,
+  });
+  const revisionEnabled = isRevisionEnabledPolicy(getRevisionPolicyConfig(parent).revisionPolicy);
+  assertCanAnchorSubmission(submission, walletAddress, { revisionEnabled });
+
+  return { parent, revisionEnabled };
 }
 
 export async function assertAttachmentsOwnedBySubmitter(

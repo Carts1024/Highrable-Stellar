@@ -23,6 +23,8 @@ const notificationTypeEnum = createStringEnum([
   "revision_requested",
   "revision_submitted",
   "revision_limit_reached",
+  "preview_submitted",
+  "preview_accepted",
 ] as const);
 
 export const deadlineParentTypeValidator = deadlineParentTypeEnum.validator;

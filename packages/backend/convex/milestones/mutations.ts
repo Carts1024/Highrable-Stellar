@@ -10,7 +10,6 @@ import {
   validateDeadlineAt,
   validateMilestoneDeadlineOrder,
 } from "../deadlines/helpers";
-import { validateRevisionPolicy } from "../revisions/helpers";
 import {
   sanitizeEscrowAmount,
   sanitizeEscrowAsset,
@@ -22,6 +21,7 @@ import {
   containsDisallowedJobPostLanguage,
   DISALLOWED_JOB_POST_MESSAGE,
 } from "../jobs/scamSignals";
+import { validateRevisionPolicy } from "../revisions/helpers";
 import { ensureUserWithRole } from "../users/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
@@ -125,12 +125,12 @@ export const createMilestoneProject = mutation({
         requiredOutput: milestone.requiredOutput,
         amount: milestone.amount,
         asset,
-      status: "open",
-      revisionPolicy: milestone.revisionConfig.revisionPolicy,
-      revisionLimit: milestone.revisionConfig.revisionLimit,
-      revisionCount: 0,
-      revisionStatus: "none",
-      deadlineAt: milestone.deadlineAt,
+        status: "open",
+        revisionPolicy: milestone.revisionConfig.revisionPolicy,
+        revisionLimit: milestone.revisionConfig.revisionLimit,
+        revisionCount: 0,
+        revisionStatus: "none",
+        deadlineAt: milestone.deadlineAt,
         deadlineStatus: computeDeadlineStatus({
           deadlineAt: milestone.deadlineAt,
           workStatus: "open",
@@ -178,7 +178,9 @@ export const addMilestoneToProject = mutation({
     requiredOutput: v.optional(v.string()),
     amount: v.number(),
     deadlineAt: v.number(),
-    revisionPolicy: v.optional(v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited"))),
+    revisionPolicy: v.optional(
+      v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited")),
+    ),
     revisionLimit: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {

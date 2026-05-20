@@ -18,6 +18,8 @@ const MAX_REVISION_LIMIT = 25;
 const ACTIVE_REVISION_STATUSES = new Set(["requested", "acknowledged"]);
 const TERMINAL_WORK_STATUSES = new Set(["completed", "released", "cancelled", "disputed"]);
 const REQUESTABLE_SUBMISSION_STATUSES = new Set([
+  "submitted_for_review",
+  "revision_submitted",
   "submitted",
   "anchoring",
   "anchored",
@@ -29,6 +31,10 @@ export type TRevisionPolicyConfig = {
   revisionLimit: number | null;
   revisionCount: number;
 };
+
+export function isRevisionEnabledPolicy(policy: TRevisionPolicy): boolean {
+  return policy === "fixed" || policy === "unlimited";
+}
 
 export type TRevisionParentContext = {
   parentType: TWorkSubmissionParentType;
@@ -224,7 +230,9 @@ export async function getActiveRevisionRequestForParent(
 ) {
   const requests = await ctx.db
     .query("revisionRequests")
-    .withIndex("by_parent", (q) => q.eq("parentType", input.parentType).eq("parentId", input.parentId))
+    .withIndex("by_parent", (q) =>
+      q.eq("parentType", input.parentType).eq("parentId", input.parentId),
+    )
     .take(20);
 
   return requests.find((request) => ACTIVE_REVISION_STATUSES.has(request.status)) ?? null;
@@ -258,8 +266,13 @@ export async function assertCanRequestRevision(
   if (!parent.freelancerWallet || submission.freelancerWallet !== parent.freelancerWallet) {
     throw new ForbiddenError("This work item does not have an assigned freelancer.");
   }
-  if (TERMINAL_WORK_STATUSES.has(parent.status) || TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")) {
-    throw new BadRequestError("Revision cannot be requested after release, cancellation, or dispute.");
+  if (
+    TERMINAL_WORK_STATUSES.has(parent.status) ||
+    TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")
+  ) {
+    throw new BadRequestError(
+      "Revision cannot be requested after release, cancellation, or dispute.",
+    );
   }
 
   const config = getRevisionPolicyConfig(parent);
@@ -300,11 +313,55 @@ export async function assertCanSubmitRevision(
     parentType: revision.parentType,
     parentId: revision.parentId,
   });
-  if (TERMINAL_WORK_STATUSES.has(parent.status) || TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")) {
-    throw new BadRequestError("Revision cannot be submitted after release, cancellation, or dispute.");
+  if (
+    TERMINAL_WORK_STATUSES.has(parent.status) ||
+    TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")
+  ) {
+    throw new BadRequestError(
+      "Revision cannot be submitted after release, cancellation, or dispute.",
+    );
   }
 
   return { revision, parent, freelancerWallet };
+}
+
+export async function assertCanAcceptPreviewSubmission(
+  ctx: QueryCtx,
+  input: { submissionId: Id<"workSubmissions">; clientWallet: string },
+) {
+  const clientWallet = normalizeWalletAddress(input.clientWallet);
+  const submission = await ctx.db.get(input.submissionId);
+  if (!submission || submission.status === "cancelled") {
+    throw new NotFoundError("Proof submission not found.");
+  }
+  const parent = await resolveRevisionParent(ctx, {
+    parentType: submission.parentType,
+    parentId: submission.parentId,
+  });
+  if (submission.clientWallet !== clientWallet || parent.clientWallet !== clientWallet) {
+    throw new ForbiddenError("Only the client can accept a work preview.");
+  }
+  if (submission.status !== "submitted_for_review") {
+    throw new BadRequestError("Only a submitted preview can be accepted for final submission.");
+  }
+  if (parent.activeRevisionId !== undefined) {
+    const active = await ctx.db.get(parent.activeRevisionId);
+    if (active && ACTIVE_REVISION_STATUSES.has(active.status)) {
+      throw new BadRequestError("Resolve the active revision request before accepting a preview.");
+    }
+  }
+  if (
+    TERMINAL_WORK_STATUSES.has(parent.status) ||
+    TERMINAL_WORK_STATUSES.has(parent.escrowStatus ?? "")
+  ) {
+    throw new BadRequestError("Preview cannot be accepted after release, cancellation, or dispute.");
+  }
+  const config = getRevisionPolicyConfig(parent);
+  if (!isRevisionEnabledPolicy(config.revisionPolicy)) {
+    throw new BadRequestError("This work does not use preview approval.");
+  }
+
+  return { submission, parent, clientWallet };
 }
 
 export async function assertRevisionAttachmentsOwnedByClient(
@@ -370,7 +427,12 @@ export async function createRevisionNotification(
   ctx: MutationCtx,
   input: {
     recipientWallet: string;
-    type: "revision_requested" | "revision_submitted" | "revision_limit_reached";
+    type:
+      | "revision_requested"
+      | "revision_submitted"
+      | "revision_limit_reached"
+      | "preview_submitted"
+      | "preview_accepted";
     title: string;
     body: string;
     parentType: "micro_gig" | "milestone";
@@ -400,9 +462,9 @@ export async function createRevisionEventMessage(
   ctx: MutationCtx,
   input: {
     parent: TRevisionParentContext;
-    eventType: "revision_requested" | "revision_submitted";
+    eventType: "revision_requested" | "revision_submitted" | "preview_submitted" | "preview_accepted";
     body: string;
-    revisionRequestId: Id<"revisionRequests">;
+    revisionRequestId?: Id<"revisionRequests">;
     workSubmissionId: Id<"workSubmissions">;
     proofHash?: string;
     transactionHash?: string;
@@ -414,8 +476,10 @@ export async function createRevisionEventMessage(
     eventType: input.eventType,
     body: input.body,
     eventPayload: {
-      revisionRequestId: input.revisionRequestId,
       workSubmissionId: input.workSubmissionId,
+      ...(input.revisionRequestId !== undefined
+        ? { revisionRequestId: input.revisionRequestId }
+        : {}),
       parentType: input.parent.parentType,
       parentId: input.parent.parentId,
       jobId: input.parent.jobId,

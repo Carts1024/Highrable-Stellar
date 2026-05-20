@@ -518,33 +518,38 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           ) : null}
 
           {role === "client" ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                type="button"
-                variant="secondary"
-                disabled={isPending || !actionGuards.cancelEscrow.canAct}
-                onClick={() => void cancelEscrow()}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Cancel escrow and refund freelancer"
-              >
-                {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
-              </AppButton>
-              {job.selectedFreelancerWallet ? (
+            <div className="space-y-3">
+              {escrow && job.selectedFreelancerWallet ? (
+                <WorkProofSubmissionPanel job={job} escrow={escrow} />
+              ) : null}
+              <div className="flex flex-wrap gap-2">
                 <AppButton
                   type="button"
                   variant="secondary"
-                  disabled={isPending || !actionGuards.markDisputed.canAct}
-                  onClick={() => void markDisputed()}
-                  className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Mark escrow as disputed"
+                  disabled={isPending || !actionGuards.cancelEscrow.canAct}
+                  onClick={() => void cancelEscrow()}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Cancel escrow and refund freelancer"
                 >
-                  {getActionButtonLabel(
-                    "Dispute",
-                    pendingAction === "mark_disputed",
-                    "Marking Disputed...",
-                  )}
+                  {getActionButtonLabel("Cancel", pendingAction === "cancel_escrow", "Cancelling...")}
                 </AppButton>
-              ) : null}
+                {job.selectedFreelancerWallet ? (
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    disabled={isPending || !actionGuards.markDisputed.canAct}
+                    onClick={() => void markDisputed()}
+                    className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Mark escrow as disputed"
+                  >
+                    {getActionButtonLabel(
+                      "Dispute",
+                      pendingAction === "mark_disputed",
+                      "Marking Disputed...",
+                    )}
+                  </AppButton>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </EscrowSection>

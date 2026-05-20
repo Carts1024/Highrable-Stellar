@@ -28,6 +28,8 @@ const messageEventTypeEnum = createStringEnum([
   "escrow_created",
   "escrow_funded",
   "work_submitted",
+  "preview_submitted",
+  "preview_accepted",
   "proof_anchored",
   "work_approved",
   "escrow_released",

@@ -108,7 +108,9 @@ export const getRevisionRequestsByParent = query({
   handler: async (ctx, args) => {
     const revisions = await ctx.db
       .query("revisionRequests")
-      .withIndex("by_parent", (q) => q.eq("parentType", args.parentType).eq("parentId", args.parentId))
+      .withIndex("by_parent", (q) =>
+        q.eq("parentType", args.parentType).eq("parentId", args.parentId),
+      )
       .order("desc")
       .take(50);
 
@@ -200,7 +202,9 @@ export const getRevisionTimeline = query({
         .take(100),
       ctx.db
         .query("revisionRequests")
-        .withIndex("by_parent", (q) => q.eq("parentType", args.parentType).eq("parentId", args.parentId))
+        .withIndex("by_parent", (q) =>
+          q.eq("parentType", args.parentType).eq("parentId", args.parentId),
+        )
         .take(100),
     ]);
 

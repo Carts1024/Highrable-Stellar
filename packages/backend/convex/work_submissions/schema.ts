@@ -14,6 +14,10 @@ const workSubmissionParentTypeEnum = createStringEnum([
 
 const workSubmissionStatusEnum = createStringEnum([
   "draft",
+  "submitted_for_review",
+  "revision_requested",
+  "revision_submitted",
+  "accepted_for_final",
   "submitted",
   "anchoring",
   "anchored",
@@ -63,6 +67,9 @@ export default defineTable({
   transactionHash: v.optional(v.string()),
   stellarExpertUrl: v.optional(v.string()),
   submittedAt: v.optional(v.number()),
+  acceptedAt: v.optional(v.number()),
+  acceptedByWallet: v.optional(v.string()),
+  finalizedFromSubmissionId: v.optional(v.id("workSubmissions")),
   deadlineAt: v.optional(v.number()),
   deadlineStatus: v.optional(deadlineStatusValidator),
   submittedLate: v.optional(v.boolean()),

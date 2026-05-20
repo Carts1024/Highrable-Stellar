@@ -10,16 +10,19 @@ import {
   upsertDeadlineReminders,
 } from "../deadlines/helpers";
 import {
+  assertCanAcceptPreviewSubmission,
   assertCanSubmitRevision,
   createRevisionEventMessage,
   createRevisionNotification,
+  getRevisionPolicyConfig,
+  isRevisionEnabledPolicy,
   patchRevisionParent,
   resolveRevisionParent,
 } from "../revisions/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertAttachmentsOwnedBySubmitter,
-  assertCanAnchorSubmission,
+  assertCanAnchorSubmissionForCurrentPolicy,
   assertCanCreateSubmission,
   assertSubmissionIsMutable,
   getSubmissionOrThrow,
@@ -136,13 +139,21 @@ export const submitWorkProofMetadata = mutation({
       escrowStatus: parent.escrowStatus,
       workStatus: parent.status,
     });
+    const revisionParent = await resolveRevisionParent(ctx, {
+      parentType: submission.parentType,
+      parentId: submission.parentId,
+    });
+    const previewEnabled = isRevisionEnabledPolicy(
+      getRevisionPolicyConfig(revisionParent).revisionPolicy,
+    );
+    const nextSubmissionStatus = previewEnabled ? "submitted_for_review" : "submitted";
 
     await ctx.db.patch(args.submissionId, {
       notes,
       attachmentIds: args.attachmentIds,
       normalizedManifest: args.normalizedManifest,
       proofHash,
-      status: "submitted",
+      status: nextSubmissionStatus,
       onChainStatus: "not_submitted",
       submittedAt: args.submittedAt,
       ...(parent.deadlineAt !== undefined ? { deadlineAt: parent.deadlineAt } : {}),
@@ -156,23 +167,19 @@ export const submitWorkProofMetadata = mutation({
         revisionRequestId: submission.revisionRequestId,
         freelancerWallet: submittedByWallet,
       });
-      const parentContext = await resolveRevisionParent(ctx, {
-        parentType: revision.parentType,
-        parentId: revision.parentId,
-      });
       await ctx.db.patch(revision._id, {
         revisionSubmissionId: args.submissionId,
         status: "revision_submitted",
         respondedAt: now,
         updatedAt: now,
       });
-      await patchRevisionParent(ctx, parentContext, {
+      await patchRevisionParent(ctx, revisionParent, {
         status: "revision_submitted",
         activeRevisionId: undefined,
         revisionStatus: "revision_submitted",
       });
       await createRevisionEventMessage(ctx, {
-        parent: parentContext,
+        parent: revisionParent,
         eventType: "revision_submitted",
         body: `Revision submitted: Freelancer submitted revised proof for Revision #${revision.revisionNumber}.`,
         revisionRequestId: revision._id,
@@ -184,11 +191,11 @@ export const submitWorkProofMetadata = mutation({
         type: "revision_submitted",
         title: "Revision submitted",
         body: "Freelancer submitted revised proof for your review.",
-        parentType: parentContext.parentType === "milestone" ? "milestone" : "micro_gig",
-        parentId: parentContext.parentId,
-        jobId: parentContext.jobId,
-        milestoneId: parentContext.milestoneId,
-        escrowId: parentContext.escrowId,
+        parentType: revisionParent.parentType === "milestone" ? "milestone" : "micro_gig",
+        parentId: revisionParent.parentId,
+        jobId: revisionParent.jobId,
+        milestoneId: revisionParent.milestoneId,
+        escrowId: revisionParent.escrowId,
         metadata: {
           revisionRequestId: revision._id,
           workSubmissionId: args.submissionId,
@@ -199,11 +206,13 @@ export const submitWorkProofMetadata = mutation({
 
     if (parent.parentType === "micro_gig") {
       await ctx.db.patch(parent.jobId, {
+        ...(previewEnabled ? { status: "submitted" } : {}),
         submittedAt: args.submittedAt,
         deadlineStatus,
       });
     } else if (parent.milestoneId !== undefined) {
       await ctx.db.patch(parent.milestoneId, {
+        ...(previewEnabled ? { status: "submitted" } : {}),
         submittedAt: args.submittedAt,
         deadlineStatus,
         updatedAt: now,
@@ -214,7 +223,38 @@ export const submitWorkProofMetadata = mutation({
       submittedAt: args.submittedAt,
     });
 
-    if (submission.revisionRequestId === undefined) {
+    if (previewEnabled) {
+      await createRevisionEventMessage(ctx, {
+        parent: revisionParent,
+        eventType: "preview_submitted",
+        body:
+          submission.revisionRequestId !== undefined
+            ? "Preview submitted: Freelancer submitted a revised work preview."
+            : "Preview submitted: Freelancer submitted work for client review.",
+        ...(submission.revisionRequestId !== undefined
+          ? { revisionRequestId: submission.revisionRequestId }
+          : {}),
+        workSubmissionId: args.submissionId,
+        proofHash,
+      });
+
+      await createRevisionNotification(ctx, {
+        recipientWallet: submission.clientWallet,
+        type: "preview_submitted",
+        title: "Work preview submitted",
+        body: "Freelancer submitted a work preview for your review.",
+        parentType: revisionParent.parentType === "milestone" ? "milestone" : "micro_gig",
+        parentId: revisionParent.parentId,
+        jobId: revisionParent.jobId,
+        milestoneId: revisionParent.milestoneId,
+        escrowId: revisionParent.escrowId,
+        metadata: {
+          workSubmissionId: args.submissionId,
+          proofHash,
+          revisionRequestId: submission.revisionRequestId,
+        },
+      });
+    } else {
       await createSystemMessageForEvent(ctx, {
         parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
         parentId: submission.escrowId ?? args.submissionId,
@@ -255,7 +295,7 @@ export const markSubmissionAnchoring = mutation({
   },
   handler: async (ctx, args) => {
     const submission = await getSubmissionOrThrow(ctx, args.submissionId);
-    assertCanAnchorSubmission(submission, args.walletAddress);
+    await assertCanAnchorSubmissionForCurrentPolicy(ctx, submission, args.walletAddress);
 
     await ctx.db.patch(args.submissionId, {
       status: "anchoring",
@@ -347,13 +387,87 @@ export const retrySubmissionAnchor = mutation({
   },
   handler: async (ctx, args) => {
     const submission = await getSubmissionOrThrow(ctx, args.submissionId);
-    assertCanAnchorSubmission(submission, args.walletAddress);
+    const { revisionEnabled } = await assertCanAnchorSubmissionForCurrentPolicy(
+      ctx,
+      submission,
+      args.walletAddress,
+    );
 
     await ctx.db.patch(args.submissionId, {
-      status: "submitted",
+      status: revisionEnabled ? "accepted_for_final" : "submitted",
       onChainStatus: "not_submitted",
       anchorErrorMessage: undefined,
       updatedAt: Date.now(),
+    });
+
+    return await getSubmissionOrThrow(ctx, args.submissionId);
+  },
+});
+
+export const acceptPreviewSubmission = mutation({
+  args: {
+    submissionId: v.id("workSubmissions"),
+    clientWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { submission, parent, clientWallet } = await assertCanAcceptPreviewSubmission(ctx, args);
+    const existingAccepted = await ctx.db
+      .query("workSubmissions")
+      .withIndex("by_parent", (q) =>
+        q.eq("parentType", submission.parentType).eq("parentId", submission.parentId),
+      )
+      .take(100);
+    if (
+      existingAccepted.some(
+        (candidate) =>
+          candidate._id !== submission._id &&
+          (candidate.status === "accepted_for_final" ||
+            candidate.status === "anchoring" ||
+            candidate.status === "anchored"),
+      )
+    ) {
+      throw new BadRequestError("A preview has already been accepted for final submission.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(submission._id, {
+      status: "accepted_for_final",
+      acceptedAt: now,
+      acceptedByWallet: clientWallet,
+      updatedAt: now,
+    });
+    await patchRevisionParent(ctx, parent, {
+      status: "submitted",
+      activeRevisionId: undefined,
+      revisionStatus: "revision_resolved",
+    });
+
+    await createRevisionEventMessage(ctx, {
+      parent,
+      eventType: "preview_accepted",
+      body: "Preview accepted: Client accepted this proof for final on-chain submission.",
+      ...(submission.revisionRequestId !== undefined
+        ? { revisionRequestId: submission.revisionRequestId }
+        : {}),
+      workSubmissionId: submission._id,
+      proofHash: submission.proofHash,
+      transactionHash: submission.transactionHash,
+    });
+
+    await createRevisionNotification(ctx, {
+      recipientWallet: submission.freelancerWallet,
+      type: "preview_accepted",
+      title: "Preview accepted",
+      body: "Client accepted your preview. You can now submit the final proof on-chain.",
+      parentType: parent.parentType === "milestone" ? "milestone" : "micro_gig",
+      parentId: parent.parentId,
+      jobId: parent.jobId,
+      milestoneId: parent.milestoneId,
+      escrowId: parent.escrowId,
+      metadata: {
+        workSubmissionId: submission._id,
+        proofHash: submission.proofHash,
+      },
     });
 
     return await getSubmissionOrThrow(ctx, args.submissionId);

@@ -65,6 +65,8 @@ export function formatEventMessage(eventType: TMessageEventType): string {
     escrow_created: "Escrow was created.",
     escrow_funded: "Escrow was funded.",
     work_submitted: "Proof of work was submitted.",
+    preview_submitted: "Work preview was submitted.",
+    preview_accepted: "Work preview was accepted for final submission.",
     proof_anchored: "Proof hash was anchored on-chain.",
     work_approved: "Work was approved.",
     escrow_released: "Escrow payment was released.",

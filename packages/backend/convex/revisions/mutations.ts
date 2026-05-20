@@ -125,6 +125,13 @@ export const requestRevision = mutation({
       revisionRequestId,
     });
 
+    if (submission.status === "submitted_for_review") {
+      await ctx.db.patch(submission._id, {
+        status: "revision_requested",
+        updatedAt: now,
+      });
+    }
+
     await patchRevisionParent(ctx, parent, {
       status: "revision_requested",
       activeRevisionId: revisionRequestId,
@@ -282,12 +289,16 @@ export const markRevisionAccepted = mutation({
       parentType: revision.parentType,
       parentId: revision.parentId,
     });
-    await patchRevisionParent(ctx, {
-      ...parent,
-      activeRevisionId: undefined,
-    }, {
-      revisionStatus: "revision_resolved",
-    });
+    await patchRevisionParent(
+      ctx,
+      {
+        ...parent,
+        activeRevisionId: undefined,
+      },
+      {
+        revisionStatus: "revision_resolved",
+      },
+    );
 
     return await ctx.db.get(args.revisionRequestId);
   },

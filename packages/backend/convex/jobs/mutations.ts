@@ -27,7 +27,9 @@ export const createJob = mutation({
     asset: v.string(),
     clientWallet: v.string(),
     deadlineAt: v.number(),
-    revisionPolicy: v.optional(v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited"))),
+    revisionPolicy: v.optional(
+      v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited")),
+    ),
     revisionLimit: v.optional(v.union(v.number(), v.null())),
     jobHash: v.optional(v.string()),
     walletType: v.optional(walletTypeValidator),
