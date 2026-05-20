@@ -17,6 +17,7 @@ import {
 } from "@/core/stellar/stablecoin-config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { CancelWorkButton } from "@/features/cancellations";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
@@ -79,7 +80,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     createEscrow,
     fundEscrow,
     approveAndRelease,
-    cancelEscrow,
   } = useEscrowActions({
     job,
     escrow,
@@ -142,13 +142,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       }),
       releasePayment: getEscrowActionGuard({
         action: "release_payment",
-        role,
-        job,
-        escrow,
-        wallet: walletGuardContext,
-      }),
-      cancelEscrow: getEscrowActionGuard({
-        action: "cancel_escrow",
         role,
         job,
         escrow,
@@ -473,20 +466,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     "Funding Escrow...",
                   )}
                 </AppButton>
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  disabled={isPending || !actionGuards.cancelEscrow.canAct}
-                  onClick={() => void cancelEscrow()}
-                  className="disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Cancel escrow and reset project"
-                >
-                  {getActionButtonLabel(
-                    "Cancel",
-                    pendingAction === "cancel_escrow",
-                    "Cancelling...",
-                  )}
-                </AppButton>
+                <CancelWorkButton job={job} escrow={escrow} />
               </div>
             </div>
           ) : null}
@@ -527,20 +507,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 <WorkProofSubmissionPanel job={job} escrow={escrow} />
               ) : null}
               <div className="flex flex-wrap gap-2">
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  disabled={isPending || !actionGuards.cancelEscrow.canAct}
-                  onClick={() => void cancelEscrow()}
-                  className="disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Cancel escrow and refund freelancer"
-                >
-                  {getActionButtonLabel(
-                    "Cancel",
-                    pendingAction === "cancel_escrow",
-                    "Cancelling...",
-                  )}
-                </AppButton>
+                <CancelWorkButton job={job} escrow={escrow} />
                 {job.selectedFreelancerWallet ? (
                   <OpenDisputeButton
                     job={job}

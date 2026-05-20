@@ -81,6 +81,15 @@ export function formatEventMessage(eventType: TMessageEventType): string {
     dispute_evidence_added: "Dispute evidence was added.",
     dispute_status_changed: "Dispute status changed.",
     dispute_resolved: "Dispute was resolved.",
+    cancellation_requested: "Cancellation was requested.",
+    cancellation_accepted: "Cancellation was accepted.",
+    cancellation_rejected: "Cancellation was rejected.",
+    cancellation_approved: "Cancellation was approved for on-chain execution.",
+    cancellation_on_chain_started: "On-chain cancellation started.",
+    cancellation_on_chain_succeeded: "Escrow cancellation was confirmed.",
+    cancellation_on_chain_failed: "On-chain cancellation failed.",
+    cancellation_withdrawn: "Cancellation request was withdrawn.",
+    cancellation_expired: "Cancellation request expired.",
   };
 
   return labels[eventType];

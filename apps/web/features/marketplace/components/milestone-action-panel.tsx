@@ -15,6 +15,7 @@ import {
 } from "@/core/stellar/stablecoin-config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { CancelWorkButton } from "@/features/cancellations";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
@@ -66,7 +67,6 @@ export function MilestoneActionPanel({
     createEscrow,
     fundEscrow,
     approveAndRelease,
-    cancelEscrow,
   } = useMilestoneEscrowActions({ job, milestone, escrow, applications });
   const activeDispute = useQuery(
     api.disputes.getActiveDisputeForEscrow,
@@ -223,14 +223,7 @@ export function MilestoneActionPanel({
                 >
                   {pendingAction === "fund_escrow" ? "Funding..." : "Fund Milestone"}
                 </AppButton>
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  disabled={isPending || !walletIdentity.canSignEscrowTransactions}
-                  onClick={() => void cancelEscrow()}
-                >
-                  {pendingAction === "cancel_escrow" ? "Cancelling..." : "Cancel"}
-                </AppButton>
+                <CancelWorkButton job={job} milestone={milestone} escrow={escrow} />
               </div>
             </>
           ) : (
@@ -258,7 +251,10 @@ export function MilestoneActionPanel({
             </div>
           ) : null}
           {role === "client" ? (
-            <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
+            <div className="space-y-3">
+              <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
+              <CancelWorkButton job={job} milestone={milestone} escrow={escrow} />
+            </div>
           ) : null}
           {role !== "selectedFreelancer" && role !== "client" ? (
             <p className="text-sm text-[#5f5f5f]">Waiting for freelancer submission.</p>
