@@ -40,6 +40,7 @@ import {
 import { api, type TConvexId } from "@repo/convex-client";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { DateTimePicker } from "@repo/ui/components/ui-customs/date-time-picker";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
@@ -256,6 +257,17 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   ) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
     setErrors((currentValue) => ({ ...currentValue, [field]: undefined, submit: undefined }));
+  };
+
+  const clampDeadlineInputValue = (value: string): string => {
+    const timestamp = parseDatetimeLocalValue(value);
+    const minimumTimestamp = Date.now() + 30 * 60 * 1000;
+
+    if (timestamp !== null && timestamp < minimumTimestamp) {
+      return toDatetimeLocalValue(minimumTimestamp);
+    }
+
+    return value;
   };
 
   const updateJobType = (jobType: TJobType) => {
@@ -858,13 +870,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               >
                 Deadline
               </label>
-              <AppInput
+              <DateTimePicker
                 id="marketplace-job-deadline"
-                type="datetime-local"
                 min={minimumDeadlineInputValue}
                 value={formState.deadlineAt}
-                onChange={(event) => updateField("deadlineAt", event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                onValueChange={(value) => updateField("deadlineAt", clampDeadlineInputValue(value))}
               />
               <p className="mt-1 font-mono text-xs text-gray-500">
                 Stored in UTC. Displayed in {getLocalTimezoneLabel()}.
@@ -1050,13 +1060,16 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     >
                       Deadline
                     </label>
-                    <AppInput
+                    <DateTimePicker
                       id={`milestone-deadline-${milestone.id}`}
-                      type="datetime-local"
                       min={minimumDeadlineInputValue}
                       value={milestone.deadlineAt}
-                      onChange={(event) =>
-                        updateMilestone(milestone.id, "deadlineAt", event.target.value)
+                      onValueChange={(value) =>
+                        updateMilestone(
+                          milestone.id,
+                          "deadlineAt",
+                          clampDeadlineInputValue(value),
+                        )
                       }
                     />
                     <p className="mt-1 font-mono text-xs text-gray-500">
