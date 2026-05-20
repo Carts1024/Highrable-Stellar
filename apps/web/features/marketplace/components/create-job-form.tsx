@@ -87,10 +87,7 @@ const CREATE_JOB_SCHEMA = z.object({
     .transform(sanitizeSingleLineInput)
     .pipe(z.string().min(3, "Payment asset is required."))
     .pipe(z.string().max(255, "Payment asset is too long.")),
-  deadlineAt: z
-    .string()
-    .transform(sanitizeSingleLineInput)
-    .optional(),
+  deadlineAt: z.string().transform(sanitizeSingleLineInput).optional(),
 });
 
 const CREATE_MILESTONE_SCHEMA = z.object({

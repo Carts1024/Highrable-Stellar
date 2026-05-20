@@ -1,3 +1,5 @@
+import type { TDeadlineStatus } from "./lib";
+
 import {
   computeDeadlineStatus,
   formatDeadline,
@@ -5,8 +7,6 @@ import {
   getLocalTimezoneLabel,
   getRemainingTimeLabel,
 } from "./lib";
-
-import type { TDeadlineStatus } from "./lib";
 
 const STATUS_CLASS: Record<TDeadlineStatus, string> = {
   no_deadline: "border-gray-200 bg-gray-50 text-gray-700",

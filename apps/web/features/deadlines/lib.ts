@@ -36,7 +36,10 @@ export function parseDatetimeLocalValue(value: string): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-export function validateDeadlineTimestamp(timestamp: number | null, now = Date.now()): string | null {
+export function validateDeadlineTimestamp(
+  timestamp: number | null,
+  now = Date.now(),
+): string | null {
   if (timestamp === null) {
     return "Deadline is required.";
   }

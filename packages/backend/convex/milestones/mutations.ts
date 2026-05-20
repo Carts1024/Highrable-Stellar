@@ -184,7 +184,9 @@ export const addMilestoneToProject = mutation({
     const amount = sanitizeMilestoneAmount(args.amount);
     const deadlineAt = validateDeadlineAt(args.deadlineAt);
     if (existing[0]?.deadlineAt !== undefined && deadlineAt < existing[0].deadlineAt) {
-      throw new BadRequestError(`Milestone ${nextOrder} cannot be due before Milestone ${nextOrder - 1}.`);
+      throw new BadRequestError(
+        `Milestone ${nextOrder} cannot be due before Milestone ${nextOrder - 1}.`,
+      );
     }
 
     const milestoneId = await ctx.db.insert("milestones", {

@@ -169,7 +169,9 @@ export const getEscrowProof = query({
               asset: milestone.asset,
               status: milestone.status,
               ...(milestone.deadlineAt !== undefined ? { deadlineAt: milestone.deadlineAt } : {}),
-              ...(milestone.submittedAt !== undefined ? { submittedAt: milestone.submittedAt } : {}),
+              ...(milestone.submittedAt !== undefined
+                ? { submittedAt: milestone.submittedAt }
+                : {}),
               ...(milestone.completedAt !== undefined
                 ? { completedAt: milestone.completedAt }
                 : {}),

@@ -63,9 +63,7 @@ export function validateMilestoneDeadlineOrder(
   for (const [index, milestone] of milestones.entries()) {
     validateDeadlineAt(milestone.deadlineAt, now);
     if (previousDeadlineAt !== null && milestone.deadlineAt < previousDeadlineAt) {
-      throw new BadRequestError(
-        `Milestone ${index + 1} cannot be due before Milestone ${index}.`,
-      );
+      throw new BadRequestError(`Milestone ${index + 1} cannot be due before Milestone ${index}.`);
     }
     previousDeadlineAt = milestone.deadlineAt;
   }
@@ -261,7 +259,11 @@ export async function assertCanEditDeadline(
     throw new ForbiddenError("Only the client can update this deadline.");
   }
 
-  if (parent.parentType === "micro_gig" && parent.status !== "open" && parent.status !== "selected") {
+  if (
+    parent.parentType === "micro_gig" &&
+    parent.status !== "open" &&
+    parent.status !== "selected"
+  ) {
     throw new ForbiddenError("You cannot change the deadline after work has started.");
   }
 
@@ -312,7 +314,7 @@ export function buildDeadlineReminderMessage(input: {
 }) {
   const label =
     input.parent.parentType === "milestone"
-      ? input.parent.requiredOutput ?? input.parent.title
+      ? (input.parent.requiredOutput ?? input.parent.title)
       : "This micro gig";
   const deadlineLabel = input.parent.deadlineAt
     ? new Date(input.parent.deadlineAt).toISOString()
@@ -385,7 +387,10 @@ export function sanitizeDeadlineReason(reason?: string): string | undefined {
   return optionalNonEmptyString(reason, "reason")?.slice(0, 500);
 }
 
-export function getRecipientWallets(parent: TDeadlineParentContext, reminderType: TDeadlineReminderType) {
+export function getRecipientWallets(
+  parent: TDeadlineParentContext,
+  reminderType: TDeadlineReminderType,
+) {
   const wallets = new Set<string>();
   if (parent.freelancerWallet) {
     wallets.add(parent.freelancerWallet);
@@ -419,7 +424,9 @@ export async function upsertDeadlineReminders(ctx: MutationCtx, parent: TDeadlin
       ...(parent.milestoneId !== undefined ? { milestoneId: parent.milestoneId } : {}),
       ...(parent.escrowId !== undefined ? { escrowId: parent.escrowId } : {}),
       clientWallet: parent.clientWallet,
-      ...(parent.freelancerWallet !== undefined ? { freelancerWallet: parent.freelancerWallet } : {}),
+      ...(parent.freelancerWallet !== undefined
+        ? { freelancerWallet: parent.freelancerWallet }
+        : {}),
       scheduledFor: Math.max(reminder.scheduledFor, now),
       recipientWallets: getRecipientWallets(parent, reminder.reminderType),
       updatedAt: now,

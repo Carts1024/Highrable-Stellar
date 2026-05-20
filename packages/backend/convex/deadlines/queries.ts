@@ -132,7 +132,9 @@ export const getDeadlineRemindersForParent = query({
     await assertCanViewDeadline(ctx, args);
     return await ctx.db
       .query("deadlineReminders")
-      .withIndex("by_parent", (q) => q.eq("parentType", args.parentType).eq("parentId", args.parentId))
+      .withIndex("by_parent", (q) =>
+        q.eq("parentType", args.parentType).eq("parentId", args.parentId),
+      )
       .take(20);
   },
 });

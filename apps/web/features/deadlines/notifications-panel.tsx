@@ -67,9 +67,7 @@ export function DeadlineNotificationsPanel() {
             <article
               key={notification._id}
               className={`rounded-lg border p-3 ${
-                notification.readAt
-                  ? "border-[#e8e8e8] bg-white"
-                  : "border-amber-200 bg-amber-50"
+                notification.readAt ? "border-[#e8e8e8] bg-white" : "border-amber-200 bg-amber-50"
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">

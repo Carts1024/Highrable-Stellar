@@ -19,10 +19,7 @@ import {
   upsertDeadlineReminders,
   validateDeadlineAt,
 } from "./helpers";
-import {
-  deadlineParentTypeValidator,
-  notificationTypeValidator,
-} from "./schema";
+import { deadlineParentTypeValidator, notificationTypeValidator } from "./schema";
 
 async function setDeadline(
   ctx: MutationCtx,
@@ -61,7 +58,9 @@ async function setDeadline(
     ...(oldDeadlineAt !== undefined ? { oldDeadlineAt } : {}),
     newDeadlineAt: deadlineAt,
     changedByWallet,
-    ...(args.changedByWalletType !== undefined ? { changedByWalletType: args.changedByWalletType } : {}),
+    ...(args.changedByWalletType !== undefined
+      ? { changedByWalletType: args.changedByWalletType }
+      : {}),
     ...(sanitizeDeadlineReason(args.reason) !== undefined
       ? { reason: sanitizeDeadlineReason(args.reason) }
       : {}),

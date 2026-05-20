@@ -216,13 +216,14 @@ export const updateEscrowStatus = mutation({
           deadlineStatus: computeDeadlineStatus({
             deadlineAt: milestone.deadlineAt,
             submittedAt: milestone.submittedAt,
-            completedAt:
-              args.status === "released" ? Date.now() : milestone.completedAt,
+            completedAt: args.status === "released" ? Date.now() : milestone.completedAt,
             approvedAt: args.status === "released" ? Date.now() : milestone.approvedAt,
             escrowStatus: args.status,
             workStatus: args.status,
           }),
-          ...(args.status === "released" ? { completedAt: Date.now(), approvedAt: Date.now() } : {}),
+          ...(args.status === "released"
+            ? { completedAt: Date.now(), approvedAt: Date.now() }
+            : {}),
           updatedAt: Date.now(),
         });
         await upsertDeadlineReminders(
