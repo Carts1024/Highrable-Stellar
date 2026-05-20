@@ -25,6 +25,12 @@ const notificationTypeEnum = createStringEnum([
   "revision_limit_reached",
   "preview_submitted",
   "preview_accepted",
+  "dispute_opened",
+  "dispute_on_chain_marked",
+  "dispute_on_chain_mark_failed",
+  "dispute_evidence_added",
+  "dispute_response_added",
+  "dispute_status_changed",
 ] as const);
 
 export const deadlineParentTypeValidator = deadlineParentTypeEnum.validator;

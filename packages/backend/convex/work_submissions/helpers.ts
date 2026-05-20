@@ -8,6 +8,7 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
+import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
 import {
   assertCanSubmitRevision,
   getRevisionPolicyConfig,
@@ -102,6 +103,8 @@ export async function assertCanCreateSubmission(
   } else if (escrow.status !== "funded") {
     throw new BadRequestError("This escrow is not ready for proof submission.");
   }
+
+  await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: escrow._id });
 
   const job = await ctx.db.get(escrow.jobId);
   if (!job) {

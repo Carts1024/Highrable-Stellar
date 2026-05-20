@@ -76,6 +76,10 @@ export function formatEventMessage(eventType: TMessageEventType): string {
     deadline_warning: "Deadline warning.",
     deadline_missed: "Deadline missed.",
     dispute_opened: "Dispute was opened.",
+    dispute_on_chain_marked: "Escrow was marked disputed on-chain.",
+    dispute_on_chain_mark_failed: "On-chain dispute marking failed.",
+    dispute_evidence_added: "Dispute evidence was added.",
+    dispute_status_changed: "Dispute status changed.",
     dispute_resolved: "Dispute was resolved.",
   };
 
@@ -276,6 +280,31 @@ export async function resolveConversationParticipants(
       clientWallet: participants.clientWallet,
       freelancerWallet: participants.freelancerWallet,
       title: "Proof submission",
+      participants: participants.participants,
+    };
+  }
+
+  if (input.parentType === "dispute") {
+    const dispute = await ctx.db.get(parentId as Id<"disputes">);
+    if (!dispute) {
+      throw new NotFoundError("Dispute was not found.");
+    }
+    const participants = ensureRelationshipParticipants({
+      clientWallet: dispute.clientWallet,
+      freelancerWallet: dispute.freelancerWallet,
+      parentLabel: "Dispute",
+    });
+    return {
+      parentType: "dispute",
+      parentId,
+      ...(dispute.jobId !== undefined ? { jobId: dispute.jobId } : {}),
+      ...(dispute.microGigId !== undefined ? { microGigId: dispute.microGigId } : {}),
+      ...(dispute.milestoneId !== undefined ? { milestoneId: dispute.milestoneId } : {}),
+      ...(dispute.escrowId !== undefined ? { escrowId: dispute.escrowId } : {}),
+      disputeId: dispute._id,
+      clientWallet: participants.clientWallet,
+      freelancerWallet: participants.freelancerWallet,
+      title: dispute.title,
       participants: participants.participants,
     };
   }

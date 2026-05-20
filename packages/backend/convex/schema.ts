@@ -4,6 +4,7 @@ import applications from "./applications/schema";
 import attachments from "./attachments/schema";
 import { conversationReads, conversations, messages } from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
+import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
@@ -32,4 +33,6 @@ export default defineSchema({
   deadlineReminders,
   notifications,
   deadlineAuditEvents,
+  disputes,
+  disputeEvents,
 });

@@ -16,6 +16,7 @@ import {
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
@@ -66,8 +67,13 @@ export function MilestoneActionPanel({
     fundEscrow,
     approveAndRelease,
     cancelEscrow,
-    markDisputed,
   } = useMilestoneEscrowActions({ job, milestone, escrow, applications });
+  const activeDispute = useQuery(
+    api.disputes.getActiveDisputeForEscrow,
+    escrow && walletIdentity.walletAddress
+      ? { escrowId: escrow._id, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
 
   const isStablecoinConfigured = hasStablecoinConfig();
   const stablecoinConfigValidation = validateStablecoinConfig();
@@ -161,6 +167,7 @@ export function MilestoneActionPanel({
             : "Signing with Freighter or WalletConnect."}
         </p>
       ) : null}
+      {activeDispute ? <DisputeActionGuardNotice /> : null}
 
       {milestone.status === "open" ? (
         <p className="text-sm text-[#5f5f5f]">
@@ -239,15 +246,15 @@ export function MilestoneActionPanel({
           {role === "selectedFreelancer" ? (
             <div className="space-y-3">
               <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
-              <AppButton
-                type="button"
-                variant="secondary"
+              <OpenDisputeButton
+                job={job}
+                milestone={milestone}
+                escrow={escrow}
+                parentType="milestone"
+                parentId={milestone._id}
                 disabled={isPending || !walletIdentity.canSignEscrowTransactions}
-                onClick={() => void markDisputed()}
                 className="border-red-300 text-red-700 hover:bg-red-50"
-              >
-                {pendingAction === "mark_disputed" ? "Disputing..." : "Dispute"}
-              </AppButton>
+              />
             </div>
           ) : null}
           {role === "client" ? (
@@ -272,15 +279,15 @@ export function MilestoneActionPanel({
               >
                 Approve and Release
               </AppButton>
-              <AppButton
-                type="button"
-                variant="secondary"
+              <OpenDisputeButton
+                job={job}
+                milestone={milestone}
+                escrow={escrow}
+                parentType="milestone"
+                parentId={milestone._id}
                 disabled={isPending || !walletIdentity.canSignEscrowTransactions}
-                onClick={() => void markDisputed()}
                 className="border-red-300 text-red-700 hover:bg-red-50"
-              >
-                {pendingAction === "mark_disputed" ? "Disputing..." : "Dispute"}
-              </AppButton>
+              />
             </div>
           ) : (
             <p className="text-sm text-[#5f5f5f]">Waiting for client approval.</p>

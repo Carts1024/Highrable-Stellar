@@ -7,6 +7,7 @@ import {
   resolveDeadlineParent,
   upsertDeadlineReminders,
 } from "../deadlines/helpers";
+import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
 import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import {
   assertEscrowCreationAllowed,
@@ -180,6 +181,9 @@ export const updateEscrowStatus = mutation({
     }
 
     const escrow = await getEscrowByEscrowIdOrThrow(ctx, escrowId);
+    if (args.status === "released" || args.status === "cancelled") {
+      await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: escrow._id });
+    }
     const escrowPatch: {
       status: (typeof args)["status"];
       updatedAt: number;

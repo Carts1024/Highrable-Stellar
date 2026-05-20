@@ -120,6 +120,18 @@ function QuickActions() {
             <p className="text-sm text-[#5f5f5f]">Hire talented freelancers</p>
           </div>
         </Link>
+        <Link
+          href="/disputes"
+          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-red-500 to-red-600">
+            <AlertTriangle className="h-5 w-5 text-white" />
+          </div>
+          <div className="text-left">
+            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Disputes</p>
+            <p className="text-sm text-[#5f5f5f]">Review active cases</p>
+          </div>
+        </Link>
       </div>
 
       <div className="mt-4 flex justify-end">

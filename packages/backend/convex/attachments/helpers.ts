@@ -294,6 +294,23 @@ export async function assertCanAttachToParent(
     return;
   }
 
+  if (input.parentType === "dispute") {
+    const dispute = await ctx.db.get(input.parentId as Id<"disputes">);
+    if (!dispute || dispute.status === "cancelled") {
+      throw new NotFoundError("Dispute was not found.");
+    }
+    if (dispute.clientWallet !== walletAddress && dispute.freelancerWallet !== walletAddress) {
+      throw new ForbiddenError("You do not have permission to attach files to this dispute.");
+    }
+    if (
+      (input.ownerRole === "client" && dispute.clientWallet !== walletAddress) ||
+      (input.ownerRole === "freelancer" && dispute.freelancerWallet !== walletAddress)
+    ) {
+      throw new ForbiddenError("Attachment owner role does not match this dispute participant.");
+    }
+    return;
+  }
+
   throw new BadRequestError("This attachment parent type is not supported yet.");
 }
 
@@ -404,6 +421,21 @@ export async function assertCanViewAttachment(
       revision &&
       (revision.clientWallet === normalizedViewerWallet ||
         revision.freelancerWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "dispute" &&
+    attachment.parentId
+  ) {
+    const dispute = await ctx.db.get(attachment.parentId as Id<"disputes">);
+    if (
+      dispute &&
+      (dispute.clientWallet === normalizedViewerWallet ||
+        dispute.freelancerWallet === normalizedViewerWallet)
     ) {
       return;
     }

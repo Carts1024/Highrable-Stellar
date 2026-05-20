@@ -10,6 +10,7 @@ import {
   validateDeadlineAt,
   validateMilestoneDeadlineOrder,
 } from "../deadlines/helpers";
+import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
 import {
   sanitizeEscrowAmount,
   sanitizeEscrowAsset,
@@ -699,6 +700,9 @@ export const updateMilestoneEscrowStatus = mutation({
 
     if (escrow.milestoneId !== args.milestoneId || milestone.escrowId !== escrowId) {
       throw new BadRequestError("Escrow is not linked to this milestone.");
+    }
+    if (args.status === "released" || args.status === "cancelled") {
+      await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: escrow._id });
     }
 
     const escrowPatch: {

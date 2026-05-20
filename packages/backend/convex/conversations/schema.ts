@@ -39,6 +39,10 @@ const messageEventTypeEnum = createStringEnum([
   "deadline_warning",
   "deadline_missed",
   "dispute_opened",
+  "dispute_on_chain_marked",
+  "dispute_on_chain_mark_failed",
+  "dispute_evidence_added",
+  "dispute_status_changed",
   "dispute_resolved",
 ] as const);
 

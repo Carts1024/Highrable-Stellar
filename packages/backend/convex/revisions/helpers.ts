@@ -11,6 +11,7 @@ import {
 } from "../_shared/input";
 import { createSystemMessageForEvent } from "../conversations/helpers";
 import { validateDeadlineAt } from "../deadlines/helpers";
+import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
 
 const DEFAULT_REVISION_POLICY: TRevisionPolicy = "fixed";
 const DEFAULT_REVISION_LIMIT = 2;
@@ -274,6 +275,9 @@ export async function assertCanRequestRevision(
       "Revision cannot be requested after release, cancellation, or dispute.",
     );
   }
+  if (parent.escrowId !== undefined) {
+    await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: parent.escrowId });
+  }
 
   const config = getRevisionPolicyConfig(parent);
   if (config.revisionPolicy === "none") {
@@ -321,6 +325,9 @@ export async function assertCanSubmitRevision(
       "Revision cannot be submitted after release, cancellation, or dispute.",
     );
   }
+  if (parent.escrowId !== undefined) {
+    await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: parent.escrowId });
+  }
 
   return { revision, parent, freelancerWallet };
 }
@@ -357,6 +364,9 @@ export async function assertCanAcceptPreviewSubmission(
     throw new BadRequestError(
       "Preview cannot be accepted after release, cancellation, or dispute.",
     );
+  }
+  if (parent.escrowId !== undefined) {
+    await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: parent.escrowId });
   }
   const config = getRevisionPolicyConfig(parent);
   if (!isRevisionEnabledPolicy(config.revisionPolicy)) {

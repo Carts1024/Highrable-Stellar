@@ -92,6 +92,7 @@ export function JobList({
             <Search className="absolute top-3 left-3 h-5 w-5 text-gray-400" />
             <input
               type="text"
+              aria-label="Search jobs"
               placeholder="Search jobs, skills, or descriptions..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

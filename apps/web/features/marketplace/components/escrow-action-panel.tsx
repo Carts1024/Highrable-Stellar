@@ -18,6 +18,7 @@ import {
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { getEscrowActionGuard } from "@/features/marketplace/lib/escrow-action-guards";
@@ -61,6 +62,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     api.reputation.getReputationByEscrowId,
     escrow?.escrowId ? { escrowId: escrow.escrowId } : "skip",
   );
+  const activeDispute = useQuery(
+    api.disputes.getActiveDisputeForEscrow,
+    escrow && walletIdentity.walletAddress
+      ? { escrowId: escrow._id, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
   const { isSyncing, syncMessage, syncResult, syncReputationRecord } = useSyncActions({ escrow });
   const {
     role,
@@ -73,7 +80,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     fundEscrow,
     approveAndRelease,
     cancelEscrow,
-    markDisputed,
   } = useEscrowActions({
     job,
     escrow,
@@ -289,6 +295,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       {passkeyMainnetBlocked ? (
         <TrustWarning message="Mainnet passkey escrow is blocked until the issues below are resolved." />
       ) : null}
+      {activeDispute ? (
+        <div className="mt-3">
+          <DisputeActionGuardNotice />
+        </div>
+      ) : null}
 
       <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
         <h3 className="text-sm font-semibold text-[#0a0a0a]">Escrow readiness checklist</h3>
@@ -500,20 +511,13 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           {role === "selectedFreelancer" ? (
             <div className="space-y-3">
               <WorkProofSubmissionPanel job={job} escrow={escrow} />
-              <AppButton
-                type="button"
-                variant="secondary"
+              <OpenDisputeButton
+                job={job}
+                escrow={escrow}
+                parentType="escrow"
+                parentId={escrow?._id ?? job._id}
                 disabled={isPending || !actionGuards.markDisputed.canAct}
-                onClick={() => void markDisputed()}
-                className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label="Dispute escrow if there are issues"
-              >
-                {getActionButtonLabel(
-                  "Dispute",
-                  pendingAction === "mark_disputed",
-                  "Marking Disputed...",
-                )}
-              </AppButton>
+              />
             </div>
           ) : null}
 
@@ -538,20 +542,13 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                   )}
                 </AppButton>
                 {job.selectedFreelancerWallet ? (
-                  <AppButton
-                    type="button"
-                    variant="secondary"
+                  <OpenDisputeButton
+                    job={job}
+                    escrow={escrow}
+                    parentType="escrow"
+                    parentId={escrow?._id ?? job._id}
                     disabled={isPending || !actionGuards.markDisputed.canAct}
-                    onClick={() => void markDisputed()}
-                    className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Mark escrow as disputed"
-                  >
-                    {getActionButtonLabel(
-                      "Dispute",
-                      pendingAction === "mark_disputed",
-                      "Marking Disputed...",
-                    )}
-                  </AppButton>
+                  />
                 ) : null}
               </div>
             </div>
@@ -589,39 +586,25 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     "Releasing Payment...",
                   )}
                 </AppButton>
-                <AppButton
-                  type="button"
-                  variant="secondary"
+                <OpenDisputeButton
+                  job={job}
+                  escrow={escrow}
+                  parentType="escrow"
+                  parentId={escrow?._id ?? job._id}
                   disabled={isPending || !actionGuards.markDisputed.canAct}
-                  onClick={() => void markDisputed()}
-                  className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Dispute if work does not meet requirements"
-                >
-                  {getActionButtonLabel(
-                    "Dispute",
-                    pendingAction === "mark_disputed",
-                    "Marking Disputed...",
-                  )}
-                </AppButton>
+                />
               </div>
             </>
           ) : null}
 
           {role === "selectedFreelancer" ? (
-            <AppButton
-              type="button"
-              variant="secondary"
+            <OpenDisputeButton
+              job={job}
+              escrow={escrow}
+              parentType="escrow"
+              parentId={escrow?._id ?? job._id}
               disabled={isPending || !actionGuards.markDisputed.canAct}
-              onClick={() => void markDisputed()}
-              className="rounded-lg border border-red-300 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Dispute escrow if there are concerns"
-            >
-              {getActionButtonLabel(
-                "Dispute",
-                pendingAction === "mark_disputed",
-                "Marking Disputed...",
-              )}
-            </AppButton>
+            />
           ) : null}
         </EscrowSection>
       ) : null}
