@@ -4,6 +4,11 @@ import { mutation } from "../_generated/server";
 import { BadRequestError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
 import { createSystemMessageForEvent } from "../conversations/helpers";
+import {
+  computeDeadlineStatus,
+  resolveDeadlineParent,
+  upsertDeadlineReminders,
+} from "../deadlines/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertAttachmentsOwnedBySubmitter,
@@ -97,6 +102,19 @@ export const submitWorkProofMetadata = mutation({
       });
     }
 
+    const parent = await resolveDeadlineParent(ctx, {
+      parentType: submission.parentType === "milestone" ? "milestone" : "micro_gig",
+      parentId: submission.parentId,
+    });
+    const deadlineStatus = computeDeadlineStatus({
+      deadlineAt: parent.deadlineAt,
+      submittedAt: args.submittedAt,
+      completedAt: parent.completedAt,
+      approvedAt: parent.approvedAt,
+      escrowStatus: parent.escrowStatus,
+      workStatus: parent.status,
+    });
+
     await ctx.db.patch(args.submissionId, {
       notes,
       attachmentIds: args.attachmentIds,
@@ -105,7 +123,27 @@ export const submitWorkProofMetadata = mutation({
       status: "submitted",
       onChainStatus: "not_submitted",
       submittedAt: args.submittedAt,
+      ...(parent.deadlineAt !== undefined ? { deadlineAt: parent.deadlineAt } : {}),
+      deadlineStatus,
+      submittedLate: deadlineStatus === "submitted_late",
       updatedAt: now,
+    });
+
+    if (parent.parentType === "micro_gig") {
+      await ctx.db.patch(parent.jobId, {
+        submittedAt: args.submittedAt,
+        deadlineStatus,
+      });
+    } else if (parent.milestoneId !== undefined) {
+      await ctx.db.patch(parent.milestoneId, {
+        submittedAt: args.submittedAt,
+        deadlineStatus,
+        updatedAt: now,
+      });
+    }
+    await upsertDeadlineReminders(ctx, {
+      ...parent,
+      submittedAt: args.submittedAt,
     });
 
     await createSystemMessageForEvent(ctx, {
@@ -118,6 +156,21 @@ export const submitWorkProofMetadata = mutation({
         escrowId: submission.escrowId,
         onChainEscrowId: submission.onChainEscrowId,
         proofHash,
+      },
+    });
+
+    await createSystemMessageForEvent(ctx, {
+      parentType: submission.escrowId !== undefined ? "escrow" : "work_submission",
+      parentId: submission.escrowId ?? args.submissionId,
+      eventType: "deadline_warning",
+      body:
+        deadlineStatus === "submitted_late"
+          ? "Proof submitted after the deadline."
+          : "Proof submitted on time.",
+      eventPayload: {
+        workSubmissionId: args.submissionId,
+        deadlineAt: parent.deadlineAt,
+        deadlineStatus,
       },
     });
 

@@ -13,6 +13,7 @@ import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode"
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { DeadlineNotificationsPanel } from "@/features/deadlines";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { motion } from "framer-motion";
 import {
@@ -179,6 +180,8 @@ export function DashboardPage() {
       )}
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
+
+      <DeadlineNotificationsPanel />
 
       {isLoading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

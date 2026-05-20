@@ -8,6 +8,7 @@ import { ConversationThread } from "@/features/chat";
 import { ProductPageHero } from "@/features/common";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
@@ -178,6 +179,19 @@ export function JobDetail({ jobId }: { jobId: string }) {
         ) : null}
 
         <p className="mb-5 text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
+
+        {!isMilestoneProject ? (
+          <div className="mb-5">
+            <DeadlineBadge
+              deadlineAt={job.deadlineAt}
+              submittedAt={job.submittedAt}
+              completedAt={job.completedAt}
+              approvedAt={job.approvedAt}
+              escrowStatus={mergedEscrow?.status}
+              workStatus={job.status}
+            />
+          </div>
+        ) : null}
 
         <dl className="grid gap-4 text-sm text-[#5f5f5f] sm:grid-cols-2">
           <div>

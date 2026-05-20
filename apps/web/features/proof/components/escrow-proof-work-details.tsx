@@ -1,5 +1,6 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 
 import type { TEscrowProof } from "../types";
 
@@ -40,6 +41,17 @@ export function EscrowProofWorkDetails({ proof }: { readonly proof: TEscrowProof
         {proof.job.description ? (
           <p className="text-sm leading-6 text-[#5f5f5f]">{proof.job.description}</p>
         ) : null}
+      </div>
+
+      <div className="mt-5">
+        <DeadlineBadge
+          deadlineAt={proof.milestone?.deadlineAt ?? proof.job.deadlineAt}
+          submittedAt={proof.milestone?.submittedAt ?? proof.job.submittedAt}
+          completedAt={proof.milestone?.completedAt ?? proof.job.completedAt}
+          approvedAt={proof.milestone?.approvedAt ?? proof.job.approvedAt}
+          escrowStatus={proof.escrow.status}
+          workStatus={proof.milestone?.status ?? proof.job.status}
+        />
       </div>
 
       <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">

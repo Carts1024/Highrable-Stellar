@@ -2,6 +2,11 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
+import {
+  computeDeadlineStatus,
+  resolveDeadlineParent,
+  upsertDeadlineReminders,
+} from "../deadlines/helpers";
 import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import {
   assertEscrowCreationAllowed,
@@ -73,12 +78,27 @@ export const createEscrowRecord = mutation({
       await ctx.db.patch(args.jobId, {
         status: "funded",
         ...(freelancerWallet !== undefined ? { selectedFreelancerWallet: freelancerWallet } : {}),
+        deadlineStatus: computeDeadlineStatus({
+          deadlineAt: job.deadlineAt,
+          submittedAt: job.submittedAt,
+          completedAt: job.completedAt,
+          approvedAt: job.approvedAt,
+          escrowStatus: "funded",
+          workStatus: "funded",
+        }),
       });
     } else if (job.status === "open" && freelancerWallet !== undefined) {
       await ctx.db.patch(args.jobId, {
         selectedFreelancerWallet: freelancerWallet,
         status: "selected",
       });
+    }
+
+    if (job.jobType === "micro_gig" || job.jobType === undefined) {
+      await upsertDeadlineReminders(
+        ctx,
+        await resolveDeadlineParent(ctx, { parentType: "micro_gig", parentId: args.jobId }),
+      );
     }
 
     return escrowRecordId;
@@ -135,6 +155,11 @@ export const assignFreelancerToEscrow = mutation({
       status: escrow.status === "funded" ? "funded" : "selected",
     });
 
+    await upsertDeadlineReminders(
+      ctx,
+      await resolveDeadlineParent(ctx, { parentType: "micro_gig", parentId: args.jobId }),
+    );
+
     return await getEscrowByEscrowIdOrThrow(ctx, escrow.escrowId);
   },
 });
@@ -185,6 +210,29 @@ export const updateEscrowStatus = mutation({
         ...(txHash !== undefined ? { txHash } : {}),
         ...(args.txType !== undefined ? { txType: args.txType } : {}),
       });
+      const milestone = await ctx.db.get(escrow.milestoneId);
+      if (milestone) {
+        await ctx.db.patch(escrow.milestoneId, {
+          deadlineStatus: computeDeadlineStatus({
+            deadlineAt: milestone.deadlineAt,
+            submittedAt: milestone.submittedAt,
+            completedAt:
+              args.status === "released" ? Date.now() : milestone.completedAt,
+            approvedAt: args.status === "released" ? Date.now() : milestone.approvedAt,
+            escrowStatus: args.status,
+            workStatus: args.status,
+          }),
+          ...(args.status === "released" ? { completedAt: Date.now(), approvedAt: Date.now() } : {}),
+          updatedAt: Date.now(),
+        });
+        await upsertDeadlineReminders(
+          ctx,
+          await resolveDeadlineParent(ctx, {
+            parentType: "milestone",
+            parentId: escrow.milestoneId,
+          }),
+        );
+      }
     } else if (
       args.status === "funded" ||
       args.status === "submitted" ||
@@ -192,9 +240,24 @@ export const updateEscrowStatus = mutation({
       args.status === "cancelled" ||
       args.status === "disputed"
     ) {
+      const completedAt = args.status === "released" ? Date.now() : escrow.updatedAt;
+      const job = await ctx.db.get(escrow.jobId);
       await ctx.db.patch(escrow.jobId, {
         status: getJobStatusFromEscrowStatus(args.status),
+        deadlineStatus: computeDeadlineStatus({
+          deadlineAt: job?.deadlineAt,
+          submittedAt: job?.submittedAt,
+          completedAt: args.status === "released" ? completedAt : job?.completedAt,
+          approvedAt: args.status === "released" ? completedAt : job?.approvedAt,
+          escrowStatus: args.status,
+          workStatus: getJobStatusFromEscrowStatus(args.status),
+        }),
+        ...(args.status === "released" ? { completedAt, approvedAt: completedAt } : {}),
       });
+      await upsertDeadlineReminders(
+        ctx,
+        await resolveDeadlineParent(ctx, { parentType: "micro_gig", parentId: escrow.jobId }),
+      );
     }
 
     const updatedEscrow = await getEscrowByEscrowIdOrThrow(ctx, escrowId);

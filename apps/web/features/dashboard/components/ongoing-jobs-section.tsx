@@ -3,6 +3,7 @@
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerOngoingJobs } from "@/features/dashboard/hooks/use-freelancer-ongoing-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -58,6 +59,7 @@ export function OngoingJobsSection() {
                 <TableHead>Job</TableHead>
                 <TableHead>Escrow</TableHead>
                 <TableHead>Updated</TableHead>
+                <TableHead>Deadline</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Budget</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -81,6 +83,16 @@ export function OngoingJobsSection() {
                     </div>
                   </TableCell>
                   <TableCell>{formatDateTime(item.updatedAt)}</TableCell>
+                  <TableCell>
+                    <DeadlineBadge
+                      deadlineAt={item.deadlineAt}
+                      submittedAt={item.submittedAt}
+                      completedAt={item.completedAt}
+                      approvedAt={item.approvedAt}
+                      escrowStatus={item.escrowStatus}
+                      compact
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs text-gray-600">
                     {shortenWalletAddress(item.clientWallet)}
                   </TableCell>

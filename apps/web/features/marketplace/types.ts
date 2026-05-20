@@ -63,6 +63,7 @@ export type TCreateJobFormState = {
   description: string;
   budget: string;
   asset: string;
+  deadlineAt: string;
   fundEscrowNow: boolean;
   jobType: TJobType;
   milestones: TCreateMilestoneFormState[];
@@ -73,6 +74,7 @@ export type TCreateMilestoneFormState = {
   title: string;
   description: string;
   amount: string;
+  deadlineAt: string;
 };
 
 export type TCreateJobFormErrors = {
@@ -80,6 +82,7 @@ export type TCreateJobFormErrors = {
   description?: string;
   budget?: string;
   asset?: string;
+  deadlineAt?: string;
   milestones?: string;
   submit?: string;
 };

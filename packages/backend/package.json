@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dashboard": "convex-bundled dashboard",
-    "dev": "convex-bundled dev",
+    "dashboard": "convex dashboard",
+    "dev": "convex dev",
     "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -150,6 +150,10 @@ export const getEscrowProof = query({
         jobType: job.jobType ?? "micro_gig",
         status: job.status,
         clientWallet: job.clientWallet,
+        ...(job.deadlineAt !== undefined ? { deadlineAt: job.deadlineAt } : {}),
+        ...(job.submittedAt !== undefined ? { submittedAt: job.submittedAt } : {}),
+        ...(job.completedAt !== undefined ? { completedAt: job.completedAt } : {}),
+        ...(job.approvedAt !== undefined ? { approvedAt: job.approvedAt } : {}),
         createdAt: job.createdAt,
       },
       ...(milestone
@@ -164,6 +168,12 @@ export const getEscrowProof = query({
               amount: milestone.amount,
               asset: milestone.asset,
               status: milestone.status,
+              ...(milestone.deadlineAt !== undefined ? { deadlineAt: milestone.deadlineAt } : {}),
+              ...(milestone.submittedAt !== undefined ? { submittedAt: milestone.submittedAt } : {}),
+              ...(milestone.completedAt !== undefined
+                ? { completedAt: milestone.completedAt }
+                : {}),
+              ...(milestone.approvedAt !== undefined ? { approvedAt: milestone.approvedAt } : {}),
               ...(milestone.assignedFreelancerWallet !== undefined
                 ? { assignedFreelancerWallet: milestone.assignedFreelancerWallet }
                 : {}),

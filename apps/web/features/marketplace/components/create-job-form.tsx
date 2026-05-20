@@ -26,6 +26,12 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
+import {
+  getLocalTimezoneLabel,
+  parseDatetimeLocalValue,
+  toDatetimeLocalValue,
+  validateDeadlineTimestamp,
+} from "@/features/deadlines";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   analyzeJobScamSignals,
@@ -81,6 +87,10 @@ const CREATE_JOB_SCHEMA = z.object({
     .transform(sanitizeSingleLineInput)
     .pipe(z.string().min(3, "Payment asset is required."))
     .pipe(z.string().max(255, "Payment asset is too long.")),
+  deadlineAt: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .optional(),
 });
 
 const CREATE_MILESTONE_SCHEMA = z.object({
@@ -104,6 +114,10 @@ const CREATE_MILESTONE_SCHEMA = z.object({
     .refine((value) => value <= MAX_HUMAN_BUDGET, {
       message: "Milestone amount exceeds the allowed range.",
     }),
+  deadlineAt: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(1, "Milestone deadline is required.")),
 });
 
 type TCreateJobPayload = z.infer<typeof CREATE_JOB_SCHEMA>;
@@ -138,6 +152,7 @@ function createDraftMilestone(): TCreateMilestoneFormState {
     title: "",
     description: "",
     amount: "",
+    deadlineAt: "",
   };
 }
 
@@ -146,12 +161,23 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
   const parsed = CREATE_JOB_SCHEMA.safeParse(formState);
 
   if (parsed.success) {
+    const deadlineAt = parseDatetimeLocalValue(formState.deadlineAt);
+    const deadlineError = validateDeadlineTimestamp(deadlineAt);
+    if (deadlineError) {
+      errors.deadlineAt = deadlineError;
+    }
     return errors;
   }
 
   for (const issue of parsed.error.issues) {
     const field = issue.path[0];
-    if (field === "title" || field === "description" || field === "budget" || field === "asset") {
+    if (
+      field === "title" ||
+      field === "description" ||
+      field === "budget" ||
+      field === "asset" ||
+      field === "deadlineAt"
+    ) {
       if (!errors[field]) {
         errors[field] = issue.message;
       }
@@ -178,6 +204,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     description: "",
     budget: "",
     asset: DEFAULT_STABLECOIN_ASSET,
+    deadlineAt: "",
     fundEscrowNow: false,
     jobType: "micro_gig",
     milestones: [
@@ -186,6 +213,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         title: "",
         description: "",
         amount: "",
+        deadlineAt: "",
       },
     ],
   });
@@ -213,6 +241,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   }, [isStablecoinConfigured]);
 
   const isMilestoneProject = formState.jobType === "milestone_project";
+  const minimumDeadlineInputValue = toDatetimeLocalValue(Date.now() + 30 * 60 * 1000);
   const parsedMilestoneTotal = useMemo(() => {
     return formState.milestones.reduce((total, milestone) => {
       const amount = Number(parseHumanAmount(milestone.amount || "0"));
@@ -224,7 +253,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     ? "Project budget is calculated from milestone amounts."
     : "This amount will be locked in Stellar escrow after the client funds the contract.";
 
-  const updateField = (field: "title" | "description" | "budget" | "asset", value: string) => {
+  const updateField = (
+    field: "title" | "description" | "budget" | "asset" | "deadlineAt",
+    value: string,
+  ) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
     setErrors((currentValue) => ({ ...currentValue, [field]: undefined, submit: undefined }));
   };
@@ -287,6 +319,22 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       if (!parsed.success) {
         setErrors({
           milestones: `Milestone ${index + 1}: ${parsed.error.issues[0]?.message ?? "Invalid milestone."}`,
+        });
+        return null;
+      }
+      const deadlineAt = parseDatetimeLocalValue(parsed.data.deadlineAt);
+      const deadlineError = validateDeadlineTimestamp(deadlineAt);
+      if (deadlineError) {
+        setErrors({ milestones: `Milestone ${index + 1}: ${deadlineError}` });
+        return null;
+      }
+      const previousMilestone = parsedMilestones[index - 1];
+      const previousDeadlineAt = previousMilestone
+        ? parseDatetimeLocalValue(previousMilestone.deadlineAt)
+        : null;
+      if (previousDeadlineAt !== null && deadlineAt !== null && deadlineAt < previousDeadlineAt) {
+        setErrors({
+          milestones: `Milestone ${index + 1} cannot be due before Milestone ${index}.`,
         });
         return null;
       }
@@ -357,10 +405,13 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       return;
     }
 
-    const validationErrors = buildCreateJobErrors({
-      ...formState,
-      budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
-    });
+    const validationErrors = isMilestoneProject
+      ? buildCreateJobErrors({
+          ...formState,
+          budget: String(parsedMilestoneTotal),
+          deadlineAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        })
+      : buildCreateJobErrors(formState);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -397,7 +448,6 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         setIsSubmitting(false);
         return;
       }
-
       const payload: TCreateJobPayload = parsed.data;
       const selectedEscrowAsset = requireSupportedEscrowAsset(payload.asset);
       const parsedScamAnalysis = analyzeJobScamSignals({
@@ -427,7 +477,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           milestones: milestones.map((milestone) => ({
             title: milestone.title,
             ...(milestone.description ? { description: milestone.description } : {}),
+            requiredOutput: milestone.description || milestone.title,
             amount: milestone.amount,
+            deadlineAt: parseDatetimeLocalValue(milestone.deadlineAt)!,
           })),
         });
         const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
@@ -440,12 +492,21 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           description: "",
           budget: "",
           asset: DEFAULT_STABLECOIN_ASSET,
+          deadlineAt: "",
           fundEscrowNow: false,
           jobType: "micro_gig",
           milestones: [createDraftMilestone()],
         });
         setDraftAttachments([]);
         onCreated(createdJobId);
+        return;
+      }
+
+      const deadlineAt = parseDatetimeLocalValue(payload.deadlineAt ?? "");
+      const deadlineError = validateDeadlineTimestamp(deadlineAt);
+      if (deadlineError || deadlineAt === null) {
+        setErrors({ deadlineAt: deadlineError ?? "Deadline is required." });
+        setIsSubmitting(false);
         return;
       }
 
@@ -520,6 +581,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: payload.description,
         budget: payload.budget,
         asset: payload.asset,
+        deadlineAt,
         clientWallet: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         jobHash,
@@ -606,6 +668,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: "",
         budget: "",
         asset: DEFAULT_STABLECOIN_ASSET,
+        deadlineAt: "",
         fundEscrowNow: false,
         jobType: "micro_gig",
         milestones: [createDraftMilestone()],
@@ -790,6 +853,31 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             </div>
           ) : null}
 
+          {!isMilestoneProject ? (
+            <div>
+              <label
+                htmlFor="marketplace-job-deadline"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Deadline
+              </label>
+              <AppInput
+                id="marketplace-job-deadline"
+                type="datetime-local"
+                min={minimumDeadlineInputValue}
+                value={formState.deadlineAt}
+                onChange={(event) => updateField("deadlineAt", event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+              />
+              <p className="mt-1 font-mono text-xs text-gray-500">
+                Stored in UTC. Displayed in {getLocalTimezoneLabel()}.
+              </p>
+              {errors.deadlineAt ? (
+                <p className="mt-1 text-xs text-red-600">{errors.deadlineAt}</p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div>
             <label
               htmlFor="marketplace-job-asset"
@@ -957,6 +1045,26 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       }
                       placeholder="Deliverable details and acceptance criteria"
                     />
+                  </div>
+                  <div className="mt-3">
+                    <label
+                      htmlFor={`milestone-deadline-${milestone.id}`}
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Deadline
+                    </label>
+                    <AppInput
+                      id={`milestone-deadline-${milestone.id}`}
+                      type="datetime-local"
+                      min={minimumDeadlineInputValue}
+                      value={milestone.deadlineAt}
+                      onChange={(event) =>
+                        updateMilestone(milestone.id, "deadlineAt", event.target.value)
+                      }
+                    />
+                    <p className="mt-1 font-mono text-xs text-gray-500">
+                      {getLocalTimezoneLabel()}
+                    </p>
                   </div>
                 </div>
               ))}

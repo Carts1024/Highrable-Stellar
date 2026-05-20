@@ -52,6 +52,10 @@ export interface IOngoingJobItem {
   readonly clientWallet: string;
   readonly escrowStatus: "funded" | "submitted";
   readonly updatedAt: number;
+  readonly deadlineAt: number | undefined;
+  readonly submittedAt: number | undefined;
+  readonly completedAt: number | undefined;
+  readonly approvedAt: number | undefined;
 }
 
 export interface IPostedJobItem {
@@ -64,6 +68,10 @@ export interface IPostedJobItem {
   readonly selectedFreelancerWallet: string | undefined;
   readonly applicationCount: number;
   readonly escrowStatus: string | undefined;
+  readonly deadlineAt: number | undefined;
+  readonly submittedAt: number | undefined;
+  readonly completedAt: number | undefined;
+  readonly approvedAt: number | undefined;
 }
 
 export type TRecentPayout = {

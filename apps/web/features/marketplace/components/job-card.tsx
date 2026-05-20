@@ -1,6 +1,7 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -46,6 +47,19 @@ export function JobCard({
       </div>
 
       <p className="mb-4 line-clamp-3 text-sm text-[#5f5f5f]">{job.description}</p>
+
+      {!isMilestoneProject ? (
+        <div className="mb-4">
+          <DeadlineBadge
+            deadlineAt={job.deadlineAt}
+            submittedAt={job.submittedAt}
+            completedAt={job.completedAt}
+            approvedAt={job.approvedAt}
+            escrowStatus={escrow?.status}
+            workStatus={job.status}
+          />
+        </div>
+      ) : null}
 
       {safetyStatus.status === "unfunded" ? (
         <TrustSafetyNotice type="unfunded" compact className="mb-4" />

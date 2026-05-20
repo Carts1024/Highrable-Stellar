@@ -2,6 +2,7 @@ import { defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
 
 import { createStringEnum } from "../_shared/enum";
+import { deadlineStatusValidator } from "../jobs/schema";
 import { walletTypeValidator } from "../users/schema";
 
 const workSubmissionParentTypeEnum = createStringEnum([
@@ -59,6 +60,9 @@ export default defineTable({
   transactionHash: v.optional(v.string()),
   stellarExpertUrl: v.optional(v.string()),
   submittedAt: v.optional(v.number()),
+  deadlineAt: v.optional(v.number()),
+  deadlineStatus: v.optional(deadlineStatusValidator),
+  submittedLate: v.optional(v.boolean()),
   anchoredAt: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number(),

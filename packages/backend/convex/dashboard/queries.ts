@@ -78,6 +78,10 @@ type TFreelancerOngoingJobRow = {
   clientWallet: string;
   escrowStatus: "funded" | "submitted";
   updatedAt: number;
+  deadlineAt: number | undefined;
+  submittedAt: number | undefined;
+  completedAt: number | undefined;
+  approvedAt: number | undefined;
 };
 
 type TClientPostedJobRow = {
@@ -90,6 +94,10 @@ type TClientPostedJobRow = {
   selectedFreelancerWallet: string | undefined;
   applicationCount: number;
   escrowStatus: string | undefined;
+  deadlineAt: number | undefined;
+  submittedAt: number | undefined;
+  completedAt: number | undefined;
+  approvedAt: number | undefined;
 };
 
 function sumByAsset(escrows: Array<{ asset: string; amount: number }>): TAssetAmountRow[] {
@@ -371,6 +379,10 @@ export const listFreelancerOngoingJobsPage = query({
           clientWallet: escrow.clientWallet,
           escrowStatus: escrow.status as "funded" | "submitted",
           updatedAt: escrow.updatedAt,
+          deadlineAt: milestone?.deadlineAt ?? job.deadlineAt,
+          submittedAt: milestone?.submittedAt ?? job.submittedAt,
+          completedAt: milestone?.completedAt ?? job.completedAt,
+          approvedAt: milestone?.approvedAt ?? job.approvedAt,
         };
       }),
     );
@@ -417,6 +429,10 @@ export const listClientPostedJobsPage = query({
           selectedFreelancerWallet: job.selectedFreelancerWallet,
           applicationCount,
           escrowStatus: primaryEscrow?.status,
+          deadlineAt: job.deadlineAt,
+          submittedAt: job.submittedAt,
+          completedAt: job.completedAt,
+          approvedAt: job.approvedAt,
         };
       }),
     );

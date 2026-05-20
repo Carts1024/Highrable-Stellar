@@ -9,6 +9,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList, AttachmentUploader } from "@/features/attachments/components";
 import { getReadableAttachmentError } from "@/features/attachments/lib";
+import { DeadlineBadge } from "@/features/deadlines";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import {
   buildNormalizedProofManifest,
@@ -281,6 +282,14 @@ export function WorkProofSubmissionPanel({
 
       {canSubmit && !isImmutable ? (
         <div className="space-y-3">
+          <DeadlineBadge
+            deadlineAt={milestone?.deadlineAt ?? job.deadlineAt}
+            submittedAt={milestone?.submittedAt ?? job.submittedAt}
+            completedAt={milestone?.completedAt ?? job.completedAt}
+            approvedAt={milestone?.approvedAt ?? job.approvedAt}
+            escrowStatus={escrow?.status}
+            workStatus={milestone?.status ?? job.status}
+          />
           <Textarea
             value={notes}
             disabled={pending}
@@ -376,6 +385,12 @@ export function WorkProofSubmissionPanel({
               <dt className="text-[#7f7f7f]">Hash</dt>
               <dd className="font-mono text-xs text-[#0a0a0a]">
                 {latestSubmission.hashAlgorithm}/{latestSubmission.hashEncoding}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[#7f7f7f]">Deadline status</dt>
+              <dd className="text-[#0a0a0a]">
+                {latestSubmission.deadlineStatus?.replace(/_/g, " ") ?? "Not recorded"}
               </dd>
             </div>
           </dl>

@@ -3,6 +3,7 @@
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useClientPostedJobs } from "@/features/dashboard/hooks/use-client-posted-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
@@ -59,6 +60,7 @@ export function PostedJobsSection() {
                 <TableHead>Job</TableHead>
                 <TableHead>Escrow</TableHead>
                 <TableHead>Applicants</TableHead>
+                <TableHead>Deadline</TableHead>
                 <TableHead>Selected</TableHead>
                 <TableHead>Budget</TableHead>
                 <TableHead className="text-right">Action</TableHead>
@@ -76,6 +78,17 @@ export function PostedJobsSection() {
                     {item.escrowStatus ? <StatusPill label={item.escrowStatus} /> : "-"}
                   </TableCell>
                   <TableCell>{item.applicationCount}</TableCell>
+                  <TableCell>
+                    <DeadlineBadge
+                      deadlineAt={item.deadlineAt}
+                      submittedAt={item.submittedAt}
+                      completedAt={item.completedAt}
+                      approvedAt={item.approvedAt}
+                      escrowStatus={item.escrowStatus}
+                      workStatus={item.jobStatus}
+                      compact
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs text-gray-600">
                     {shortenWalletAddress(item.selectedFreelancerWallet)}
                   </TableCell>
