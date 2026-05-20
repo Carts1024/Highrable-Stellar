@@ -5,10 +5,7 @@ export type TAdminReviewStatus =
   | "awaiting_client_response"
   | "awaiting_freelancer_response";
 
-export type TAdminResolutionStatus =
-  | "resolved_client"
-  | "resolved_freelancer"
-  | "split_resolution";
+export type TAdminResolutionStatus = "resolved_client" | "resolved_freelancer" | "split_resolution";
 
 export interface IAdminDisputeListItem {
   readonly disputeId: TConvexId<"disputes">;

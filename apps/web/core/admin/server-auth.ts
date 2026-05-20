@@ -1,8 +1,5 @@
 import { env } from "@/core/config/env";
-import {
-  AUTH_SESSION_COOKIE_NAME,
-  verifySessionToken,
-} from "@/core/wallet/server/auth-store";
+import { AUTH_SESSION_COOKIE_NAME, verifySessionToken } from "@/core/wallet/server/auth-store";
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 import type { NextRequest } from "next/server";

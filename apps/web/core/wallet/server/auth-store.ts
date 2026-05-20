@@ -219,10 +219,10 @@ export function validateChallenge(input: {
   return { valid: true };
 }
 
-export function consumeChallenge(input: {
-  nonce: string;
-  challengeToken: string;
-}): { valid: boolean; error?: string } {
+export function consumeChallenge(input: { nonce: string; challengeToken: string }): {
+  valid: boolean;
+  error?: string;
+} {
   const now = Date.now();
   cleanupExpired(now);
 

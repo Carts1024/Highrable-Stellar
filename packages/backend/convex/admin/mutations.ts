@@ -9,13 +9,17 @@ import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { optionalNonEmptyString } from "../_shared/input";
 import {
+  computeDeadlineStatus,
+  resolveDeadlineParent,
+  upsertDeadlineReminders,
+} from "../deadlines/helpers";
+import {
   createDisputeEvent,
   createDisputeNotification,
   createDisputeSystemMessage,
   getStellarExpertUrl,
   sanitizeDisputeMessage,
 } from "../disputes/helpers";
-import { computeDeadlineStatus, resolveDeadlineParent, upsertDeadlineReminders } from "../deadlines/helpers";
 import { getJobStatusFromEscrowStatus } from "../escrows/helpers";
 import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import { walletTypeValidator } from "../users/schema";
@@ -78,7 +82,10 @@ function getEscrowTxHashField(txType: TEscrowTransactionType): "releaseTxHash" |
   return txType === "release_payment" ? "releaseTxHash" : "cancelTxHash";
 }
 
-function computeResolutionAmounts(totalAmount: number, freelancerShareBps: number): {
+function computeResolutionAmounts(
+  totalAmount: number,
+  freelancerShareBps: number,
+): {
   freelancerPayoutAmount: number;
   clientRefundAmount: number;
 } {
@@ -425,7 +432,8 @@ export const recordDisputeResolutionSucceeded = mutation({
 
     const resolutionNote = sanitizeResolutionNote(args.resolutionNote);
     const settlementUrl =
-      optionalNonEmptyString(args.stellarExpertUrl, "stellarExpertUrl") ?? getStellarExpertUrl(txHash);
+      optionalNonEmptyString(args.stellarExpertUrl, "stellarExpertUrl") ??
+      getStellarExpertUrl(txHash);
     const amounts = computeResolutionAmounts(escrow.amount, freelancerShareBps);
     const now = Date.now();
 
@@ -558,9 +566,7 @@ export const recordDisputeResolutionFailed = mutation({
       actorWallet: adminWallet,
       actorWalletType: args.adminWalletType ?? DEFAULT_ADMIN_WALLET_TYPE,
       actorRole: "moderator",
-      message: sanitizeDisputeMessage(
-        `Resolution attempt failed: ${errorMessage}`,
-      ),
+      message: sanitizeDisputeMessage(`Resolution attempt failed: ${errorMessage}`),
       metadata: {
         resolutionStatus,
         freelancerShareBps,

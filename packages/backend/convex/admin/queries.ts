@@ -4,14 +4,14 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
-import { ESCROW_STATUSES } from "../escrows/schema";
-import { JOB_STATUSES } from "../jobs/schema";
 import {
   DISPUTE_ON_CHAIN_STATUSES,
   DISPUTE_STATUSES,
   disputeOnChainStatusValidator,
   disputeStatusValidator,
 } from "../disputes/schema";
+import { ESCROW_STATUSES } from "../escrows/schema";
+import { JOB_STATUSES } from "../jobs/schema";
 import { REVISION_REQUEST_STATUSES } from "../revisions/schema";
 import { USER_ROLES } from "../users/schema";
 import { assertAdminContext, getDisputeOrThrow } from "./helpers";
@@ -45,7 +45,12 @@ const WORK_SUBMISSION_STATUS_VALUES = [
   "anchor_failed",
   "cancelled",
 ] as const;
-const WORK_SUBMISSION_ON_CHAIN_STATUS_VALUES = ["not_submitted", "pending", "confirmed", "failed"] as const;
+const WORK_SUBMISSION_ON_CHAIN_STATUS_VALUES = [
+  "not_submitted",
+  "pending",
+  "confirmed",
+  "failed",
+] as const;
 const DEADLINE_REMINDER_STATUS_VALUES = ["pending", "sent", "skipped", "failed"] as const;
 const METRICS_SCAN_LIMIT = 2000;
 
@@ -88,10 +93,7 @@ function toRecentDisputeRow(dispute: Doc<"disputes">) {
   };
 }
 
-async function listRecentDisputes(
-  ctx: QueryCtx,
-  limit: number,
-): Promise<Doc<"disputes">[]> {
+async function listRecentDisputes(ctx: QueryCtx, limit: number): Promise<Doc<"disputes">[]> {
   const perStatusLimit = Math.max(5, Math.ceil(limit / DISPUTE_STATUS_VALUES.length) + 3);
 
   const grouped = await Promise.all(
@@ -116,10 +118,7 @@ async function listRecentDisputes(
     .slice(0, limit);
 }
 
-async function resolveAttachmentForAdmin(
-  ctx: QueryCtx,
-  attachmentId: Id<"attachments">,
-) {
+async function resolveAttachmentForAdmin(ctx: QueryCtx, attachmentId: Id<"attachments">) {
   const attachment = await ctx.db.get(attachmentId);
   if (!attachment) {
     return null;

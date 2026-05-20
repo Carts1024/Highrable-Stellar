@@ -2,9 +2,9 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { TDisputeStatus } from "../disputes/schema";
 
+import { assertAdminApiSecret, assertConfiguredAdminWallet } from "../_shared/adminAuth";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { optionalNonEmptyString, requireRangeNumber } from "../_shared/input";
-import { assertAdminApiSecret, assertConfiguredAdminWallet } from "../_shared/adminAuth";
 
 export const ADMIN_REVIEW_STATUSES = [
   "under_review",
@@ -21,10 +21,7 @@ export const ADMIN_RESOLUTION_STATUSES = [
 export type TAdminReviewStatus = (typeof ADMIN_REVIEW_STATUSES)[number];
 export type TAdminResolutionStatus = (typeof ADMIN_RESOLUTION_STATUSES)[number];
 
-export function assertAdminContext(args: {
-  adminWallet: string;
-  adminApiSecret: string;
-}): string {
+export function assertAdminContext(args: { adminWallet: string; adminApiSecret: string }): string {
   assertAdminApiSecret(args.adminApiSecret);
   return assertConfiguredAdminWallet(args.adminWallet);
 }
@@ -49,12 +46,7 @@ export function resolveFreelancerShareBps(
   status: TAdminResolutionStatus,
   freelancerShareBps: number,
 ): number {
-  const normalizedShare = requireRangeNumber(
-    freelancerShareBps,
-    "freelancerShareBps",
-    0,
-    10_000,
-  );
+  const normalizedShare = requireRangeNumber(freelancerShareBps, "freelancerShareBps", 0, 10_000);
 
   if (status === "resolved_client" && normalizedShare !== 0) {
     throw new BadRequestError("Client resolution must use freelancerShareBps = 0.");
@@ -65,16 +57,18 @@ export function resolveFreelancerShareBps(
   }
 
   if (status === "split_resolution" && (normalizedShare <= 0 || normalizedShare >= 10_000)) {
-    throw new BadRequestError(
-      "Split resolution must use freelancerShareBps between 1 and 9999.",
-    );
+    throw new BadRequestError("Split resolution must use freelancerShareBps between 1 and 9999.");
   }
 
   return normalizedShare;
 }
 
 export function assertDisputeCanEnterReviewFlow(status: TDisputeStatus): void {
-  if (status === "resolved_client" || status === "resolved_freelancer" || status === "split_resolution") {
+  if (
+    status === "resolved_client" ||
+    status === "resolved_freelancer" ||
+    status === "split_resolution"
+  ) {
     throw new BadRequestError("This dispute is already resolved.");
   }
 

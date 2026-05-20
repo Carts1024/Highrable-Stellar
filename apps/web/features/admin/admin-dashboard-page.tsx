@@ -3,11 +3,11 @@
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
 import { ProductPageHero } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
-import { formatDisputeDate } from "@/features/disputes/lib";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
-import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
+import { formatDisputeDate } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -21,7 +21,10 @@ function CountTable({
   readonly title: string;
   readonly values: Record<string, number>;
 }) {
-  const rows = useMemo(() => Object.entries(values).sort(([a], [b]) => a.localeCompare(b)), [values]);
+  const rows = useMemo(
+    () => Object.entries(values).sort(([a], [b]) => a.localeCompare(b)),
+    [values],
+  );
 
   return (
     <article className="rounded-xl border border-[#e8e8e8] bg-white p-4">
@@ -113,7 +116,9 @@ export function AdminDashboardPage() {
       </div>
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
 
       {!metrics ? (
@@ -143,7 +148,8 @@ export function AdminDashboardPage() {
 
           {metrics.isTruncated ? (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              Metrics were computed from a capped dataset. Consider pagination-based admin analytics if data volume grows.
+              Metrics were computed from a capped dataset. Consider pagination-based admin analytics
+              if data volume grows.
             </p>
           ) : null}
 
@@ -180,11 +186,18 @@ export function AdminDashboardPage() {
             ) : (
               <div className="mt-3 space-y-3">
                 {metrics.recentDisputes.map((dispute) => (
-                  <article key={dispute.disputeId} className="rounded-lg border border-[#ececec] p-3">
+                  <article
+                    key={dispute.disputeId}
+                    className="rounded-lg border border-[#ececec] p-3"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-mono text-xs text-[#5f5f5f] uppercase">{dispute.disputeNumber}</p>
-                        <h3 className="mt-1 text-sm font-semibold text-[#0a0a0a]">{dispute.title}</h3>
+                        <p className="font-mono text-xs text-[#5f5f5f] uppercase">
+                          {dispute.disputeNumber}
+                        </p>
+                        <h3 className="mt-1 text-sm font-semibold text-[#0a0a0a]">
+                          {dispute.title}
+                        </h3>
                         <p className="mt-1 text-xs text-[#5f5f5f]">
                           Updated {formatDisputeDate(dispute.updatedAt)}
                         </p>

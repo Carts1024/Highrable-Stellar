@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 
+import type { TUserRole } from "./schema";
+
 import { mutation } from "../_generated/server";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
 import { findUserByWallet, sanitizeUserName, sanitizeUserWalletAddress } from "./helpers";
-import type { TUserRole } from "./schema";
 import { roleValidator, walletTypeValidator } from "./schema";
 
 const FALLBACK_NON_ADMIN_ROLE: TUserRole = "client";

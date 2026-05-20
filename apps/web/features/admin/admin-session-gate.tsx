@@ -10,9 +10,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
     return (
       <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
         <p className="font-mono text-xs text-[#5f5f5f] uppercase">Admin Session</p>
-        <h1 className="mt-1 text-xl font-semibold text-[#0a0a0a]">
-          Authenticate Admin Wallet
-        </h1>
+        <h1 className="mt-1 text-xl font-semibold text-[#0a0a0a]">Authenticate Admin Wallet</h1>
         <p className="mt-2 text-sm text-[#5f5f5f]">
           The connected wallet has the admin role. Sign the Highrable session message to access
           admin API routes.

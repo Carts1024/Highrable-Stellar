@@ -8,16 +8,16 @@ import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartA
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AdminSessionGate } from "@/features/admin/admin-session-gate";
 import {
   fetchAdminDispute,
   postAdminModeratorNote,
   postAdminResolution,
   postAdminReviewStatus,
 } from "@/features/admin/lib/admin-api";
-import { AdminSessionGate } from "@/features/admin/admin-session-gate";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
-import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
+import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
@@ -105,7 +105,8 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   const [moderatorNote, setModeratorNote] = useState("");
   const [reviewStatus, setReviewStatus] = useState<TAdminReviewStatus>("under_review");
   const [reviewMessage, setReviewMessage] = useState("");
-  const [resolutionStatus, setResolutionStatus] = useState<TAdminResolutionStatus>("resolved_client");
+  const [resolutionStatus, setResolutionStatus] =
+    useState<TAdminResolutionStatus>("resolved_client");
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
 
@@ -391,9 +392,11 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         // Best-effort failure recording.
       }
 
-      setActionError(normalizedError.includes("resolve_dispute")
-        ? "Settlement unavailable: escrow contract may not yet expose resolve_dispute."
-        : normalizedError);
+      setActionError(
+        normalizedError.includes("resolve_dispute")
+          ? "Settlement unavailable: escrow contract may not yet expose resolve_dispute."
+          : normalizedError,
+      );
       await loadDetail();
     } finally {
       setIsSubmitting(false);
@@ -455,10 +458,13 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-mono text-xs text-[#5f5f5f] uppercase">{detail.dispute.disputeNumber}</p>
+            <p className="font-mono text-xs text-[#5f5f5f] uppercase">
+              {detail.dispute.disputeNumber}
+            </p>
             <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">{detail.dispute.title}</h1>
             <p className="mt-1 text-sm text-[#5f5f5f]">
-              {getDisputeReasonLabel(detail.dispute.reasonCategory)} | Opened {formatDisputeDate(detail.dispute.openedAt)}
+              {getDisputeReasonLabel(detail.dispute.reasonCategory)} | Opened{" "}
+              {formatDisputeDate(detail.dispute.openedAt)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -467,7 +473,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
           </div>
         </div>
 
-        <p className="mt-4 text-sm whitespace-pre-wrap text-[#3f3f3f]">{detail.dispute.description}</p>
+        <p className="mt-4 text-sm whitespace-pre-wrap text-[#3f3f3f]">
+          {detail.dispute.description}
+        </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <AppButton asChild variant="secondary" size="sm">
@@ -487,7 +495,8 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         <section className="rounded-xl border border-red-200 bg-red-50 p-5">
           <h2 className="text-base font-semibold text-red-800">Retry mark_disputed</h2>
           <p className="mt-2 text-sm text-red-700">
-            The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and sync escrow status.
+            The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and
+            sync escrow status.
           </p>
           <div className="mt-3 flex justify-end">
             <AppButton
@@ -563,7 +572,8 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
         <h2 className="text-lg font-semibold text-[#0a0a0a]">Resolve Dispute On-Chain</h2>
         <p className="mt-2 text-sm text-[#5f5f5f]">
-          Resolution uses Highrable review flow and calls escrow resolve_dispute with admin authorization.
+          Resolution uses Highrable review flow and calls escrow resolve_dispute with admin
+          authorization.
         </p>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -571,7 +581,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             <span>Resolution</span>
             <select
               value={resolutionStatus}
-              onChange={(event) => setResolutionStatus(event.target.value as TAdminResolutionStatus)}
+              onChange={(event) =>
+                setResolutionStatus(event.target.value as TAdminResolutionStatus)
+              }
               className="h-10 rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a]"
               disabled={isSubmitting}
             >
@@ -600,7 +612,10 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             />
           </label>
 
-          <label className="grid gap-1 text-sm text-[#5f5f5f] lg:col-span-2" htmlFor="resolution-note">
+          <label
+            className="grid gap-1 text-sm text-[#5f5f5f] lg:col-span-2"
+            htmlFor="resolution-note"
+          >
             <span>Resolution Note (optional)</span>
             <Textarea
               id="resolution-note"
@@ -627,7 +642,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       </section>
 
       {actionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {actionError}
+        </p>
       ) : null}
       {actionSuccess ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">

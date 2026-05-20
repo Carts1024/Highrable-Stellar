@@ -5,8 +5,8 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
 import { fetchAdminDisputes } from "@/features/admin/lib/admin-api";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
-import { formatDisputeDate } from "@/features/disputes/lib";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
+import { formatDisputeDate } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -147,7 +147,9 @@ export function AdminDisputesPage() {
       </div>
 
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
 
       {isLoading ? (
@@ -164,10 +166,13 @@ export function AdminDisputesPage() {
             <article key={dispute.disputeId} className="rounded-lg border border-[#ececec] p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-mono text-xs text-[#5f5f5f] uppercase">{dispute.disputeNumber}</p>
+                  <p className="font-mono text-xs text-[#5f5f5f] uppercase">
+                    {dispute.disputeNumber}
+                  </p>
                   <h2 className="mt-1 text-base font-semibold text-[#0a0a0a]">{dispute.title}</h2>
                   <p className="mt-1 text-xs text-[#5f5f5f]">
-                    Opened {formatDisputeDate(dispute.openedAt)} | Updated {formatDisputeDate(dispute.updatedAt)}
+                    Opened {formatDisputeDate(dispute.openedAt)} | Updated{" "}
+                    {formatDisputeDate(dispute.updatedAt)}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

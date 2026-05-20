@@ -1,9 +1,9 @@
+import { env } from "@/core/config/env";
 import {
   AUTH_CHALLENGE_COOKIE_NAME,
   CHALLENGE_TTL_MS,
   createChallenge,
 } from "@/core/wallet/server/auth-store";
-import { env } from "@/core/config/env";
 import { TChallengeRequestSchema } from "@/core/wallet/validation";
 import { NextResponse } from "next/server";
 
