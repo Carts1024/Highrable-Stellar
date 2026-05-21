@@ -1,26 +1,42 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { WalletStatusDialog } from "@/core/wallet/components/wallet-status-dialog";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { cn } from "@repo/ui/lib/utils";
 
-export function WalletAccountButton({ className }: { className?: string }) {
-  const { walletState, disconnectWallet, authenticateWallet, authSession } = useWallet();
+interface IWalletAccountButtonProps {
+  readonly className?: string;
+}
 
-  if (!walletState.account) {
+export function WalletAccountButton({ className }: IWalletAccountButtonProps) {
+  const walletIdentity = useHighrableWalletIdentity();
+
+  if (!walletIdentity.isConnected || !walletIdentity.displayAddress) {
     return null;
   }
 
+  const accountToneClassName =
+    walletIdentity.walletType === "passkey_smart_account"
+      ? "border-[color:rgba(255,112,3,0.32)] bg-[color:rgba(255,247,237,0.98)] text-[var(--highrable-orange-4)]"
+      : "border-border bg-background text-foreground";
+
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => void authenticateWallet()}
-        className="rounded-lg border border-[#FF7003]/30 px-3 py-2 text-sm font-medium text-[#FF7003] transition-colors hover:bg-[#FF7003]/10"
-      >
-        {authSession ? "Authenticated" : "Authenticate"}
-      </button>
-      <button type="button" onClick={() => void disconnectWallet()} className={className}>
-        {walletState.account.displayAddress}
-      </button>
-    </div>
+    <WalletStatusDialog
+      trigger={
+        <AppButton
+          type="button"
+          variant="outline"
+          className={cn(
+            "rounded-lg px-4 py-2 font-mono text-xs tracking-[0.06em] uppercase shadow-none transition-colors hover:border-[var(--highrable-orange-2)] hover:bg-[var(--highrable-surface-accent)] hover:text-[var(--highrable-orange-4)]",
+            accountToneClassName,
+            className,
+          )}
+          aria-label={`Open ${walletIdentity.walletType === "passkey_smart_account" ? "passkey account" : "wallet"} details`}
+        >
+          <span>{walletIdentity.displayAddress}</span>
+        </AppButton>
+      }
+    />
   );
 }

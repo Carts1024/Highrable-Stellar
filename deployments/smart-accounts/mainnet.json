@@ -1,0 +1,24 @@
+{
+  "network": "mainnet",
+  "networkPassphrase": "Public Global Stellar Network ; September 2015",
+  "rpcUrl": "",
+  "horizonUrl": "",
+  "accountWasmHash": "",
+  "accountWasmSha256": "",
+  "webauthnVerifierContractId": "",
+  "webauthnVerifierWasmSha256": "",
+  "factoryContractId": "",
+  "deploymentLabel": "highrable-smart-accounts-v1",
+  "deploymentVersion": "1.0.0",
+  "sourceRepo": "",
+  "deployerAddress": "",
+  "relayerKind": "openzeppelin_channels",
+  "relayerPublicKey": "",
+  "allowedTargetContracts": [],
+  "deployedAt": "",
+  "verifiedAt": "",
+  "notes": [
+    "Mainnet artifact placeholder. Add production HTTPS domain notes and verified deployment values before enabling mainnet passkey escrow.",
+    "Configuration readiness does not mean the contracts or relayer have been audited for production funds."
+  ]
+}

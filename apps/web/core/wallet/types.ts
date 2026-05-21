@@ -5,13 +5,17 @@ export type TWalletConnectionStatus =
   | "disconnecting"
   | "error";
 
-export type TWalletNetwork = "testnet";
+export type TWalletNetwork = "local" | "testnet" | "mainnet";
+export type TWalletTransactionStatus = "idle" | "pending" | "success" | "failed";
+export type TFriendbotResponse = Readonly<Record<string, unknown>>;
 
 export type TWalletErrorCode =
   | "NOT_INITIALIZED"
   | "UNSUPPORTED_NETWORK"
   | "CONNECT_FAILED"
   | "DISCONNECT_FAILED"
+  | "FUNDING_CHECK_FAILED"
+  | "SIGN_TRANSACTION_FAILED"
   | "AUTH_FAILED"
   | "CONFIG_ERROR"
   | "UNKNOWN";
@@ -24,14 +28,36 @@ export type TWalletError = {
 export type TWalletAccount = {
   address: string;
   displayAddress: string;
-  walletId: string;
+  walletId: string | null;
+  walletName: string | null;
+  network: string | null;
+  isTestnet: boolean;
+};
+
+export type TWalletFundingStatus = {
+  address: string;
+  isFunded: boolean;
 };
 
 export type TWalletState = {
   status: TWalletConnectionStatus;
-  network: TWalletNetwork;
+  walletAddress: string | null;
+  network: string | null;
+  isConnected: boolean;
+  isTestnet: boolean;
+  isFunded: boolean | null;
+  canWriteContracts?: boolean;
+  writeRestrictionReason?: string | null;
+  selectedWallet: string | null;
+  isConnecting: boolean;
+  isCheckingFunding: boolean;
+  isFundingWithFriendbot: boolean;
+  friendbotError: string | null;
+  friendbotSuccess: boolean;
+  lastFriendbotResponse: TFriendbotResponse | null;
+  error: string | null;
+  lastTxStatus: TWalletTransactionStatus;
   account: TWalletAccount | null;
-  error: TWalletError | null;
 };
 
 export type TAuthSession = {
@@ -48,8 +74,21 @@ export type TAuthChallenge = {
 
 export interface IWalletClient {
   connect(): Promise<TWalletAccount>;
+  getActiveWallet(): Promise<TWalletAccount>;
+  getPublicKey(): Promise<string>;
+  getNetwork(): Promise<{ network: string | null; isTestnet: boolean }>;
+  restoreConnection(): Promise<TWalletAccount | null>;
   disconnect(): Promise<void>;
   signMessage(message: string): Promise<string>;
+  signTransaction(xdr: string, address?: string): Promise<string>;
+}
+
+export interface IWalletFundingService {
+  getFundingStatus(address: string): Promise<TWalletFundingStatus>;
+}
+
+export interface IWalletFriendbotService {
+  fundAccount(address: string): Promise<TFriendbotResponse>;
 }
 
 export interface IWalletAuthService {

@@ -1,4 +1,7 @@
 docs/*
+!docs/deployment.md
+!docs/passkey-smart-accounts.md
+!docs/mainnet-smart-account-readiness.md
 node_modules*
 .turbo
 .next
@@ -13,3 +16,4 @@ dist
 .env.test.local
 .env.production.local
 .vscode/mcp.json
+contracts/target
