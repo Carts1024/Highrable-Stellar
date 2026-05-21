@@ -2,6 +2,7 @@
 
 import { ProfileAvatar } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { getSafeExternalProfileUrl } from "@/features/profile/lib/profile-format";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -26,6 +27,8 @@ export function FreelancerProfileHeader({
   const displayName = profile.name || "Unnamed Freelancer";
   const walletTypeLabel =
     profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
+  const portfolioUrl = getSafeExternalProfileUrl(profile.portfolioUrl);
+  const websiteUrl = getSafeExternalProfileUrl(profile.websiteUrl);
 
   const handleCopy = async () => {
     try {
@@ -101,9 +104,9 @@ export function FreelancerProfileHeader({
                   {profile.location}
                 </span>
               ) : null}
-              {profile.portfolioUrl ? (
+              {portfolioUrl ? (
                 <Link
-                  href={profile.portfolioUrl}
+                  href={portfolioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-[#FF7003] hover:text-[#E85D00]"
@@ -111,9 +114,9 @@ export function FreelancerProfileHeader({
                   Portfolio <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               ) : null}
-              {profile.websiteUrl ? (
+              {websiteUrl ? (
                 <Link
-                  href={profile.websiteUrl}
+                  href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-[#FF7003] hover:text-[#E85D00]"

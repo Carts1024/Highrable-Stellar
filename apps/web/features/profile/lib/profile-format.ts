@@ -18,6 +18,21 @@ export function getReviewCompletionType(workType: TFreelancerWorkType): "micro_g
   return workType === "milestone" ? "milestone" : "micro_gig";
 }
 
+export function getSafeExternalProfileUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(value.trim());
+    return parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:"
+      ? parsedUrl.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeSkillsInput(skillsInput: string): string[] {
   return Array.from(
     new Set(

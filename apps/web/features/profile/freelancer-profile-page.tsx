@@ -1,14 +1,12 @@
 "use client";
 
+import { parseWalletAddressParam } from "@/core/seo";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
-import { FreelancerReviewsSection } from "@/features/profile/components/freelancer-reviews-section";
-import { FreelancerStatsCards } from "@/features/profile/components/freelancer-stats-cards";
-import { RecentContractsSection } from "@/features/profile/components/recent-contracts-section";
-import { ReputationExplanationCard } from "@/features/profile/components/reputation-explanation-card";
+import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -17,21 +15,16 @@ import type { TFreelancerProfileResponse } from "@/features/profile/types";
 
 export function FreelancerProfilePage({ walletAddress }: { readonly walletAddress: string }) {
   const decodedWalletAddress = useMemo(() => {
-    try {
-      return decodeURIComponent(walletAddress).trim();
-    } catch {
-      return walletAddress.trim();
-    }
+    return parseWalletAddressParam(walletAddress);
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
-  const hasWalletAddress = decodedWalletAddress.length > 0;
   const profileData = useQuery(
     api.profiles.getFreelancerProfile,
-    hasWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
+    decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
   ) as TFreelancerProfileResponse | null | undefined;
 
-  if (!hasWalletAddress) {
+  if (!decodedWalletAddress) {
     return <p className="text-sm text-gray-700">Freelancer profile not found.</p>;
   }
 
@@ -79,10 +72,11 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         </p>
       ) : null}
 
-      <FreelancerStatsCards stats={stats} />
-      <FreelancerReviewsSection reviews={verifiedReviews} />
-      <RecentContractsSection contracts={recentContracts} />
-      <ReputationExplanationCard />
+      <FreelancerReputationSection
+        stats={stats}
+        reviews={verifiedReviews}
+        contracts={recentContracts}
+      />
     </div>
   );
 }
