@@ -77,10 +77,33 @@ type TAgreementContext = {
   versionNumber: number;
   fallback?: string | null;
 } | null;
+type TAgreementViewerRole = "client" | "freelancer";
+
+interface IAgreementFreelancerResponsePanelProps {
+  agreementId: TConvexId<"workAgreements">;
+  walletAddress: string | null | undefined;
+  walletType: TWalletType | null | undefined;
+  showReviewLink?: boolean;
+}
+
+interface IWorkAgreementSetupPanelProps {
+  jobId: TConvexId<"jobs">;
+  viewerRole: TAgreementViewerRole;
+  escrowId?: TConvexId<"escrows">;
+}
 
 const AGREEMENT_ACCEPT =
   "application/pdf,text/markdown,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
+const REJECTION_REASON_MAX_LENGTH = 1000;
+
+function sanitizeRejectionReasonInput(value: string): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim()
+    .slice(0, REJECTION_REASON_MAX_LENGTH);
+}
 
 function getReadableError(error: unknown, fallback: string): string {
   return getReadableAttachmentError(error, fallback);
@@ -1030,19 +1053,12 @@ function AgreementActions({
   );
 }
 
-export function FreelancerAgreementReview({
+function AgreementFreelancerResponsePanel({
   agreementId,
-}: {
-  agreementId: TConvexId<"workAgreements">;
-}) {
-  const walletIdentity = useHighrableWalletIdentity();
-  const agreement = useQuery(
-    api.work_agreements.getAgreementForReview,
-    walletIdentity.walletAddress
-      ? { agreementId, viewerWallet: walletIdentity.walletAddress }
-      : "skip",
-  ) as TWorkAgreement | null | undefined;
-  const recordViewed = useMutation(api.work_agreements.recordAgreementViewed);
+  walletAddress,
+  walletType,
+  showReviewLink = false,
+}: IAgreementFreelancerResponsePanelProps) {
   const acceptAgreement = useMutation(api.work_agreements.acceptWorkAgreement);
   const rejectAgreement = useMutation(api.work_agreements.rejectWorkAgreement);
   const [accepted, setAccepted] = useState(false);
@@ -1050,9 +1066,6 @@ export function FreelancerAgreementReview({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const walletAddress = walletIdentity.walletAddress;
-  const walletType = walletIdentity.walletType as TWalletType | null;
 
   const run = async (action: "accept" | "reject") => {
     if (!walletAddress || !walletType) {
@@ -1071,11 +1084,12 @@ export function FreelancerAgreementReview({
         const result = await acceptAgreement({ agreementId, walletAddress, walletType });
         setMessage(`Agreement accepted. Hash: ${result.agreementHash}`);
       } else {
+        const rejectionReason = sanitizeRejectionReasonInput(reason);
         await rejectAgreement({
           agreementId,
           walletAddress,
           walletType,
-          ...(reason.trim() ? { rejectionReason: reason.trim() } : {}),
+          ...(rejectionReason ? { rejectionReason } : {}),
         });
         setMessage("Agreement rejected.");
       }
@@ -1085,6 +1099,79 @@ export function FreelancerAgreementReview({
       setIsSubmitting(false);
     }
   };
+
+  return (
+    <div className="space-y-4 border border-[#d8d8d8] p-4">
+      <label htmlFor="accept-work-agreement" className="flex gap-3 text-sm text-[#0a0a0a]">
+        <Checkbox
+          id="accept-work-agreement"
+          checked={accepted}
+          onCheckedChange={(value) => setAccepted(value === true)}
+        />
+        <span>
+          I have reviewed the work agreement and accept the scope, payment terms, deadlines,
+          revision policy, cancellation rules, dispute process, and Highrable workflow terms.
+        </span>
+      </label>
+      <Textarea
+        value={reason}
+        onChange={(event) => setReason(event.target.value.slice(0, REJECTION_REASON_MAX_LENGTH))}
+        placeholder="Optional rejection reason"
+        maxLength={REJECTION_REASON_MAX_LENGTH}
+        className="rounded-none border-[#d8d8d8]"
+      />
+      <div className="flex flex-wrap gap-2">
+        {showReviewLink ? (
+          <AppButton asChild type="button" variant="secondary" className="rounded-none">
+            <Link href={`/work-agreements/${agreementId}/review`}>Review agreement</Link>
+          </AppButton>
+        ) : null}
+        <AppButton
+          type="button"
+          disabled={isSubmitting || !accepted}
+          onClick={() => void run("accept")}
+          className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+        >
+          {isSubmitting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="mr-2 h-4 w-4" />
+          )}
+          Accept agreement
+        </AppButton>
+        <AppButton
+          type="button"
+          disabled={isSubmitting}
+          variant="secondary"
+          onClick={() => void run("reject")}
+          className="rounded-none"
+        >
+          <X className="mr-2 h-4 w-4" />
+          Reject
+        </AppButton>
+      </div>
+      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+    </div>
+  );
+}
+
+export function FreelancerAgreementReview({
+  agreementId,
+}: {
+  agreementId: TConvexId<"workAgreements">;
+}) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const agreement = useQuery(
+    api.work_agreements.getAgreementForReview,
+    walletIdentity.walletAddress
+      ? { agreementId, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  ) as TWorkAgreement | null | undefined;
+  const recordViewed = useMutation(api.work_agreements.recordAgreementViewed);
+
+  const walletAddress = walletIdentity.walletAddress;
+  const walletType = walletIdentity.walletType as TWalletType | null;
 
   if (!walletAddress) {
     return (
@@ -1178,51 +1265,12 @@ export function FreelancerAgreementReview({
       <AgreementVersionTimeline agreementId={agreement._id} />
       <AgreementAuditTimeline agreementId={agreement._id} />
       {agreement.status === "pending_acceptance" ? (
-        <div className="space-y-4 border border-[#d8d8d8] p-4">
-          <label htmlFor="accept-work-agreement" className="flex gap-3 text-sm text-[#0a0a0a]">
-            <Checkbox
-              id="accept-work-agreement"
-              checked={accepted}
-              onCheckedChange={(value) => setAccepted(value === true)}
-            />
-            <span>
-              I have reviewed the work agreement and accept the scope, payment terms, deadlines,
-              revision policy, cancellation rules, dispute process, and Highrable workflow terms.
-            </span>
-          </label>
-          <Textarea
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Optional rejection reason"
-            className="rounded-none border-[#d8d8d8]"
-          />
-          <div className="flex flex-wrap gap-2">
-            <AppButton
-              disabled={isSubmitting || !accepted}
-              onClick={() => void run("accept")}
-              className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
-            >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              Accept agreement
-            </AppButton>
-            <AppButton
-              disabled={isSubmitting}
-              variant="secondary"
-              onClick={() => void run("reject")}
-              className="rounded-none"
-            >
-              <X className="mr-2 h-4 w-4" />
-              Reject
-            </AppButton>
-          </div>
-        </div>
+        <AgreementFreelancerResponsePanel
+          agreementId={agreement._id}
+          walletAddress={walletAddress}
+          walletType={walletType}
+        />
       ) : null}
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </section>
   );
 }
@@ -1230,10 +1278,8 @@ export function FreelancerAgreementReview({
 export function WorkAgreementSetupPanel({
   jobId,
   escrowId,
-}: {
-  jobId: TConvexId<"jobs">;
-  escrowId?: TConvexId<"escrows">;
-}) {
+  viewerRole,
+}: IWorkAgreementSetupPanelProps) {
   const walletIdentity = useHighrableWalletIdentity();
   const agreement = useQuery(
     api.work_agreements.getWorkAgreementByJob,
@@ -1267,7 +1313,9 @@ export function WorkAgreementSetupPanel({
 
   const walletAddress = walletIdentity.walletAddress;
   const walletType = walletIdentity.walletType as TWalletType | null;
-  const canSubmit = Boolean(walletAddress && walletType);
+  const isClientViewer = viewerRole === "client";
+  const isFreelancerViewer = viewerRole === "freelancer";
+  const canSubmit = Boolean(isClientViewer && walletAddress && walletType);
 
   useEffect(() => {
     setRevisedAttachmentId(null);
@@ -1331,7 +1379,7 @@ export function WorkAgreementSetupPanel({
   };
 
   const beginAgreementContentEdit = () => {
-    if (!agreement) return;
+    if (!agreement || !isClientViewer) return;
     setAgreementContentDraft(getAgreementRichTextValue(agreement));
     setIsEditingAgreementContent(true);
     setError(null);
@@ -1345,7 +1393,7 @@ export function WorkAgreementSetupPanel({
   };
 
   const saveAgreementContent = async () => {
-    if (!walletAddress || !walletType || !agreement) {
+    if (!walletAddress || !walletType || !agreement || !isClientViewer) {
       setError("Missing wallet identity.");
       return;
     }
@@ -1373,6 +1421,7 @@ export function WorkAgreementSetupPanel({
 
   const canEditGeneratedAgreement =
     agreement?.agreementType === "highrable_generated" &&
+    isClientViewer &&
     (agreement.status === "draft" ||
       agreement.status === "pending_preview" ||
       agreement.status === "ready_to_send");
@@ -1386,7 +1435,9 @@ export function WorkAgreementSetupPanel({
           </p>
           <h2 className="mt-1 text-lg font-semibold text-[#0a0a0a]">Agreement</h2>
           <p className="mt-1 text-sm text-[#5f5f5f]">
-            Create, send, accept, and lock the workflow agreement for this work.
+            {isClientViewer
+              ? "Create, send, revise, and lock the workflow agreement for this work."
+              : "Review the workflow agreement and respond as the selected freelancer."}
           </p>
         </div>
         {agreement ? (
@@ -1503,7 +1554,7 @@ export function WorkAgreementSetupPanel({
                     : "No rejection reason was provided."}
                 </p>
               </div>
-              {agreement.agreementType === "client_uploaded" ? (
+              {isClientViewer && agreement.agreementType === "client_uploaded" ? (
                 <div className="space-y-2">
                   <p className="text-[#5f1f1f]">
                     Upload a revised agreement file before creating the replacement agreement.
@@ -1516,87 +1567,97 @@ export function WorkAgreementSetupPanel({
               ) : null}
             </div>
           ) : null}
-          <AgreementActions
-            agreement={agreement}
-            disabled={isSubmitting || isEditingAgreementContent}
-            canRevise={
-              agreement.agreementType !== "client_uploaded" || Boolean(revisedAttachmentId)
-            }
-            onRegenerate={() =>
-              runAgreementAction(
-                () =>
-                  regenerateAgreement({
+          {isClientViewer ? (
+            <AgreementActions
+              agreement={agreement}
+              disabled={isSubmitting || isEditingAgreementContent}
+              canRevise={
+                agreement.agreementType !== "client_uploaded" || Boolean(revisedAttachmentId)
+              }
+              onRegenerate={() =>
+                runAgreementAction(
+                  () =>
+                    regenerateAgreement({
+                      agreementId: agreement._id,
+                      walletAddress: walletAddress!,
+                      walletType: walletType!,
+                    }),
+                  "Agreement could not be regenerated.",
+                )
+              }
+              onSend={() =>
+                runAgreementAction(
+                  () =>
+                    sendAgreement({
+                      agreementId: agreement._id,
+                      walletAddress: walletAddress!,
+                      walletType: walletType!,
+                    }),
+                  "Agreement could not be sent.",
+                )
+              }
+              onLock={() =>
+                runAgreementAction(
+                  () =>
+                    lockAgreement({
+                      agreementId: agreement._id,
+                      walletAddress: walletAddress!,
+                      walletType: walletType!,
+                      lockedBy: "client",
+                      lockReason: "manual_lock",
+                    }),
+                  "Agreement could not be locked.",
+                )
+              }
+              onCancel={() =>
+                runAgreementAction(() => {
+                  const args = {
                     agreementId: agreement._id,
                     walletAddress: walletAddress!,
                     walletType: walletType!,
-                  }),
-                "Agreement could not be regenerated.",
-              )
-            }
-            onSend={() =>
-              runAgreementAction(
-                () =>
-                  sendAgreement({
+                  };
+                  return agreement.status === "draft" || agreement.status === "pending_preview"
+                    ? cancelDraft(args)
+                    : cancelPending(args);
+                }, "Agreement could not be cancelled.")
+              }
+              onRevise={() =>
+                runAgreementAction(() => {
+                  if (agreement.agreementType === "client_uploaded" && !revisedAttachmentId) {
+                    throw new Error("Upload a revised agreement file before continuing.");
+                  }
+                  return reviseRejectedAgreement({
                     agreementId: agreement._id,
                     walletAddress: walletAddress!,
                     walletType: walletType!,
-                  }),
-                "Agreement could not be sent.",
-              )
-            }
-            onLock={() =>
-              runAgreementAction(
-                () =>
-                  lockAgreement({
-                    agreementId: agreement._id,
-                    walletAddress: walletAddress!,
-                    walletType: walletType!,
-                    lockedBy: "client",
-                    lockReason: "manual_lock",
-                  }),
-                "Agreement could not be locked.",
-              )
-            }
-            onCancel={() =>
-              runAgreementAction(() => {
-                const args = {
-                  agreementId: agreement._id,
-                  walletAddress: walletAddress!,
-                  walletType: walletType!,
-                };
-                return agreement.status === "draft" || agreement.status === "pending_preview"
-                  ? cancelDraft(args)
-                  : cancelPending(args);
-              }, "Agreement could not be cancelled.")
-            }
-            onRevise={() =>
-              runAgreementAction(() => {
-                if (agreement.agreementType === "client_uploaded" && !revisedAttachmentId) {
-                  throw new Error("Upload a revised agreement file before continuing.");
-                }
-                return reviseRejectedAgreement({
-                  agreementId: agreement._id,
-                  walletAddress: walletAddress!,
-                  walletType: walletType!,
-                  ...(agreement.agreementType === "client_uploaded" && revisedAttachmentId
-                    ? { sourceAttachmentId: revisedAttachmentId }
-                    : {}),
-                });
-              }, "Agreement could not be revised.")
-            }
-            onAbandon={() =>
-              runAgreementAction(
-                () =>
-                  abandonRejectedAgreement({
-                    agreementId: agreement._id,
-                    walletAddress: walletAddress!,
-                    walletType: walletType!,
-                    statusReason: "Client abandoned the rejected agreement.",
-                  }),
-                "Agreement could not be abandoned.",
-              )
-            }
-          />
+                    ...(agreement.agreementType === "client_uploaded" && revisedAttachmentId
+                      ? { sourceAttachmentId: revisedAttachmentId }
+                      : {}),
+                  });
+                }, "Agreement could not be revised.")
+              }
+              onAbandon={() =>
+                runAgreementAction(
+                  () =>
+                    abandonRejectedAgreement({
+                      agreementId: agreement._id,
+                      walletAddress: walletAddress!,
+                      walletType: walletType!,
+                      statusReason: "Client abandoned the rejected agreement.",
+                    }),
+                  "Agreement could not be abandoned.",
+                )
+              }
+            />
+          ) : null}
+          {isFreelancerViewer && agreement.status === "pending_acceptance" ? (
+            <AgreementFreelancerResponsePanel
+              agreementId={agreement._id}
+              walletAddress={walletAddress}
+              walletType={walletType}
+              showReviewLink
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <AgreementExportButton agreement={agreement} />
           </div>
@@ -1604,7 +1665,7 @@ export function WorkAgreementSetupPanel({
           <AgreementVersionTimeline agreementId={agreement._id} />
           <AgreementAuditTimeline agreementId={agreement._id} />
         </AgreementPreviewShell>
-      ) : walletAddress ? (
+      ) : walletAddress && isClientViewer ? (
         <div className="space-y-4">
           <AgreementTypeSelector
             value={agreementType}
@@ -1649,6 +1710,10 @@ export function WorkAgreementSetupPanel({
             {agreementType === "client_uploaded" ? "Create uploaded agreement" : "Generate draft"}
           </AppButton>
         </div>
+      ) : walletAddress && isFreelancerViewer ? (
+        <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
+          The client has not sent a work agreement yet.
+        </p>
       ) : null}
 
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

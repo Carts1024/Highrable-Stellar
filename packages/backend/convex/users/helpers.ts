@@ -1,9 +1,9 @@
-import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { TUserRole, TWalletType } from "./schema";
 
-import { BadRequestError, ConflictError } from "../_shared/errors";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
+import { BadRequestError, ConflictError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
 
 const HANDLE_PATTERN = /^[a-z0-9_-]+$/;

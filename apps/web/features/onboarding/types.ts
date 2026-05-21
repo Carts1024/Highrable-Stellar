@@ -74,4 +74,3 @@ export const TOnboardingFormSchema = z.object({
 
 export type TOnboardingFormValues = z.input<typeof TOnboardingFormSchema>;
 export type TSanitizedOnboardingFormValues = z.output<typeof TOnboardingFormSchema>;
-

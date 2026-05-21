@@ -289,6 +289,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
       {canViewAgreementPanel ? (
         <WorkAgreementSetupPanel
           jobId={convexJobId}
+          viewerRole={isConnectedClient ? "client" : "freelancer"}
           {...(mergedEscrow?._id ? { escrowId: mergedEscrow._id } : {})}
         />
       ) : null}

@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import type { TAgreementStatus } from "./schema";
 
 import { query } from "../_generated/server";
 import { ForbiddenError, NotFoundError } from "../_shared/errors";
@@ -25,6 +26,66 @@ import {
   hasAcceptedAgreement as hasAcceptedAgreementForJob,
   requiresAcceptedAgreement as requiresAcceptedAgreementForParent,
 } from "./helpers";
+
+const FREELANCER_VISIBLE_AGREEMENT_STATUSES = new Set<TAgreementStatus>([
+  "pending_acceptance",
+  "accepted",
+  "locked",
+  "rejected",
+  "superseded",
+]);
+
+function isSameWallet(left?: string | null, right?: string | null): boolean {
+  if (!left || !right) return false;
+  return normalizeWalletAddress(left) === normalizeWalletAddress(right);
+}
+
+function isFreelancerVisibleAgreement(agreement: Doc<"workAgreements">): boolean {
+  return FREELANCER_VISIBLE_AGREEMENT_STATUSES.has(agreement.status);
+}
+
+function compareAgreementsByVersionThenUpdate(
+  left: Doc<"workAgreements">,
+  right: Doc<"workAgreements">,
+): number {
+  if (left.version !== right.version) {
+    return right.version - left.version;
+  }
+  return right.updatedAt - left.updatedAt;
+}
+
+async function getWorkAgreementByJobForViewer(
+  ctx: QueryCtx,
+  input: { jobId: Id<"jobs">; viewerWallet?: string },
+) {
+  const agreements = await ctx.db
+    .query("workAgreements")
+    .withIndex("by_job", (q) => q.eq("jobId", input.jobId))
+    .collect();
+
+  if (!input.viewerWallet) {
+    return getCurrentAgreementByJob(ctx, input.jobId);
+  }
+
+  const viewerWallet = normalizeWalletAddress(input.viewerWallet);
+  const clientAgreement = agreements.find((agreement) =>
+    isSameWallet(agreement.clientWallet, viewerWallet),
+  );
+
+  if (clientAgreement) {
+    return getCurrentAgreementByJob(ctx, input.jobId);
+  }
+
+  return (
+    agreements
+      .filter(
+        (agreement) =>
+          isSameWallet(agreement.freelancerWallet, viewerWallet) &&
+          isFreelancerVisibleAgreement(agreement),
+      )
+      .sort(compareAgreementsByVersionThenUpdate)[0] ?? null
+  );
+}
 
 async function serializeAgreementForViewer(
   ctx: QueryCtx,
@@ -52,6 +113,13 @@ export const getWorkAgreement = query({
   },
   handler: async (ctx, args) => {
     const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    if (
+      args.viewerWallet &&
+      isSameWallet(agreement.freelancerWallet, args.viewerWallet) &&
+      !isFreelancerVisibleAgreement(agreement)
+    ) {
+      return null;
+    }
     return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
   },
 });
@@ -63,6 +131,12 @@ export const getAgreementForReview = query({
   },
   handler: async (ctx, args) => {
     const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    if (
+      isSameWallet(agreement.freelancerWallet, args.viewerWallet) &&
+      !isFreelancerVisibleAgreement(agreement)
+    ) {
+      return null;
+    }
     return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
   },
 });
@@ -99,7 +173,7 @@ export const getWorkAgreementByJob = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const agreement = await getCurrentAgreementByJob(ctx, args.jobId);
+    const agreement = await getWorkAgreementByJobForViewer(ctx, args);
     if (!agreement) {
       return null;
     }

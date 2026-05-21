@@ -154,6 +154,16 @@ type TAgreementSource = {
   milestones: Doc<"milestones">[];
 };
 
+function compareAgreementsByVersionThenUpdate(
+  left: Doc<"workAgreements">,
+  right: Doc<"workAgreements">,
+): number {
+  if (left.version !== right.version) {
+    return right.version - left.version;
+  }
+  return right.updatedAt - left.updatedAt;
+}
+
 function isSameWallet(left?: string | null, right?: string | null): boolean {
   if (!left || !right) return false;
   return normalizeWalletAddress(left) === normalizeWalletAddress(right);
@@ -528,23 +538,25 @@ export async function getActiveAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) 
   return (
     agreements
       .filter((agreement) => !NON_BLOCKING_STATUSES.has(agreement.status))
-      .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+      .sort(compareAgreementsByVersionThenUpdate)[0] ?? null
   );
 }
 
 export async function getCurrentAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) {
-  const active = await getActiveAgreementByJob(ctx, jobId);
-  if (active) return active;
-
   const agreements = await ctx.db
     .query("workAgreements")
     .withIndex("by_job", (q) => q.eq("jobId", jobId))
     .collect();
 
+  const current = agreements
+    .filter((agreement) => agreement.status !== "cancelled" && agreement.status !== "superseded")
+    .sort(compareAgreementsByVersionThenUpdate)[0];
+  if (current) return current;
+
   return (
     agreements
       .filter((agreement) => agreement.status === "rejected")
-      .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+      .sort(compareAgreementsByVersionThenUpdate)[0] ?? null
   );
 }
 

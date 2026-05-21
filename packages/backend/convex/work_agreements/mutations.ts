@@ -28,6 +28,7 @@ import {
   renderHighrableAgreementMarkdown,
   resolveAgreementSource,
   sanitizeAgreementUpdate,
+  type IAgreementSnapshot,
   validateAgreementSourceAttachment,
 } from "./helpers";
 import {
@@ -559,7 +560,7 @@ export const rejectWorkAgreement = mutation({
   handler: async (ctx, args) => {
     const { agreement, walletAddress } = await assertCanRejectAgreement(ctx, args);
     const now = Date.now();
-    const rejectionReason = args.rejectionReason?.replace(/\r\n?/g, "\n").trim().slice(0, 1000);
+    const rejectionReason = sanitizeOptionalReason(args.rejectionReason, 1000);
     await ctx.db.patch(args.agreementId, {
       status: "rejected",
       rejectedByFreelancerAt: now,
@@ -649,29 +650,58 @@ export const reviseRejectedAgreement = mutation({
 
     let replacementAgreementId;
     if (agreement.agreementType === "highrable_generated") {
-      const snapshot = await buildAgreementSnapshot(ctx, {
-        jobId: agreement.jobId,
-        generatedByWallet: walletAddress,
-        generatedByWalletType: args.walletType,
-        clientWalletType: args.walletType,
-        freelancerWalletType: agreement.freelancerWalletType,
-        version: nextVersion,
-      });
-      const contentMarkdown = renderHighrableAgreementMarkdown(snapshot);
-      const richTextContent = renderAgreementMarkdownAsRichText(contentMarkdown);
+      const generatedFromSnapshot: IAgreementSnapshot =
+        agreement.generatedFromSnapshot &&
+        typeof agreement.generatedFromSnapshot === "object" &&
+        !Array.isArray(agreement.generatedFromSnapshot)
+          ? {
+              ...(agreement.generatedFromSnapshot as IAgreementSnapshot),
+              version: nextVersion,
+              generatedAt: now,
+              generatedByWallet: walletAddress,
+              generatedByWalletType: args.walletType,
+            }
+          : await buildAgreementSnapshot(ctx, {
+              jobId: agreement.jobId,
+              generatedByWallet: walletAddress,
+              generatedByWalletType: args.walletType,
+              clientWalletType: args.walletType,
+              freelancerWalletType: agreement.freelancerWalletType,
+              version: nextVersion,
+            });
+      const fallbackContentMarkdown =
+        !agreement.contentMarkdown && !agreement.contentDelta && !agreement.contentHtml
+          ? renderHighrableAgreementMarkdown(generatedFromSnapshot)
+          : undefined;
+      const fallbackRichTextContent = fallbackContentMarkdown
+        ? renderAgreementMarkdownAsRichText(fallbackContentMarkdown)
+        : undefined;
       replacementAgreementId = await ctx.db.insert("workAgreements", {
         ...baseAgreement,
         status: "pending_preview",
         version: nextVersion,
-        contentMarkdown,
-        ...richTextContent,
-        generatedFromSnapshot: snapshot,
+        paymentAmount: agreement.paymentAmount,
+        paymentAssetContractId: agreement.paymentAssetContractId,
+        paymentAssetSymbol: agreement.paymentAssetSymbol,
+        paymentAssetDecimals: agreement.paymentAssetDecimals,
+        ...(agreement.deadlineAt ? { deadlineAt: agreement.deadlineAt } : {}),
+        ...(agreement.revisionPolicy ? { revisionPolicy: agreement.revisionPolicy } : {}),
+        ...(agreement.revisionLimit !== undefined
+          ? { revisionLimit: agreement.revisionLimit }
+          : {}),
+        ...(agreement.contentMarkdown ? { contentMarkdown: agreement.contentMarkdown } : {}),
+        ...(agreement.contentDelta ? { contentDelta: agreement.contentDelta } : {}),
+        ...(agreement.contentHtml ? { contentHtml: agreement.contentHtml } : {}),
+        ...(fallbackContentMarkdown ? { contentMarkdown: fallbackContentMarkdown } : {}),
+        ...(fallbackRichTextContent ? fallbackRichTextContent : {}),
+        generatedFromSnapshot,
         metadata: {
           ...(baseAgreement.metadata && typeof baseAgreement.metadata === "object"
             ? baseAgreement.metadata
             : {}),
           revisedFromAgreementId: args.agreementId,
           revisedFromAgreementNumber: agreement.agreementNumber,
+          revisedFromVersion: agreement.version,
           previousRejectionReason: agreement.rejectionReason,
         },
       });
@@ -916,7 +946,8 @@ export const cancelPendingAgreement = mutation({
     if (!agreement) {
       throw new NotFoundError("Work agreement not found.");
     }
-    if (agreement.clientWallet !== args.walletAddress) {
+    const walletAddress = normalizeWalletAddress(args.walletAddress);
+    if (normalizeWalletAddress(agreement.clientWallet) !== walletAddress) {
       throw new BadRequestError("Only the client can cancel this agreement.");
     }
     if (
@@ -939,7 +970,7 @@ export const cancelPendingAgreement = mutation({
       );
     }
     const now = Date.now();
-    const statusReason = args.statusReason?.trim().slice(0, 500);
+    const statusReason = sanitizeOptionalReason(args.statusReason, 500);
     await ctx.db.patch(args.agreementId, {
       status: "cancelled",
       ...(statusReason ? { statusReason } : {}),
@@ -950,7 +981,7 @@ export const cancelPendingAgreement = mutation({
       jobId: agreement.jobId,
       ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
       type: "agreement_cancelled",
-      actorWallet: args.walletAddress,
+      actorWallet: walletAddress,
       actorWalletType: args.walletType,
       actorRole: "client",
       message: "Work agreement flow cancelled.",

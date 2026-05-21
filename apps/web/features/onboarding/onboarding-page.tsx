@@ -1,12 +1,9 @@
 "use client";
 
-import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import {
-  TOnboardingFormSchema,
-  type TOnboardingFormValues,
-} from "@/features/onboarding/types";
+import { TOnboardingFormSchema, type TOnboardingFormValues } from "@/features/onboarding/types";
 import { api, type TConvexStorageId } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";

@@ -12,8 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/dialog";
-import { Wallet } from "lucide-react";
 import { useMutation } from "convex/react";
+import { Wallet } from "lucide-react";
 import { useState } from "react";
 
 interface IWalletConnectTriggerProps {
