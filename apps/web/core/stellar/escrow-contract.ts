@@ -11,6 +11,7 @@ import { executeHighrableContractCall } from "./transactionExecutor";
 
 const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
+const STELLAR_ADDRESS_PATTERN = /^[CG][A-Z2-7]{55}$/;
 
 type TBaseEscrowCallParams = {
   rpcUrl: string;
@@ -543,6 +544,25 @@ export async function resolveDisputeOnChain(
     signTransaction: params.signTransaction,
     walletType: params.walletType,
   });
+}
+
+export async function getPlatformAdminOnChain(
+  params: Omit<TBaseEscrowCallParams, "signTransaction">,
+): Promise<string> {
+  const result = await simulateContractCall<unknown>({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: resolveReadSourceAddress(params.sourceAddress),
+    contractId: params.escrowContractId,
+    method: "get_platform_admin",
+    args: [],
+  });
+
+  if (typeof result === "string" && STELLAR_ADDRESS_PATTERN.test(result.trim())) {
+    return result.trim();
+  }
+
+  throw new Error("Escrow contract did not return a readable platform admin address.");
 }
 
 export async function getEscrowOnChain(

@@ -1,7 +1,11 @@
 "use client";
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
-import { markDisputedOnChain, resolveDisputeOnChain } from "@/core/stellar/escrow-contract";
+import {
+  getPlatformAdminOnChain,
+  markDisputedOnChain,
+  resolveDisputeOnChain,
+} from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
@@ -349,6 +353,20 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       });
 
       const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
+      const platformAdmin = await getPlatformAdminOnChain({
+        rpcUrl: config.rpcUrl,
+        networkPassphrase: config.networkPassphrase,
+        escrowContractId: config.escrowContractId,
+        sourceAddress: activeWalletAddress,
+        walletType: activeWalletType,
+      });
+      const connectedWallet = activeWalletAddress.trim();
+
+      if (platformAdmin !== connectedWallet) {
+        throw new Error(
+          `Connected wallet is not the escrow platform admin. Connect ${platformAdmin} to resolve this dispute on-chain.`,
+        );
+      }
 
       await postAdminResolution(disputeId, {
         phase: "started",
@@ -365,10 +383,10 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress,
+        sourceAddress: connectedWallet,
         signTransaction,
         walletType: activeWalletType,
-        platformAdmin: activeWalletAddress,
+        platformAdmin,
         escrowId: detail.dispute.onChainEscrowId,
         freelancerShareBps,
         resolutionHash,
@@ -401,9 +419,14 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       }
 
       setActionError(
-        normalizedError.includes("resolve_dispute")
-          ? "Settlement unavailable: escrow contract may not yet expose resolve_dispute."
-          : normalizedError,
+        normalizedError.includes("Error(Contract, #3)") ||
+          normalizedError
+            .toLowerCase()
+            .includes("connected wallet is not the escrow platform admin")
+          ? normalizedError
+          : normalizedError.includes("resolve_dispute")
+            ? "Settlement unavailable: escrow contract may not yet expose resolve_dispute."
+            : normalizedError,
       );
       await loadDetail();
     } finally {
