@@ -2,11 +2,15 @@
 
 import { ProfileAvatar } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { getSafeExternalProfileUrl } from "@/features/profile/lib/profile-format";
+import {
+  getGithubProfileUrl,
+  getSafeExternalProfileUrl,
+  getXProfileUrl,
+} from "@/features/profile/lib/profile-format";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Check, Copy, ExternalLink, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { Check, Copy, ExternalLink, Github, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -29,6 +33,8 @@ export function FreelancerProfileHeader({
     profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
   const portfolioUrl = getSafeExternalProfileUrl(profile.portfolioUrl);
   const websiteUrl = getSafeExternalProfileUrl(profile.websiteUrl);
+  const xProfileUrl = getXProfileUrl(profile.xHandle);
+  const githubProfileUrl = getGithubProfileUrl(profile.githubUsername);
 
   const handleCopy = async () => {
     try {
@@ -125,6 +131,49 @@ export function FreelancerProfileHeader({
                 </Link>
               ) : null}
             </div>
+
+            {profile.discordHandle || profile.xHandle || profile.githubUsername ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-[#e8e8e8] pt-3 text-sm">
+                {profile.discordHandle ? (
+                  <span className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f]">
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center bg-[#5865F2] text-[10px] font-bold text-white"
+                      aria-hidden="true"
+                    >
+                      D
+                    </span>
+                    {profile.discordHandle}
+                  </span>
+                ) : null}
+                {profile.xHandle && xProfileUrl ? (
+                  <Link
+                    href={xProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f] transition-colors hover:border-[#0a0a0a] hover:text-[#0a0a0a]"
+                  >
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center bg-[#0a0a0a] text-[11px] font-bold text-white"
+                      aria-hidden="true"
+                    >
+                      X
+                    </span>
+                    @{profile.xHandle}
+                  </Link>
+                ) : null}
+                {profile.githubUsername && githubProfileUrl ? (
+                  <Link
+                    href={githubProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f] transition-colors hover:border-[#0a0a0a] hover:text-[#0a0a0a]"
+                  >
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                    {profile.githubUsername}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 

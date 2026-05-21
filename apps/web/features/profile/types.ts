@@ -10,9 +10,17 @@ export type TFreelancerWorkType = "micro_gig" | "milestone";
 export type TFreelancerProfile = {
   readonly walletAddress: string;
   readonly name?: string;
+  readonly firstName?: string;
+  readonly middleName?: string;
+  readonly lastName?: string;
+  readonly publicHandle?: string;
   readonly bio?: string;
   readonly skills: string[];
+  readonly coreSkills: string[];
   readonly avatarUrl?: string;
+  readonly discordHandle?: string;
+  readonly xHandle?: string;
+  readonly githubUsername?: string;
   readonly portfolioUrl?: string;
   readonly websiteUrl?: string;
   readonly location?: string;

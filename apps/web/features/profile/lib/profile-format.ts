@@ -33,6 +33,21 @@ export function getSafeExternalProfileUrl(value: string | undefined): string | n
   }
 }
 
+function sanitizeProfileHandle(value: string | undefined): string | null {
+  const sanitizedValue = value?.trim().replace(/^@/, "");
+  return sanitizedValue && /^[a-zA-Z0-9_.-]+$/.test(sanitizedValue) ? sanitizedValue : null;
+}
+
+export function getXProfileUrl(value: string | undefined): string | null {
+  const handle = sanitizeProfileHandle(value);
+  return handle ? `https://x.com/${encodeURIComponent(handle)}` : null;
+}
+
+export function getGithubProfileUrl(value: string | undefined): string | null {
+  const handle = sanitizeProfileHandle(value);
+  return handle ? `https://github.com/${encodeURIComponent(handle)}` : null;
+}
+
 export function normalizeSkillsInput(skillsInput: string): string[] {
   return Array.from(
     new Set(

@@ -6,7 +6,12 @@ import type { QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { BadRequestError } from "./_shared/errors";
 import { normalizeWalletAddress } from "./_shared/input";
-import { findUserByWallet, resolveAvatarUrl } from "./users/helpers";
+import {
+  assertPublicHandleAvailable,
+  findUserByWallet,
+  resolveAvatarUrl,
+  sanitizeOnboardingProfile,
+} from "./users/helpers";
 
 const ACTIVE_ESCROW_STATUSES = new Set(["funded", "submitted"] as const);
 const CLIENT_FUNDED_ESCROW_STATUSES = new Set(["funded", "submitted", "released"] as const);
@@ -19,12 +24,18 @@ type TAssetAmountRow = {
 };
 
 type TFreelancerProfilePatch = {
-  name?: string;
-  bio?: string;
-  skills?: string[];
-  portfolioUrl?: string;
-  websiteUrl?: string;
-  location?: string;
+  name: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  publicHandle: string;
+  normalizedPublicHandle: string;
+  skills: string[];
+  coreSkills: string[];
+  discordHandle?: string;
+  xHandle?: string;
+  githubUsername?: string;
+  avatarStorageId?: Doc<"users">["avatarStorageId"];
   updatedAt: number;
 };
 
@@ -71,28 +82,6 @@ function sanitizeOptionalUrl(value: string | undefined, fieldName: string): stri
   return sanitizedValue;
 }
 
-function sanitizeSkills(skills: string[] | undefined): string[] | undefined {
-  if (skills === undefined) {
-    return undefined;
-  }
-
-  const sanitizedSkills = skills
-    .map((skill) => skill.trim())
-    .filter((skill, index, rows) => skill.length > 0 && rows.indexOf(skill) === index);
-
-  if (sanitizedSkills.length > 10) {
-    throw new Error("skills must include 10 items or fewer.");
-  }
-
-  for (const skill of sanitizedSkills) {
-    if (skill.length > 40) {
-      throw new Error("each skill must be 40 characters or less.");
-    }
-  }
-
-  return sanitizedSkills;
-}
-
 function sumByAsset(escrows: Array<{ asset: string; amount: number }>): TAssetAmountRow[] {
   const byAsset = new Map<string, number>();
 
@@ -127,45 +116,49 @@ async function getEscrowByEscrowId(ctx: QueryCtx, escrowId: string) {
 export const updateFreelancerProfile = mutation({
   args: {
     walletAddress: v.string(),
-    name: v.optional(v.string()),
-    bio: v.optional(v.string()),
-    skills: v.optional(v.array(v.string())),
-    portfolioUrl: v.optional(v.string()),
-    websiteUrl: v.optional(v.string()),
-    location: v.optional(v.string()),
+    firstName: v.string(),
+    middleName: v.optional(v.string()),
+    lastName: v.string(),
+    publicHandle: v.string(),
+    coreSkills: v.array(v.string()),
+    discordHandle: v.optional(v.string()),
+    xHandle: v.optional(v.string()),
+    githubUsername: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     // TODO: Replace walletAddress trust with signed wallet session/auth.
     const walletAddress = normalizeWalletAddress(args.walletAddress);
+    const existingUser = await findUserByWallet(ctx, walletAddress);
+
+    if (!existingUser) {
+      throw new BadRequestError("Complete onboarding before editing your profile.");
+    }
+
+    const profile = await sanitizeOnboardingProfile(ctx, args);
+    await assertPublicHandleAvailable(ctx, profile.normalizedPublicHandle, existingUser._id);
+
     const now = Date.now();
     const patch: TFreelancerProfilePatch = {
       updatedAt: now,
-      ...(args.name !== undefined
-        ? { name: sanitizeLimitedOptionalString(args.name, "name", 80) }
-        : {}),
-      ...(args.bio !== undefined
-        ? { bio: sanitizeLimitedOptionalString(args.bio, "bio", 500) }
-        : {}),
-      ...(args.skills !== undefined ? { skills: sanitizeSkills(args.skills) } : {}),
-      ...(args.portfolioUrl !== undefined
-        ? { portfolioUrl: sanitizeOptionalUrl(args.portfolioUrl, "portfolioUrl") }
-        : {}),
-      ...(args.websiteUrl !== undefined
-        ? { websiteUrl: sanitizeOptionalUrl(args.websiteUrl, "websiteUrl") }
-        : {}),
-      ...(args.location !== undefined
-        ? { location: sanitizeLimitedOptionalString(args.location, "location", 80) }
+      name: profile.name,
+      firstName: profile.firstName,
+      middleName: profile.middleName,
+      lastName: profile.lastName,
+      publicHandle: profile.publicHandle,
+      normalizedPublicHandle: profile.normalizedPublicHandle,
+      coreSkills: profile.coreSkills,
+      skills: profile.coreSkills,
+      discordHandle: profile.discordHandle,
+      xHandle: profile.xHandle,
+      githubUsername: profile.githubUsername,
+      ...(profile.avatarStorageId !== undefined
+        ? { avatarStorageId: profile.avatarStorageId }
         : {}),
     };
 
-    const existingUser = await findUserByWallet(ctx, walletAddress);
-
-    if (existingUser) {
-      await ctx.db.patch(existingUser._id, patch);
-      return await ctx.db.get(existingUser._id);
-    }
-
-    throw new BadRequestError("Complete onboarding before editing your profile.");
+    await ctx.db.patch(existingUser._id, patch);
+    return await ctx.db.get(existingUser._id);
   },
 });
 
@@ -343,9 +336,17 @@ export const getFreelancerProfile = query({
       profile: {
         walletAddress,
         name: user?.name,
+        firstName: user?.firstName,
+        middleName: user?.middleName,
+        lastName: user?.lastName,
+        publicHandle: user?.publicHandle,
         bio: user?.bio,
         skills: user?.skills ?? [],
+        coreSkills: user?.coreSkills ?? user?.skills ?? [],
         avatarUrl: await resolveAvatarUrl(ctx, user),
+        discordHandle: user?.discordHandle,
+        xHandle: user?.xHandle,
+        githubUsername: user?.githubUsername,
         portfolioUrl: user?.portfolioUrl,
         websiteUrl: user?.websiteUrl,
         location: user?.location,
