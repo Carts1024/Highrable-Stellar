@@ -10,6 +10,9 @@ const agreementStatusEnum = createStringEnum([
   "pending_preview",
   "ready_to_send",
   "pending_acceptance",
+  "accepted",
+  "locked",
+  "rejected",
   "cancelled",
 ] as const);
 const agreementEventTypeEnum = createStringEnum([
@@ -19,24 +22,45 @@ const agreementEventTypeEnum = createStringEnum([
   "agreement_previewed",
   "agreement_updated",
   "agreement_ready_to_send",
+  "agreement_sent",
+  "agreement_viewed_by_freelancer",
+  "agreement_accepted",
+  "agreement_rejected",
+  "agreement_locked",
+  "agreement_hash_generated",
+  "agreement_guard_blocked_action",
+  "client_confirmation_recorded",
   "agreement_cancelled",
 ] as const);
 const agreementActorRoleEnum = createStringEnum(["client", "freelancer", "system"] as const);
+const agreementLockedByEnum = createStringEnum(["system", "client", "escrow_funding"] as const);
+const agreementLockReasonEnum = createStringEnum([
+  "work_started",
+  "escrow_funded",
+  "manual_lock",
+  "proof_enabled",
+] as const);
 
 export const AGREEMENT_TYPES = agreementTypeEnum.map;
 export const AGREEMENT_STATUSES = agreementStatusEnum.map;
 export const AGREEMENT_EVENT_TYPES = agreementEventTypeEnum.map;
 export const AGREEMENT_ACTOR_ROLES = agreementActorRoleEnum.map;
+export const AGREEMENT_LOCKED_BY = agreementLockedByEnum.map;
+export const AGREEMENT_LOCK_REASONS = agreementLockReasonEnum.map;
 
 export const agreementTypeValidator = agreementTypeEnum.validator;
 export const agreementStatusValidator = agreementStatusEnum.validator;
 export const agreementEventTypeValidator = agreementEventTypeEnum.validator;
 export const agreementActorRoleValidator = agreementActorRoleEnum.validator;
+export const agreementLockedByValidator = agreementLockedByEnum.validator;
+export const agreementLockReasonValidator = agreementLockReasonEnum.validator;
 
 export type TAgreementType = Infer<typeof agreementTypeValidator>;
 export type TAgreementStatus = Infer<typeof agreementStatusValidator>;
 export type TAgreementEventType = Infer<typeof agreementEventTypeValidator>;
 export type TAgreementActorRole = Infer<typeof agreementActorRoleValidator>;
+export type TAgreementLockedBy = Infer<typeof agreementLockedByValidator>;
+export type TAgreementLockReason = Infer<typeof agreementLockReasonValidator>;
 
 export const agreementMetadataValidator = v.optional(v.any());
 
@@ -77,9 +101,27 @@ export default defineTable({
   contentHtml: v.optional(v.string()),
   sourceAttachmentId: v.optional(v.id("attachments")),
   generatedFromSnapshot: v.optional(v.any()),
+  sentToFreelancerAt: v.optional(v.number()),
+  acceptedByFreelancerAt: v.optional(v.number()),
+  acceptedByFreelancerWallet: v.optional(v.string()),
+  acceptedByFreelancerWalletType: v.optional(walletTypeValidator),
+  rejectedByFreelancerAt: v.optional(v.number()),
+  rejectedByFreelancerWallet: v.optional(v.string()),
+  rejectedByFreelancerWalletType: v.optional(walletTypeValidator),
+  rejectionReason: v.optional(v.string()),
+  clientConfirmedAt: v.optional(v.number()),
+  clientConfirmedByWallet: v.optional(v.string()),
+  clientConfirmedByWalletType: v.optional(walletTypeValidator),
+  lockedAt: v.optional(v.number()),
+  lockedBy: v.optional(agreementLockedByValidator),
+  lockReason: v.optional(agreementLockReasonValidator),
+  immutableSnapshot: v.optional(v.any()),
   agreementHash: v.optional(v.string()),
   hashAlgorithm: v.optional(v.literal("sha256")),
   hashEncoding: v.optional(v.literal("hex")),
+  acceptedSnapshotHash: v.optional(v.string()),
+  lockedSnapshotHash: v.optional(v.string()),
+  statusReason: v.optional(v.string()),
   paymentAmount: v.number(),
   paymentAssetContractId: v.string(),
   paymentAssetSymbol: v.string(),

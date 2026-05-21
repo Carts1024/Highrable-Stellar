@@ -1,7 +1,13 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { TWalletType } from "../users/schema";
-import type { TAgreementEventType, TAgreementStatus, TAgreementType } from "./schema";
+import type {
+  TAgreementEventType,
+  TAgreementLockReason,
+  TAgreementLockedBy,
+  TAgreementStatus,
+  TAgreementType,
+} from "./schema";
 
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import {
@@ -10,8 +16,11 @@ import {
   requireNonEmptyString,
 } from "../_shared/input";
 import { isPreviewSupported } from "../attachments/helpers";
+import { createSystemMessageForEvent } from "../conversations/helpers";
 
-const EDITABLE_STATUSES = new Set<TAgreementStatus>(["draft", "pending_preview"]);
+const EDITABLE_STATUSES = new Set<TAgreementStatus>(["draft", "pending_preview", "ready_to_send"]);
+const PREPARED_STATUSES = new Set<TAgreementStatus>(["draft", "pending_preview", "ready_to_send"]);
+const ACCEPTED_STATUSES = new Set<TAgreementStatus>(["accepted", "locked"]);
 const AGREEMENT_FILE_TYPES = new Set(["pdf", "document", "markdown", "file"]);
 const DEFAULT_STABLECOIN_SYMBOL = "USDC";
 const DEFAULT_STABLECOIN_DECIMALS = 7;
@@ -68,6 +77,34 @@ export interface IAgreementSnapshot {
   version: number;
 }
 
+export interface IAgreementImmutableSnapshot extends IAgreementSnapshot {
+  agreementId: string;
+  agreementNumber: string;
+  agreementVersion: number;
+  agreementType: TAgreementType;
+  title: string;
+  escrowId?: string;
+  onChainEscrowId?: string;
+  clientWallet: string;
+  clientWalletType: TWalletType;
+  freelancerWallet: string;
+  freelancerWalletType: TWalletType;
+  contentMarkdown?: string;
+  contentHtml?: string;
+  sourceAttachment?: {
+    attachmentId: string;
+    storageId?: string;
+    name: string;
+    size?: number;
+    mimeType?: string;
+    type: string;
+    uploadedAt: number;
+    fileHash?: string;
+    fileHashTodo?: string;
+  };
+  acceptedAt: number;
+}
+
 type TAgreementSource = {
   job: Doc<"jobs">;
   escrow?: Doc<"escrows"> | null;
@@ -89,7 +126,8 @@ function sanitizeTitle(value: string): string {
 
 function getStablecoinDecimals(): number {
   const rawValue = Number(process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS);
-  if (!Number.isInteger(rawValue) || rawValue < 0 || rawValue > 18) return DEFAULT_STABLECOIN_DECIMALS;
+  if (!Number.isInteger(rawValue) || rawValue < 0 || rawValue > 18)
+    return DEFAULT_STABLECOIN_DECIMALS;
   return rawValue;
 }
 
@@ -146,6 +184,7 @@ function bulletList(items: string[]): string {
 }
 
 export function normalizeAgreementStatus(status: TAgreementStatus): TAgreementStatus {
+  if (status === "ready_to_send") return "pending_acceptance";
   return status;
 }
 
@@ -235,9 +274,81 @@ export async function assertCanEditWorkAgreement(
     throw new ForbiddenError("Only the client can edit this work agreement.");
   }
   if (!EDITABLE_STATUSES.has(agreement.status)) {
-    throw new BadRequestError("This agreement draft can no longer be modified.");
+    throw new BadRequestError(
+      agreement.status === "accepted" || agreement.status === "locked"
+        ? "Accepted agreements cannot be edited directly."
+        : "This agreement draft can no longer be modified.",
+    );
   }
   return { agreement, walletAddress };
+}
+
+export async function assertAgreementIsMutable(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; walletAddress: string },
+) {
+  return await assertCanEditWorkAgreement(ctx, input);
+}
+
+export function getAgreementGuardMessage(status?: TAgreementStatus | null): string {
+  if (status === "pending_acceptance") {
+    return "This agreement is pending freelancer acceptance.";
+  }
+  if (status === "rejected") {
+    return "This agreement was rejected. Create a new agreement before continuing.";
+  }
+  if (status === "cancelled") {
+    return "A work agreement must be accepted before this work can start.";
+  }
+  return "A work agreement must be accepted before this work can start.";
+}
+
+export function isLegacyAgreementExempt(parent: {
+  status?: string;
+  submittedAt?: number;
+  completedAt?: number;
+  approvedAt?: number;
+  createdAt?: number;
+}) {
+  return Boolean(
+    parent.submittedAt ||
+    parent.completedAt ||
+    parent.approvedAt ||
+    parent.status === "submitted" ||
+    parent.status === "revision_submitted" ||
+    parent.status === "completed" ||
+    parent.status === "cancelled" ||
+    parent.status === "disputed",
+  );
+}
+
+export function requiresAcceptedAgreement(parent: {
+  status?: string;
+  submittedAt?: number;
+  completedAt?: number;
+  approvedAt?: number;
+}) {
+  return !isLegacyAgreementExempt(parent);
+}
+
+export async function hasAcceptedAgreement(ctx: QueryCtx, jobId: Id<"jobs">) {
+  const agreements = await ctx.db
+    .query("workAgreements")
+    .withIndex("by_job", (q) => q.eq("jobId", jobId))
+    .collect();
+  return agreements.some((agreement) => ACCEPTED_STATUSES.has(agreement.status));
+}
+
+export async function getAcceptedAgreementForJob(ctx: QueryCtx, jobId: Id<"jobs">) {
+  const agreements = await ctx.db
+    .query("workAgreements")
+    .withIndex("by_job", (q) => q.eq("jobId", jobId))
+    .collect();
+  return (
+    agreements
+      .filter((agreement) => ACCEPTED_STATUSES.has(agreement.status))
+      .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+  );
 }
 
 export async function resolveAgreementParticipants(
@@ -323,9 +434,14 @@ export async function buildAgreementSnapshot(
   const { job, escrow, milestones } = await resolveAgreementSource(ctx, input.jobId);
   const jobType = job.jobType ?? "micro_gig";
   const paymentAssetContractId = escrow?.asset ?? job.asset;
-  const paymentAmount = jobType === "milestone_project" ? (job.totalBudget ?? job.budget) : (escrow?.amount ?? job.budget);
+  const paymentAmount =
+    jobType === "milestone_project"
+      ? (job.totalBudget ?? job.budget)
+      : (escrow?.amount ?? job.budget);
   if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
-    throw new BadRequestError("Payment details are missing, so the agreement cannot be generated yet.");
+    throw new BadRequestError(
+      "Payment details are missing, so the agreement cannot be generated yet.",
+    );
   }
   const asset = resolvePaymentAsset(paymentAssetContractId);
   const participants = await resolveAgreementParticipants(ctx, {
@@ -450,7 +566,10 @@ export function formatAgreementContentProtectionTerms(snapshot: IAgreementSnapsh
 export function renderMicroGigAgreementSections(snapshot: IAgreementSnapshot): string {
   return [
     "## Deliverables",
-    normalizeMarkdownText(snapshot.jobDescription, "Required output is described in the job scope."),
+    normalizeMarkdownText(
+      snapshot.jobDescription,
+      "Required output is described in the job scope.",
+    ),
     "",
     "## Timeline and Deadlines",
     formatAgreementDeadlineTerms(snapshot),
@@ -573,7 +692,9 @@ export async function validateAgreementSourceAttachment(
     throw new ForbiddenError("Users cannot use attachments they do not own as agreement files.");
   }
   if (!AGREEMENT_FILE_TYPES.has(attachment.type)) {
-    throw new BadRequestError("Select a supported agreement file, such as PDF, DOCX, Markdown, or text.");
+    throw new BadRequestError(
+      "Select a supported agreement file, such as PDF, DOCX, Markdown, or text.",
+    );
   }
   if (attachment.externalUrl && !attachment.storageId) {
     throw new BadRequestError("This attachment cannot be used as an agreement.");
@@ -615,6 +736,524 @@ export async function createWorkAgreementEvent(
     createdAt: Date.now(),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   });
+}
+
+function toHex(bytes: ArrayBuffer): string {
+  return Array.from(new Uint8Array(bytes))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+export async function hashAgreementManifest(manifest: unknown): Promise<string> {
+  try {
+    const bytes = new TextEncoder().encode(stableStringify(manifest));
+    return toHex(await crypto.subtle.digest("SHA-256", bytes));
+  } catch {
+    throw new BadRequestError("Agreement hash could not be generated. Please try again.");
+  }
+}
+
+async function hashAgreementContent(agreement: Doc<"workAgreements">): Promise<string | undefined> {
+  const content = agreement.contentMarkdown ?? agreement.contentHtml;
+  if (!content) return undefined;
+  return await hashAgreementManifest({ content });
+}
+
+export async function buildAgreementImmutableSnapshot(
+  ctx: QueryCtx,
+  input: {
+    agreement: Doc<"workAgreements">;
+    acceptedAt: number;
+    freelancerWalletType: TWalletType;
+  },
+): Promise<IAgreementImmutableSnapshot> {
+  const { agreement } = input;
+  if (!agreement.freelancerWallet) {
+    throw new BadRequestError("Agreement is missing freelancer wallet.");
+  }
+  const generatedSnapshot =
+    agreement.generatedFromSnapshot && typeof agreement.generatedFromSnapshot === "object"
+      ? (agreement.generatedFromSnapshot as IAgreementSnapshot)
+      : await buildAgreementSnapshot(ctx, {
+          jobId: agreement.jobId,
+          generatedByWallet: agreement.createdByWallet,
+          generatedByWalletType: agreement.createdByWalletType,
+          clientWalletType: agreement.clientWalletType,
+          freelancerWalletType: input.freelancerWalletType,
+          version: agreement.version,
+        });
+
+  const sourceAttachment = agreement.sourceAttachmentId
+    ? await ctx.db.get(agreement.sourceAttachmentId)
+    : null;
+  const metadata = sourceAttachment?.metadata as { fileHash?: string } | undefined;
+
+  return {
+    ...generatedSnapshot,
+    agreementId: agreement._id,
+    agreementNumber: agreement.agreementNumber,
+    agreementVersion: agreement.version,
+    agreementType: agreement.agreementType,
+    title: agreement.title,
+    ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+    ...(agreement.onChainEscrowId ? { onChainEscrowId: agreement.onChainEscrowId } : {}),
+    clientWallet: agreement.clientWallet,
+    clientWalletType: agreement.clientWalletType,
+    freelancerWallet: agreement.freelancerWallet,
+    freelancerWalletType: input.freelancerWalletType,
+    ...(agreement.contentMarkdown ? { contentMarkdown: agreement.contentMarkdown } : {}),
+    ...(agreement.contentHtml ? { contentHtml: agreement.contentHtml } : {}),
+    ...(sourceAttachment
+      ? {
+          sourceAttachment: {
+            attachmentId: sourceAttachment._id,
+            ...(sourceAttachment.storageId ? { storageId: sourceAttachment.storageId } : {}),
+            name: sourceAttachment.name,
+            ...(sourceAttachment.size !== undefined ? { size: sourceAttachment.size } : {}),
+            ...(sourceAttachment.mimeType !== undefined
+              ? { mimeType: sourceAttachment.mimeType }
+              : {}),
+            type: sourceAttachment.type,
+            uploadedAt: sourceAttachment.createdAt,
+            ...(metadata?.fileHash ? { fileHash: metadata.fileHash } : {}),
+            ...(!metadata?.fileHash
+              ? {
+                  fileHashTodo:
+                    "TODO(phase-36): compute and store file-content hashes for uploaded agreement source files.",
+                }
+              : {}),
+          },
+        }
+      : {}),
+    acceptedAt: input.acceptedAt,
+  };
+}
+
+export async function buildAgreementHashManifest(
+  ctx: QueryCtx,
+  input: {
+    agreement: Doc<"workAgreements">;
+    immutableSnapshot: IAgreementImmutableSnapshot;
+  },
+) {
+  const { agreement, immutableSnapshot } = input;
+  const agreementContentHash = await hashAgreementContent(agreement);
+  const sourceAttachment = agreement.sourceAttachmentId
+    ? await ctx.db.get(agreement.sourceAttachmentId)
+    : null;
+  const sourceMetadata = sourceAttachment?.metadata as { fileHash?: string } | undefined;
+  const sourceAttachmentHash = sourceMetadata?.fileHash
+    ? sourceMetadata.fileHash
+    : sourceAttachment
+      ? await hashAgreementManifest({
+          attachmentId: sourceAttachment._id,
+          storageId: sourceAttachment.storageId,
+          name: sourceAttachment.name,
+          size: sourceAttachment.size,
+          mimeType: sourceAttachment.mimeType,
+          uploadedAt: sourceAttachment.createdAt,
+        })
+      : undefined;
+
+  return {
+    agreementVersion: 1,
+    agreementType: agreement.agreementType,
+    platform: "Highrable",
+    jobId: agreement.jobId,
+    escrowId: agreement.escrowId,
+    clientWallet: agreement.clientWallet,
+    clientWalletType: agreement.clientWalletType,
+    freelancerWallet: immutableSnapshot.freelancerWallet,
+    freelancerWalletType: immutableSnapshot.freelancerWalletType,
+    paymentAmount: String(agreement.paymentAmount),
+    paymentAssetContractId: agreement.paymentAssetContractId,
+    paymentAssetSymbol: agreement.paymentAssetSymbol,
+    paymentAssetDecimals: agreement.paymentAssetDecimals,
+    deadlineAt: agreement.deadlineAt ? String(agreement.deadlineAt) : undefined,
+    milestones: immutableSnapshot.milestones,
+    revisionPolicy: agreement.revisionPolicy,
+    revisionLimit:
+      agreement.revisionLimit === undefined || agreement.revisionLimit === null
+        ? undefined
+        : String(agreement.revisionLimit),
+    contentProtectionEnabled: agreement.contentProtectionEnabled,
+    agreementContentHash,
+    sourceAttachmentHash,
+    generatedFromSnapshotHash: agreement.generatedFromSnapshot
+      ? await hashAgreementManifest(agreement.generatedFromSnapshot)
+      : undefined,
+    acceptedAt: new Date(immutableSnapshot.acceptedAt).toISOString(),
+  };
+}
+
+export async function assertCanSendAgreement(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; walletAddress: string },
+) {
+  const agreement = await getAgreementOrThrow(ctx, input.agreementId);
+  const walletAddress = normalizeWalletAddress(input.walletAddress);
+  if (!isSameWallet(agreement.clientWallet, walletAddress)) {
+    throw new ForbiddenError("Only the client can send this agreement.");
+  }
+  if (!PREPARED_STATUSES.has(agreement.status)) {
+    throw new BadRequestError("Agreement is not ready to send.");
+  }
+  const job = await ctx.db.get(agreement.jobId);
+  if (!job) {
+    throw new NotFoundError("Job not found.");
+  }
+  if (!job.selectedFreelancerWallet || !agreement.freelancerWallet) {
+    throw new BadRequestError("Select a freelancer before sending the agreement.");
+  }
+  const freelancerUser = await ctx.db
+    .query("users")
+    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", agreement.freelancerWallet!))
+    .first();
+  const freelancerWalletType = agreement.freelancerWalletType ?? freelancerUser?.walletType;
+  if (!freelancerWalletType) {
+    throw new BadRequestError("Agreement must include freelancer wallet type before sending.");
+  }
+  if (!Number.isFinite(agreement.paymentAmount) || agreement.paymentAmount <= 0) {
+    throw new BadRequestError("Payment details are missing.");
+  }
+  if (!agreement.paymentAssetContractId || !agreement.paymentAssetSymbol) {
+    throw new BadRequestError("Payment details are missing.");
+  }
+  if (agreement.agreementType === "highrable_generated" && !agreement.contentMarkdown) {
+    throw new BadRequestError("Agreement must be previewed before sending.");
+  }
+  if (agreement.agreementType === "client_uploaded" && !agreement.sourceAttachmentId) {
+    throw new BadRequestError("Agreement must be previewed before sending.");
+  }
+  return { agreement, job, walletAddress, freelancerWalletType };
+}
+
+export async function assertCanAcceptAgreement(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; walletAddress: string },
+) {
+  const agreement = await getAgreementOrThrow(ctx, input.agreementId);
+  const walletAddress = normalizeWalletAddress(input.walletAddress);
+  if (agreement.status === "accepted" || agreement.status === "locked") {
+    throw new BadRequestError("This agreement has already been accepted.");
+  }
+  if (agreement.status === "rejected") {
+    throw new BadRequestError(
+      "This agreement has been rejected. Create a new agreement to continue.",
+    );
+  }
+  if (agreement.status !== "pending_acceptance") {
+    throw new BadRequestError("This agreement is not pending freelancer acceptance.");
+  }
+  if (!agreement.freelancerWallet || !isSameWallet(agreement.freelancerWallet, walletAddress)) {
+    throw new ForbiddenError("Only the selected freelancer can accept this agreement.");
+  }
+  return { agreement, walletAddress };
+}
+
+export async function assertCanRejectAgreement(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; walletAddress: string },
+) {
+  const { agreement, walletAddress } = await assertCanAcceptAgreement(ctx, input);
+  return { agreement, walletAddress };
+}
+
+export async function assertCanLockAgreement(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; actorWallet?: string },
+) {
+  const agreement = await getAgreementOrThrow(ctx, input.agreementId);
+  if (agreement.status !== "accepted") {
+    if (agreement.status === "locked") {
+      throw new BadRequestError("This agreement is already locked.");
+    }
+    throw new BadRequestError("Only accepted agreements can be locked.");
+  }
+  if (input.actorWallet && !isSameWallet(input.actorWallet, agreement.clientWallet)) {
+    throw new ForbiddenError("Only the client can manually lock this agreement.");
+  }
+  return agreement;
+}
+
+export async function createAgreementNotification(
+  ctx: MutationCtx,
+  input: {
+    recipientWallet: string;
+    recipientWalletType?: TWalletType;
+    type: "agreement_sent" | "agreement_accepted" | "agreement_rejected" | "agreement_locked";
+    title: string;
+    body: string;
+    jobId: Id<"jobs">;
+    milestoneId?: Id<"milestones">;
+    escrowId?: Id<"escrows">;
+    agreementId: Id<"workAgreements">;
+    agreementHash?: string;
+  },
+) {
+  const parentType = input.milestoneId ? "milestone" : "micro_gig";
+  return await ctx.db.insert("notifications", {
+    recipientWallet: normalizeWalletAddress(input.recipientWallet),
+    ...(input.recipientWalletType ? { recipientWalletType: input.recipientWalletType } : {}),
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    parentType,
+    parentId: input.milestoneId ?? input.jobId,
+    jobId: input.jobId,
+    ...(input.milestoneId ? { milestoneId: input.milestoneId } : {}),
+    ...(input.escrowId ? { escrowId: input.escrowId } : {}),
+    createdAt: Date.now(),
+    metadata: {
+      agreementId: input.agreementId,
+      ...(input.agreementHash ? { agreementHash: input.agreementHash } : {}),
+    },
+  });
+}
+
+export async function createAgreementSystemMessage(
+  ctx: MutationCtx,
+  input: {
+    agreement: Doc<"workAgreements">;
+    eventType: "agreement_sent" | "agreement_accepted" | "agreement_rejected" | "agreement_locked";
+    body: string;
+    agreementHash?: string;
+  },
+) {
+  const parentType = input.agreement.escrowId ? "escrow" : "job";
+  const parentId = input.agreement.escrowId ?? input.agreement.jobId;
+  const existing = await ctx.db
+    .query("messages")
+    .withIndex("by_event", (q) => q.eq("eventType", input.eventType))
+    .order("desc")
+    .take(50);
+  const duplicate = existing.some((message) => {
+    const payload = message.eventPayload as { agreementId?: string } | undefined;
+    return payload?.agreementId === input.agreement._id;
+  });
+  if (duplicate) return null;
+
+  return await createSystemMessageForEvent(ctx, {
+    parentType,
+    parentId,
+    eventType: input.eventType,
+    body: input.body,
+    eventPayload: {
+      agreementId: input.agreement._id,
+      ...(input.agreementHash ? { agreementHash: input.agreementHash } : {}),
+    },
+  });
+}
+
+export async function lockWorkAgreementForCommitment(
+  ctx: MutationCtx,
+  input: {
+    agreement: Doc<"workAgreements">;
+    lockedBy: TAgreementLockedBy;
+    lockReason: TAgreementLockReason;
+    actorWallet?: string;
+    actorWalletType?: TWalletType;
+    escrowId?: Id<"escrows">;
+    onChainEscrowId?: string;
+  },
+) {
+  const agreement = {
+    ...input.agreement,
+    ...(input.escrowId ? { escrowId: input.escrowId } : {}),
+    ...(input.onChainEscrowId ? { onChainEscrowId: input.onChainEscrowId } : {}),
+  };
+  if (agreement.status === "locked") return agreement;
+  if (agreement.status !== "accepted") {
+    throw new BadRequestError("Only accepted agreements can be locked.");
+  }
+  const now = Date.now();
+  const immutableSnapshot =
+    agreement.immutableSnapshot ??
+    (await buildAgreementImmutableSnapshot(ctx, {
+      agreement,
+      acceptedAt: agreement.acceptedByFreelancerAt ?? now,
+      freelancerWalletType:
+        agreement.acceptedByFreelancerWalletType ??
+        agreement.freelancerWalletType ??
+        "external_wallet",
+    }));
+  const manifest = await buildAgreementHashManifest(ctx, { agreement, immutableSnapshot });
+  const agreementHash = agreement.agreementHash ?? (await hashAgreementManifest(manifest));
+  await ctx.db.patch(agreement._id, {
+    status: "locked",
+    ...(input.escrowId ? { escrowId: input.escrowId } : {}),
+    ...(input.onChainEscrowId ? { onChainEscrowId: input.onChainEscrowId } : {}),
+    lockedAt: now,
+    lockedBy: input.lockedBy,
+    lockReason: input.lockReason,
+    immutableSnapshot,
+    agreementHash,
+    hashAlgorithm: "sha256",
+    hashEncoding: "hex",
+    lockedSnapshotHash: agreementHash,
+    updatedAt: now,
+  });
+  await createWorkAgreementEvent(ctx, {
+    agreementId: agreement._id,
+    jobId: agreement.jobId,
+    ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+    type: "agreement_locked",
+    actorWallet: input.actorWallet ?? agreement.clientWallet,
+    ...(input.actorWalletType ? { actorWalletType: input.actorWalletType } : {}),
+    actorRole: input.lockedBy === "client" ? "client" : "system",
+    message: "Work agreement locked.",
+    oldStatus: "accepted",
+    newStatus: "locked",
+    metadata: { agreementHash, lockedBy: input.lockedBy, lockReason: input.lockReason },
+  });
+  await createAgreementSystemMessage(ctx, {
+    agreement,
+    eventType: "agreement_locked",
+    body: "Work agreement locked: Agreement is now locked for this work.",
+    agreementHash,
+  });
+  await createAgreementNotification(ctx, {
+    recipientWallet: agreement.clientWallet,
+    recipientWalletType: agreement.clientWalletType,
+    type: "agreement_locked",
+    title: "Agreement locked",
+    body: "The accepted work agreement is now locked for this work.",
+    jobId: agreement.jobId,
+    ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+    ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+    agreementId: agreement._id,
+    agreementHash,
+  });
+  if (agreement.freelancerWallet) {
+    await createAgreementNotification(ctx, {
+      recipientWallet: agreement.freelancerWallet,
+      recipientWalletType: agreement.freelancerWalletType,
+      type: "agreement_locked",
+      title: "Agreement locked",
+      body: "The accepted work agreement is now locked for this work.",
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      agreementId: agreement._id,
+      agreementHash,
+    });
+  }
+  return await getAgreementOrThrow(ctx, agreement._id);
+}
+
+export async function lockAcceptedAgreementForJob(
+  ctx: MutationCtx,
+  input: {
+    jobId: Id<"jobs">;
+    lockedBy: TAgreementLockedBy;
+    lockReason: TAgreementLockReason;
+    actorWallet?: string;
+    actorWalletType?: TWalletType;
+    escrowId?: Id<"escrows">;
+    onChainEscrowId?: string;
+  },
+) {
+  const agreement = await getAcceptedAgreementForJob(ctx, input.jobId);
+  if (!agreement || agreement.status !== "accepted") return null;
+  return await lockWorkAgreementForCommitment(ctx, { agreement, ...input });
+}
+
+export async function recordAgreementGuardBlockedAction(
+  ctx: MutationCtx,
+  input: {
+    jobId: Id<"jobs">;
+    escrowId?: Id<"escrows">;
+    actorWallet: string;
+    actorWalletType?: TWalletType;
+    action: string;
+    message: string;
+  },
+) {
+  const agreement = await getActiveAgreementByJob(ctx, input.jobId);
+  if (!agreement) return null;
+  return await createWorkAgreementEvent(ctx, {
+    agreementId: agreement._id,
+    jobId: input.jobId,
+    ...(input.escrowId
+      ? { escrowId: input.escrowId }
+      : agreement.escrowId
+        ? { escrowId: agreement.escrowId }
+        : {}),
+    type: "agreement_guard_blocked_action",
+    actorWallet: input.actorWallet,
+    ...(input.actorWalletType ? { actorWalletType: input.actorWalletType } : {}),
+    actorRole: "freelancer",
+    message: input.message,
+    oldStatus: agreement.status,
+    newStatus: agreement.status,
+    metadata: { action: input.action },
+  });
+}
+
+export async function assertAgreementAcceptedForProofSubmission(
+  ctx: MutationCtx,
+  input: {
+    job: Doc<"jobs">;
+    escrowId?: Id<"escrows">;
+    actorWallet: string;
+    actorWalletType?: TWalletType;
+  },
+) {
+  if (!requiresAcceptedAgreement(input.job)) return;
+  const agreement = await getActiveAgreementByJob(ctx, input.job._id);
+  if (agreement && ACCEPTED_STATUSES.has(agreement.status)) return;
+  const message =
+    agreement?.status === "pending_acceptance"
+      ? "The selected freelancer must accept the agreement before proof can be submitted."
+      : "A work agreement must be accepted before proof can be submitted.";
+  await recordAgreementGuardBlockedAction(ctx, {
+    jobId: input.job._id,
+    ...(input.escrowId ? { escrowId: input.escrowId } : {}),
+    actorWallet: input.actorWallet,
+    ...(input.actorWalletType ? { actorWalletType: input.actorWalletType } : {}),
+    action: "proof_submission",
+    message,
+  });
+  throw new ForbiddenError(message);
+}
+
+export async function assertAgreementAcceptedForWorkStart(
+  ctx: MutationCtx,
+  input: {
+    job: Doc<"jobs">;
+    escrowId?: Id<"escrows">;
+    actorWallet: string;
+    actorWalletType?: TWalletType;
+  },
+) {
+  if (!requiresAcceptedAgreement(input.job)) return;
+  const agreement = await getActiveAgreementByJob(ctx, input.job._id);
+  if (agreement && ACCEPTED_STATUSES.has(agreement.status)) return;
+  const message = getAgreementGuardMessage(agreement?.status);
+  await recordAgreementGuardBlockedAction(ctx, {
+    jobId: input.job._id,
+    ...(input.escrowId ? { escrowId: input.escrowId } : {}),
+    actorWallet: input.actorWallet,
+    ...(input.actorWalletType ? { actorWalletType: input.actorWalletType } : {}),
+    action: "work_start",
+    message,
+  });
+  throw new ForbiddenError(message);
 }
 
 export function buildBaseAgreementFields(input: {

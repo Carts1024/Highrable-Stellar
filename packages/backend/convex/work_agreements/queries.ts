@@ -8,10 +8,17 @@ import { normalizeWalletAddress } from "../_shared/input";
 import { serializeAttachmentForViewer } from "../attachments/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
+  assertCanAcceptAgreement,
   assertCanCreateWorkAgreement,
+  assertCanLockAgreement,
+  assertCanRejectAgreement,
+  assertCanSendAgreement,
   assertCanViewWorkAgreement,
+  getAcceptedAgreementForJob,
   getActiveAgreementByJob,
   getAgreementOrThrow,
+  hasAcceptedAgreement as hasAcceptedAgreementForJob,
+  requiresAcceptedAgreement as requiresAcceptedAgreementForParent,
 } from "./helpers";
 
 async function serializeAgreementForViewer(
@@ -41,6 +48,43 @@ export const getWorkAgreement = query({
   handler: async (ctx, args) => {
     const agreement = await getAgreementOrThrow(ctx, args.agreementId);
     return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
+  },
+});
+
+export const getAgreementForReview = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
+  },
+});
+
+export const getAcceptedAgreementForParent = query({
+  args: {
+    jobId: v.id("jobs"),
+    viewerWallet: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAcceptedAgreementForJob(ctx, args.jobId);
+    if (!agreement) return null;
+    return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
+  },
+});
+
+export const getAgreementStatusForParent = query({
+  args: {
+    jobId: v.id("jobs"),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getActiveAgreementByJob(ctx, args.jobId);
+    return {
+      status: agreement?.status ?? null,
+      agreementId: agreement?._id ?? null,
+      agreementHash: agreement?.agreementHash ?? null,
+    };
   },
 });
 
@@ -100,6 +144,8 @@ export const getWorkAgreementEvents = query({
   },
 });
 
+export const getAgreementEvents = getWorkAgreementEvents;
+
 export const canCreateWorkAgreement = query({
   args: {
     jobId: v.id("jobs"),
@@ -116,6 +162,100 @@ export const canCreateWorkAgreement = query({
         reason: error instanceof Error ? error.message : "Work agreement cannot be created.",
       };
     }
+  },
+});
+
+export const canSendAgreement = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      await assertCanSendAgreement(ctx, args);
+      return { allowed: true, reason: null };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason: error instanceof Error ? error.message : "Agreement cannot be sent.",
+      };
+    }
+  },
+});
+
+export const canAcceptAgreement = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      await assertCanAcceptAgreement(ctx, args);
+      return { allowed: true, reason: null };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason: error instanceof Error ? error.message : "Agreement cannot be accepted.",
+      };
+    }
+  },
+});
+
+export const canRejectAgreement = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      await assertCanRejectAgreement(ctx, args);
+      return { allowed: true, reason: null };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason: error instanceof Error ? error.message : "Agreement cannot be rejected.",
+      };
+    }
+  },
+});
+
+export const canLockAgreement = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      await assertCanLockAgreement(ctx, {
+        agreementId: args.agreementId,
+        ...(args.walletAddress ? { actorWallet: args.walletAddress } : {}),
+      });
+      return { allowed: true, reason: null };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason: error instanceof Error ? error.message : "Agreement cannot be locked.",
+      };
+    }
+  },
+});
+
+export const hasAcceptedAgreement = query({
+  args: {
+    jobId: v.id("jobs"),
+  },
+  handler: async (ctx, args) => {
+    return await hasAcceptedAgreementForJob(ctx, args.jobId);
+  },
+});
+
+export const requiresAcceptedAgreement = query({
+  args: {
+    jobId: v.id("jobs"),
+  },
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    return job ? requiresAcceptedAgreementForParent(job) : true;
   },
 });
 

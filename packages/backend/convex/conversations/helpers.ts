@@ -90,6 +90,10 @@ export function formatEventMessage(eventType: TMessageEventType): string {
     cancellation_on_chain_failed: "On-chain cancellation failed.",
     cancellation_withdrawn: "Cancellation request was withdrawn.",
     cancellation_expired: "Cancellation request expired.",
+    agreement_sent: "Work agreement was sent.",
+    agreement_accepted: "Work agreement was accepted.",
+    agreement_rejected: "Work agreement was rejected.",
+    agreement_locked: "Work agreement was locked.",
   };
 
   return labels[eventType];

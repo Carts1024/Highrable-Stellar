@@ -40,6 +40,10 @@ const notificationTypeEnum = createStringEnum([
   "cancellation_blocked",
   "cancellation_withdrawn",
   "cancellation_expired",
+  "agreement_sent",
+  "agreement_accepted",
+  "agreement_rejected",
+  "agreement_locked",
 ] as const);
 
 export const deadlineParentTypeValidator = deadlineParentTypeEnum.validator;

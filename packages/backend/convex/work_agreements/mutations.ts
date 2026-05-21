@@ -4,12 +4,22 @@ import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { walletTypeValidator } from "../users/schema";
 import {
+  assertCanAcceptAgreement,
   assertCanCreateWorkAgreement,
   assertCanEditWorkAgreement,
+  assertCanLockAgreement,
+  assertCanRejectAgreement,
+  assertCanSendAgreement,
   assertCanViewWorkAgreement,
+  buildAgreementHashManifest,
+  buildAgreementImmutableSnapshot,
   buildAgreementSnapshot,
   buildBaseAgreementFields,
+  createAgreementNotification,
+  createAgreementSystemMessage,
   createWorkAgreementEvent as insertWorkAgreementEvent,
+  hashAgreementManifest,
+  lockWorkAgreementForCommitment,
   renderHighrableAgreementMarkdown,
   resolveAgreementSource,
   sanitizeAgreementUpdate,
@@ -18,6 +28,8 @@ import {
 import {
   agreementActorRoleValidator,
   agreementEventTypeValidator,
+  agreementLockReasonValidator,
+  agreementLockedByValidator,
   agreementStatusValidator,
 } from "./schema";
 
@@ -303,6 +315,295 @@ export const markWorkAgreementReadyToSend = mutation({
   },
 });
 
+export const sendAgreementForAcceptance = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async (ctx, args) => {
+    const { agreement, walletAddress, freelancerWalletType } = await assertCanSendAgreement(
+      ctx,
+      args,
+    );
+    const now = Date.now();
+    await ctx.db.patch(args.agreementId, {
+      status: "pending_acceptance",
+      sentToFreelancerAt: now,
+      freelancerWalletType,
+      updatedAt: now,
+    });
+    const updatedAgreement = {
+      ...agreement,
+      status: "pending_acceptance" as const,
+      sentToFreelancerAt: now,
+      freelancerWalletType,
+      updatedAt: now,
+    };
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_sent",
+      actorWallet: walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "client",
+      message: "Client sent the work agreement for freelancer review.",
+      oldStatus: agreement.status,
+      newStatus: "pending_acceptance",
+    });
+    await createAgreementSystemMessage(ctx, {
+      agreement: updatedAgreement,
+      eventType: "agreement_sent",
+      body: "Work agreement sent: Client sent the agreement for freelancer review.",
+    });
+    if (agreement.freelancerWallet) {
+      await createAgreementNotification(ctx, {
+        recipientWallet: agreement.freelancerWallet,
+        recipientWalletType: freelancerWalletType,
+        type: "agreement_sent",
+        title: "Work agreement ready for review",
+        body: "The client sent a work agreement for your review.",
+        jobId: agreement.jobId,
+        ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+        ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+        agreementId: args.agreementId,
+      });
+    }
+    return true;
+  },
+});
+
+export const recordAgreementViewed = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    const viewerWallet = await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_viewed_by_freelancer",
+      actorWallet: viewerWallet,
+      actorWalletType: args.walletType,
+      actorRole: viewerWallet === agreement.freelancerWallet ? "freelancer" : "client",
+      message: "Work agreement viewed.",
+      oldStatus: agreement.status,
+      newStatus: agreement.status,
+    });
+    return true;
+  },
+});
+
+export const acceptWorkAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async (ctx, args) => {
+    const { agreement, walletAddress } = await assertCanAcceptAgreement(ctx, args);
+    const acceptedAt = Date.now();
+    const immutableSnapshot = await buildAgreementImmutableSnapshot(ctx, {
+      agreement,
+      acceptedAt,
+      freelancerWalletType: args.walletType,
+    });
+    const manifest = await buildAgreementHashManifest(ctx, { agreement, immutableSnapshot });
+    const agreementHash = await hashAgreementManifest(manifest);
+    await ctx.db.patch(args.agreementId, {
+      status: "accepted",
+      acceptedByFreelancerAt: acceptedAt,
+      acceptedByFreelancerWallet: walletAddress,
+      acceptedByFreelancerWalletType: args.walletType,
+      immutableSnapshot,
+      agreementHash,
+      hashAlgorithm: "sha256",
+      hashEncoding: "hex",
+      acceptedSnapshotHash: agreementHash,
+      updatedAt: acceptedAt,
+    });
+    const updatedAgreement = {
+      ...agreement,
+      status: "accepted" as const,
+      agreementHash,
+      immutableSnapshot,
+      acceptedByFreelancerAt: acceptedAt,
+      acceptedByFreelancerWallet: walletAddress,
+      acceptedByFreelancerWalletType: args.walletType,
+      updatedAt: acceptedAt,
+    };
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_hash_generated",
+      actorWallet: walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "freelancer",
+      message: "Agreement hash generated.",
+      oldStatus: agreement.status,
+      newStatus: "accepted",
+      metadata: { agreementHash, hashAlgorithm: "sha256", hashEncoding: "hex" },
+    });
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_accepted",
+      actorWallet: walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "freelancer",
+      message: "Freelancer accepted the work agreement.",
+      oldStatus: agreement.status,
+      newStatus: "accepted",
+      metadata: { agreementHash },
+    });
+    await createAgreementSystemMessage(ctx, {
+      agreement: updatedAgreement,
+      eventType: "agreement_accepted",
+      body: "Work agreement accepted: Freelancer accepted the agreement.",
+      agreementHash,
+    });
+    await createAgreementNotification(ctx, {
+      recipientWallet: agreement.clientWallet,
+      recipientWalletType: agreement.clientWalletType,
+      type: "agreement_accepted",
+      title: "Work agreement accepted",
+      body: "The selected freelancer accepted the work agreement.",
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      agreementId: args.agreementId,
+      agreementHash,
+    });
+    return { agreementHash };
+  },
+});
+
+export const rejectWorkAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    rejectionReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { agreement, walletAddress } = await assertCanRejectAgreement(ctx, args);
+    const now = Date.now();
+    const rejectionReason = args.rejectionReason?.replace(/\r\n?/g, "\n").trim().slice(0, 1000);
+    await ctx.db.patch(args.agreementId, {
+      status: "rejected",
+      rejectedByFreelancerAt: now,
+      rejectedByFreelancerWallet: walletAddress,
+      rejectedByFreelancerWalletType: args.walletType,
+      ...(rejectionReason ? { rejectionReason } : {}),
+      updatedAt: now,
+    });
+    const updatedAgreement = { ...agreement, status: "rejected" as const, updatedAt: now };
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_rejected",
+      actorWallet: walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "freelancer",
+      message: "Freelancer rejected the work agreement.",
+      oldStatus: agreement.status,
+      newStatus: "rejected",
+      ...(rejectionReason ? { metadata: { rejectionReason } } : {}),
+    });
+    await createAgreementSystemMessage(ctx, {
+      agreement: updatedAgreement,
+      eventType: "agreement_rejected",
+      body: "Work agreement rejected: Freelancer rejected the agreement.",
+    });
+    await createAgreementNotification(ctx, {
+      recipientWallet: agreement.clientWallet,
+      recipientWalletType: agreement.clientWalletType,
+      type: "agreement_rejected",
+      title: "Work agreement rejected",
+      body: "The selected freelancer rejected the work agreement.",
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      agreementId: args.agreementId,
+    });
+    return true;
+  },
+});
+
+export const confirmAcceptedAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    if (agreement.clientWallet !== args.walletAddress) {
+      throw new BadRequestError("Only the client can confirm this agreement.");
+    }
+    if (agreement.status !== "accepted") {
+      throw new BadRequestError("Only accepted agreements can be confirmed.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.agreementId, {
+      clientConfirmedAt: now,
+      clientConfirmedByWallet: args.walletAddress,
+      clientConfirmedByWalletType: args.walletType,
+      updatedAt: now,
+    });
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "client_confirmation_recorded",
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "client",
+      message: "Client confirmed the accepted work agreement.",
+      oldStatus: agreement.status,
+      newStatus: agreement.status,
+    });
+    return true;
+  },
+});
+
+export const lockWorkAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    lockedBy: v.optional(agreementLockedByValidator),
+    lockReason: v.optional(agreementLockReasonValidator),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await assertCanLockAgreement(ctx, {
+      agreementId: args.agreementId,
+      actorWallet: args.walletAddress,
+    });
+    return await lockWorkAgreementForCommitment(ctx, {
+      agreement,
+      lockedBy: args.lockedBy ?? "client",
+      lockReason: args.lockReason ?? "manual_lock",
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+    });
+  },
+});
+
 export const cancelWorkAgreementDraft = mutation({
   args: {
     agreementId: v.id("workAgreements"),
@@ -326,6 +627,64 @@ export const cancelWorkAgreementDraft = mutation({
       message: "Work agreement draft cancelled.",
       oldStatus: agreement.status,
       newStatus: "cancelled",
+    });
+    return true;
+  },
+});
+
+export const cancelPendingAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    statusReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    if (agreement.clientWallet !== args.walletAddress) {
+      throw new BadRequestError("Only the client can cancel this agreement.");
+    }
+    if (
+      agreement.status !== "draft" &&
+      agreement.status !== "pending_preview" &&
+      agreement.status !== "ready_to_send" &&
+      agreement.status !== "pending_acceptance" &&
+      agreement.status !== "accepted"
+    ) {
+      throw new BadRequestError("This agreement cannot be cancelled.");
+    }
+    const job = await ctx.db.get(agreement.jobId);
+    const escrow = agreement.escrowId ? await ctx.db.get(agreement.escrowId) : null;
+    if (
+      agreement.status === "accepted" &&
+      (job?.status === "funded" || job?.status === "submitted" || escrow?.status === "funded")
+    ) {
+      throw new BadRequestError(
+        "Accepted agreement cannot be cancelled after work starts or escrow is funded.",
+      );
+    }
+    const now = Date.now();
+    const statusReason = args.statusReason?.trim().slice(0, 500);
+    await ctx.db.patch(args.agreementId, {
+      status: "cancelled",
+      ...(statusReason ? { statusReason } : {}),
+      updatedAt: now,
+    });
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: args.agreementId,
+      jobId: agreement.jobId,
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_cancelled",
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: "client",
+      message: "Work agreement flow cancelled.",
+      oldStatus: agreement.status,
+      newStatus: "cancelled",
+      ...(statusReason ? { metadata: { statusReason } } : {}),
     });
     return true;
   },

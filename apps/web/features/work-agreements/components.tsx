@@ -12,9 +12,12 @@ import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Checkbox } from "@repo/ui/components/ui/checkbox";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
+import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
-import { FileText, Loader2, RefreshCw, Send, Upload, X } from "lucide-react";
+import { Check, FileText, Loader2, Lock, RefreshCw, Send, Upload, X } from "lucide-react";
+import Link from "next/link";
 import { useRef, useState } from "react";
 
 import type { TAttachmentType } from "@/features/attachments/types";
@@ -29,6 +32,9 @@ type TAgreementStatus =
   | "pending_preview"
   | "ready_to_send"
   | "pending_acceptance"
+  | "accepted"
+  | "locked"
+  | "rejected"
   | "cancelled";
 
 type TWorkAgreement = TConvexDoc<"workAgreements"> & {
@@ -48,14 +54,25 @@ function getAgreementStatusLabel(status?: TAgreementStatus): string {
     pending_preview: "Pending preview",
     ready_to_send: "Ready to send",
     pending_acceptance: "Pending acceptance",
+    accepted: "Accepted",
+    locked: "Locked",
+    rejected: "Rejected",
     cancelled: "Cancelled",
   };
   return status ? labels[status] : "No agreement";
 }
 
 export function AgreementStatusBadge({ status }: { status?: TAgreementStatus }) {
+  const border =
+    status === "accepted" || status === "locked"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-50"
+      : status === "rejected" || status === "cancelled"
+        ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-50"
+        : "border-[#d8d8d8] bg-white text-[#0a0a0a] hover:bg-white";
   return (
-    <Badge className="rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] tracking-[0.08em] text-[#0a0a0a] uppercase hover:bg-white">
+    <Badge
+      className={`rounded-md border px-2 py-1 font-mono text-[0.65rem] tracking-[0.08em] uppercase ${border}`}
+    >
       {getAgreementStatusLabel(status)}
     </Badge>
   );
@@ -78,9 +95,9 @@ export function AgreementSourceBadge({ type }: { type?: TAgreementType }) {
 export function AgreementLegalDisclaimer() {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-      This Highrable-generated agreement is provided as a workflow template and is not legal
-      advice. For high-value, regulated, or jurisdiction-specific work, both parties should consult
-      a qualified professional.
+      This Highrable-generated agreement is provided as a workflow template and is not legal advice.
+      For high-value, regulated, or jurisdiction-specific work, both parties should consult a
+      qualified professional.
     </div>
   );
 }
@@ -231,6 +248,7 @@ function ClientUploadedAgreementPicker({
       <input
         ref={inputRef}
         type="file"
+        aria-label="Agreement file"
         accept={AGREEMENT_ACCEPT}
         className="hidden"
         onChange={(event) => {
@@ -349,9 +367,7 @@ function AgreementSummaryCard({ agreement }: { agreement: TWorkAgreement }) {
         </dd>
       </div>
       <div className="border border-[#e8e8e8] bg-white p-3">
-        <dt className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-          Freelancer
-        </dt>
+        <dt className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">Freelancer</dt>
         <dd className="mt-1 font-semibold text-[#0a0a0a]">
           {shortenWalletAddress(agreement.freelancerWallet)}
         </dd>
@@ -364,21 +380,26 @@ function AgreementActions({
   agreement,
   disabled,
   onRegenerate,
-  onReady,
+  onSend,
+  onLock,
   onCancel,
 }: {
   agreement: TWorkAgreement;
   disabled?: boolean;
   onRegenerate: () => Promise<void>;
-  onReady: () => Promise<void>;
+  onSend: () => Promise<void>;
+  onLock: () => Promise<void>;
   onCancel: () => Promise<void>;
 }) {
   const editable = agreement.status === "draft" || agreement.status === "pending_preview";
-  if (!editable) return null;
+  const sendable =
+    agreement.status === "draft" ||
+    agreement.status === "pending_preview" ||
+    agreement.status === "ready_to_send";
 
   return (
     <div className="flex flex-wrap gap-2">
-      {agreement.agreementType === "highrable_generated" ? (
+      {editable && agreement.agreementType === "highrable_generated" ? (
         <AppButton
           type="button"
           variant="secondary"
@@ -390,15 +411,28 @@ function AgreementActions({
           Regenerate
         </AppButton>
       ) : null}
-      <AppButton
-        type="button"
-        disabled={disabled}
-        onClick={() => void onReady()}
-        className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
-      >
-        <Send className="mr-2 h-4 w-4" />
-        Mark ready to send
-      </AppButton>
+      {sendable ? (
+        <AppButton
+          type="button"
+          disabled={disabled}
+          onClick={() => void onSend()}
+          className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+        >
+          <Send className="mr-2 h-4 w-4" />
+          Send agreement
+        </AppButton>
+      ) : null}
+      {agreement.status === "accepted" ? (
+        <AppButton
+          type="button"
+          disabled={disabled}
+          onClick={() => void onLock()}
+          className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+        >
+          <Lock className="mr-2 h-4 w-4" />
+          Lock agreement
+        </AppButton>
+      ) : null}
       <AppButton
         type="button"
         variant="secondary"
@@ -407,9 +441,208 @@ function AgreementActions({
         className="rounded-none"
       >
         <X className="mr-2 h-4 w-4" />
-        Cancel draft
+        Cancel
       </AppButton>
+      {agreement.status === "pending_acceptance" && agreement.freelancerWallet ? (
+        <AppButton asChild type="button" variant="secondary" className="rounded-none">
+          <Link href={`/work-agreements/${agreement._id}/review`}>Review link</Link>
+        </AppButton>
+      ) : null}
     </div>
+  );
+}
+
+export function FreelancerAgreementReview({
+  agreementId,
+}: {
+  agreementId: TConvexId<"workAgreements">;
+}) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const agreement = useQuery(
+    api.work_agreements.getAgreementForReview,
+    walletIdentity.walletAddress
+      ? { agreementId, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  ) as TWorkAgreement | null | undefined;
+  const recordViewed = useMutation(api.work_agreements.recordAgreementViewed);
+  const acceptAgreement = useMutation(api.work_agreements.acceptWorkAgreement);
+  const rejectAgreement = useMutation(api.work_agreements.rejectWorkAgreement);
+  const [accepted, setAccepted] = useState(false);
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const walletAddress = walletIdentity.walletAddress;
+  const walletType = walletIdentity.walletType as TWalletType | null;
+
+  const run = async (action: "accept" | "reject") => {
+    if (!walletAddress || !walletType) {
+      setError("Missing wallet identity.");
+      return;
+    }
+    if (action === "accept" && !accepted) {
+      setError("Review and accept the agreement terms before continuing.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (action === "accept") {
+        const result = await acceptAgreement({ agreementId, walletAddress, walletType });
+        setMessage(`Agreement accepted. Hash: ${result.agreementHash}`);
+      } else {
+        await rejectAgreement({
+          agreementId,
+          walletAddress,
+          walletType,
+          ...(reason.trim() ? { rejectionReason: reason.trim() } : {}),
+        });
+        setMessage("Agreement rejected.");
+      }
+    } catch (actionError) {
+      setError(getReadableError(actionError, "Agreement action failed."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!walletAddress) {
+    return (
+      <section className="border border-[#d8d8d8] bg-white p-6">
+        <p className="text-sm text-[#5f5f5f]">
+          Connect the selected freelancer wallet to review this agreement.
+        </p>
+      </section>
+    );
+  }
+
+  if (agreement === undefined)
+    return <p className="text-sm text-[#5f5f5f]">Loading agreement...</p>;
+  if (!agreement) return <p className="text-sm text-[#5f5f5f]">Agreement not found.</p>;
+
+  const viewOnce = () => {
+    if (!walletAddress || !walletType) return;
+    void recordViewed({ agreementId, walletAddress, walletType });
+  };
+
+  return (
+    <section className="space-y-5 border border-[#d8d8d8] bg-white p-6" onMouseEnter={viewOnce}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+            Work agreement review
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">{agreement.title}</h1>
+        </div>
+        <div className="flex gap-2">
+          <AgreementSourceBadge type={agreement.agreementType} />
+          <AgreementStatusBadge status={agreement.status} />
+        </div>
+      </div>
+      <AgreementSummaryCard agreement={agreement} />
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div className="border border-[#e8e8e8] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            {agreement.revisionPolicy ?? "Not specified"}{" "}
+            {agreement.revisionLimit !== undefined
+              ? `(limit ${agreement.revisionLimit ?? "none"})`
+              : ""}
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Deadline</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            {agreement.deadlineAt
+              ? new Date(agreement.deadlineAt).toLocaleString()
+              : "Milestone deadlines apply if configured."}
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Cancellation</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            Cancellation follows Highrable workflow rules, funding state, overdue state, and dispute
+            outcome where applicable.
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Disputes and protection</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            Evidence can include proof, revisions, deadlines, chat, and attachments. Pre-settlement
+            previews may be protected and access-logged.
+          </dd>
+        </div>
+      </dl>
+      {agreement.agreementType === "client_uploaded" ? (
+        <div className="space-y-3">
+          <div className="border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            I understand this agreement was uploaded by the client. Highrable stores it as part of
+            the work record but does not provide legal advice.
+          </div>
+          {agreement.sourceAttachment ? (
+            <AttachmentPreviewCard attachment={agreement.sourceAttachment} readOnly />
+          ) : null}
+        </div>
+      ) : (
+        <>
+          <AgreementLegalDisclaimer />
+          <AgreementMarkdownPreview markdown={agreement.contentMarkdown} />
+        </>
+      )}
+      {agreement.agreementHash ? (
+        <p className="border border-[#e8e8e8] bg-[#fafafa] p-3 font-mono text-xs break-all text-[#0a0a0a]">
+          SHA-256: {agreement.agreementHash}
+        </p>
+      ) : null}
+      {agreement.status === "pending_acceptance" ? (
+        <div className="space-y-4 border border-[#d8d8d8] p-4">
+          <label htmlFor="accept-work-agreement" className="flex gap-3 text-sm text-[#0a0a0a]">
+            <Checkbox
+              id="accept-work-agreement"
+              checked={accepted}
+              onCheckedChange={(value) => setAccepted(value === true)}
+            />
+            <span>
+              I have reviewed the work agreement and accept the scope, payment terms, deadlines,
+              revision policy, cancellation rules, dispute process, and Highrable workflow terms.
+            </span>
+          </label>
+          <Textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Optional rejection reason"
+            className="rounded-none border-[#d8d8d8]"
+          />
+          <div className="flex flex-wrap gap-2">
+            <AppButton
+              disabled={isSubmitting || !accepted}
+              onClick={() => void run("accept")}
+              className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-2 h-4 w-4" />
+              )}
+              Accept agreement
+            </AppButton>
+            <AppButton
+              disabled={isSubmitting}
+              variant="secondary"
+              onClick={() => void run("reject")}
+              className="rounded-none"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Reject
+            </AppButton>
+          </div>
+        </div>
+      ) : null}
+      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+    </section>
   );
 }
 
@@ -428,8 +661,10 @@ export function WorkAgreementSetupPanel({
   const generateAgreement = useMutation(api.work_agreements.generateHighrableWorkAgreement);
   const createUploadedAgreement = useMutation(api.work_agreements.createClientUploadedAgreement);
   const regenerateAgreement = useMutation(api.work_agreements.regenerateHighrableWorkAgreement);
-  const markReady = useMutation(api.work_agreements.markWorkAgreementReadyToSend);
+  const sendAgreement = useMutation(api.work_agreements.sendAgreementForAcceptance);
+  const lockAgreement = useMutation(api.work_agreements.lockWorkAgreement);
   const cancelDraft = useMutation(api.work_agreements.cancelWorkAgreementDraft);
+  const cancelPending = useMutation(api.work_agreements.cancelPendingAgreement);
 
   const [agreementType, setAgreementType] = useState<TAgreementType>("highrable_generated");
   const [uploadedAttachmentId, setUploadedAttachmentId] = useState<TConvexId<"attachments"> | null>(
@@ -453,7 +688,9 @@ export function WorkAgreementSetupPanel({
     try {
       if (agreementType === "client_uploaded") {
         if (!uploadedAttachmentId) {
-          throw new Error("Select a supported agreement file, such as PDF, DOCX, Markdown, or text.");
+          throw new Error(
+            "Select a supported agreement file, such as PDF, DOCX, Markdown, or text.",
+          );
         }
         await createUploadedAgreement({
           jobId,
@@ -502,8 +739,7 @@ export function WorkAgreementSetupPanel({
           </p>
           <h2 className="mt-1 text-lg font-semibold text-[#0a0a0a]">Agreement</h2>
           <p className="mt-1 text-sm text-[#5f5f5f]">
-            Create and preview a workflow agreement for this work. Acceptance controls are not
-            enforced yet.
+            Create, send, accept, and lock the workflow agreement for this work.
           </p>
         </div>
         {agreement ? (
@@ -564,28 +800,41 @@ export function WorkAgreementSetupPanel({
                 "Agreement could not be regenerated.",
               )
             }
-            onReady={() =>
+            onSend={() =>
               runAgreementAction(
                 () =>
-                  markReady({
+                  sendAgreement({
                     agreementId: agreement._id,
                     walletAddress: walletAddress!,
                     walletType: walletType!,
-                    status: "ready_to_send",
                   }),
-                "Agreement could not be marked ready.",
+                "Agreement could not be sent.",
+              )
+            }
+            onLock={() =>
+              runAgreementAction(
+                () =>
+                  lockAgreement({
+                    agreementId: agreement._id,
+                    walletAddress: walletAddress!,
+                    walletType: walletType!,
+                    lockedBy: "client",
+                    lockReason: "manual_lock",
+                  }),
+                "Agreement could not be locked.",
               )
             }
             onCancel={() =>
-              runAgreementAction(
-                () =>
-                  cancelDraft({
-                    agreementId: agreement._id,
-                    walletAddress: walletAddress!,
-                    walletType: walletType!,
-                  }),
-                "Agreement could not be cancelled.",
-              )
+              runAgreementAction(() => {
+                const args = {
+                  agreementId: agreement._id,
+                  walletAddress: walletAddress!,
+                  walletType: walletType!,
+                };
+                return agreement.status === "draft" || agreement.status === "pending_preview"
+                  ? cancelDraft(args)
+                  : cancelPending(args);
+              }, "Agreement could not be cancelled.")
             }
           />
         </AgreementPreviewShell>

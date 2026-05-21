@@ -15,6 +15,7 @@ import {
   isRevisionEnabledPolicy,
   resolveRevisionParent,
 } from "../revisions/helpers";
+import { assertAgreementAcceptedForProofSubmission } from "../work_agreements/helpers";
 
 const PROOF_HASH_PATTERN = /^[0-9a-f]{64}$/;
 const IMMUTABLE_STATUSES = new Set([
@@ -69,10 +70,11 @@ export async function getEscrowByOnChainIdOrThrow(ctx: QueryCtx, onChainEscrowId
 }
 
 export async function assertCanCreateSubmission(
-  ctx: QueryCtx,
+  ctx: MutationCtx,
   input: {
     onChainEscrowId: string;
     submittedByWallet: string;
+    submittedByWalletType?: import("../users/schema").TWalletType;
     revisionRequestId?: Id<"revisionRequests">;
   },
 ) {
@@ -110,6 +112,12 @@ export async function assertCanCreateSubmission(
   if (!job) {
     throw new NotFoundError("Job not found.");
   }
+  await assertAgreementAcceptedForProofSubmission(ctx, {
+    job,
+    escrowId: escrow._id,
+    actorWallet: submittedByWallet,
+    ...(input.submittedByWalletType ? { actorWalletType: input.submittedByWalletType } : {}),
+  });
 
   const parentType: TWorkSubmissionParentType =
     escrow.milestoneId !== undefined ? "milestone" : "micro_gig";

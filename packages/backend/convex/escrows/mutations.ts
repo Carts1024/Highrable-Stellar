@@ -10,6 +10,10 @@ import {
 import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
 import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import {
+  assertAgreementAcceptedForWorkStart,
+  lockAcceptedAgreementForJob,
+} from "../work_agreements/helpers";
+import {
   assertEscrowCreationAllowed,
   getEscrowByEscrowIdOrThrow,
   getEscrowTxFieldByType,
@@ -59,6 +63,12 @@ export const createEscrowRecord = mutation({
       clientWallet,
       freelancerWallet,
     });
+    if (status === "funded") {
+      await assertAgreementAcceptedForWorkStart(ctx, {
+        job,
+        actorWallet: clientWallet,
+      });
+    }
 
     const now = Date.now();
     const escrowRecordId = await ctx.db.insert("escrows", {
@@ -76,6 +86,14 @@ export const createEscrowRecord = mutation({
     });
 
     if (status === "funded") {
+      await lockAcceptedAgreementForJob(ctx, {
+        jobId: args.jobId,
+        lockedBy: "escrow_funding",
+        lockReason: "escrow_funded",
+        actorWallet: clientWallet,
+        escrowId: escrowRecordId,
+        onChainEscrowId: escrowId,
+      });
       await ctx.db.patch(args.jobId, {
         status: "funded",
         ...(freelancerWallet !== undefined ? { selectedFreelancerWallet: freelancerWallet } : {}),
@@ -181,6 +199,14 @@ export const updateEscrowStatus = mutation({
     }
 
     const escrow = await getEscrowByEscrowIdOrThrow(ctx, escrowId);
+    const existingJob = await ctx.db.get(escrow.jobId);
+    if (args.status === "funded" && existingJob) {
+      await assertAgreementAcceptedForWorkStart(ctx, {
+        job: existingJob,
+        escrowId: escrow._id,
+        actorWallet: escrow.clientWallet,
+      });
+    }
     if (args.status === "released" || args.status === "cancelled") {
       await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: escrow._id });
     }
@@ -205,6 +231,17 @@ export const updateEscrowStatus = mutation({
     }
 
     await ctx.db.patch(escrow._id, escrowPatch);
+
+    if (args.status === "funded") {
+      await lockAcceptedAgreementForJob(ctx, {
+        jobId: escrow.jobId,
+        lockedBy: "escrow_funding",
+        lockReason: "escrow_funded",
+        actorWallet: escrow.clientWallet,
+        escrowId: escrow._id,
+        onChainEscrowId: escrow.escrowId,
+      });
+    }
 
     if (escrow.milestoneId !== undefined) {
       await patchMilestoneForEscrowStatus(ctx, {

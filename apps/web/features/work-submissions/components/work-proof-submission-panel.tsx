@@ -101,6 +101,9 @@ export function WorkProofSubmissionPanel({
     api.revisions.getRevisionTimeline,
     viewerWallet ? { parentType, parentId, viewerWallet } : "skip",
   );
+  const agreementStatus = useQuery(api.work_agreements.getAgreementStatusForParent, {
+    jobId: job._id,
+  });
   const attachmentIds = getReadyAttachmentIds(draftAttachments);
   const revisionAttachmentIds = getReadyAttachmentIds(revisionAttachments);
   const attachmentDocs = useQuery(
@@ -138,6 +141,8 @@ export function WorkProofSubmissionPanel({
   const isPreviewEnabled =
     revisionPolicy?.revisionPolicy === "fixed" || revisionPolicy?.revisionPolicy === "unlimited";
   const isRevisionPolicyLoading = viewerWallet !== undefined && revisionPolicy === undefined;
+  const agreementAccepted =
+    agreementStatus?.status === "accepted" || agreementStatus?.status === "locked";
   const canViewProof =
     walletIdentity.isConnected &&
     (isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? null) ||
@@ -145,12 +150,14 @@ export function WorkProofSubmissionPanel({
   const canSubmitOriginal =
     Boolean(escrow?.escrowId) &&
     escrow?.status === "funded" &&
+    agreementAccepted &&
     !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
   const canSubmitRevision =
     Boolean(escrow?.escrowId) &&
     (escrow?.status === "funded" || escrow?.status === "submitted") &&
+    agreementAccepted &&
     Boolean(activeRevision) &&
     !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
@@ -451,6 +458,16 @@ export function WorkProofSubmissionPanel({
           </Badge>
         ) : null}
       </div>
+
+      {!agreementAccepted ? (
+        <div className="border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {agreementStatus?.status === "pending_acceptance"
+            ? "The selected freelancer must accept the agreement before proof can be submitted."
+            : agreementStatus?.status === "rejected"
+              ? "This agreement was rejected. Create a new agreement before continuing."
+              : "A work agreement must be accepted before proof can be submitted."}
+        </div>
+      ) : null}
 
       <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
         <p className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</p>
