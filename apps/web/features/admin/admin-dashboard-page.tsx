@@ -3,59 +3,22 @@
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import {
+  AdminBreakdownMatrix,
+  AdminDisputeQueue,
+  AdminMetricRail,
+  AdminSection,
+  type IAdminBreakdownGroup,
+  type IAdminMetricItem,
+} from "@/features/admin/components/admin-operations-ui";
 import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
-import { ProductPageHero, RouteCallout, RouteEmptyState, RoutePanel } from "@/features/common";
+import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
-import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
-import { formatDisputeDate } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { cn } from "@repo/ui/lib/utils";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminDashboardMetrics } from "@/features/admin/types";
-
-interface ISummaryMetricCardProps {
-  readonly label: string;
-  readonly value: number;
-  readonly className?: string;
-}
-
-function CountTable({
-  title,
-  values,
-}: {
-  readonly title: string;
-  readonly values: Record<string, number>;
-}) {
-  const rows = useMemo(
-    () => Object.entries(values).sort(([a], [b]) => a.localeCompare(b)),
-    [values],
-  );
-
-  return (
-    <RoutePanel className="p-4">
-      <h2 className="hr-text-primary text-sm font-semibold tracking-wide uppercase">{title}</h2>
-      <div className="mt-3 space-y-2 text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center justify-between gap-3">
-            <span className="hr-text-secondary">{label.replaceAll("_", " ")}</span>
-            <span className="hr-text-primary font-medium">{value}</span>
-          </div>
-        ))}
-      </div>
-    </RoutePanel>
-  );
-}
-
-function SummaryMetricCard({ label, value, className }: ISummaryMetricCardProps) {
-  return (
-    <RoutePanel className={cn("p-4", className)}>
-      <p className="hr-label-caps hr-text-muted">{label}</p>
-      <p className="hr-text-primary mt-2 text-2xl font-semibold">{value}</p>
-    </RoutePanel>
-  );
-}
 
 export function AdminDashboardPage() {
   const { role, isLoading: isRoleLoading } = useDashboardRole();
@@ -84,6 +47,98 @@ export function AdminDashboardPage() {
 
     void loadMetrics();
   }, [authSession, loadMetrics, role]);
+
+  const platformMetrics = useMemo<readonly IAdminMetricItem[]>(() => {
+    if (!metrics) {
+      return [];
+    }
+
+    return [
+      {
+        label: "Users",
+        value: metrics.users.total,
+        description: "Wallet identities known to the platform.",
+      },
+      {
+        label: "Jobs",
+        value: metrics.jobs.total,
+        description: "Posted work across active and terminal states.",
+      },
+      {
+        label: "Escrows",
+        value: metrics.escrows.total,
+        description: "Payment protection records mirrored from workflow activity.",
+      },
+      {
+        label: "Disputes",
+        value: metrics.disputes.total,
+        description: "Manual review cases in the admin pipeline.",
+      },
+    ];
+  }, [metrics]);
+
+  const lifecycleGroups = useMemo<readonly IAdminBreakdownGroup[]>(() => {
+    if (!metrics) {
+      return [];
+    }
+
+    return [
+      {
+        title: "Users By Role",
+        description: "Access segmentation for client, freelancer, and admin wallets.",
+        values: metrics.users.byRole,
+      },
+      {
+        title: "Jobs By Status",
+        description: "Marketplace demand grouped by current work state.",
+        values: metrics.jobs.byStatus,
+      },
+      {
+        title: "Escrows By Status",
+        description: "Escrow-backed stats for funding, release, and dispute readiness.",
+        values: metrics.escrows.byStatus,
+      },
+      {
+        title: "Disputes By Status",
+        description: "Review queue state for open, waiting, and resolved cases.",
+        values: metrics.disputes.byStatus,
+      },
+      {
+        title: "Disputes By On-Chain",
+        description: "On-chain marking state for dispute settlement integrity.",
+        values: metrics.disputes.byOnChainStatus,
+      },
+    ];
+  }, [metrics]);
+
+  const workHistoryGroups = useMemo<readonly IAdminBreakdownGroup[]>(() => {
+    if (!metrics) {
+      return [];
+    }
+
+    return [
+      {
+        title: "Work Submissions",
+        description: "Verified review inputs grouped by submission status.",
+        values: metrics.workSubmissions.byStatus,
+      },
+      {
+        title: "Work On-Chain",
+        description: "Proof and work history sync health for on-chain records.",
+        values: metrics.workSubmissions.byOnChainStatus,
+      },
+      {
+        title: "Revisions By Status",
+        description: "Revision loop pressure across active work agreements.",
+        values: metrics.revisions.byStatus,
+      },
+      {
+        title: "Reminders By Status",
+        description: "Deadline reminder delivery state for overdue work prevention.",
+        values: metrics.deadlineReminders.byStatus,
+      },
+    ];
+  }, [metrics]);
 
   if (isRoleLoading) {
     return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
@@ -138,13 +193,14 @@ export function AdminDashboardPage() {
           {isLoading ? "Loading admin metrics..." : "No metrics available yet."}
         </RouteCallout>
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <SummaryMetricCard label="Users" value={metrics.users.total} />
-            <SummaryMetricCard label="Jobs" value={metrics.jobs.total} />
-            <SummaryMetricCard label="Escrows" value={metrics.escrows.total} />
-            <SummaryMetricCard label="Disputes" value={metrics.disputes.total} />
-          </div>
+        <div className="space-y-6">
+          <AdminSection
+            label="Operations Snapshot"
+            title="Platform totals"
+            description="A compact read on the core platform objects before drilling into lifecycle health."
+          >
+            <AdminMetricRail items={platformMetrics} />
+          </AdminSection>
 
           {metrics.isTruncated ? (
             <RouteCallout tone="warning">
@@ -153,72 +209,66 @@ export function AdminDashboardPage() {
             </RouteCallout>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <CountTable title="Users By Role" values={metrics.users.byRole} />
-            <CountTable title="Jobs By Status" values={metrics.jobs.byStatus} />
-            <CountTable title="Escrows By Status" values={metrics.escrows.byStatus} />
-            <CountTable title="Disputes By Status" values={metrics.disputes.byStatus} />
-            <CountTable title="Disputes By On-Chain" values={metrics.disputes.byOnChainStatus} />
-            <CountTable title="Work Submissions" values={metrics.workSubmissions.byStatus} />
-            <CountTable title="Work On-Chain" values={metrics.workSubmissions.byOnChainStatus} />
-            <CountTable title="Revisions By Status" values={metrics.revisions.byStatus} />
-            <CountTable title="Reminders By Status" values={metrics.deadlineReminders.byStatus} />
-            <RoutePanel className="p-4">
-              <h2 className="hr-text-primary text-sm font-semibold tracking-wide uppercase">
-                Deadline Overdue Count
-              </h2>
-              <p className="hr-text-primary mt-2 text-2xl font-semibold">
-                {metrics.deadlineReminders.overdueCount}
-              </p>
-            </RoutePanel>
-          </div>
+          <AdminSection
+            label="Escrow-backed Stats"
+            title="Lifecycle breakdown"
+            description="Grouped counts are organized by operational theme so unusual states are easier to scan."
+          >
+            <AdminBreakdownMatrix groups={lifecycleGroups} />
+          </AdminSection>
 
-          <RoutePanel className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="hr-text-primary text-lg font-semibold">Recent Disputes</h2>
+          <AdminSection
+            label="Verified Reviews"
+            title="Work history health"
+            description="Submission, revision, and reminder activity that feeds escrow-backed reputation."
+          >
+            <div className="space-y-5">
+              <AdminMetricRail
+                items={[
+                  {
+                    label: "Work submissions",
+                    value: metrics.workSubmissions.total,
+                    description: "Submitted deliverables available for review.",
+                  },
+                  {
+                    label: "Revisions",
+                    value: metrics.revisions.total,
+                    description: "Revision requests attached to active work.",
+                  },
+                  {
+                    label: "Reminders",
+                    value: metrics.deadlineReminders.total,
+                    description: "Deadline notices queued or delivered.",
+                  },
+                  {
+                    label: "Overdue",
+                    value: metrics.deadlineReminders.overdueCount,
+                    description: "Deadline overdue count requiring attention.",
+                  },
+                ]}
+              />
+              <AdminBreakdownMatrix groups={workHistoryGroups} />
+            </div>
+          </AdminSection>
+
+          <AdminSection
+            label="Work History"
+            title="Recent disputes"
+            description="Newest review cases that may affect escrow settlement and portable reputation."
+            action={
               <AppButton asChild variant="secondary" size="sm">
                 <Link href="/admin/disputes">View All</Link>
               </AppButton>
-            </div>
-
-            {metrics.recentDisputes.length === 0 ? (
-              <div className="mt-3">
-                <RouteEmptyState description="No disputes found." />
-              </div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {metrics.recentDisputes.map((dispute) => (
-                  <article key={dispute.disputeId} className="rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="hr-text-muted font-mono text-xs uppercase">
-                          {dispute.disputeNumber}
-                        </p>
-                        <h3 className="hr-text-primary mt-1 text-sm font-semibold">
-                          {dispute.title}
-                        </h3>
-                        <p className="hr-text-secondary mt-1 text-xs">
-                          Updated {formatDisputeDate(dispute.updatedAt)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <DisputeStatusBadge status={dispute.status} />
-                        <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
-                      </div>
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <AppButton asChild variant="secondary" size="sm">
-                        <Link href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}>
-                          Open Detail
-                        </Link>
-                      </AppButton>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </RoutePanel>
-        </>
+            }
+          >
+            <AdminDisputeQueue
+              disputes={metrics.recentDisputes}
+              actionLabel="Open Detail"
+              compact
+              emptyState={<RouteEmptyState description="No disputes found." />}
+            />
+          </AdminSection>
+        </div>
       )}
     </div>
   );

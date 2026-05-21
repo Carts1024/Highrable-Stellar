@@ -131,6 +131,10 @@ function DashboardCommandBar({
   readonly address?: string | null;
   readonly onModeChange: (mode: TDashboardMode) => void;
 }) {
+  const publicProfileHref = address
+    ? `/${mode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(address)}`
+    : null;
+
   return (
     <div className="border border-[#e8e8e8] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -147,9 +151,9 @@ function DashboardCommandBar({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {address ? (
+          {publicProfileHref ? (
             <AppButton asChild variant="secondary" size="sm" className="rounded-none">
-              <Link href={`/freelancers/${encodeURIComponent(address)}`}>View public profile</Link>
+              <Link href={publicProfileHref}>View public profile</Link>
             </AppButton>
           ) : null}
           <DashboardModeSwitch selectedMode={mode} onModeChange={onModeChange} />

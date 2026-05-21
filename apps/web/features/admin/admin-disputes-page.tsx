@@ -3,16 +3,31 @@
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import {
+  AdminDisputeQueue,
+  AdminMetricRail,
+  AdminSection,
+} from "@/features/admin/components/admin-operations-ui";
 import { fetchAdminDisputes } from "@/features/admin/lib/admin-api";
-import { RouteCallout, RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
+import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
-import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
-import { formatDisputeDate } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminDisputeListItem } from "@/features/admin/types";
+import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/types";
+
+const ADMIN_DISPUTE_LIMIT = 120;
+
+type TStatusFilter = "" | TDisputeStatus;
+type TOnChainFilter = "" | TDisputeOnChainStatus;
+
+interface IFilterOption<TValue extends string> {
+  readonly value: TValue;
+  readonly label: string;
+}
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -24,7 +39,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "resolved_freelancer", label: "Resolved freelancer" },
   { value: "split_resolution", label: "Split resolution" },
   { value: "cancelled", label: "Cancelled" },
-] as const;
+] satisfies readonly IFilterOption<TStatusFilter>[];
 
 const ON_CHAIN_FILTER_OPTIONS = [
   { value: "", label: "All on-chain states" },
@@ -32,13 +47,21 @@ const ON_CHAIN_FILTER_OPTIONS = [
   { value: "marking", label: "Marking" },
   { value: "marked", label: "Marked" },
   { value: "mark_failed", label: "Mark failed" },
-] as const;
+] satisfies readonly IFilterOption<TOnChainFilter>[];
+
+function isStatusFilter(value: string): value is TStatusFilter {
+  return STATUS_FILTER_OPTIONS.some((option) => option.value === value);
+}
+
+function isOnChainFilter(value: string): value is TOnChainFilter {
+  return ON_CHAIN_FILTER_OPTIONS.some((option) => option.value === value);
+}
 
 export function AdminDisputesPage() {
   const { role, isLoading: isRoleLoading } = useDashboardRole();
   const { authSession } = useWallet();
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [onChainFilter, setOnChainFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<TStatusFilter>("");
+  const [onChainFilter, setOnChainFilter] = useState<TOnChainFilter>("");
   const [disputes, setDisputes] = useState<IAdminDisputeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +74,7 @@ export function AdminDisputesPage() {
       const response = await fetchAdminDisputes({
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(onChainFilter ? { onChainStatus: onChainFilter } : {}),
-        limit: 120,
+        limit: ADMIN_DISPUTE_LIMIT,
       });
       setDisputes(response.disputes);
     } catch (nextError) {
@@ -69,6 +92,37 @@ export function AdminDisputesPage() {
 
     void loadDisputes();
   }, [authSession, loadDisputes, role]);
+
+  const queueMetrics = useMemo(
+    () => [
+      {
+        label: "Visible disputes",
+        value: disputes.length,
+        description: `Showing up to ${ADMIN_DISPUTE_LIMIT} cases for the selected filters.`,
+      },
+      {
+        label: "Open",
+        value: disputes.filter((dispute) => dispute.status === "open").length,
+        description: "New cases waiting for admin triage.",
+      },
+      {
+        label: "Mark failed",
+        value: disputes.filter((dispute) => dispute.onChainStatus === "mark_failed").length,
+        description: "Cases requiring on-chain retry attention.",
+      },
+      {
+        label: "Resolved",
+        value: disputes.filter(
+          (dispute) =>
+            dispute.status === "resolved_client" ||
+            dispute.status === "resolved_freelancer" ||
+            dispute.status === "split_resolution",
+        ).length,
+        description: "Cases already moved into a terminal resolution state.",
+      },
+    ],
+    [disputes],
+  );
 
   if (isRoleLoading) {
     return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
@@ -96,95 +150,104 @@ export function AdminDisputesPage() {
   }
 
   return (
-    <RoutePanel className="p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <RoutePanelHeader
-          className="w-full border-b-0 px-0 pb-0"
-          eyebrow="Manual Review"
-          title="Admin Dispute Console"
-          description="Filter disputes, inspect dispute state, and open the detailed review view."
-          action={
-            <>
-              <AppButton asChild variant="secondary" size="sm">
-                <Link href="/admin">Back to Admin</Link>
-              </AppButton>
-              <AppButton size="sm" onClick={() => void loadDisputes()} disabled={isLoading}>
-                {isLoading ? "Refreshing..." : "Refresh"}
-              </AppButton>
-            </>
-          }
-        />
+    <div className="space-y-6">
+      <ProductPageHero
+        label="Manual Review"
+        title={
+          <>
+            Admin <span className="hr-v2-gradient-text">Dispute Console</span>
+          </>
+        }
+        description="Filter disputes, inspect review state, and move cases into the detailed settlement workflow."
+      />
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <AppButton asChild variant="secondary" size="sm">
+          <Link href="/admin">Back to Admin</Link>
+        </AppButton>
+        <AppButton size="sm" onClick={() => void loadDisputes()} disabled={isLoading}>
+          {isLoading ? "Refreshing..." : "Refresh"}
+        </AppButton>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <label className="hr-text-secondary grid gap-1 text-sm">
-          <span>Status</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
-          >
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <AdminSection
+        label="Queue Controls"
+        title="Review filters"
+        description="Filters are constrained to known dispute states before they are sent to the admin API."
+      >
+        <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_1fr] md:items-end">
+          <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
+            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              Status
+            </span>
+            <NativeSelect
+              value={statusFilter}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setStatusFilter(isStatusFilter(nextValue) ? nextValue : "");
+              }}
+              className="h-11 w-[260px] max-w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+            >
+              {STATUS_FILTER_OPTIONS.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
 
-        <label className="hr-text-secondary grid gap-1 text-sm">
-          <span>On-chain status</span>
-          <select
-            value={onChainFilter}
-            onChange={(event) => setOnChainFilter(event.target.value)}
-            className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
-          >
-            {ON_CHAIN_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+          <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
+            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              On-chain status
+            </span>
+            <NativeSelect
+              value={onChainFilter}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setOnChainFilter(isOnChainFilter(nextValue) ? nextValue : "");
+              }}
+              className="h-11 w-[260px] max-w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+            >
+              {ON_CHAIN_FILTER_OPTIONS.map((option) => (
+                <NativeSelectOption key={option.value} value={option.value}>
+                  {option.label}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </label>
+
+          <p className="text-sm leading-relaxed text-[#5f5f5f]">
+            Use the filters to isolate active review states, failed on-chain marks, or completed
+            settlement outcomes.
+          </p>
+        </div>
+      </AdminSection>
+
+      <AdminSection
+        label="Queue Health"
+        title="Visible workload"
+        description="Counts are computed from the currently loaded dispute set."
+      >
+        <AdminMetricRail items={queueMetrics} />
+      </AdminSection>
 
       {error ? <RouteCallout tone="danger">{error}</RouteCallout> : null}
 
-      {isLoading ? (
-        <RouteCallout>Loading disputes...</RouteCallout>
-      ) : disputes.length === 0 ? (
-        <RouteEmptyState description="No disputes match the selected filters." />
-      ) : (
-        <div className="space-y-3">
-          {disputes.map((dispute) => (
-            <article key={dispute.disputeId} className="rounded-lg border border-border p-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="hr-text-muted font-mono text-xs uppercase">
-                    {dispute.disputeNumber}
-                  </p>
-                  <h2 className="hr-text-primary mt-1 text-base font-semibold">{dispute.title}</h2>
-                  <p className="hr-text-secondary mt-1 text-xs">
-                    Opened {formatDisputeDate(dispute.openedAt)} | Updated{" "}
-                    {formatDisputeDate(dispute.updatedAt)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <DisputeStatusBadge status={dispute.status} />
-                  <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
-                </div>
-              </div>
-              <div className="mt-3 flex justify-end">
-                <AppButton asChild variant="secondary" size="sm">
-                  <Link href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}>
-                    Review Dispute
-                  </Link>
-                </AppButton>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </RoutePanel>
+      <AdminSection
+        label="Dispute Queue"
+        title="Review cases"
+        description="Open a case to inspect evidence, update review status, or record settlement."
+      >
+        {isLoading ? (
+          <RouteCallout>Loading disputes...</RouteCallout>
+        ) : (
+          <AdminDisputeQueue
+            disputes={disputes}
+            actionLabel="Review"
+            emptyState={<RouteEmptyState description="No disputes match the selected filters." />}
+          />
+        )}
+      </AdminSection>
+    </div>
   );
 }

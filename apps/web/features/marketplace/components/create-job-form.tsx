@@ -1312,12 +1312,27 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <label
-                  htmlFor="fund-escrow-now"
-                  className="block text-sm font-semibold text-[#0a0a0a]"
-                >
-                  Create and fund escrow now
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor="fund-escrow-now"
+                    className="block text-sm font-semibold text-[#0a0a0a]"
+                  >
+                    Create and fund escrow now
+                  </label>
+                  {walletIdentity.walletType === "passkey_smart_account" ? (
+                    <HighrableV2IconNotice
+                      label="Passkey escrow funding notice"
+                      tone="warning"
+                      message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
+                    />
+                  ) : (
+                    <HighrableV2IconNotice
+                      label="Escrow funding info"
+                      tone="warning"
+                      message="Locking the budget in escrow demonstrates commitment to applicants and secures the payment for the future freelancer."
+                    />
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
                   Lock the full budget in Stellar escrow while the job is still open for applicants.
                 </p>
@@ -1335,15 +1350,6 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 aria-label="Create and fund escrow when posting this job"
               />
             </div>
-            {walletIdentity.walletType === "passkey_smart_account" ? (
-              <div className="mt-3">
-                <HighrableV2IconNotice
-                  label="Passkey escrow funding notice"
-                  tone="warning"
-                  message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
-                />
-              </div>
-            ) : null}
             {formState.fundEscrowNow ? (
               <p className="mt-3 text-xs text-[#5f5f5f]">
                 Your wallet will sign one atomic Soroban transaction after the job is created.
