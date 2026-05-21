@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  V2_NUMBER_BADGE_CLASS,
-  V2_PAGE_CONTAINER_CLASS,
-  V2_PANEL_INTERACTIVE_CLASS,
-  V2_SECTION_SPACING_CLASS,
-} from "@/features/common/lib/v2-theme";
+  HighrableV2NumberBadge,
+  HighrableV2PageContainer,
+  HighrableV2Panel,
+  HighrableV2Section,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { motion } from "framer-motion";
 
 import type { TFeatureItem } from "../types/landing-v2.types";
 
 import { FEATURES } from "../constants/landing-v2.constants";
-import { SectionLabel } from "./v2-section-label";
 
 const FEATURE_NUMBERS = ["01", "02", "03", "04", "05", "06"] as const;
 
@@ -28,21 +28,23 @@ function FeatureCard({ feature, number, index }: IFeatureCardProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.07 }}
-      className={`${V2_PANEL_INTERACTIVE_CLASS} group p-6 transition-all hover:border-ring/30`}
+      className="group"
     >
-      <div className="mb-4 flex items-start justify-between">
-        <div className={`${V2_NUMBER_BADGE_CLASS} flex h-9 w-9 items-center justify-center`}>
-          <span className="font-mono text-[0.6rem] font-bold text-white">{number}</span>
+      <HighrableV2Panel interactive className="h-full p-6 transition-all hover:border-ring/30">
+        <div className="mb-4 flex items-start justify-between">
+          <HighrableV2NumberBadge className="h-9 w-9">
+            <span className="font-mono text-[0.6rem] font-bold text-white">{number}</span>
+          </HighrableV2NumberBadge>
         </div>
-      </div>
-      <h3 className="hr-text-primary mb-2 font-semibold">{feature.title}</h3>
-      <p className="hr-text-secondary mb-4 text-sm leading-relaxed">{feature.description}</p>
-      <div className="border-t border-border/70 pt-3">
-        <p className="hr-text-accent text-xs leading-relaxed">
-          <span className="mr-1 font-mono tracking-wider uppercase">Impact -</span>
-          {feature.businessValue}
-        </p>
-      </div>
+        <h3 className="hr-text-primary mb-2 font-semibold">{feature.title}</h3>
+        <p className="hr-text-secondary mb-4 text-sm leading-relaxed">{feature.description}</p>
+        <div className="border-t border-border/70 pt-3">
+          <p className="hr-text-accent text-xs leading-relaxed">
+            <span className="mr-1 font-mono tracking-wider uppercase">Impact -</span>
+            {feature.businessValue}
+          </p>
+        </div>
+      </HighrableV2Panel>
     </motion.div>
   );
 }
@@ -50,8 +52,8 @@ function FeatureCard({ feature, number, index }: IFeatureCardProps) {
 /** Six-feature grid highlighting Highrable's core platform capabilities. */
 export function V2FeaturesSection() {
   return (
-    <section id="features" className={`bg-white ${V2_SECTION_SPACING_CLASS}`}>
-      <div className={V2_PAGE_CONTAINER_CLASS}>
+    <HighrableV2Section id="features">
+      <HighrableV2PageContainer>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -79,7 +81,7 @@ export function V2FeaturesSection() {
             />
           ))}
         </div>
-      </div>
-    </section>
+      </HighrableV2PageContainer>
+    </HighrableV2Section>
   );
 }

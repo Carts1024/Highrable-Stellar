@@ -6,7 +6,7 @@ import {
   V2_BUTTON_SECONDARY_CLASS,
   V2_GRADIENT_TEXT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
-} from "@/features/common/lib/v2-theme";
+} from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
 import Link from "next/link";
 

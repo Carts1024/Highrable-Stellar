@@ -5,7 +5,7 @@ import {
   V2_BUTTON_PRIMARY_CLASS,
   V2_BUTTON_SECONDARY_CLASS,
   V2_PAGE_CONTAINER_CLASS,
-} from "@/features/common/lib/v2-theme";
+} from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import Link from "next/link";
 import { useEffect, useState } from "react";

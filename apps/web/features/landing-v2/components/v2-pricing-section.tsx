@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   V2_BUTTON_PRIMARY_CLASS,
   V2_BUTTON_SECONDARY_CLASS,
@@ -8,7 +9,7 @@ import {
   V2_PANEL_INTERACTIVE_CLASS,
   V2_SECTION_SPACING_CLASS,
   V2_SURFACE_MUTED_CLASS,
-} from "@/features/common/lib/v2-theme";
+} from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -16,7 +17,6 @@ import { useState } from "react";
 import type { TPricingCategory, TPricingTier } from "../types/landing-v2.types";
 
 import { PRICING_CATEGORIES } from "../constants/landing-v2.constants";
-import { SectionLabel } from "./v2-section-label";
 
 interface IPricingCardProps {
   readonly tier: TPricingTier;

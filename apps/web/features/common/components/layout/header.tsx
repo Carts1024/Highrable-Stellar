@@ -1,12 +1,8 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import {
-  V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
-  V2_PAGE_CONTAINER_CLASS,
-  V2_THEME,
-} from "@/features/common/lib/v2-theme";
+import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { V2_PAGE_CONTAINER_CLASS, V2_THEME } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Briefcase, Menu, Users, X } from "lucide-react";
@@ -32,8 +28,8 @@ export function Header() {
 
   const inactiveNavigationClass =
     "hr-text-secondary hover:hr-text-accent font-mono text-xs tracking-[0.06em] uppercase transition-colors";
-  const secondaryActionClass = `${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`;
-  const primaryActionClass = `${V2_BUTTON_PRIMARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`;
+  const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
+  const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -78,12 +74,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/jobs" className={secondaryActionClass}>
-            Find Work
-          </Link>
-          <Link href="/post-job" className={primaryActionClass}>
-            Post a Job
-          </Link>
+          <WalletConnectTrigger className={walletActionClass} />
           <button
             className="hr-text-secondary rounded-lg p-2 transition-colors hover:bg-secondary hover:text-(--highrable-orange-2) md:hidden"
             onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
@@ -118,18 +109,7 @@ export function Header() {
                   </Link>
                 ))}
                 <div className="border-t border-border pt-3">
-                  <Link
-                    href="/jobs"
-                    className={`${V2_BUTTON_SECONDARY_CLASS} block w-full px-4 py-2 font-mono text-xs tracking-widest uppercase`}
-                  >
-                    Find Work
-                  </Link>
-                  <Link
-                    href="/post-job"
-                    className={`${V2_BUTTON_PRIMARY_CLASS} mt-3 block w-full px-4 py-2 font-mono text-xs tracking-widest uppercase`}
-                  >
-                    Post a Job
-                  </Link>
+                  <WalletConnectTrigger className={walletDrawerActionClass} />
                 </div>
               </div>
             </motion.div>

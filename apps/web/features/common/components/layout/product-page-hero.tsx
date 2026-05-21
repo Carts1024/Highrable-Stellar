@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionLabel } from "@/features/landing-v2/components/v2-section-label";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 

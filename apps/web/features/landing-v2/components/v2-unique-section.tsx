@@ -1,17 +1,17 @@
 "use client";
 
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   V2_NUMBER_BADGE_CLASS,
   V2_PAGE_CONTAINER_CLASS,
   V2_PANEL_INTERACTIVE_CLASS,
   V2_SECTION_SPACING_CLASS,
-} from "@/features/common/lib/v2-theme";
+} from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
 
 import type { TUniquePoint } from "../types/landing-v2.types";
 
 import { UNIQUE_POINTS } from "../constants/landing-v2.constants";
-import { SectionLabel } from "./v2-section-label";
 
 interface IUniquePointCardProps {
   readonly point: TUniquePoint;
