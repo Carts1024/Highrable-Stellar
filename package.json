@@ -7,6 +7,10 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "contracts:build": "cd contracts && stellar contract build",
+    "contracts:deploy:mainnet": "bash scripts/deploy-mainnet.sh",
+    "contracts:deploy:testnet": "bash scripts/deploy-testnet.sh",
+    "contracts:verify:testnet": "bash scripts/verify-testnet.sh",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
     "prepare": "husky"
@@ -14,12 +18,12 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "oxfmt": "^0.28.0",
-    "oxlint": "^1.43.0",
-    "turbo": "^2.8.3",
+    "oxlint": "^1.65.0",
+    "turbo": "^2.9.14",
     "typescript": "5.9.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9.0"
   },
-  "packageManager": "pnpm@8.6.0"
+  "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499"
 }

@@ -1,0 +1,11 @@
+{
+  "network": "testnet",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "reputationContractId": "CABK2DYSRTEZ2UNJWN7QGX7PACT2RSCXAFZXKZUGAGVSRHR5A5BR7UGH",
+  "escrowContractId": "CBWK3BIRVQNJLQXW626TTTGE2C3XS3VHDWQIWASAGTJOFACJYQAS6LWR",
+  "platformAdmin": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployerIdentity": "burner-key",
+  "deployerAddress": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployedAt": "2026-05-21T06:05:07Z"
+}

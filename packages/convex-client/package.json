@@ -1,0 +1,21 @@
+{
+  "name": "@repo/convex-client",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/backend": "workspace:*",
+    "convex": "^1.38.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "typescript": "5.9.2"
+  }
+}
