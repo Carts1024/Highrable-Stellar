@@ -1,7 +1,9 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
+import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { V2_PAGE_CONTAINER_CLASS, V2_THEME } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -25,11 +27,14 @@ export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const walletIdentity = useHighrableWalletIdentity();
 
   const inactiveNavigationClass =
     "hr-text-secondary hover:hr-text-accent font-mono text-xs tracking-[0.06em] uppercase transition-colors";
   const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
   const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
+  const connectedWalletClass =
+    "rounded-lg border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -74,7 +79,11 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-3">
-          <WalletConnectTrigger className={walletActionClass} />
+          {!walletIdentity.isConnected ? (
+            <WalletConnectTrigger className={walletActionClass} />
+          ) : (
+            <WalletAccountButton className={connectedWalletClass} />
+          )}
           <button
             className="hr-text-secondary rounded-lg p-2 transition-colors hover:bg-secondary hover:text-(--highrable-orange-2) md:hidden"
             onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
@@ -109,7 +118,13 @@ export function Header() {
                   </Link>
                 ))}
                 <div className="border-t border-border pt-3">
-                  <WalletConnectTrigger className={walletDrawerActionClass} />
+                  {!walletIdentity.isConnected ? (
+                    <WalletConnectTrigger className={walletDrawerActionClass} />
+                  ) : (
+                    <WalletAccountButton
+                      className={`${walletDrawerActionClass} border border-[#e8e8e8] bg-white text-[#0a0a0a]`}
+                    />
+                  )}
                 </div>
               </div>
             </motion.div>

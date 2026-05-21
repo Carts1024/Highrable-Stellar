@@ -26,7 +26,7 @@ import {
   getMarketplaceStatus,
   getMarketplaceStatusMeta,
 } from "@/features/marketplace/lib/escrow-status";
-import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
+import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
 import { api } from "@repo/convex-client";
 import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
@@ -103,6 +103,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
   const safetyStatus = getJobSafetyStatus({ job, escrow });
+  const shouldShowMarketplaceStatusBadge =
+    getJobSafetyLabel(safetyStatus.status) !== currentStatusMeta.label;
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
   const passkeyReadiness = useMemo(() => getStaticSmartAccountReadiness(), []);
   const passkeyMainnetBlocked =
@@ -216,7 +218,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <JobSafetyBadge status={safetyStatus.status} />
-          <StatusBadge label={currentStatus} />
+          {shouldShowMarketplaceStatusBadge ? <StatusBadge label={currentStatus} /> : null}
           {currentStatusMeta.trustWarning ? (
             <HighrableV2IconNotice
               label="Payment flow warning"
@@ -238,7 +240,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
               <div className="space-y-4 border-t border-[#e8e8e8] pt-4">
                 <div className="flex flex-wrap gap-2">
                   <JobSafetyBadge status={safetyStatus.status} />
-                  <StatusBadge label={currentStatus} />
+                  {shouldShowMarketplaceStatusBadge ? <StatusBadge label={currentStatus} /> : null}
                 </div>
 
                 {safetyStatus.status === "unfunded" ? (

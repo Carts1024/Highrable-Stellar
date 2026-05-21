@@ -9,9 +9,11 @@ import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   compareJobsBySafetyThenNewest,
   getApplicationTrustSafetyNoticeType,
+  getJobSafetyLabel,
   getJobSafetySortRank,
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
+import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import {
@@ -310,7 +312,10 @@ export function JobsPage() {
                     <div className="min-w-0 space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <JobSafetyBadge status={safetyStatus.status} />
-                        <StatusBadge label={escrow?.status ?? job.status} />
+                        {getJobSafetyLabel(safetyStatus.status) !==
+                        getMarketplaceStatusMeta(escrow?.status ?? job.status).label ? (
+                          <StatusBadge label={escrow?.status ?? job.status} />
+                        ) : null}
                         {safetyStatus.status === "unfunded" ? (
                           <HighrableV2IconNotice
                             label="Unfunded job warning"

@@ -2,7 +2,9 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
+import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
+import { getJobSafetyLabel } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
@@ -35,6 +37,9 @@ export function JobCard({
     !isSameWallet(connectedWallet, job.clientWallet) &&
     (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
   const safetyStatus = getJobSafetyStatus({ job, escrow });
+  const marketplaceStatus = escrow?.status ?? job.status;
+  const shouldShowMarketplaceStatusBadge =
+    getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
     <article className="rounded-2xl border border-[#e8e8e8] bg-white p-6 transition-colors hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]">
@@ -42,7 +47,7 @@ export function JobCard({
         <h3 className="text-lg font-semibold text-[#0a0a0a]">{job.title}</h3>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <JobSafetyBadge status={safetyStatus.status} />
-          <StatusBadge label={escrow?.status ?? job.status} />
+          {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
         </div>
       </div>
 
@@ -63,9 +68,6 @@ export function JobCard({
 
       {safetyStatus.status === "unfunded" ? (
         <TrustSafetyNotice type="unfunded" compact className="mb-4" />
-      ) : null}
-      {safetyStatus.status === "verified_funded" ? (
-        <TrustSafetyNotice type="verified_funded" compact className="mb-4" />
       ) : null}
 
       <dl className="grid grid-cols-1 gap-3 text-sm text-[#5f5f5f] sm:grid-cols-2">

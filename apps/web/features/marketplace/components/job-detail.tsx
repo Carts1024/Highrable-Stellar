@@ -10,7 +10,8 @@ import { VerifiedReviewCard } from "@/features/common/components/reputation/veri
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
-import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
+import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
+import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
@@ -104,6 +105,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const isMilestoneProject = jobType === "milestone_project";
   const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
   const projectSummary = milestoneSummary;
+  const marketplaceStatus = mergedEscrow?.status ?? job.status;
+  const shouldShowMarketplaceStatusBadge =
+    getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
   const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow);
   const chatParent = mergedEscrow
     ? ({
@@ -139,7 +143,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <JobSafetyBadge status={safetyStatus.status} />
-            <StatusBadge label={mergedEscrow?.status ?? job.status} />
+            {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
             <HighrableV2IconNotice
               label="Off-platform safety notice"
               tone="warning"
