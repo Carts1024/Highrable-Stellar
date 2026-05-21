@@ -4,7 +4,7 @@ import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
-import { assertCanViewAttachment } from "../attachments/helpers";
+import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import {
   assertParticipant,
   getConversationByParent as findConversationByParent,
@@ -28,10 +28,7 @@ async function withMessageAttachments(
       continue;
     }
     await assertCanViewAttachment(ctx, attachment, viewerWallet);
-    attachments.push({
-      ...attachment,
-      url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-    });
+    attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
   }
 
   return { ...message, attachments };

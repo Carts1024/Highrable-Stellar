@@ -6,7 +6,7 @@ import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import { ForbiddenError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
-import { assertCanViewAttachment } from "../attachments/helpers";
+import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import { workSubmissionParentTypeValidator } from "../work_submissions/schema";
 import {
   assertCanRequestRevision,
@@ -36,10 +36,7 @@ async function withVisibleAttachments(
 
     try {
       await assertCanViewAttachment(ctx, attachment, viewerWallet);
-      attachments.push({
-        ...attachment,
-        url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-      });
+      attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
     } catch {
       // Keep private attachment existence hidden.
     }

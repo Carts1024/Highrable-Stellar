@@ -12,6 +12,31 @@ export type TAttachmentVisibility = "private" | "participants" | "public" | "adm
 
 export type TWalletType = "external_wallet" | "passkey_smart_account";
 
+export type TAttachmentProtectionMode = "standard" | "protected_preview" | "download_restricted";
+
+export type TAttachmentViewerRole =
+  | "client"
+  | "assigned_freelancer"
+  | "dispute_participant"
+  | "dispute_reviewer"
+  | "admin"
+  | "owner"
+  | "public";
+
+export type TAttachmentProtectionSummary = {
+  mode: TAttachmentProtectionMode;
+  isProtected: boolean;
+  previewAllowed: boolean;
+  downloadAllowed: boolean;
+  watermarkEnabled: boolean;
+  accessLoggingEnabled: boolean;
+  viewerRole?: TAttachmentViewerRole | null;
+  previewSupported: boolean;
+  downloadRestricted: boolean;
+  protectedReason?: string | null;
+  notice?: string | null;
+};
+
 export type TDraftAttachment = {
   id: string;
   name: string;

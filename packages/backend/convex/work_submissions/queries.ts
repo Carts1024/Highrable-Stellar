@@ -4,7 +4,7 @@ import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
-import { assertCanViewAttachment } from "../attachments/helpers";
+import { assertCanPreviewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import {
   assertCanViewSubmission,
   getEscrowByOnChainIdOrThrow,
@@ -39,11 +39,8 @@ async function withVisibleAttachments(
     }
 
     try {
-      await assertCanViewAttachment(ctx, attachment, viewerWallet);
-      attachments.push({
-        ...attachment,
-        url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-      });
+      await assertCanPreviewAttachment(ctx, attachment, viewerWallet);
+      attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
     } catch {
       // Keep private attachment existence hidden from unauthorized viewers.
     }

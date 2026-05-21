@@ -15,7 +15,7 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
-import { assertCanViewAttachment } from "../attachments/helpers";
+import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import { createSystemMessageForEvent } from "../conversations/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "./schema";
 
@@ -438,10 +438,7 @@ export async function withDisputeAttachments(
     if (!attachment) continue;
     try {
       await assertCanViewAttachment(ctx, attachment, viewerWallet);
-      attachments.push({
-        ...attachment,
-        url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-      });
+      attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
     } catch {
       // Hide inaccessible evidence.
     }

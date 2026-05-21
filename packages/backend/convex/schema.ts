@@ -1,7 +1,7 @@
 import { defineSchema } from "convex/server";
 
 import applications from "./applications/schema";
-import attachments from "./attachments/schema";
+import attachments, { attachmentAccessLogs } from "./attachments/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
 import { conversationReads, conversations, messages } from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
@@ -18,6 +18,7 @@ import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
   attachments,
+  attachmentAccessLogs,
   cancellationRequests,
   cancellationEvents,
   conversations,

@@ -8,6 +8,10 @@ import {
   normalizeAttachmentType,
   validateAttachmentFile,
 } from "@/features/attachments/lib";
+import {
+  AttachmentProtectionBadge,
+  ProtectedAttachmentDialog,
+} from "@/features/attachments/protected-viewer";
 import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -26,7 +30,11 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
-import type { TAttachmentType, TDraftAttachment } from "@/features/attachments/types";
+import type {
+  TAttachmentProtectionSummary,
+  TAttachmentType,
+  TDraftAttachment,
+} from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -34,6 +42,7 @@ type TStorageId = string & { __tableName: "_storage" };
 
 type TAttachmentWithUrl = TConvexDoc<"attachments"> & {
   url?: string | null;
+  protection?: TAttachmentProtectionSummary;
 };
 
 const ACCEPTED_ATTACHMENT_TYPES = [
@@ -124,6 +133,8 @@ export function AttachmentPreviewCard({
   const type = attachment.type as TAttachmentType;
   const href = "externalUrl" in attachment ? attachment.externalUrl : attachment.url;
   const isUploading = isDraft && attachment.status === "uploading";
+  const isProtected = !isDraft && attachment.protection?.isProtected;
+  const [isProtectedPreviewOpen, setIsProtectedPreviewOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-[#e8e8e8] bg-white p-3">
@@ -136,7 +147,15 @@ export function AttachmentPreviewCard({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          {href ? (
+          {isProtected ? (
+            <button
+              type="button"
+              onClick={() => setIsProtectedPreviewOpen(true)}
+              className="truncate text-left text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+            >
+              {attachment.name}
+            </button>
+          ) : href ? (
             <a
               href={href}
               target="_blank"
@@ -149,17 +168,29 @@ export function AttachmentPreviewCard({
             <p className="truncate text-sm font-semibold text-[#0a0a0a]">{attachment.name}</p>
           )}
           <AttachmentTypeBadge type={type} />
+          {!isDraft ? <AttachmentProtectionBadge protection={attachment.protection} /> : null}
         </div>
         <p className="mt-1 font-mono text-xs text-[#7f7f7f]">
           {isUploading ? "Uploading..." : formatAttachmentSize(attachment.size)}
           {"mimeType" in attachment && attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
+          {!isDraft && attachment.protection?.isProtected ? " · Watermarked and access logged" : ""}
         </p>
+        {!isDraft && attachment.protection?.notice && !attachment.protection.isProtected ? (
+          <p className="mt-1 text-xs text-emerald-700">{attachment.protection.notice}</p>
+        ) : null}
         {isDraft && attachment.error ? (
           <p className="mt-1 text-xs text-red-700">{attachment.error}</p>
         ) : null}
       </div>
       {!readOnly && onRemove ? (
         <AttachmentRemoveButton disabled={isUploading} onRemove={onRemove} />
+      ) : null}
+      {isProtected && !isDraft ? (
+        <ProtectedAttachmentDialog
+          attachment={attachment}
+          isOpen={isProtectedPreviewOpen}
+          onOpenChange={setIsProtectedPreviewOpen}
+        />
       ) : null}
     </div>
   );
@@ -352,6 +383,7 @@ export function AttachmentUploader({
   const createExternalAttachment = useMutation(api.attachments.createExternalAttachment);
   const softDeleteAttachment = useMutation(api.attachments.softDelete);
   const [error, setError] = useState<string | null>(null);
+  const [useProtectedPreview, setUseProtectedPreview] = useState(false);
 
   const patchDraft = useCallback(
     (draftId: string, patch: Partial<TDraftAttachment>) => {
@@ -423,6 +455,15 @@ export function AttachmentUploader({
         type,
         parentType: "unknown",
         visibility: "private",
+        ...(useProtectedPreview
+          ? {
+              protectionMode: "protected_preview",
+              downloadAllowed: false,
+              previewAllowed: true,
+              watermarkEnabled: true,
+              accessLoggingEnabled: true,
+            }
+          : {}),
       });
 
       patchDraft(draftId, {
@@ -461,6 +502,15 @@ export function AttachmentUploader({
       name: input.url,
       parentType: "unknown",
       visibility: "private",
+      ...(useProtectedPreview
+        ? {
+            protectionMode: "protected_preview",
+            downloadAllowed: false,
+            previewAllowed: true,
+            watermarkEnabled: true,
+            accessLoggingEnabled: true,
+          }
+        : {}),
     });
 
     onChange((currentAttachments) => [
@@ -511,6 +561,29 @@ export function AttachmentUploader({
         disabled={disabled || !walletIdentity.walletAddress}
         onFiles={handleFiles}
       />
+      <label
+        htmlFor="attachment-protected-preview"
+        className="flex items-start gap-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3"
+      >
+        <input
+          id="attachment-protected-preview"
+          type="checkbox"
+          aria-label="Enable content protection controls"
+          checked={useProtectedPreview}
+          disabled={disabled}
+          onChange={(event) => setUseProtectedPreview(event.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-[#d8d8d8] accent-[#FF7003]"
+        />
+        <span>
+          <span className="block text-sm font-semibold text-[#0a0a0a]">
+            Enable content protection controls
+          </span>
+          <span className="block text-xs text-[#5f5f5f]">
+            New uploads use protected preview, download restricted, visible watermarking, and access
+            logged.
+          </span>
+        </span>
+      </label>
       <LinkAttachmentInput
         disabled={disabled || !walletIdentity.walletAddress}
         onAdd={addExternalLink}

@@ -1,9 +1,15 @@
 import type { Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { TWalletType } from "../users/schema";
 import type {
+  TAttachmentAccessAction,
+  TAttachmentAccessResult,
   TAttachmentOwnerRole,
   TAttachmentParentType,
+  TAttachmentProtectionMode,
   TAttachmentType,
+  TAttachmentViewerRole,
   TAttachmentVisibility,
 } from "./schema";
 
@@ -13,6 +19,7 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
+import { ACTIVE_DISPUTE_STATUSES } from "../disputes/schema";
 
 const MB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MB;
@@ -55,6 +62,67 @@ type TParentReference = {
   parentType: TAttachmentParentType;
   parentId?: string;
 };
+
+type TAttachmentPolicyInput = Pick<
+  Doc<"attachments">,
+  | "_id"
+  | "uploadedByWallet"
+  | "uploadedByWalletType"
+  | "ownerRole"
+  | "parentType"
+  | "parentId"
+  | "visibility"
+  | "status"
+  | "type"
+  | "protectionMode"
+  | "downloadAllowed"
+  | "previewAllowed"
+  | "watermarkEnabled"
+  | "accessLoggingEnabled"
+  | "allowedViewerRoles"
+  | "expiresAt"
+  | "protectedReason"
+>;
+
+type TAttachmentAccessPolicy = {
+  protectionMode: TAttachmentProtectionMode;
+  downloadAllowed: boolean;
+  previewAllowed: boolean;
+  watermarkEnabled: boolean;
+  accessLoggingEnabled: boolean;
+  allowedViewerRoles: TAttachmentViewerRole[];
+  viewerRole: TAttachmentViewerRole | null;
+  isProtected: boolean;
+  isExpired: boolean;
+  canView: boolean;
+  canPreview: boolean;
+  canDownload: boolean;
+  previewSupported: boolean;
+  reason: string | null;
+  notice: string | null;
+};
+
+const DEFAULT_PROTECTED_VIEWER_ROLES: TAttachmentViewerRole[] = [
+  "client",
+  "assigned_freelancer",
+  "dispute_participant",
+  "dispute_reviewer",
+  "admin",
+  "owner",
+];
+const SETTLED_ESCROW_STATUSES = new Set<string>(["released", "settled", "completed_paid"]);
+const SETTLED_WORK_STATUSES = new Set<string>([
+  "released",
+  "completed",
+  "settled",
+  "completed_paid",
+]);
+export const FREELANCER_DELIVERABLE_PROTECTED_REASON =
+  "Protected until payment release. You can preview this work, but downloads are restricted until the freelancer is paid.";
+export const FREELANCER_DELIVERABLE_BLOCKED_DOWNLOAD_MESSAGE =
+  "Download unlocks after funds are released. This protects freelancers from unpaid use of submitted work.";
+export const FREELANCER_DELIVERABLE_UNLOCKED_MESSAGE =
+  "Payment released. Deliverables are now available for download.";
 
 export function sanitizeAttachmentName(name: string): string {
   const sanitizedName = requireNonEmptyString(name, "name").replace(/\s+/g, " ").slice(0, 180);
@@ -215,6 +283,92 @@ export function requireValidUrl(value: string): string {
   }
 }
 
+function isSameWallet(left?: string | null, right?: string | null): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return normalizeWalletAddress(left) === normalizeWalletAddress(right);
+}
+
+export function isPreviewSupported(attachment: Pick<Doc<"attachments">, "type">): boolean {
+  return ["image", "pdf", "markdown", "video", "link", "video_link"].includes(attachment.type);
+}
+
+export function normalizeProtectionSettings(attachment: Partial<TAttachmentPolicyInput>): {
+  protectionMode: TAttachmentProtectionMode;
+  downloadAllowed: boolean;
+  previewAllowed: boolean;
+  watermarkEnabled: boolean;
+  accessLoggingEnabled: boolean;
+  allowedViewerRoles: TAttachmentViewerRole[];
+} {
+  const protectionMode = attachment.protectionMode ?? "standard";
+  const isProtected = protectionMode !== "standard";
+  return {
+    protectionMode,
+    downloadAllowed: attachment.downloadAllowed ?? !isProtected,
+    previewAllowed: attachment.previewAllowed ?? true,
+    watermarkEnabled: attachment.watermarkEnabled ?? isProtected,
+    accessLoggingEnabled: attachment.accessLoggingEnabled ?? isProtected,
+    allowedViewerRoles:
+      attachment.allowedViewerRoles ??
+      (isProtected
+        ? DEFAULT_PROTECTED_VIEWER_ROLES
+        : ["public", ...DEFAULT_PROTECTED_VIEWER_ROLES]),
+  };
+}
+
+export function validateProtectionSettings(input: {
+  protectionMode?: TAttachmentProtectionMode;
+  downloadAllowed?: boolean;
+  previewAllowed?: boolean;
+  watermarkEnabled?: boolean;
+  accessLoggingEnabled?: boolean;
+  allowedViewerRoles?: TAttachmentViewerRole[];
+  expiresAt?: number;
+  protectedReason?: string;
+}) {
+  if (
+    input.expiresAt !== undefined &&
+    (!Number.isFinite(input.expiresAt) || input.expiresAt <= 0)
+  ) {
+    throw new BadRequestError("Attachment protection expiration is invalid.");
+  }
+
+  const protectedReason = optionalNonEmptyString(input.protectedReason, "protectedReason");
+  if (protectedReason && protectedReason.length > 280) {
+    throw new BadRequestError("Protection reason must be 280 characters or fewer.");
+  }
+
+  const allowedViewerRoles = input.allowedViewerRoles
+    ? Array.from(new Set(input.allowedViewerRoles))
+    : undefined;
+  if (allowedViewerRoles && allowedViewerRoles.length === 0) {
+    throw new BadRequestError("Select at least one allowed viewer role.");
+  }
+
+  return {
+    protectionMode: input.protectionMode ?? "standard",
+    downloadAllowed: input.downloadAllowed,
+    previewAllowed: input.previewAllowed,
+    watermarkEnabled: input.watermarkEnabled,
+    accessLoggingEnabled: input.accessLoggingEnabled,
+    allowedViewerRoles,
+    expiresAt: input.expiresAt,
+    protectedReason,
+  };
+}
+
+async function isAdminWallet(ctx: QueryCtx, walletAddress: string): Promise<boolean> {
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", walletAddress))
+    .first();
+
+  return user?.role === "admin";
+}
+
 export function sanitizeParentReference(input: TParentReference): TParentReference {
   const parentId = optionalNonEmptyString(input.parentId, "parentId");
   return {
@@ -335,6 +489,466 @@ async function canViewParentJob(ctx: QueryCtx, parentId: string, viewerWallet?: 
   );
 }
 
+export async function resolveAttachmentViewerRole(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+  viewerWallet?: string,
+): Promise<TAttachmentViewerRole | null> {
+  if (!viewerWallet) {
+    return attachment.visibility === "public" ? "public" : null;
+  }
+
+  const normalizedViewerWallet = normalizeWalletAddress(viewerWallet);
+
+  if (isSameWallet(attachment.uploadedByWallet, normalizedViewerWallet)) {
+    return "owner";
+  }
+
+  if (await isAdminWallet(ctx, normalizedViewerWallet)) {
+    return "admin";
+  }
+
+  if (attachment.parentType === "job" && attachment.parentId) {
+    const job = await ctx.db.get(attachment.parentId as Id<"jobs">);
+    if (!job) return null;
+    if (isSameWallet(job.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(job.selectedFreelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return attachment.visibility === "public" && job.status === "open" ? "public" : null;
+  }
+
+  if (attachment.parentType === "milestone" && attachment.parentId) {
+    const milestone = await ctx.db.get(attachment.parentId as Id<"milestones">);
+    const job = milestone ? await ctx.db.get(milestone.jobId) : null;
+    if (!milestone || !job) return null;
+    if (isSameWallet(job.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(milestone.assignedFreelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "work_submission" && attachment.parentId) {
+    const submission = await ctx.db.get(attachment.parentId as Id<"workSubmissions">);
+    if (!submission) return null;
+    if (isSameWallet(submission.clientWallet, normalizedViewerWallet)) return "client";
+    if (
+      isSameWallet(submission.freelancerWallet, normalizedViewerWallet) ||
+      isSameWallet(submission.submittedByWallet, normalizedViewerWallet)
+    ) {
+      return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "chat_message" && attachment.parentId) {
+    const message = await ctx.db.get(attachment.parentId as Id<"messages">);
+    const conversation = message ? await ctx.db.get(message.conversationId) : null;
+    if (
+      !message ||
+      !conversation ||
+      !conversation.participantWallets.includes(normalizedViewerWallet)
+    ) {
+      return null;
+    }
+    if (isSameWallet(conversation.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(conversation.freelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return "dispute_participant";
+  }
+
+  if (attachment.parentType === "revision_request" && attachment.parentId) {
+    const revision = await ctx.db.get(attachment.parentId as Id<"revisionRequests">);
+    if (!revision) return null;
+    if (isSameWallet(revision.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(revision.freelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "dispute" && attachment.parentId) {
+    const dispute = await ctx.db.get(attachment.parentId as Id<"disputes">);
+    if (!dispute) return null;
+    if (
+      isSameWallet(dispute.clientWallet, normalizedViewerWallet) ||
+      isSameWallet(dispute.freelancerWallet, normalizedViewerWallet)
+    ) {
+      return "dispute_participant";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "cancellation" && attachment.parentId) {
+    const cancellation = await ctx.db.get(attachment.parentId as Id<"cancellationRequests">);
+    if (!cancellation) return null;
+    if (isSameWallet(cancellation.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(cancellation.freelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  return null;
+}
+
+export function isProtectedAttachment(attachment: Partial<TAttachmentPolicyInput>): boolean {
+  return normalizeProtectionSettings(attachment).protectionMode !== "standard";
+}
+
+export function shouldWatermarkAttachment(attachment: Partial<TAttachmentPolicyInput>): boolean {
+  return normalizeProtectionSettings(attachment).watermarkEnabled;
+}
+
+export function shouldLogAttachmentAccess(attachment: Partial<TAttachmentPolicyInput>): boolean {
+  return normalizeProtectionSettings(attachment).accessLoggingEnabled;
+}
+
+export function isDownloadRestricted(attachment: Partial<TAttachmentPolicyInput>): boolean {
+  return !normalizeProtectionSettings(attachment).downloadAllowed;
+}
+
+export function buildWatermarkText(input: {
+  viewerWallet?: string;
+  viewerWalletType?: string;
+  viewerRole?: TAttachmentViewerRole | null;
+  attachmentId?: string;
+  now?: number;
+}): string {
+  const timestamp = new Date(input.now ?? Date.now()).toISOString().slice(0, 10);
+  const identity = sanitizeWatermarkIdentity(input.viewerWallet);
+  const walletType = input.viewerWalletType?.replace(/_/g, " ");
+  return [
+    "Highrable",
+    input.viewerRole?.replace(/_/g, " "),
+    walletType,
+    identity,
+    input.attachmentId ? `Attachment ${input.attachmentId.slice(-6)}` : undefined,
+    timestamp,
+    "Access logged",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+export function sanitizeWatermarkIdentity(walletAddress?: string): string | undefined {
+  if (!walletAddress) return undefined;
+  const normalized = normalizeWalletAddress(walletAddress);
+  if (normalized.length <= 12) return normalized;
+  return `${normalized.slice(0, 5)}...${normalized.slice(-4)}`;
+}
+
+export function buildWatermarkPayload(input: {
+  attachment: TAttachmentPolicyInput;
+  viewerWallet?: string;
+  viewerWalletType?: string;
+  viewerRole?: TAttachmentViewerRole | null;
+  now?: number;
+}) {
+  const now = input.now ?? Date.now();
+  return {
+    text: buildWatermarkText({
+      viewerWallet: input.viewerWallet,
+      viewerWalletType: input.viewerWalletType,
+      viewerRole: input.viewerRole,
+      attachmentId: input.attachment._id,
+      now,
+    }),
+    renderedAt: now,
+  };
+}
+
+export function isEscrowReleased(escrow?: Pick<Doc<"escrows">, "status"> | null): boolean {
+  return escrow ? SETTLED_ESCROW_STATUSES.has(escrow.status) : false;
+}
+
+export function isMilestonePaid(
+  milestone?: Pick<Doc<"milestones">, "status" | "approvedAt" | "completedAt"> | null,
+): boolean {
+  return Boolean(
+    milestone &&
+    (SETTLED_WORK_STATUSES.has(milestone.status) ||
+      (milestone.status === "released" && milestone.approvedAt !== undefined)),
+  );
+}
+
+async function hasActiveDisputeForWorkSubmission(
+  ctx: QueryCtx,
+  submission: Pick<
+    Doc<"workSubmissions">,
+    "parentType" | "parentId" | "escrowId" | "onChainEscrowId"
+  >,
+): Promise<boolean> {
+  if (submission.escrowId !== undefined) {
+    const dispute = await ctx.db
+      .query("disputes")
+      .withIndex("by_escrow_status", (q) => q.eq("escrowId", submission.escrowId))
+      .filter((q) =>
+        q.or(...ACTIVE_DISPUTE_STATUSES.map((status) => q.eq(q.field("status"), status))),
+      )
+      .first();
+    if (dispute) return true;
+  }
+
+  if (submission.onChainEscrowId !== undefined) {
+    const dispute = await ctx.db
+      .query("disputes")
+      .withIndex("by_onChainEscrow_status", (q) =>
+        q.eq("onChainEscrowId", submission.onChainEscrowId),
+      )
+      .filter((q) =>
+        q.or(...ACTIVE_DISPUTE_STATUSES.map((status) => q.eq(q.field("status"), status))),
+      )
+      .first();
+    if (dispute) return true;
+  }
+
+  const parentType = submission.parentType === "job" ? "job" : submission.parentType;
+  const dispute = await ctx.db
+    .query("disputes")
+    .withIndex("by_parent_status", (q) =>
+      q.eq("parentType", parentType).eq("parentId", submission.parentId),
+    )
+    .filter((q) =>
+      q.or(...ACTIVE_DISPUTE_STATUSES.map((status) => q.eq(q.field("status"), status))),
+    )
+    .first();
+
+  return dispute !== null;
+}
+
+export async function isWorkSettled(
+  ctx: QueryCtx,
+  submission: Pick<
+    Doc<"workSubmissions">,
+    "parentType" | "parentId" | "jobId" | "milestoneId" | "escrowId"
+  >,
+): Promise<boolean> {
+  if (submission.escrowId !== undefined) {
+    const escrow = await ctx.db.get(submission.escrowId);
+    if (isEscrowReleased(escrow)) return true;
+  }
+
+  if (submission.milestoneId !== undefined) {
+    const milestone = await ctx.db.get(submission.milestoneId);
+    if (isMilestonePaid(milestone)) return true;
+  }
+
+  const jobId =
+    submission.jobId ?? (submission.parentType !== "milestone" ? submission.parentId : undefined);
+  if (jobId !== undefined) {
+    const job = await ctx.db.get(jobId as Id<"jobs">);
+    if (job && SETTLED_WORK_STATUSES.has(job.status)) return true;
+  }
+
+  return false;
+}
+
+async function getWorkSubmissionForDeliverable(ctx: QueryCtx, attachment: TAttachmentPolicyInput) {
+  if (attachment.parentType !== "work_submission" || !attachment.parentId) {
+    return null;
+  }
+
+  const submission = await ctx.db.get(attachment.parentId as Id<"workSubmissions">);
+  return submission ?? null;
+}
+
+export async function shouldProtectFreelancerDeliverable(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+): Promise<boolean> {
+  if (attachment.ownerRole !== "freelancer") {
+    return false;
+  }
+
+  const submission = await getWorkSubmissionForDeliverable(ctx, attachment);
+  if (!submission) {
+    return false;
+  }
+
+  if (await hasActiveDisputeForWorkSubmission(ctx, submission)) {
+    return true;
+  }
+
+  return !(await isWorkSettled(ctx, submission));
+}
+
+export async function canClientDownloadDeliverable(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+): Promise<boolean> {
+  if (attachment.ownerRole !== "freelancer") {
+    return normalizeProtectionSettings(attachment).downloadAllowed;
+  }
+
+  const submission = await getWorkSubmissionForDeliverable(ctx, attachment);
+  return submission ? await isWorkSettled(ctx, submission) : false;
+}
+
+async function resolveEffectiveProtectionSettings(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+) {
+  const settings = normalizeProtectionSettings(attachment);
+  const submission = await getWorkSubmissionForDeliverable(ctx, attachment);
+
+  if (attachment.ownerRole !== "freelancer" || !submission) {
+    return {
+      ...settings,
+      reason: attachment.protectedReason ?? null,
+      notice: settings.protectionMode === "standard" ? null : (attachment.protectedReason ?? null),
+    };
+  }
+
+  const settled = await isWorkSettled(ctx, submission);
+  const hasActiveDispute = await hasActiveDisputeForWorkSubmission(ctx, submission);
+  if (settled && !hasActiveDispute) {
+    return {
+      ...settings,
+      protectionMode: "standard" as const,
+      downloadAllowed: true,
+      previewAllowed: true,
+      watermarkEnabled: false,
+      accessLoggingEnabled: settings.accessLoggingEnabled,
+      allowedViewerRoles: ["public", ...DEFAULT_PROTECTED_VIEWER_ROLES] as TAttachmentViewerRole[],
+      reason: null,
+      notice: FREELANCER_DELIVERABLE_UNLOCKED_MESSAGE,
+    };
+  }
+
+  return {
+    ...settings,
+    protectionMode: "protected_preview" as const,
+    downloadAllowed: false,
+    previewAllowed: true,
+    watermarkEnabled: true,
+    accessLoggingEnabled: true,
+    allowedViewerRoles: DEFAULT_PROTECTED_VIEWER_ROLES,
+    reason: FREELANCER_DELIVERABLE_PROTECTED_REASON,
+    notice: FREELANCER_DELIVERABLE_PROTECTED_REASON,
+  };
+}
+
+export async function getAttachmentAccessPolicy(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+  viewerWallet?: string,
+): Promise<TAttachmentAccessPolicy> {
+  const settings = await resolveEffectiveProtectionSettings(ctx, attachment);
+  const isProtected = settings.protectionMode !== "standard";
+  const viewerRole = await resolveAttachmentViewerRole(ctx, attachment, viewerWallet);
+  const isExpired = attachment.expiresAt !== undefined && attachment.expiresAt <= Date.now();
+  const previewSupported = isPreviewSupported(attachment);
+
+  let canView = false;
+  let reason: string | null = null;
+  try {
+    await assertCanViewAttachment(ctx, attachment, viewerWallet);
+    canView = true;
+  } catch (error) {
+    reason = error instanceof Error ? error.message : "You do not have access to this attachment.";
+  }
+
+  const roleAllowed =
+    !isProtected || (viewerRole ? settings.allowedViewerRoles.includes(viewerRole) : false);
+  if (canView && isProtected && !roleAllowed) {
+    reason = "You do not have access to this attachment.";
+  }
+  if (canView && isExpired) {
+    reason = "This protected preview link expired. Reopen the attachment.";
+  }
+
+  const canPreview = canView && !isExpired && roleAllowed && settings.previewAllowed;
+  const canDownload =
+    canView &&
+    !isExpired &&
+    roleAllowed &&
+    (settings.downloadAllowed || viewerRole === "owner" || viewerRole === "admin");
+
+  if (canView && !settings.previewAllowed) {
+    reason = "Protected preview is not enabled for this attachment.";
+  } else if (canView && !canDownload && viewerRole === "client" && settings.reason) {
+    reason = settings.reason;
+  }
+
+  return {
+    ...settings,
+    viewerRole,
+    isProtected,
+    isExpired,
+    canView: canView && !isExpired && roleAllowed,
+    canPreview,
+    canDownload,
+    previewSupported,
+    reason,
+    notice: settings.notice,
+  };
+}
+
+export async function assertCanPreviewAttachment(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+  viewerWallet?: string,
+) {
+  const policy = await getAttachmentAccessPolicy(ctx, attachment, viewerWallet);
+  if (!policy.canPreview) {
+    throw new ForbiddenError(policy.reason ?? "You do not have access to this attachment.");
+  }
+
+  return policy;
+}
+
+export async function assertCanDownloadAttachment(
+  ctx: QueryCtx,
+  attachment: TAttachmentPolicyInput,
+  viewerWallet?: string,
+) {
+  const policy = await getAttachmentAccessPolicy(ctx, attachment, viewerWallet);
+  if (!policy.canDownload) {
+    throw new ForbiddenError(
+      policy.downloadAllowed
+        ? (policy.reason ?? "You do not have access to this attachment.")
+        : FREELANCER_DELIVERABLE_BLOCKED_DOWNLOAD_MESSAGE,
+    );
+  }
+
+  return policy;
+}
+
+export async function serializeAttachmentForViewer(
+  ctx: QueryCtx,
+  attachment: Doc<"attachments">,
+  viewerWallet?: string,
+) {
+  const policy = await getAttachmentAccessPolicy(ctx, attachment, viewerWallet);
+  if (!policy.canPreview && policy.isProtected) {
+    throw new ForbiddenError(policy.reason ?? "You do not have access to this attachment.");
+  }
+
+  return {
+    ...attachment,
+    url:
+      !policy.isProtected && attachment.storageId
+        ? await ctx.storage.getUrl(attachment.storageId)
+        : null,
+    protection: {
+      mode: policy.protectionMode,
+      isProtected: policy.isProtected,
+      previewAllowed: policy.previewAllowed,
+      downloadAllowed: policy.downloadAllowed,
+      watermarkEnabled: policy.watermarkEnabled,
+      accessLoggingEnabled: policy.accessLoggingEnabled,
+      viewerRole: policy.viewerRole,
+      previewSupported: policy.previewSupported,
+      downloadRestricted: !policy.canDownload,
+      protectedReason: policy.reason ?? attachment.protectedReason ?? null,
+      notice: policy.notice,
+    },
+  };
+}
+
 export async function assertCanViewAttachment(
   ctx: QueryCtx,
   attachment: {
@@ -376,6 +990,23 @@ export async function assertCanViewAttachment(
     (await canViewParentJob(ctx, attachment.parentId, normalizedViewerWallet))
   ) {
     return;
+  }
+
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "milestone" &&
+    attachment.parentId
+  ) {
+    const milestone = await ctx.db.get(attachment.parentId as Id<"milestones">);
+    const job = milestone ? await ctx.db.get(milestone.jobId) : null;
+    if (
+      milestone &&
+      job &&
+      (job.clientWallet === normalizedViewerWallet ||
+        milestone.assignedFreelancerWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
   }
 
   if (
@@ -441,6 +1072,21 @@ export async function assertCanViewAttachment(
     }
   }
 
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "cancellation" &&
+    attachment.parentId
+  ) {
+    const cancellation = await ctx.db.get(attachment.parentId as Id<"cancellationRequests">);
+    if (
+      cancellation &&
+      (cancellation.clientWallet === normalizedViewerWallet ||
+        cancellation.freelancerWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
   throw new ForbiddenError("You do not have permission to view this attachment.");
 }
 
@@ -489,7 +1135,11 @@ export async function getAttachmentsForParent(
   const visible = [];
   for (const attachment of attachments) {
     try {
-      await assertCanViewAttachment(ctx, attachment, input.viewerWallet);
+      if (isProtectedAttachment(attachment)) {
+        await assertCanPreviewAttachment(ctx, attachment, input.viewerWallet);
+      } else {
+        await assertCanViewAttachment(ctx, attachment, input.viewerWallet);
+      }
       visible.push(attachment);
     } catch {
       // Do not leak the existence of attachments the viewer cannot access.
@@ -507,5 +1157,44 @@ export async function softDeleteAttachment(
   await ctx.db.patch(input.attachmentId, {
     status: "deleted",
     updatedAt: Date.now(),
+  });
+}
+
+export async function createAttachmentAccessLog(
+  ctx: MutationCtx,
+  input: {
+    attachment: Doc<"attachments">;
+    viewerWallet?: string;
+    viewerWalletType?: TWalletType;
+    viewerRole?: TAttachmentViewerRole | null;
+    action: TAttachmentAccessAction;
+    result: TAttachmentAccessResult;
+    reason?: string;
+    sessionId?: string;
+    metadata?: Record<string, unknown>;
+    force?: boolean;
+  },
+) {
+  if (!input.force && !shouldLogAttachmentAccess(input.attachment)) {
+    return null;
+  }
+
+  const viewerWallet = input.viewerWallet ? normalizeWalletAddress(input.viewerWallet) : undefined;
+  const reason = optionalNonEmptyString(input.reason, "reason")?.slice(0, 280);
+  const sessionId = optionalNonEmptyString(input.sessionId, "sessionId")?.slice(0, 120);
+
+  return await ctx.db.insert("attachmentAccessLogs", {
+    attachmentId: input.attachment._id,
+    parentType: input.attachment.parentType,
+    ...(input.attachment.parentId ? { parentId: input.attachment.parentId } : {}),
+    ...(viewerWallet ? { viewerWallet } : {}),
+    ...(input.viewerWalletType ? { viewerWalletType: input.viewerWalletType } : {}),
+    ...(input.viewerRole ? { viewerRole: input.viewerRole } : {}),
+    action: input.action,
+    result: input.result,
+    ...(reason ? { reason } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    createdAt: Date.now(),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
   });
 }

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
+import { FREELANCER_DELIVERABLE_PROTECTED_REASON } from "../attachments/helpers";
 import { createSystemMessageForEvent } from "../conversations/helpers";
 import {
   computeDeadlineStatus,
@@ -123,6 +124,14 @@ export const submitWorkProofMetadata = mutation({
         parentId: args.submissionId,
         ownerRole: "freelancer",
         visibility: "participants",
+        protectionMode: "protected_preview",
+        downloadAllowed: false,
+        previewAllowed: true,
+        watermarkEnabled: true,
+        accessLoggingEnabled: true,
+        protectedReason: FREELANCER_DELIVERABLE_PROTECTED_REASON,
+        createdProtectionAt: now,
+        updatedProtectionAt: now,
         updatedAt: now,
       });
     }
