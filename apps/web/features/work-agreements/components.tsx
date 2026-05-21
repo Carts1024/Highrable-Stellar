@@ -618,7 +618,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
   }
 
   return (
-    <div className="max-h-[560px] space-y-2 overflow-auto rounded-lg border border-[#e8e8e8] bg-white p-4 font-mono text-xs leading-relaxed text-[#1f1f1f]">
+    <div className="max-h-[560px] space-y-2 overflow-auto border border-[#e8e8e8] bg-white p-4 font-mono text-xs leading-relaxed text-[#1f1f1f]">
       {markdown.split("\n").map((line, index) => {
         const key = `${index}-${line.slice(0, 12)}`;
         if (line.startsWith("# ")) {
@@ -658,7 +658,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
 function AgreementRichTextPreview({ agreement }: { agreement: TWorkAgreement }) {
   if (agreement.contentHtml?.trim()) {
     return (
-      <div className="max-h-[560px] overflow-auto rounded-lg border border-[#e8e8e8] bg-white p-4">
+      <div className="max-h-[560px] overflow-auto border border-[#e8e8e8] bg-white p-4">
         <RichTextContent
           html={agreement.contentHtml}
           fallbackText={getPlainTextFromMarkdown(agreement.contentMarkdown)}
@@ -670,6 +670,30 @@ function AgreementRichTextPreview({ agreement }: { agreement: TWorkAgreement }) 
   }
 
   return <AgreementMarkdownPreview markdown={agreement.contentMarkdown} />;
+}
+
+function AgreementTermsDisclosure({ agreement }: { agreement: TWorkAgreement }) {
+  return (
+    <details className="group border border-[#e8e8e8] bg-[#fafafa] p-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <span>
+          <span className="block font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+            Full terms
+          </span>
+          <span className="mt-1 block text-sm text-[#5f5f5f]">
+            Scope, payment, proof, revisions, cancellation, disputes, IP, and template notes.
+          </span>
+        </span>
+        <span className="font-mono text-xs text-[#B94A00] uppercase group-open:hidden">Show</span>
+        <span className="hidden font-mono text-xs text-[#B94A00] uppercase group-open:block">
+          Hide
+        </span>
+      </summary>
+      <div className="mt-4">
+        <AgreementRichTextPreview agreement={agreement} />
+      </div>
+    </details>
+  );
 }
 
 function AgreementSummaryCard({ agreement }: { agreement: TWorkAgreement }) {
@@ -1731,7 +1755,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                           </div>
                         </div>
                       ) : (
-                        <AgreementRichTextPreview agreement={agreement} />
+                        <AgreementTermsDisclosure agreement={agreement} />
                       )}
                     </div>
                   )}

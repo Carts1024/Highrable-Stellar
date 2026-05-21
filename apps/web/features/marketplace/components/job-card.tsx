@@ -5,15 +5,18 @@ import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
+import {
+  HighrableV2Bullet,
+  HighrableV2IconNotice,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 import type { TConvexDoc } from "@repo/convex-client";
 
 import { JobSafetyBadge } from "./job-safety-badge";
 import { StatusBadge } from "./status-badge";
-import { TrustSafetyNotice } from "./trust-safety-notice";
 
 export function JobCard({
   job,
@@ -42,100 +45,112 @@ export function JobCard({
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <article className="rounded-2xl border border-[#e8e8e8] bg-white p-6 transition-colors hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-[#0a0a0a]">{job.title}</h3>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
-          <JobSafetyBadge status={safetyStatus.status} />
-          {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
-        </div>
-      </div>
-
-      <p className="mb-4 line-clamp-3 text-sm text-[#5f5f5f]">{job.description}</p>
-
-      {!isMilestoneProject ? (
-        <div className="mb-4">
-          <DeadlineBadge
-            deadlineAt={job.deadlineAt}
-            submittedAt={job.submittedAt}
-            completedAt={job.completedAt}
-            approvedAt={job.approvedAt}
-            escrowStatus={escrow?.status}
-            workStatus={job.status}
-          />
-        </div>
-      ) : null}
-
-      {safetyStatus.status === "unfunded" ? (
-        <TrustSafetyNotice type="unfunded" compact className="mb-4" />
-      ) : null}
-
-      <dl className="grid grid-cols-1 gap-3 text-sm text-[#5f5f5f] sm:grid-cols-2">
-        <div>
-          <dt className="text-[#7f7f7f]">Work mode</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
-            {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[#7f7f7f]">Budget</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
-            {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[#7f7f7f]">Asset</dt>
-          <dd className="flex items-center gap-2 font-semibold text-[#0a0a0a]">
-            {formatAssetLabel(job.asset)}
-            {isNativeXlmJob && (
+    <article className="group border-b border-[#e8e8e8] bg-white px-1 py-5 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40 sm:px-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <JobSafetyBadge status={safetyStatus.status} />
+            {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
+            {safetyStatus.status === "unfunded" ? (
               <HighrableV2IconNotice
-                label="XLM volatility warning"
+                label="Unfunded job warning"
                 tone="warning"
-                message="XLM escrow is volatile. Final fiat value may change."
+                message="This job has not been funded yet. Confirm escrow before starting work."
               />
-            )}
-          </dd>
+            ) : null}
+            {safetyStatus.status === "verified_funded" ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                Escrow verified
+              </span>
+            ) : null}
+            {!isMilestoneProject ? (
+              <DeadlineBadge
+                deadlineAt={job.deadlineAt}
+                submittedAt={job.submittedAt}
+                completedAt={job.completedAt}
+                approvedAt={job.approvedAt}
+                escrowStatus={escrow?.status}
+                workStatus={job.status}
+              />
+            ) : null}
+          </div>
+
+          <div>
+            <h3 className="text-xl font-semibold text-gray-950">{job.title}</h3>
+            <p className="mt-2 line-clamp-3 max-w-3xl text-sm leading-6 text-gray-600">
+              {job.description}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-gray-600">
+            <span className="inline-flex items-center gap-2">
+              <HighrableV2Bullet tone="muted" />
+              {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <HighrableV2Bullet tone="muted" />
+              Client{" "}
+              <Link
+                href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+                className="hover:text-[#FF7003]"
+              >
+                {shortenWalletAddress(job.clientWallet)}
+              </Link>
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <HighrableV2Bullet tone="muted" />
+              Asset {formatAssetLabel(job.asset)}
+              {isNativeXlmJob ? (
+                <HighrableV2IconNotice
+                  label="XLM volatility warning"
+                  tone="warning"
+                  message="XLM escrow is volatile. Final fiat value may change."
+                />
+              ) : null}
+            </span>
+            <span className="inline-flex items-center gap-2">
+              <HighrableV2Bullet tone="muted" />
+              Freelancer {shortenWalletAddress(job.selectedFreelancerWallet)}
+            </span>
+          </div>
         </div>
-        <div>
-          <dt className="text-[#7f7f7f]">Client wallet</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
+
+        <div className="flex shrink-0 flex-col gap-3 lg:items-end">
+          <div className="lg:text-right">
+            <div className="text-2xl font-bold text-[#B94A00]">
+              {formatAmount(job.totalBudget ?? job.budget)}
+            </div>
+            <div className="text-xs font-medium text-gray-500">
+              {formatAssetLabel(job.asset)} {isMilestoneProject ? "total budget" : "budget"}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
             <Link
-              href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-              className="hover:text-[#FF7003]"
+              href={`/marketplace/jobs/${job._id}`}
+              className="inline-flex items-center gap-1 border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-white"
             >
-              {shortenWalletAddress(job.clientWallet)}
+              Details
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
             </Link>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[#7f7f7f]">Selected freelancer</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
-            {shortenWalletAddress(job.selectedFreelancerWallet)}
-          </dd>
-        </div>
-      </dl>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Link
-          href={`/marketplace/jobs/${job._id}`}
-          className="rounded-lg border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-[#f5f5f5]"
-        >
-          View Details
-        </Link>
-
-        {canApply ? (
-          <AppButton
-            type="button"
-            disabled={isApplying}
-            onClick={() => onApply(job._id)}
-            className="px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isApplying ? "Applying..." : "Apply"}
-          </AppButton>
-        ) : null}
-        {isMilestoneProject ? (
-          <p className="text-sm text-[#5f5f5f]">Apply to specific milestones on the detail page.</p>
-        ) : null}
+            {canApply ? (
+              <AppButton
+                type="button"
+                disabled={isApplying}
+                onClick={() => onApply(job._id)}
+                className="hr-v2-button-primary rounded-none px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isApplying ? "Applying..." : "Apply"}
+              </AppButton>
+            ) : null}
+          </div>
+          {isMilestoneProject ? (
+            <p className="max-w-[14rem] text-xs leading-relaxed text-[#5f5f5f] lg:text-right">
+              Apply to specific milestones on the detail page.
+            </p>
+          ) : null}
+        </div>
       </div>
     </article>
   );
