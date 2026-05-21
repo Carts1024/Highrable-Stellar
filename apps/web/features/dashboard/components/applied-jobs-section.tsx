@@ -1,17 +1,11 @@
 "use client";
 
+import { RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerAppliedJobs } from "@/features/dashboard/hooks/use-freelancer-applied-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
+import { CardContent, CardFooter } from "@repo/ui/components/ui/card";
 import {
   Table,
   TableBody,
@@ -32,21 +26,17 @@ export function AppliedJobsSection() {
     useFreelancerAppliedJobs();
 
   return (
-    <Card className="border-[#e8e8e8] bg-white">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-[#0a0a0a]">
-          <FileSearch className="h-5 w-5 text-[#FF7003]" />
-          Applications
-        </CardTitle>
-        <CardDescription>Jobs you applied to with your current application status.</CardDescription>
-      </CardHeader>
+    <RoutePanel>
+      <RoutePanelHeader
+        title="Applications"
+        description="Jobs you applied to with your current application status."
+        icon={<FileSearch className="h-5 w-5" />}
+      />
       <CardContent>
         {isInitialLoading ? (
-          <p className="text-sm text-gray-500">Loading applications...</p>
+          <p className="hr-text-secondary text-sm">Loading applications...</p>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
-            <p className="text-sm text-gray-500">You have not applied to any jobs yet.</p>
-          </div>
+          <RouteEmptyState description="You have not applied to any jobs yet." />
         ) : (
           <Table>
             <TableHeader>
@@ -65,9 +55,9 @@ export function AppliedJobsSection() {
               {items.map((item) => (
                 <TableRow key={item.applicationId}>
                   <TableCell className="max-w-55 font-medium">
-                    <p className="truncate">{item.title}</p>
+                    <p className="hr-text-primary truncate">{item.title}</p>
                     {item.milestoneTitle ? (
-                      <p className="truncate text-xs font-normal text-gray-500">
+                      <p className="hr-text-muted truncate text-xs font-normal">
                         Milestone: {item.milestoneTitle}
                       </p>
                     ) : null}
@@ -85,7 +75,7 @@ export function AppliedJobsSection() {
                   <TableCell>
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
                   </TableCell>
-                  <TableCell className="max-w-70 truncate text-gray-500">
+                  <TableCell className="hr-text-secondary max-w-70 truncate">
                     {item.proposalPreview || "-"}
                   </TableCell>
                   <TableCell className="text-right">
@@ -113,6 +103,6 @@ export function AppliedJobsSection() {
           </AppButton>
         </CardFooter>
       )}
-    </Card>
+    </RoutePanel>
   );
 }

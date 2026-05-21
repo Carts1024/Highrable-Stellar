@@ -1,19 +1,13 @@
 "use client";
 
+import { RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useClientPostedJobs } from "@/features/dashboard/hooks/use-client-posted-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
+import { CardContent, CardFooter } from "@repo/ui/components/ui/card";
 import {
   Table,
   TableBody,
@@ -34,23 +28,17 @@ export function PostedJobsSection() {
     useClientPostedJobs();
 
   return (
-    <Card className="border-[#e8e8e8] bg-white">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-[#0a0a0a]">
-          <Users className="h-5 w-5 text-[#FF7003]" />
-          Posted Jobs
-        </CardTitle>
-        <CardDescription>
-          Jobs you posted with applicant volume and current progress.
-        </CardDescription>
-      </CardHeader>
+    <RoutePanel>
+      <RoutePanelHeader
+        title="Posted Jobs"
+        description="Jobs you posted with applicant volume and current progress."
+        icon={<Users className="h-5 w-5" />}
+      />
       <CardContent>
         {isInitialLoading ? (
-          <p className="text-sm text-gray-500">Loading posted jobs...</p>
+          <p className="hr-text-secondary text-sm">Loading posted jobs...</p>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
-            <p className="text-sm text-gray-500">You have not posted any jobs yet.</p>
-          </div>
+          <RouteEmptyState description="You have not posted any jobs yet." />
         ) : (
           <Table>
             <TableHeader>
@@ -69,7 +57,9 @@ export function PostedJobsSection() {
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.jobId}>
-                  <TableCell className="max-w-55 truncate font-medium">{item.title}</TableCell>
+                  <TableCell className="hr-text-primary max-w-55 truncate font-medium">
+                    {item.title}
+                  </TableCell>
                   <TableCell>{formatDate(item.createdAt)}</TableCell>
                   <TableCell>
                     <StatusPill label={item.jobStatus} />
@@ -89,7 +79,7 @@ export function PostedJobsSection() {
                       compact
                     />
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-gray-600">
+                  <TableCell className="font-mono text-xs text-muted-foreground">
                     {shortenWalletAddress(item.selectedFreelancerWallet)}
                   </TableCell>
                   <TableCell>
@@ -123,6 +113,6 @@ export function PostedJobsSection() {
           </AppButton>
         )}
       </CardFooter>
-    </Card>
+    </RoutePanel>
   );
 }

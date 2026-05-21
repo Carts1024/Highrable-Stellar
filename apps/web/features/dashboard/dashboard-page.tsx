@@ -2,7 +2,7 @@
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { AdminDashboardPage } from "@/features/admin";
-import { ProductPageHero } from "@/features/common";
+import { ProductPageHero, RouteCallout, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
 import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
@@ -17,6 +17,7 @@ import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
 import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -31,6 +32,38 @@ import Link from "next/link";
 
 import type { TAssetAmount, TDashboardMode } from "@/features/dashboard/types";
 
+interface IQuickAction {
+  readonly href: string;
+  readonly title: string;
+  readonly description: string;
+  readonly icon: typeof Briefcase;
+  readonly iconContainerClassName?: string;
+}
+
+const QUICK_ACTIONS: readonly IQuickAction[] = [
+  {
+    href: "/marketplace",
+    title: "Browse Jobs",
+    description: "Find new opportunities",
+    icon: Briefcase,
+    iconContainerClassName: "hr-gradient-primary border-transparent text-white",
+  },
+  {
+    href: "/post-job",
+    title: "Post a Job",
+    description: "Hire talented freelancers",
+    icon: Users,
+    iconContainerClassName: "bg-primary text-primary-foreground border-transparent",
+  },
+  {
+    href: "/disputes",
+    title: "Disputes",
+    description: "Review active cases",
+    icon: AlertTriangle,
+    iconContainerClassName: "hr-v2-badge-accent text-current",
+  },
+] as const;
+
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
   return rows.map((r) => `${formatAmount(r.amount)} ${formatAsset(r.asset)}`).join(" + ");
@@ -42,7 +75,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
       label: "Client Operations",
       title: (
         <>
-          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+          Client <span className="hr-v2-gradient-text">Jobs Dashboard</span>
         </>
       ),
       description:
@@ -54,7 +87,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
     label: "Freelancer Performance",
     title: (
       <>
-        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+        Freelancer <span className="hr-v2-gradient-text">Income Dashboard</span>
       </>
     ),
     description:
@@ -64,13 +97,12 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
 
 function UnfundedWarningBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+    <RouteCallout tone="warning" icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}>
       <span>
         Your testnet wallet is not funded. You can view your dashboard, but Stellar transactions
         require test XLM.
       </span>
-    </div>
+    </RouteCallout>
   );
 }
 
@@ -78,10 +110,7 @@ function DashboardSkeletonCards() {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-gray-100"
-        />
+        <div key={i} className="hr-panel hr-surface-muted h-28 animate-pulse" />
       ))}
     </div>
   );
@@ -89,59 +118,53 @@ function DashboardSkeletonCards() {
 
 function QuickActions() {
   return (
-    <motion.div
+    <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.7 }}
-      className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm"
+      className=""
     >
-      <h2 className="mb-4 text-xl font-semibold text-[#0a0a0a]">Quick Actions</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Link
-          href="/marketplace"
-          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Browse Jobs</p>
-            <p className="text-sm text-[#5f5f5f]">Find new opportunities</p>
-          </div>
-        </Link>
+      <RoutePanel>
+        <RoutePanelHeader
+          title="Quick Actions"
+          description="Jump into the most common workflow surfaces."
+        />
+        <div className="grid grid-cols-1 gap-4 px-6 md:grid-cols-2 xl:grid-cols-3">
+          {QUICK_ACTIONS.map((action) => {
+            const Icon = action.icon;
 
-        <Link
-          href="/post-job"
-          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-blue-600">
-            <Users className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Post a Job</p>
-            <p className="text-sm text-[#5f5f5f]">Hire talented freelancers</p>
-          </div>
-        </Link>
-        <Link
-          href="/disputes"
-          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-red-500 to-red-600">
-            <AlertTriangle className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Disputes</p>
-            <p className="text-sm text-[#5f5f5f]">Review active cases</p>
-          </div>
-        </Link>
-      </div>
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="group hr-panel hover:hr-hard-shadow flex items-center gap-3 p-4 transition-shadow"
+              >
+                <div
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-xl border",
+                    action.iconContainerClassName,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="hr-text-primary font-medium group-hover:opacity-80">
+                    {action.title}
+                  </p>
+                  <p className="hr-text-secondary text-sm">{action.description}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
 
-      <div className="mt-4 flex justify-end">
-        <AppButton asChild variant="secondary">
-          <Link href="/marketplace">Open Marketplace Flow</Link>
-        </AppButton>
-      </div>
-    </motion.div>
+        <div className="flex justify-end px-6 pb-6">
+          <AppButton asChild variant="secondary">
+            <Link href="/marketplace">Open Marketplace Flow</Link>
+          </AppButton>
+        </div>
+      </RoutePanel>
+    </motion.section>
   );
 }
 
@@ -175,7 +198,7 @@ export function DashboardPage() {
   }
 
   if (onboardingGuard.isCheckingOnboarding) {
-    return <p className="text-sm text-gray-500">Checking onboarding...</p>;
+    return <p className="hr-text-secondary text-sm">Checking onboarding...</p>;
   }
 
   if (!isRoleLoading && role === "admin") {
@@ -208,7 +231,7 @@ export function DashboardPage() {
 
       {isLoading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <p className="mb-4 text-sm text-gray-500">Loading income dashboard…</p>
+          <p className="hr-text-secondary mb-4 text-sm">Loading income dashboard…</p>
           <DashboardSkeletonCards />
         </motion.div>
       )}
@@ -226,8 +249,7 @@ export function DashboardPage() {
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
               subtitle="Completed escrow payments via Stellar"
               icon={DollarSign}
-              colorClass="from-emerald-500 to-emerald-600"
-              bgColorClass="from-emerald-500/10 to-emerald-600/10"
+              iconClassName="hr-gradient-primary border-transparent text-white"
               animationDelay={0.3}
             />
 
@@ -236,8 +258,7 @@ export function DashboardPage() {
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
               subtitle="Funds already locked by clients"
               icon={Clock}
-              colorClass="from-blue-500 to-blue-600"
-              bgColorClass="from-blue-500/10 to-blue-600/10"
+              iconClassName="bg-primary text-primary-foreground border-transparent"
               animationDelay={0.35}
             />
 
@@ -246,8 +267,7 @@ export function DashboardPage() {
               value={summary.completedJobs.toString()}
               subtitle="Payments released through Stellar escrow"
               icon={CheckCircle}
-              colorClass="from-[#FF7003] to-[#FF8801]"
-              bgColorClass="from-[#FF7003]/10 to-[#FF8801]/10"
+              iconClassName="hr-v2-badge-accent text-current"
               animationDelay={0.4}
             />
 
@@ -256,8 +276,7 @@ export function DashboardPage() {
               value={summary.activeJobs.toString()}
               subtitle="Funded or submitted, awaiting release"
               icon={Briefcase}
-              colorClass="from-violet-500 to-violet-600"
-              bgColorClass="from-violet-500/10 to-violet-600/10"
+              iconClassName="hr-surface-muted hr-text-primary"
               animationDelay={0.45}
             />
 
@@ -266,8 +285,7 @@ export function DashboardPage() {
               value={summary.awaitingFunding.toString()}
               subtitle="Escrows created but not yet funded by client"
               icon={Hourglass}
-              colorClass="from-gray-400 to-gray-500"
-              bgColorClass="from-gray-400/10 to-gray-500/10"
+              iconClassName="border-border text-muted-foreground"
               animationDelay={0.5}
             />
           </motion.div>

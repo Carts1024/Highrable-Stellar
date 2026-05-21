@@ -6,6 +6,7 @@ import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
@@ -15,6 +16,13 @@ import {
   postAdminResolution,
   postAdminReviewStatus,
 } from "@/features/admin/lib/admin-api";
+import {
+  ProductPageHero,
+  RouteCallout,
+  RouteEmptyState,
+  RoutePanel,
+  RoutePanelHeader,
+} from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
@@ -418,14 +426,15 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   ]);
 
   if (isRoleLoading) {
-    return <p className="text-sm text-[#5f5f5f]">Loading wallet access...</p>;
+    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
   }
 
   if (role === null) {
     return (
-      <section className="rounded-xl border border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
-        Connect the configured admin wallet to review disputes.
-      </section>
+      <WalletRequiredNotice
+        title="Admin Dispute Review"
+        description="Connect the configured admin wallet to review disputes."
+      />
     );
   }
 
@@ -442,38 +451,30 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   }
 
   if (isLoading) {
-    return <p className="text-sm text-[#5f5f5f]">Loading dispute detail...</p>;
+    return <p className="hr-text-secondary text-sm">Loading dispute detail...</p>;
   }
 
   if (error || !detail) {
     return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        {error ?? "Dispute detail could not be loaded."}
-      </section>
+      <RouteCallout tone="danger">{error ?? "Dispute detail could not be loaded."}</RouteCallout>
     );
   }
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-xs text-[#5f5f5f] uppercase">
-              {detail.dispute.disputeNumber}
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">{detail.dispute.title}</h1>
-            <p className="mt-1 text-sm text-[#5f5f5f]">
-              {getDisputeReasonLabel(detail.dispute.reasonCategory)} | Opened{" "}
-              {formatDisputeDate(detail.dispute.openedAt)}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <DisputeStatusBadge status={detail.dispute.status} />
-            <DisputeOnChainStatusBadge status={detail.dispute.onChainStatus} />
-          </div>
-        </div>
+      <ProductPageHero
+        label={detail.dispute.disputeNumber}
+        title={detail.dispute.title}
+        description={`${getDisputeReasonLabel(detail.dispute.reasonCategory)} | Opened ${formatDisputeDate(detail.dispute.openedAt)}`}
+      />
 
-        <p className="mt-4 text-sm whitespace-pre-wrap text-[#3f3f3f]">
+      <div className="flex flex-wrap gap-2">
+        <DisputeStatusBadge status={detail.dispute.status} />
+        <DisputeOnChainStatusBadge status={detail.dispute.onChainStatus} />
+      </div>
+
+      <RoutePanel className="p-5">
+        <p className="text-sm whitespace-pre-wrap text-foreground/80">
           {detail.dispute.description}
         </p>
 
@@ -489,10 +490,10 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             </AppButton>
           ) : null}
         </div>
-      </section>
+      </RoutePanel>
 
       {canRetryMarkDisputed ? (
-        <section className="rounded-xl border border-red-200 bg-red-50 p-5">
+        <RoutePanel className="border-red-200 bg-red-50 p-5">
           <h2 className="text-base font-semibold text-red-800">Retry mark_disputed</h2>
           <p className="mt-2 text-sm text-red-700">
             The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and
@@ -508,19 +509,23 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
               {isSubmitting ? "Retrying..." : "Retry mark_disputed"}
             </AppButton>
           </div>
-        </section>
+        </RoutePanel>
       ) : null}
 
-      <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Moderator Actions</h2>
+      <RoutePanel className="p-5">
+        <RoutePanelHeader
+          className="border-b-0 px-0 pb-0"
+          title="Moderator Actions"
+          description="Capture internal notes and move the dispute through the review flow."
+        />
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#0a0a0a]">Add Moderator Note</p>
+            <p className="hr-text-primary text-sm font-medium">Add Moderator Note</p>
             <Textarea
               value={moderatorNote}
               onChange={(event) => setModeratorNote(event.target.value)}
-              className="min-h-28 rounded-lg border-[#d8d8d8]"
+              className="min-h-28 rounded-lg border-border"
               placeholder="Add context for the dispute timeline."
               disabled={isSubmitting}
             />
@@ -537,11 +542,11 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-[#0a0a0a]">Change Review Status</p>
+            <p className="hr-text-primary text-sm font-medium">Change Review Status</p>
             <select
               value={reviewStatus}
               onChange={(event) => setReviewStatus(event.target.value as TAdminReviewStatus)}
-              className="h-10 w-full rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a]"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
               disabled={isSubmitting}
             >
               <option value="under_review">Under review</option>
@@ -551,7 +556,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             <Textarea
               value={reviewMessage}
               onChange={(event) => setReviewMessage(event.target.value)}
-              className="min-h-20 rounded-lg border-[#d8d8d8]"
+              className="min-h-20 rounded-lg border-border"
               placeholder="Optional status message"
               disabled={isSubmitting}
             />
@@ -567,24 +572,29 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             </div>
           </div>
         </div>
-      </section>
+      </RoutePanel>
 
-      <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Resolve Dispute On-Chain</h2>
-        <p className="mt-2 text-sm text-[#5f5f5f]">
+      <RoutePanel className="p-5">
+        <RoutePanelHeader
+          className="border-b-0 px-0 pb-0"
+          title="Resolve Dispute On-Chain"
+          description="Resolution uses Highrable review flow and calls escrow resolve_dispute with admin authorization."
+        />
+
+        <p className="hr-text-secondary mt-2 text-sm">
           Resolution uses Highrable review flow and calls escrow resolve_dispute with admin
           authorization.
         </p>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <label className="grid gap-1 text-sm text-[#5f5f5f]">
+          <label className="hr-text-secondary grid gap-1 text-sm">
             <span>Resolution</span>
             <select
               value={resolutionStatus}
               onChange={(event) =>
                 setResolutionStatus(event.target.value as TAdminResolutionStatus)
               }
-              className="h-10 rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a]"
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
               disabled={isSubmitting}
             >
               <option value="resolved_client">Resolved client</option>
@@ -593,7 +603,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-[#5f5f5f]" htmlFor="resolution-share-bps">
+          <label className="hr-text-secondary grid gap-1 text-sm" htmlFor="resolution-share-bps">
             <span>Freelancer Share (bps)</span>
             <input
               id="resolution-share-bps"
@@ -608,12 +618,12 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
               }
               onChange={(event) => setResolutionShareInput(event.target.value)}
               disabled={isSubmitting || resolutionStatus !== "split_resolution"}
-              className="h-10 rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
+              className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground disabled:opacity-60"
             />
           </label>
 
           <label
-            className="grid gap-1 text-sm text-[#5f5f5f] lg:col-span-2"
+            className="hr-text-secondary grid gap-1 text-sm lg:col-span-2"
             htmlFor="resolution-note"
           >
             <span>Resolution Note (optional)</span>
@@ -622,7 +632,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
               aria-label="Resolution note"
               value={resolutionNote}
               onChange={(event) => setResolutionNote(event.target.value)}
-              className="min-h-20 rounded-lg border-[#d8d8d8]"
+              className="min-h-20 rounded-lg border-border"
               disabled={isSubmitting}
               placeholder="Optional internal context for this resolution."
             />
@@ -639,33 +649,25 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             {isSubmitting ? "Resolving..." : "Resolve On-Chain"}
           </AppButton>
         </div>
-      </section>
+      </RoutePanel>
 
-      {actionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {actionError}
-        </p>
-      ) : null}
-      {actionSuccess ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          {actionSuccess}
-        </p>
-      ) : null}
+      {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
+      {actionSuccess ? <RouteCallout tone="success">{actionSuccess}</RouteCallout> : null}
 
-      <section className="rounded-xl border border-[#e8e8e8] bg-white p-5">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Timeline</h2>
+      <RoutePanel className="p-5">
+        <RoutePanelHeader className="border-b-0 px-0 pb-0" title="Timeline" />
         {detail.timeline.length === 0 ? (
-          <p className="mt-2 text-sm text-[#5f5f5f]">No timeline events yet.</p>
+          <RouteEmptyState description="No timeline events yet." className="mt-2" />
         ) : (
           <div className="mt-3 space-y-3">
             {detail.timeline.map((event) => (
-              <article key={event._id} className="rounded-lg border border-[#ececec] p-3">
+              <article key={event._id} className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-[#0a0a0a]">{event.message}</p>
-                  <p className="text-xs text-[#5f5f5f]">{formatDisputeDate(event.createdAt)}</p>
+                  <p className="hr-text-primary text-sm font-medium">{event.message}</p>
+                  <p className="hr-text-secondary text-xs">{formatDisputeDate(event.createdAt)}</p>
                 </div>
                 {event.attachments && event.attachments.length > 0 ? (
-                  <ul className="mt-2 space-y-1 text-xs text-[#5f5f5f]">
+                  <ul className="hr-text-secondary mt-2 space-y-1 text-xs">
                     {event.attachments.map((attachment) => (
                       <li key={attachment._id}>
                         {attachment.name}
@@ -674,7 +676,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
                             href={attachment.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="ml-2 text-[#FF7003]"
+                            className="hr-text-accent ml-2"
                           >
                             Open
                           </a>
@@ -687,7 +689,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             ))}
           </div>
         )}
-      </section>
+      </RoutePanel>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionLabel } from "@/features/landing-v2/components/v2-section-label";
+import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 
 import type { ReactNode } from "react";
@@ -22,7 +23,7 @@ export function ProductPageHero({
   className,
 }: IProductPageHeroProps) {
   return (
-    <section className={className}>
+    <section className={cn("max-w-4xl", className)}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -30,8 +31,8 @@ export function ProductPageHero({
         className="max-w-3xl space-y-4"
       >
         <SectionLabel>{label}</SectionLabel>
-        <h1 className="text-4xl leading-tight font-medium text-[#0a0a0a] sm:text-5xl">{title}</h1>
-        <p className="text-base leading-relaxed text-[#5f5f5f] sm:text-lg">{description}</p>
+        <h1 className="hr-text-primary text-4xl leading-tight font-medium sm:text-5xl">{title}</h1>
+        <p className="hr-text-secondary text-base leading-relaxed sm:text-lg">{description}</p>
         {actions ? <div className="flex flex-wrap items-center gap-3 pt-2">{actions}</div> : null}
       </motion.div>
     </section>

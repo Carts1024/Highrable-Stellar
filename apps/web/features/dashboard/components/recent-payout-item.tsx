@@ -21,7 +21,7 @@ function RatingStars({ rating }: { rating: number }) {
           strokeWidth={1.5}
         />
       ))}
-      <span className="ml-1 text-xs text-gray-500">{rating}/5</span>
+      <span className="hr-text-muted ml-1 text-xs">{rating}/5</span>
     </span>
   );
 }
@@ -42,10 +42,10 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   } = payout;
 
   return (
-    <div className="space-y-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-      <p className="truncate text-sm font-semibold text-gray-900">{jobTitle ?? "Untitled Job"}</p>
+    <div className="hr-panel space-y-2 p-4 shadow-none">
+      <p className="hr-text-primary truncate text-sm font-semibold">{jobTitle ?? "Untitled Job"}</p>
       {milestoneTitle ? (
-        <p className="text-xs font-medium text-[#5f5f5f]">Milestone: {milestoneTitle}</p>
+        <p className="hr-text-secondary text-xs font-medium">Milestone: {milestoneTitle}</p>
       ) : null}
       <VerifiedReviewCard
         compact
@@ -62,25 +62,25 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
         completionType={milestoneTitle ? "milestone" : "job"}
       />
       {rating !== undefined ? (
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="hr-text-muted flex items-center gap-2 text-xs">
           <span>Verified rating:</span>
           <RatingStars rating={rating} />
         </div>
       ) : (
-        <p className="text-xs text-gray-500">Rating not provided</p>
+        <p className="hr-text-muted text-xs">Rating not provided</p>
       )}
       {reviewText ? (
-        <p className="line-clamp-2 text-xs text-gray-500 italic">"{reviewText}"</p>
+        <p className="hr-text-muted line-clamp-2 text-xs italic">"{reviewText}"</p>
       ) : null}
-      <div className="text-xs text-emerald-700">Paid through Stellar escrow</div>
+      <div className="hr-text-accent text-xs">Paid through verified payment release</div>
       <Link
         href={`/proof/${encodeURIComponent(escrowId)}`}
-        className="inline-flex text-xs font-medium text-[#FF7003] hover:text-[#E85D00]"
+        className="hr-text-accent inline-flex text-xs font-medium hover:opacity-80"
       >
         View proof
       </Link>
       {!releaseTxHash ? (
-        <span className="text-xs text-gray-400">Transaction hash not stored</span>
+        <span className="hr-text-muted text-xs">Transaction hash not stored</span>
       ) : null}
     </div>
   );

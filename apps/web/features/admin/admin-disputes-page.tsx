@@ -4,6 +4,7 @@ import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-n
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AdminSessionGate } from "@/features/admin/admin-session-gate";
 import { fetchAdminDisputes } from "@/features/admin/lib/admin-api";
+import { RouteCallout, RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import { formatDisputeDate } from "@/features/disputes/lib";
@@ -70,7 +71,7 @@ export function AdminDisputesPage() {
   }, [authSession, loadDisputes, role]);
 
   if (isRoleLoading) {
-    return <p className="text-sm text-[#5f5f5f]">Loading wallet access...</p>;
+    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
   }
 
   if (role === null) {
@@ -95,32 +96,33 @@ export function AdminDisputesPage() {
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-[#e8e8e8] bg-white p-5">
+    <RoutePanel className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-mono text-xs text-[#5f5f5f] uppercase">Manual Review</p>
-          <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">Admin Dispute Console</h1>
-          <p className="mt-1 text-sm text-[#5f5f5f]">
-            Filter disputes, inspect dispute state, and open the detailed review view.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <AppButton asChild variant="secondary" size="sm">
-            <Link href="/admin">Back to Admin</Link>
-          </AppButton>
-          <AppButton size="sm" onClick={() => void loadDisputes()} disabled={isLoading}>
-            {isLoading ? "Refreshing..." : "Refresh"}
-          </AppButton>
-        </div>
+        <RoutePanelHeader
+          className="w-full border-b-0 px-0 pb-0"
+          eyebrow="Manual Review"
+          title="Admin Dispute Console"
+          description="Filter disputes, inspect dispute state, and open the detailed review view."
+          action={
+            <>
+              <AppButton asChild variant="secondary" size="sm">
+                <Link href="/admin">Back to Admin</Link>
+              </AppButton>
+              <AppButton size="sm" onClick={() => void loadDisputes()} disabled={isLoading}>
+                {isLoading ? "Refreshing..." : "Refresh"}
+              </AppButton>
+            </>
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <label className="grid gap-1 text-sm text-[#5f5f5f]">
+        <label className="hr-text-secondary grid gap-1 text-sm">
           <span>Status</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="h-10 rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a]"
+            className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
           >
             {STATUS_FILTER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -130,12 +132,12 @@ export function AdminDisputesPage() {
           </select>
         </label>
 
-        <label className="grid gap-1 text-sm text-[#5f5f5f]">
+        <label className="hr-text-secondary grid gap-1 text-sm">
           <span>On-chain status</span>
           <select
             value={onChainFilter}
             onChange={(event) => setOnChainFilter(event.target.value)}
-            className="h-10 rounded-lg border border-[#d8d8d8] px-3 text-sm text-[#0a0a0a]"
+            className="h-10 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
           >
             {ON_CHAIN_FILTER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -146,31 +148,23 @@ export function AdminDisputesPage() {
         </label>
       </div>
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
-      ) : null}
+      {error ? <RouteCallout tone="danger">{error}</RouteCallout> : null}
 
       {isLoading ? (
-        <p className="rounded-lg border border-[#ececec] bg-[#fafafa] p-3 text-sm text-[#5f5f5f]">
-          Loading disputes...
-        </p>
+        <RouteCallout>Loading disputes...</RouteCallout>
       ) : disputes.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-3 text-sm text-[#5f5f5f]">
-          No disputes match the selected filters.
-        </p>
+        <RouteEmptyState description="No disputes match the selected filters." />
       ) : (
         <div className="space-y-3">
           {disputes.map((dispute) => (
-            <article key={dispute.disputeId} className="rounded-lg border border-[#ececec] p-3">
+            <article key={dispute.disputeId} className="rounded-lg border border-border p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-mono text-xs text-[#5f5f5f] uppercase">
+                  <p className="hr-text-muted font-mono text-xs uppercase">
                     {dispute.disputeNumber}
                   </p>
-                  <h2 className="mt-1 text-base font-semibold text-[#0a0a0a]">{dispute.title}</h2>
-                  <p className="mt-1 text-xs text-[#5f5f5f]">
+                  <h2 className="hr-text-primary mt-1 text-base font-semibold">{dispute.title}</h2>
+                  <p className="hr-text-secondary mt-1 text-xs">
                     Opened {formatDisputeDate(dispute.openedAt)} | Updated{" "}
                     {formatDisputeDate(dispute.updatedAt)}
                   </p>
@@ -191,6 +185,6 @@ export function AdminDisputesPage() {
           ))}
         </div>
       )}
-    </section>
+    </RoutePanel>
   );
 }
