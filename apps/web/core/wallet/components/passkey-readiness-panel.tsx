@@ -84,7 +84,7 @@ export function PasskeyReadinessPanel() {
     sessionStatus,
     isRestoring,
   } = usePasskeySmartAccount();
-  const upsertUser = useMutation(api.users.upsertUser);
+  const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
   const requestIdRef = useRef(0);
   const [nativeBalance, setNativeBalance] = useState<ISmartAccountBalanceResult | null>(null);
   const [stablecoinBalance, setStablecoinBalance] = useState<ISmartAccountBalanceResult | null>(
@@ -179,7 +179,7 @@ export function PasskeyReadinessPanel() {
     ],
   );
 
-  const handleLinkProfile = async (role: "client" | "freelancer") => {
+  const handleLinkProfile = async () => {
     if (!smartAccountAddress) {
       return;
     }
@@ -187,9 +187,8 @@ export function PasskeyReadinessPanel() {
     setLinkError(null);
 
     try {
-      await upsertUser({
+      await recordWalletIdentity({
         walletAddress: smartAccountAddress,
-        role,
         walletType: "passkey_smart_account",
       });
     } catch (error) {
@@ -323,22 +322,13 @@ export function PasskeyReadinessPanel() {
             <div>
               <p className="font-semibold">No linked Highrable user record found.</p>
               <p className="mt-1">
-                Link this passkey smart account to a client or freelancer profile before using it as
-                your active identity.
+                Link this passkey smart account to Highrable before using it as your active
+                identity. You can hire or work from the same account after onboarding.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <AppButton type="button" size="sm" onClick={() => void handleLinkProfile("client")}>
+                <AppButton type="button" size="sm" onClick={() => void handleLinkProfile()}>
                   <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Link as client
-                </AppButton>
-                <AppButton
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleLinkProfile("freelancer")}
-                >
-                  <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Link as freelancer
+                  Link identity
                 </AppButton>
               </div>
               {linkError ? <p className="mt-2 text-sm text-red-700">{linkError}</p> : null}

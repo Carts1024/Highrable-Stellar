@@ -15,6 +15,7 @@ import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role"
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
+import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { motion } from "framer-motion";
 import {
@@ -148,6 +149,7 @@ function QuickActions() {
 export function DashboardPage() {
   const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
     useFreelancerDashboard();
+  const onboardingGuard = useRequireOnboarding();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
   const {
     selectedMode,
@@ -170,6 +172,10 @@ export function DashboardPage() {
         description="Connect your Stellar wallet to view your income dashboard."
       />
     );
+  }
+
+  if (onboardingGuard.isCheckingOnboarding) {
+    return <p className="text-sm text-gray-500">Checking onboarding...</p>;
   }
 
   if (!isRoleLoading && role === "admin") {

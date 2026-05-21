@@ -3,6 +3,7 @@
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { ProductPageHero } from "@/features/common";
 import { CreateJobForm } from "@/features/marketplace/components/create-job-form";
+import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,11 @@ import { useRouter } from "next/navigation";
 /** Standalone client job-posting page using the validated marketplace form flow. */
 export function PostJobPage() {
   const router = useRouter();
+  const onboardingGuard = useRequireOnboarding();
+
+  if (onboardingGuard.isCheckingOnboarding) {
+    return <p className="text-sm text-[#5f5f5f]">Checking onboarding...</p>;
+  }
 
   return (
     <div className="space-y-8">

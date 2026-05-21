@@ -23,7 +23,7 @@ import {
   DISALLOWED_JOB_POST_MESSAGE,
 } from "../jobs/scamSignals";
 import { validateRevisionPolicy } from "../revisions/helpers";
-import { ensureUserWithRole } from "../users/helpers";
+import { ensureOnboardedUser } from "../users/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertMilestoneAssignable,
@@ -76,7 +76,7 @@ export const createMilestoneProject = mutation({
     }
 
     // TODO: Replace walletAddress trust with signed wallet session/auth.
-    await ensureUserWithRole(ctx, clientWallet, "client", args.walletType);
+    await ensureOnboardedUser(ctx, clientWallet, args.walletType);
 
     validateMilestoneDeadlineOrder(args.milestones);
 

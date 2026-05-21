@@ -4,8 +4,9 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
 import { mutation, query } from "./_generated/server";
+import { BadRequestError } from "./_shared/errors";
 import { normalizeWalletAddress } from "./_shared/input";
-import { findUserByWallet } from "./users/helpers";
+import { findUserByWallet, resolveAvatarUrl } from "./users/helpers";
 
 const ACTIVE_ESCROW_STATUSES = new Set(["funded", "submitted"] as const);
 const CLIENT_FUNDED_ESCROW_STATUSES = new Set(["funded", "submitted", "released"] as const);
@@ -160,21 +161,11 @@ export const updateFreelancerProfile = mutation({
     const existingUser = await findUserByWallet(ctx, walletAddress);
 
     if (existingUser) {
-      await ctx.db.patch(existingUser._id, {
-        ...patch,
-        ...(existingUser.role === "freelancer" ? { role: "freelancer" as const } : {}),
-      });
+      await ctx.db.patch(existingUser._id, patch);
       return await ctx.db.get(existingUser._id);
     }
 
-    const userId = await ctx.db.insert("users", {
-      walletAddress,
-      role: "freelancer",
-      createdAt: now,
-      ...patch,
-    });
-
-    return await ctx.db.get(userId);
+    throw new BadRequestError("Complete onboarding before editing your profile.");
   },
 });
 
@@ -213,21 +204,11 @@ export const updateClientProfile = mutation({
     const existingUser = await findUserByWallet(ctx, walletAddress);
 
     if (existingUser) {
-      await ctx.db.patch(existingUser._id, {
-        ...patch,
-        ...(existingUser.role === "client" ? { role: "client" as const } : {}),
-      });
+      await ctx.db.patch(existingUser._id, patch);
       return await ctx.db.get(existingUser._id);
     }
 
-    const userId = await ctx.db.insert("users", {
-      walletAddress,
-      role: "client",
-      createdAt: now,
-      ...patch,
-    });
-
-    return await ctx.db.get(userId);
+    throw new BadRequestError("Complete onboarding before editing your profile.");
   },
 });
 
@@ -364,7 +345,7 @@ export const getFreelancerProfile = query({
         name: user?.name,
         bio: user?.bio,
         skills: user?.skills ?? [],
-        avatarUrl: user?.avatarUrl,
+        avatarUrl: await resolveAvatarUrl(ctx, user),
         portfolioUrl: user?.portfolioUrl,
         websiteUrl: user?.websiteUrl,
         location: user?.location,
@@ -409,7 +390,7 @@ export const getClientTrustProfile = query({
         .take(500),
     ]);
 
-    const hasClientData = user?.role === "client" || jobs.length > 0 || escrows.length > 0;
+    const hasClientData = user !== null || jobs.length > 0 || escrows.length > 0;
 
     if (!hasClientData) {
       return null;

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
-import { ensureUserWithRole } from "../users/helpers";
+import { ensureOnboardedUser } from "../users/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertCanApplyToJob,
@@ -32,7 +32,7 @@ export const applyToJob = mutation({
     );
 
     // TODO: Replace walletAddress trust with signed wallet session/auth.
-    await ensureUserWithRole(ctx, freelancerWallet, "freelancer", args.walletType);
+    await ensureOnboardedUser(ctx, freelancerWallet, args.walletType);
 
     return await ctx.db.insert("applications", {
       jobId: args.jobId,
@@ -65,7 +65,7 @@ export const applyToMilestone = mutation({
     );
 
     // TODO: Replace walletAddress trust with signed wallet session/auth.
-    await ensureUserWithRole(ctx, freelancerWallet, "freelancer", args.walletType);
+    await ensureOnboardedUser(ctx, freelancerWallet, args.walletType);
 
     return await ctx.db.insert("applications", {
       jobId: args.jobId,

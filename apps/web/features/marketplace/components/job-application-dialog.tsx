@@ -6,6 +6,7 @@ import {
   TrustSafetyNotice,
   type TTrustSafetyNoticeType,
 } from "@/features/marketplace/components/trust-safety-notice";
+import { useOnboardingState } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
@@ -16,6 +17,7 @@ import {
   DialogTitle,
 } from "@repo/ui/dialog";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { ShowcaseWorkSelector } from "./showcase-work-selector";
@@ -47,6 +49,8 @@ export function JobApplicationDialog({
   onSubmit,
 }: IJobApplicationDialogProps) {
   const walletIdentity = useHighrableWalletIdentity();
+  const onboardingState = useOnboardingState();
+  const router = useRouter();
   const [proposal, setProposal] = useState("");
   const [showcasedWorkEscrowId, setShowcasedWorkEscrowId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -61,6 +65,11 @@ export function JobApplicationDialog({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (onboardingState.isConnected && !onboardingState.isLoading && !onboardingState.isComplete) {
+      router.push("/onboarding");
+      return;
+    }
 
     const parsed = APPLY_PROPOSAL_SCHEMA.safeParse(proposal);
     if (!parsed.success) {

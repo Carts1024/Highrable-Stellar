@@ -3,6 +3,7 @@
 import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-account-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
+import { api } from "@repo/convex-client";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,7 @@ import {
   DialogTrigger,
 } from "@repo/ui/dialog";
 import { Wallet } from "lucide-react";
+import { useMutation } from "convex/react";
 import { useState } from "react";
 
 interface IWalletConnectTriggerProps {
@@ -25,12 +27,19 @@ export function WalletConnectTrigger({
 }: IWalletConnectTriggerProps) {
   const { connectWallet, walletState } = useWallet();
   const { setActiveWalletMode } = usePasskeySmartAccount();
+  const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleExternalWalletConnect = () => {
+  const handleExternalWalletConnect = async () => {
     setActiveWalletMode("external_wallet");
     setIsOpen(false);
-    void connectWallet();
+    const walletAddress = await connectWallet();
+    if (walletAddress) {
+      await recordWalletIdentity({
+        walletAddress,
+        walletType: "external_wallet",
+      });
+    }
   };
 
   return (
@@ -64,7 +73,7 @@ export function WalletConnectTrigger({
                   </p>
                   <button
                     type="button"
-                    onClick={handleExternalWalletConnect}
+                    onClick={() => void handleExternalWalletConnect()}
                     disabled={walletState.isConnecting}
                     className="mt-4 rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                   >

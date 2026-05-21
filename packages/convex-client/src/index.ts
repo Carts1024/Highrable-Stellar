@@ -10,6 +10,7 @@ let cachedClient: ConvexReactClient | null = null;
 export type TConvexTableName = TableNames;
 export type TConvexDoc<TTableName extends TConvexTableName> = Doc<TTableName>;
 export type TConvexId<TTableName extends TConvexTableName> = Id<TTableName>;
+export type TConvexStorageId = Id<"_storage">;
 
 export function resolveConvexUrl(): string {
   const configuredUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
