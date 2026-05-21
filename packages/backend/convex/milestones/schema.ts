@@ -2,6 +2,11 @@ import { defineTable } from "convex/server";
 import { v, type Infer } from "convex/values";
 
 import { createStringEnum } from "../_shared/enum";
+import {
+  deadlineStatusValidator,
+  revisionPolicyValidator,
+  revisionStatusValidator,
+} from "../jobs/schema";
 
 const milestoneStatusEnum = createStringEnum([
   "draft",
@@ -10,6 +15,8 @@ const milestoneStatusEnum = createStringEnum([
   "escrow_created",
   "funded",
   "submitted",
+  "revision_requested",
+  "revision_submitted",
   "released",
   "cancelled",
   "disputed",
@@ -36,9 +43,23 @@ export default defineTable({
   order: v.number(),
   title: v.string(),
   description: v.optional(v.string()),
+  requiredOutput: v.optional(v.string()),
   amount: v.number(),
   asset: v.string(),
   status: milestoneStatusValidator,
+  deadlineAt: v.optional(v.number()),
+  deadlineStatus: v.optional(deadlineStatusValidator),
+  deadlineReminderState: v.optional(v.any()),
+  revisionPolicy: v.optional(revisionPolicyValidator),
+  revisionLimit: v.optional(v.union(v.number(), v.null())),
+  revisionCount: v.optional(v.number()),
+  activeRevisionId: v.optional(v.id("revisionRequests")),
+  lastRevisionRequestedAt: v.optional(v.number()),
+  revisionStatus: v.optional(revisionStatusValidator),
+  submittedAt: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+  approvedAt: v.optional(v.number()),
+  overdueAt: v.optional(v.number()),
   assignedFreelancerWallet: v.optional(v.string()),
   applicationGateStatus: v.optional(applicationGateStatusValidator),
   continuationOfferFreelancerWallet: v.optional(v.string()),
@@ -57,5 +78,6 @@ export default defineTable({
   .index("by_jobId", ["jobId"])
   .index("by_jobId_order", ["jobId", "order"])
   .index("by_status", ["status"])
+  .index("by_deadlineAt", ["deadlineAt"])
   .index("by_assignedFreelancerWallet", ["assignedFreelancerWallet"])
   .index("by_escrowId", ["escrowId"]);

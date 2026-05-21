@@ -1,14 +1,30 @@
 "use client";
 
 import { ClientReliabilityBadge } from "@/features/client-profile/components/client-reliability-badge";
+import { ProfileAvatar } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Check, Copy, ExternalLink, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { Check, Copy, ExternalLink, MapPin, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import type { TClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
 import type { TClientProfile } from "@/features/client-profile/types";
+
+function getClientNoticeTone(
+  indicatorTone: TClientTrustIndicator["tone"],
+): "danger" | "success" | "warning" {
+  if (indicatorTone === "danger") {
+    return "danger";
+  }
+
+  if (indicatorTone === "warning") {
+    return "warning";
+  }
+
+  return "success";
+}
 
 export function ClientTrustProfileHeader({
   profile,
@@ -23,12 +39,8 @@ export function ClientTrustProfileHeader({
 }) {
   const [copied, setCopied] = useState(false);
   const displayName = profile.companyName || profile.name || "Unnamed Client";
-  const initials = displayName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const walletTypeLabel =
+    profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
 
   const handleCopy = async () => {
     try {
@@ -41,17 +53,34 @@ export function ClientTrustProfileHeader({
   };
 
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+    <section className="border border-[#e8e8e8] bg-white">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#0a0a0a] text-xl font-semibold text-white">
-            {initials || "UC"}
-          </div>
+        <div className="flex min-w-0 gap-4 p-5 sm:p-6">
+          <ProfileAvatar
+            avatarUrl={profile.avatarUrl}
+            displayName={displayName}
+            fallbackLabel="UC"
+          />
           <div className="min-w-0 space-y-3">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-3xl font-semibold text-[#0a0a0a]">{displayName}</h1>
                 <ClientReliabilityBadge indicator={indicator} />
+                <HighrableV2IconNotice
+                  label="How client trust signals work"
+                  tone={getClientNoticeTone(indicator.tone)}
+                  message={
+                    <span>
+                      Client trust signals are based on Highrable escrow activity.{" "}
+                      {indicator.description}
+                    </span>
+                  }
+                />
+                <HighrableV2IconNotice
+                  label="Before working with this client"
+                  tone="warning"
+                  message="Freelancers should start work only when a specific gig or milestone is marked Verified Funded. A client profile may show funded history, but each new job still needs its own escrow."
+                />
               </div>
               {profile.companyName && profile.name ? (
                 <p className="text-sm text-[#5f5f5f]">Contact name: {profile.name}</p>
@@ -59,6 +88,9 @@ export function ClientTrustProfileHeader({
               <div className="flex flex-wrap items-center gap-2 text-sm text-[#5f5f5f]">
                 <span className="font-mono break-all">
                   {shortenWalletAddress(profile.walletAddress)}
+                </span>
+                <span className="rounded-full border border-[#e8e8e8] bg-[#fafafa] px-2 py-1 text-xs font-medium text-[#5f5f5f]">
+                  {walletTypeLabel}
                 </span>
                 <AppButton
                   type="button"
@@ -99,20 +131,16 @@ export function ClientTrustProfileHeader({
         </div>
 
         {canEdit ? (
-          <AppButton type="button" variant="secondary" onClick={onEdit} className="shrink-0">
+          <AppButton
+            type="button"
+            variant="secondary"
+            onClick={onEdit}
+            className="m-5 shrink-0 rounded-none sm:m-6"
+          >
             <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
             Edit Client Profile
           </AppButton>
         ) : null}
-      </div>
-
-      <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        <div className="flex gap-2">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>
-            Client trust signals are based on Highrable escrow activity. {indicator.description}
-          </p>
-        </div>
       </div>
     </section>
   );

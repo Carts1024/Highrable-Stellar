@@ -12,19 +12,25 @@ interface IJobListProps {
 
 export function JobList({ jobs, connectedWallet, onApply, applyingJobId }: IJobListProps) {
   if (jobs === undefined) {
-    return <p className="text-sm text-[#7f7f7f]">Loading jobs...</p>;
+    return (
+      <div className="grid gap-4">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-36 animate-pulse border border-gray-100 bg-gray-50" />
+        ))}
+      </div>
+    );
   }
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-8 text-center text-sm text-[#5f5f5f]">
-        No open jobs yet. Create the first job.
+      <div className="border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-8 text-center text-sm text-[#5f5f5f]">
+        No matching jobs yet. Adjust the search or create the first job.
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="border-y border-[#e8e8e8]">
       {jobs.map((job) =>
         "job" in job ? (
           <JobCard

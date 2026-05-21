@@ -20,9 +20,19 @@ export function DashboardModeSwitch({ selectedMode, onModeChange }: IDashboardMo
       }}
       className="w-full md:w-auto"
     >
-      <TabsList className="grid w-full grid-cols-2 md:w-65">
-        <TabsTrigger value="freelancer">Freelancer Mode</TabsTrigger>
-        <TabsTrigger value="client">Client Mode</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2 rounded-none border border-[#e8e8e8] bg-[#fafafa] p-1 md:w-72">
+        <TabsTrigger
+          value="freelancer"
+          className="rounded-none font-mono text-xs tracking-[0.06em] text-[#5f5f5f] uppercase data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white"
+        >
+          Freelancer Mode
+        </TabsTrigger>
+        <TabsTrigger
+          value="client"
+          className="rounded-none font-mono text-xs tracking-[0.06em] text-[#5f5f5f] uppercase data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white"
+        >
+          Client Mode
+        </TabsTrigger>
       </TabsList>
     </Tabs>
   );

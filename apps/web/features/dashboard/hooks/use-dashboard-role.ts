@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 
@@ -12,15 +12,18 @@ export interface IDashboardRoleState {
 }
 
 export function useDashboardRole(): IDashboardRoleState {
-  const { isConnected, address } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
 
   const user = useQuery(
     api.users.queries.getUserByWallet,
-    isConnected && address ? { walletAddress: address } : "skip",
+    walletIdentity.isConnected && walletIdentity.walletAddress
+      ? { walletAddress: walletIdentity.walletAddress }
+      : "skip",
   );
 
   const role = (user?.role as TDashboardRole | undefined) ?? null;
-  const isLoading = isConnected && address != null && user === undefined;
+  const isLoading =
+    walletIdentity.isConnected && walletIdentity.walletAddress != null && user === undefined;
 
   return { role, isLoading };
 }

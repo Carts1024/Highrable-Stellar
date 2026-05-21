@@ -1,28 +1,35 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import { normalizeSkillsInput } from "@/features/profile/lib/profile-format";
-import { api } from "@repo/convex-client";
+import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
+import {
+  buildProfileIdentityMutationArgs,
+  parseSkillsInput,
+  TProfileIdentityFormSchema,
+  validateAvatarFile,
+} from "@/features/profile/lib/profile-identity-form";
+import { api, type TConvexStorageId } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Input } from "@repo/ui/components/ui/input";
-import { Label } from "@repo/ui/components/ui/label";
-import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import type { TProfileIdentityFormValues } from "@/features/profile/lib/profile-identity-form";
 import type { TFreelancerProfile } from "@/features/profile/types";
 
-function validateUrl(value: string, label: string): string | null {
-  const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    return null;
-  }
+function buildInitialValues(profile: TFreelancerProfile): TProfileIdentityFormValues {
+  const fallbackParts = (profile.name ?? "").trim().split(/\s+/).filter(Boolean);
 
-  if (!trimmedValue.startsWith("http://") && !trimmedValue.startsWith("https://")) {
-    return `${label} must start with http:// or https://.`;
-  }
-
-  return null;
+  return {
+    firstName: profile.firstName ?? fallbackParts[0] ?? "",
+    middleName: profile.middleName ?? "",
+    lastName: profile.lastName ?? fallbackParts.slice(1).join(" "),
+    publicHandle: profile.publicHandle ?? "",
+    coreSkills: profile.coreSkills,
+    discordHandle: profile.discordHandle ?? "",
+    xHandle: profile.xHandle ?? "",
+    githubUsername: profile.githubUsername ?? "",
+  };
 }
 
 export function EditFreelancerProfileForm({
@@ -34,50 +41,90 @@ export function EditFreelancerProfileForm({
   readonly onSaved: () => void;
   readonly onCancel: () => void;
 }) {
+  const walletIdentity = useHighrableWalletIdentity();
   const updateProfile = useMutation(api.profiles.updateFreelancerProfile);
-  const [name, setName] = useState(profile.name ?? "");
-  const [bio, setBio] = useState(profile.bio ?? "");
-  const [skills, setSkills] = useState(profile.skills.join(", "));
-  const [portfolioUrl, setPortfolioUrl] = useState(profile.portfolioUrl ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(profile.websiteUrl ?? "");
-  const [location, setLocation] = useState(profile.location ?? "");
+  const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
+  const initialValues = useMemo(() => buildInitialValues(profile), [profile]);
+  const [values, setValues] = useState<TProfileIdentityFormValues>(initialValues);
+  const [skillsInput, setSkillsInput] = useState(profile.coreSkills.join(", "));
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValues(initialValues);
+    setSkillsInput(profile.coreSkills.join(", "));
+  }, [initialValues, profile.coreSkills]);
+
+  useEffect(() => {
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(avatarFile);
+    setAvatarPreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [avatarFile]);
+
+  const setField = (field: keyof TProfileIdentityFormValues, value: string) => {
+    setValues((currentValue) => ({ ...currentValue, [field]: value }));
+    setError(null);
+  };
+
+  const uploadAvatar = async (): Promise<TConvexStorageId | undefined> => {
+    if (!avatarFile) {
+      return undefined;
+    }
+
+    const validationError = validateAvatarFile(avatarFile);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
+    const uploadUrl = await generateUploadUrl({
+      walletAddress: profile.walletAddress,
+      ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
+      name: avatarFile.name,
+      size: avatarFile.size,
+      mimeType: avatarFile.type,
+      type: "image",
+    });
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": avatarFile.type },
+      body: avatarFile,
+    });
+
+    if (!response.ok) {
+      throw new Error("Avatar upload failed.");
+    }
+
+    const body = (await response.json()) as { storageId: TConvexStorageId };
+    return body.storageId;
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
-    const normalizedSkills = normalizeSkillsInput(skills);
-    const validationError =
-      (name.trim().length > 80 && "Name must be 80 characters or less.") ||
-      (bio.trim().length > 500 && "Bio must be 500 characters or less.") ||
-      (location.trim().length > 80 && "Location must be 80 characters or less.") ||
-      (normalizedSkills.length > 10 && "Use 10 skills or fewer.") ||
-      normalizedSkills.find((skill) => skill.length > 40) !== undefined ||
-      validateUrl(portfolioUrl, "Portfolio URL") ||
-      validateUrl(websiteUrl, "Website URL");
+    const parsed = TProfileIdentityFormSchema.safeParse({
+      ...values,
+      coreSkills: parseSkillsInput(skillsInput),
+    });
 
-    if (validationError === true) {
-      setError("Each skill must be 40 characters or less.");
-      return;
-    }
-
-    if (typeof validationError === "string") {
-      setError(validationError);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Check your profile details.");
       return;
     }
 
     setStatus("saving");
     try {
+      const avatarStorageId = await uploadAvatar();
       await updateProfile({
         walletAddress: profile.walletAddress,
-        name,
-        bio,
-        skills: normalizedSkills,
-        portfolioUrl,
-        websiteUrl,
-        location,
+        ...buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
       });
       setStatus("saved");
       onSaved();
@@ -88,90 +135,43 @@ export function EditFreelancerProfileForm({
   };
 
   return (
-    <form
-      onSubmit={(event) => void handleSubmit(event)}
-      className="space-y-4 rounded-2xl border border-[#e8e8e8] bg-white p-5 shadow-sm"
-    >
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="freelancer-name">Name</Label>
-          <Input
-            id="freelancer-name"
-            value={name}
-            maxLength={80}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="freelancer-location">Location</Label>
-          <Input
-            id="freelancer-location"
-            value={location}
-            maxLength={80}
-            onChange={(event) => setLocation(event.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="freelancer-bio">Bio</Label>
-        <Textarea
-          id="freelancer-bio"
-          value={bio}
-          maxLength={500}
-          rows={4}
-          onChange={(event) => setBio(event.target.value)}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="freelancer-skills">Skills</Label>
-        <Input
-          id="freelancer-skills"
-          value={skills}
-          onChange={(event) => setSkills(event.target.value)}
-          placeholder="Stellar, React, Smart contracts"
-        />
-        <p className="text-xs text-[#7f7f7f]">Comma-separated, up to 10 skills.</p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="freelancer-portfolio">Portfolio URL</Label>
-          <Input
-            id="freelancer-portfolio"
-            value={portfolioUrl}
-            onChange={(event) => setPortfolioUrl(event.target.value)}
-            placeholder="https://..."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="freelancer-website">Website URL</Label>
-          <Input
-            id="freelancer-website"
-            value={websiteUrl}
-            onChange={(event) => setWebsiteUrl(event.target.value)}
-            placeholder="https://..."
-          />
-        </div>
-      </div>
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
+      <ProfileIdentityFields
+        values={values}
+        skillsInput={skillsInput}
+        avatarFile={avatarFile}
+        avatarPreviewUrl={avatarPreviewUrl}
+        currentAvatarUrl={profile.avatarUrl}
+        displayName={profile.name ?? "Unnamed Freelancer"}
+        onFieldChange={setField}
+        onSkillsInputChange={(value) => {
+          setSkillsInput(value);
+          setError(null);
+        }}
+        onAvatarFileChange={(file, validationError) => {
+          setAvatarFile(file);
+          setError(validationError);
+        }}
+      />
 
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </p>
+        <p className="border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
       ) : null}
       {status === "saved" ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+        <p className="border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
           Profile updated.
         </p>
       ) : null}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2 border-t border-[#e8e8e8] pt-5">
         <AppButton type="button" variant="ghost" onClick={onCancel}>
           Cancel
         </AppButton>
-        <AppButton type="submit" disabled={status === "saving"}>
+        <AppButton
+          type="submit"
+          disabled={status === "saving"}
+          className="hr-v2-button-primary rounded-none"
+        >
           {status === "saving" ? "Saving..." : "Save profile"}
         </AppButton>
       </div>

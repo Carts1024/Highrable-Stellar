@@ -4,6 +4,14 @@ import { mutation } from "../_generated/server";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { optionalNonEmptyString, requireNonEmptyString } from "../_shared/input";
 import {
+  computeDeadlineStatus,
+  resolveDeadlineParent,
+  upsertDeadlineReminders,
+  validateDeadlineAt,
+  validateMilestoneDeadlineOrder,
+} from "../deadlines/helpers";
+import { assertEscrowActionNotBlockedByDispute } from "../disputes/helpers";
+import {
   sanitizeEscrowAmount,
   sanitizeEscrowAsset,
   sanitizeEscrowId,
@@ -14,7 +22,9 @@ import {
   containsDisallowedJobPostLanguage,
   DISALLOWED_JOB_POST_MESSAGE,
 } from "../jobs/scamSignals";
-import { ensureUserWithRole } from "../users/helpers";
+import { validateRevisionPolicy } from "../revisions/helpers";
+import { ensureOnboardedUser } from "../users/helpers";
+import { walletTypeValidator } from "../users/schema";
 import {
   assertMilestoneAssignable,
   assertMilestoneProjectClient,
@@ -36,11 +46,18 @@ export const createMilestoneProject = mutation({
     title: v.string(),
     description: v.string(),
     asset: v.string(),
+    walletType: v.optional(walletTypeValidator),
     milestones: v.array(
       v.object({
         title: v.string(),
         description: v.optional(v.string()),
+        requiredOutput: v.optional(v.string()),
         amount: v.number(),
+        deadlineAt: v.number(),
+        revisionPolicy: v.optional(
+          v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited")),
+        ),
+        revisionLimit: v.optional(v.union(v.number(), v.null())),
       }),
     ),
   },
@@ -58,12 +75,23 @@ export const createMilestoneProject = mutation({
       throw new BadRequestError("At least one milestone is required.");
     }
 
-    await ensureUserWithRole(ctx, clientWallet, "client");
+    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    await ensureOnboardedUser(ctx, clientWallet, args.walletType);
+
+    validateMilestoneDeadlineOrder(args.milestones);
 
     const sanitizedMilestones = args.milestones.map((milestone) => ({
       title: sanitizeMilestoneTitle(milestone.title),
       description: sanitizeMilestoneDescription(milestone.description),
+      requiredOutput:
+        sanitizeMilestoneDescription(milestone.requiredOutput) ??
+        sanitizeMilestoneTitle(milestone.title),
       amount: sanitizeMilestoneAmount(milestone.amount),
+      deadlineAt: validateDeadlineAt(milestone.deadlineAt),
+      revisionConfig: validateRevisionPolicy({
+        revisionPolicy: milestone.revisionPolicy,
+        revisionLimit: milestone.revisionLimit,
+      }),
     }));
     const totalBudget = sanitizedMilestones.reduce(
       (total, milestone) => total + milestone.amount,
@@ -87,6 +115,7 @@ export const createMilestoneProject = mutation({
       status: "open",
       jobHash: `project_${now}_${Math.random().toString(36).slice(2, 10)}`,
       createdAt: now,
+      updatedAt: now,
     });
 
     for (const [index, milestone] of sanitizedMilestones.entries()) {
@@ -95,13 +124,47 @@ export const createMilestoneProject = mutation({
         order: index + 1,
         title: milestone.title,
         ...(milestone.description !== undefined ? { description: milestone.description } : {}),
+        requiredOutput: milestone.requiredOutput,
         amount: milestone.amount,
         asset,
         status: "open",
+        revisionPolicy: milestone.revisionConfig.revisionPolicy,
+        revisionLimit: milestone.revisionConfig.revisionLimit,
+        revisionCount: 0,
+        revisionStatus: "none",
+        deadlineAt: milestone.deadlineAt,
+        deadlineStatus: computeDeadlineStatus({
+          deadlineAt: milestone.deadlineAt,
+          workStatus: "open",
+          now,
+        }),
         applicationGateStatus: index === 0 ? "open" : "locked",
         createdAt: now,
         updatedAt: now,
       });
+
+      const insertedMilestone = await ctx.db
+        .query("milestones")
+        .withIndex("by_jobId_order", (q) => q.eq("jobId", jobId).eq("order", index + 1))
+        .unique();
+      if (insertedMilestone) {
+        await ctx.db.insert("deadlineAuditEvents", {
+          parentType: "milestone",
+          parentId: insertedMilestone._id,
+          newDeadlineAt: milestone.deadlineAt,
+          changedByWallet: clientWallet,
+          ...(args.walletType !== undefined ? { changedByWalletType: args.walletType } : {}),
+          reason: "initial_deadline",
+          createdAt: now,
+        });
+        await upsertDeadlineReminders(
+          ctx,
+          await resolveDeadlineParent(ctx, {
+            parentType: "milestone",
+            parentId: insertedMilestone._id,
+          }),
+        );
+      }
     }
 
     return jobId;
@@ -114,7 +177,13 @@ export const addMilestoneToProject = mutation({
     clientWallet: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
+    requiredOutput: v.optional(v.string()),
     amount: v.number(),
+    deadlineAt: v.number(),
+    revisionPolicy: v.optional(
+      v.union(v.literal("none"), v.literal("fixed"), v.literal("unlimited")),
+    ),
+    revisionLimit: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const clientWallet = sanitizeMilestoneWallet(args.clientWallet);
@@ -132,6 +201,16 @@ export const addMilestoneToProject = mutation({
     const now = Date.now();
     const nextOrder = (existing[0]?.order ?? 0) + 1;
     const amount = sanitizeMilestoneAmount(args.amount);
+    const deadlineAt = validateDeadlineAt(args.deadlineAt);
+    const revisionConfig = validateRevisionPolicy({
+      revisionPolicy: args.revisionPolicy,
+      revisionLimit: args.revisionLimit,
+    });
+    if (existing[0]?.deadlineAt !== undefined && deadlineAt < existing[0].deadlineAt) {
+      throw new BadRequestError(
+        `Milestone ${nextOrder} cannot be due before Milestone ${nextOrder - 1}.`,
+      );
+    }
 
     const milestoneId = await ctx.db.insert("milestones", {
       jobId: args.jobId,
@@ -140,9 +219,17 @@ export const addMilestoneToProject = mutation({
       ...(sanitizeMilestoneDescription(args.description) !== undefined
         ? { description: sanitizeMilestoneDescription(args.description) }
         : {}),
+      requiredOutput:
+        sanitizeMilestoneDescription(args.requiredOutput) ?? sanitizeMilestoneTitle(args.title),
       amount,
       asset: job.asset,
       status: "open",
+      revisionPolicy: revisionConfig.revisionPolicy,
+      revisionLimit: revisionConfig.revisionLimit,
+      revisionCount: 0,
+      revisionStatus: "none",
+      deadlineAt,
+      deadlineStatus: computeDeadlineStatus({ deadlineAt, workStatus: "open", now }),
       applicationGateStatus: "locked",
       createdAt: now,
       updatedAt: now,
@@ -152,7 +239,21 @@ export const addMilestoneToProject = mutation({
       budget: job.budget + amount,
       totalBudget: (job.totalBudget ?? job.budget) + amount,
       milestoneCount: (job.milestoneCount ?? existing.length) + 1,
+      updatedAt: Date.now(),
     });
+
+    await ctx.db.insert("deadlineAuditEvents", {
+      parentType: "milestone",
+      parentId: milestoneId,
+      newDeadlineAt: deadlineAt,
+      changedByWallet: clientWallet,
+      reason: "initial_deadline",
+      createdAt: now,
+    });
+    await upsertDeadlineReminders(
+      ctx,
+      await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: milestoneId }),
+    );
 
     return milestoneId;
   },
@@ -164,7 +265,9 @@ export const updateMilestone = mutation({
     clientWallet: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    requiredOutput: v.optional(v.string()),
     amount: v.optional(v.number()),
+    deadlineAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const clientWallet = sanitizeMilestoneWallet(args.clientWallet);
@@ -181,7 +284,10 @@ export const updateMilestone = mutation({
     const patch: {
       title?: string;
       description?: string;
+      requiredOutput?: string;
       amount?: number;
+      deadlineAt?: number;
+      deadlineStatus?: ReturnType<typeof computeDeadlineStatus>;
       updatedAt: number;
     } = { updatedAt: Date.now() };
 
@@ -193,11 +299,39 @@ export const updateMilestone = mutation({
       patch.description = optionalNonEmptyString(args.description, "description");
     }
 
+    if (args.requiredOutput !== undefined) {
+      patch.requiredOutput = optionalNonEmptyString(args.requiredOutput, "requiredOutput");
+    }
+
     if (args.amount !== undefined) {
       patch.amount = sanitizeMilestoneAmount(args.amount);
     }
 
+    if (args.deadlineAt !== undefined) {
+      patch.deadlineAt = validateDeadlineAt(args.deadlineAt);
+      patch.deadlineStatus = computeDeadlineStatus({
+        deadlineAt: patch.deadlineAt,
+        workStatus: milestone.status,
+      });
+    }
+
     await ctx.db.patch(args.milestoneId, patch);
+
+    if (patch.deadlineAt !== undefined) {
+      await ctx.db.insert("deadlineAuditEvents", {
+        parentType: "milestone",
+        parentId: args.milestoneId,
+        ...(milestone.deadlineAt !== undefined ? { oldDeadlineAt: milestone.deadlineAt } : {}),
+        newDeadlineAt: patch.deadlineAt,
+        changedByWallet: clientWallet,
+        reason: "deadline_edit",
+        createdAt: Date.now(),
+      });
+      await upsertDeadlineReminders(
+        ctx,
+        await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: args.milestoneId }),
+      );
+    }
 
     if (patch.amount !== undefined) {
       const milestones = await ctx.db
@@ -208,7 +342,7 @@ export const updateMilestone = mutation({
         (total, row) => total + (row._id === args.milestoneId ? patch.amount! : row.amount),
         0,
       );
-      await ctx.db.patch(job._id, { budget: totalBudget, totalBudget });
+      await ctx.db.patch(job._id, { budget: totalBudget, totalBudget, updatedAt: Date.now() });
     }
 
     return await getMilestoneOrThrow(ctx, args.milestoneId);
@@ -246,6 +380,11 @@ export const assignFreelancerToMilestone = mutation({
       applicationGateStatus: "closed",
       updatedAt: Date.now(),
     });
+
+    await upsertDeadlineReminders(
+      ctx,
+      await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: args.milestoneId }),
+    );
 
     await patchParentJobStatusForMilestoneProject(ctx, milestone.jobId);
     return await getMilestoneOrThrow(ctx, args.milestoneId);
@@ -431,6 +570,10 @@ export const assignFreelancerToMultipleMilestones = mutation({
         applicationGateStatus: "closed",
         updatedAt: Date.now(),
       });
+      await upsertDeadlineReminders(
+        ctx,
+        await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: milestoneId }),
+      );
     }
 
     await patchParentJobStatusForMilestoneProject(ctx, args.jobId);
@@ -510,10 +653,22 @@ export const createMilestoneEscrowRecord = mutation({
     await ctx.db.patch(args.milestoneId, {
       status: "escrow_created",
       escrowId,
+      deadlineStatus: computeDeadlineStatus({
+        deadlineAt: milestone.deadlineAt,
+        submittedAt: milestone.submittedAt,
+        completedAt: milestone.completedAt,
+        approvedAt: milestone.approvedAt,
+        escrowStatus: "created",
+        workStatus: "escrow_created",
+      }),
       updatedAt: now,
       ...(createTxHash !== undefined ? { createTxHash } : {}),
     });
     await patchParentJobStatusForMilestoneProject(ctx, args.jobId);
+    await upsertDeadlineReminders(
+      ctx,
+      await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: args.milestoneId }),
+    );
 
     return escrowRecordId;
   },
@@ -547,6 +702,9 @@ export const updateMilestoneEscrowStatus = mutation({
 
     if (escrow.milestoneId !== args.milestoneId || milestone.escrowId !== escrowId) {
       throw new BadRequestError("Escrow is not linked to this milestone.");
+    }
+    if (args.status === "released" || args.status === "cancelled") {
+      await assertEscrowActionNotBlockedByDispute(ctx, { escrowId: escrow._id });
     }
 
     const escrowPatch: {
@@ -591,6 +749,23 @@ export const updateMilestoneEscrowStatus = mutation({
       ...(txHash !== undefined ? { txHash } : {}),
       ...(args.txType !== undefined ? { txType: args.txType } : {}),
     });
+    const completedAt = args.status === "released" ? Date.now() : milestone.completedAt;
+    await ctx.db.patch(args.milestoneId, {
+      deadlineStatus: computeDeadlineStatus({
+        deadlineAt: milestone.deadlineAt,
+        submittedAt: milestone.submittedAt,
+        completedAt,
+        approvedAt: args.status === "released" ? completedAt : milestone.approvedAt,
+        escrowStatus: args.status,
+        workStatus: args.status,
+      }),
+      ...(args.status === "released" ? { completedAt, approvedAt: completedAt } : {}),
+      updatedAt: Date.now(),
+    });
+    await upsertDeadlineReminders(
+      ctx,
+      await resolveDeadlineParent(ctx, { parentType: "milestone", parentId: args.milestoneId }),
+    );
 
     return await ctx.db.get(escrow._id);
   },

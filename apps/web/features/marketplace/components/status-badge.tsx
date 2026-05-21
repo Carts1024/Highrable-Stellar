@@ -1,5 +1,7 @@
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
-import { Badge } from "@repo/ui/components/ui/badge";
+import { badgeVariants } from "@repo/ui/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
+import { cn } from "@repo/ui/lib/utils";
 
 import type { TMarketplaceStatus } from "@/features/marketplace/lib/escrow-status";
 
@@ -14,17 +16,27 @@ interface IStatusBadgeProps {
  */
 export function StatusBadge({ label, ariaLabel }: IStatusBadgeProps) {
   const meta = getMarketplaceStatusMeta(label);
-  const accessibleLabel = ariaLabel ?? `Status: ${meta.label}`;
+  const accessibleLabel = ariaLabel ?? `Status: ${meta.label}. Tap for details.`;
 
   return (
-    <Badge
-      variant="outline"
-      className={`font-mono text-[0.65rem] tracking-[0.06em] uppercase ${meta.badgeClassName}`}
-      role="status"
-      aria-label={accessibleLabel}
-      title={meta.description}
-    >
-      {meta.label}
-    </Badge>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            badgeVariants({ variant: "outline" }),
+            "font-mono text-[0.65rem] tracking-[0.06em] uppercase",
+            meta.badgeClassName,
+          )}
+          aria-label={accessibleLabel}
+        >
+          {meta.label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" sideOffset={8} className="max-w-xs text-sm leading-relaxed">
+        <p className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">{meta.label}</p>
+        <p className="mt-2 text-muted-foreground">{meta.description}</p>
+      </PopoverContent>
+    </Popover>
   );
 }

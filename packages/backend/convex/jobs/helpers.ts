@@ -2,6 +2,7 @@ import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 import { NotFoundError } from "../_shared/errors";
+import { sanitizeSupportedEscrowAsset } from "../_shared/escrowAssets";
 import {
   normalizeWalletAddress,
   optionalNonEmptyString,
@@ -26,7 +27,7 @@ export function sanitizeCreateJobArgs(args: {
     title: requireNonEmptyString(args.title, "title"),
     description: requireNonEmptyString(args.description, "description"),
     budget: requirePositiveNumber(args.budget, "budget"),
-    asset: requireNonEmptyString(args.asset, "asset"),
+    asset: sanitizeSupportedEscrowAsset(args.asset),
     clientWallet: normalizeWalletAddress(args.clientWallet),
     jobHash: optionalNonEmptyString(args.jobHash, "jobHash") ?? createFallbackJobHash(),
   };

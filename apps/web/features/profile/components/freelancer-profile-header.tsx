@@ -1,9 +1,16 @@
 "use client";
 
+import { ProfileAvatar } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import {
+  getGithubProfileUrl,
+  getSafeExternalProfileUrl,
+  getXProfileUrl,
+} from "@/features/profile/lib/profile-format";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Check, Copy, ExternalLink, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { Check, Copy, ExternalLink, Github, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -22,12 +29,12 @@ export function FreelancerProfileHeader({
 }) {
   const [copied, setCopied] = useState(false);
   const displayName = profile.name || "Unnamed Freelancer";
-  const initials = displayName
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const walletTypeLabel =
+    profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
+  const portfolioUrl = getSafeExternalProfileUrl(profile.portfolioUrl);
+  const websiteUrl = getSafeExternalProfileUrl(profile.websiteUrl);
+  const xProfileUrl = getXProfileUrl(profile.xHandle);
+  const githubProfileUrl = getGithubProfileUrl(profile.githubUsername);
 
   const handleCopy = async () => {
     try {
@@ -40,12 +47,14 @@ export function FreelancerProfileHeader({
   };
 
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+    <section className="border border-[#e8e8e8] bg-white">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#0a0a0a] text-xl font-semibold text-white">
-            {initials || "UF"}
-          </div>
+        <div className="flex min-w-0 gap-4 p-5 sm:p-6">
+          <ProfileAvatar
+            avatarUrl={profile.avatarUrl}
+            displayName={displayName}
+            fallbackLabel="UF"
+          />
           <div className="min-w-0 space-y-3">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -54,11 +63,19 @@ export function FreelancerProfileHeader({
                   <ShieldCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
                   Escrow-Verified Reputation
                 </Badge>
+                <HighrableV2IconNotice
+                  label="How freelancer reputation is verified"
+                  tone="success"
+                  message="Completed work and reviews are verified through paid Stellar escrow records."
+                />
               </div>
               <div className="flex flex-wrap items-center gap-2 text-sm text-[#5f5f5f]">
                 <span className="font-mono break-all">
                   {shortenWalletAddress(profile.walletAddress)}
                 </span>
+                <Badge variant="outline" className="border-[#e8e8e8] bg-[#fafafa]">
+                  {walletTypeLabel}
+                </Badge>
                 <AppButton
                   type="button"
                   variant="ghost"
@@ -93,9 +110,9 @@ export function FreelancerProfileHeader({
                   {profile.location}
                 </span>
               ) : null}
-              {profile.portfolioUrl ? (
+              {portfolioUrl ? (
                 <Link
-                  href={profile.portfolioUrl}
+                  href={portfolioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-[#FF7003] hover:text-[#E85D00]"
@@ -103,9 +120,9 @@ export function FreelancerProfileHeader({
                   Portfolio <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               ) : null}
-              {profile.websiteUrl ? (
+              {websiteUrl ? (
                 <Link
-                  href={profile.websiteUrl}
+                  href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-[#FF7003] hover:text-[#E85D00]"
@@ -114,23 +131,67 @@ export function FreelancerProfileHeader({
                 </Link>
               ) : null}
             </div>
+
+            {profile.discordHandle || profile.xHandle || profile.githubUsername ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-[#e8e8e8] pt-3 text-sm">
+                {profile.discordHandle ? (
+                  <span className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f]">
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center bg-[#5865F2] text-[10px] font-bold text-white"
+                      aria-hidden="true"
+                    >
+                      D
+                    </span>
+                    {profile.discordHandle}
+                  </span>
+                ) : null}
+                {profile.xHandle && xProfileUrl ? (
+                  <Link
+                    href={xProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f] transition-colors hover:border-[#0a0a0a] hover:text-[#0a0a0a]"
+                  >
+                    <span
+                      className="inline-flex h-5 w-5 items-center justify-center bg-[#0a0a0a] text-[11px] font-bold text-white"
+                      aria-hidden="true"
+                    >
+                      X
+                    </span>
+                    @{profile.xHandle}
+                  </Link>
+                ) : null}
+                {profile.githubUsername && githubProfileUrl ? (
+                  <Link
+                    href={githubProfileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 border border-[#e8e8e8] bg-[#fafafa] px-3 py-1.5 font-medium text-[#5f5f5f] transition-colors hover:border-[#0a0a0a] hover:text-[#0a0a0a]"
+                  >
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                    {profile.githubUsername}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
         {canEdit ? (
-          <AppButton type="button" variant="secondary" onClick={onEdit} className="shrink-0">
+          <AppButton
+            type="button"
+            variant="secondary"
+            onClick={onEdit}
+            className="m-5 shrink-0 rounded-none sm:m-6"
+          >
             <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
             Edit Profile
           </AppButton>
         ) : null}
       </div>
 
-      <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        Completed work and reviews are verified through paid Stellar escrow records.
-      </div>
-
       {stats.completedContracts === 0 ? (
-        <p className="mt-3 text-sm text-[#5f5f5f]">
+        <p className="border-t border-[#e8e8e8] px-5 py-3 text-sm text-[#5f5f5f] sm:px-6">
           This freelancer has not completed verified paid work on Highrable yet.
         </p>
       ) : null}

@@ -5,6 +5,8 @@ export type TJobStatus =
   | "selected"
   | "funded"
   | "submitted"
+  | "revision_requested"
+  | "revision_submitted"
   | "completed"
   | "cancelled"
   | "disputed";
@@ -13,11 +15,14 @@ export type TEscrowStatus =
   | "created"
   | "funded"
   | "submitted"
+  | "revision_requested"
+  | "revision_submitted"
   | "released"
   | "cancelled"
   | "disputed";
 
 export type TJobType = "micro_gig" | "milestone_project";
+export type TRevisionPolicy = "none" | "fixed" | "unlimited";
 
 export type TMilestoneStatus =
   | "draft"
@@ -63,8 +68,11 @@ export type TCreateJobFormState = {
   description: string;
   budget: string;
   asset: string;
+  deadlineAt: string;
   fundEscrowNow: boolean;
   jobType: TJobType;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
   milestones: TCreateMilestoneFormState[];
 };
 
@@ -73,6 +81,9 @@ export type TCreateMilestoneFormState = {
   title: string;
   description: string;
   amount: string;
+  deadlineAt: string;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
 };
 
 export type TCreateJobFormErrors = {
@@ -80,12 +91,25 @@ export type TCreateJobFormErrors = {
   description?: string;
   budget?: string;
   asset?: string;
+  deadlineAt?: string;
+  revisionPolicy?: string;
+  revisionLimit?: string;
   milestones?: string;
   submit?: string;
 };
 
 export type TApplyFormState = {
   proposal: string;
+};
+
+export type TShowcaseableCompletedWork = {
+  readonly escrowId: string;
+  readonly jobTitle: string;
+  readonly milestoneTitle?: string;
+  readonly amount: number;
+  readonly asset: string;
+  readonly workType: "micro_gig" | "milestone";
+  readonly updatedAt: number;
 };
 
 export type TMarketplaceJobRow = {

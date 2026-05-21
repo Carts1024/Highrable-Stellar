@@ -39,7 +39,7 @@ type TWalletContextValue = {
   authSession: TAuthSession | null;
   isConnected: boolean;
   address: string | null;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => Promise<string | null>;
   disconnectWallet: () => Promise<void>;
   checkFundingStatus: (address?: string) => Promise<boolean | null>;
   fundTestnetAccount: () => Promise<void>;
@@ -390,7 +390,7 @@ export function WalletContextProvider({
     walletState.walletAddress,
   ]);
 
-  const connectWallet = useCallback(async () => {
+  const connectWallet = useCallback(async (): Promise<string | null> => {
     setWalletState((currentValue) => ({
       ...currentValue,
       status: "connecting",
@@ -421,12 +421,14 @@ export function WalletContextProvider({
           isFunded: null,
         }));
       }
+      return account.address;
     } catch (error) {
       setWalletState({
         ...DEFAULT_STATE,
         status: "error",
         error: toErrorMessage(error),
       });
+      return null;
     }
   }, [checkFundingStatus, setConnectedWalletState, wallet]);
 

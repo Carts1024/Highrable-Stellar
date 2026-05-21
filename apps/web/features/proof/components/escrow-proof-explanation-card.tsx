@@ -1,3 +1,5 @@
+import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+
 import type { TProofStatus } from "../types";
 
 export function EscrowProofExplanationCard({
@@ -8,14 +10,21 @@ export function EscrowProofExplanationCard({
   const isCompleted = proofStatus === "paid";
 
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-[#fafafa] p-6">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Why this proof matters</h2>
+    <section className="h-full border border-[#e8e8e8] bg-[#fafafa] p-4">
+      <div className="flex items-center gap-2">
+        <SectionLabel>Context</SectionLabel>
+        <HighrableV2IconNotice
+          label="Privacy controls status"
+          message="Avoid sharing sensitive proof links outside the people who need this receipt."
+          tone="neutral"
+        />
+      </div>
+      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Why this proof matters</h2>
       <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">
         {isCompleted
-          ? "Highrable creates escrow-backed work records. A completed proof page means the client funded escrow, the freelancer completed work, and payment was released through Stellar. This makes reviews harder to fake than normal marketplace ratings."
-          : "This page shows the current escrow state. A completed reputation proof appears only after payment release."}
+          ? "A completed proof means the client set money aside, the freelancer finished the work, and payment was released. This makes the review harder to fake than a normal marketplace rating."
+          : "This receipt shows where the work payment currently stands. A verified trust badge appears after payment is released."}
       </p>
-      <p className="mt-3 text-xs text-[#7f7f7f]">TODO: Add privacy controls before production.</p>
     </section>
   );
 }

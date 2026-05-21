@@ -13,7 +13,7 @@ const MODE_LABEL_COPY: Record<TDashboardMode, string> = {
 
 export function DashboardModeLabel({ mode }: IDashboardModeLabelProps) {
   return (
-    <Badge variant="outline" className="border-[#FF7003]/30 bg-[#FF7003]/5 text-[#B24D00]">
+    <Badge variant="outline" className="hr-v2-badge-accent border-current/20">
       {MODE_LABEL_COPY[mode]}
     </Badge>
   );

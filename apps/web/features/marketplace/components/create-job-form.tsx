@@ -1,13 +1,20 @@
 "use client";
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
-import { parseHumanAmount, toTokenAmount } from "@/core/stellar/amounts";
+import { parseHumanAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import {
   createAndFundOpenEscrowOnChain,
-  getStablecoinBalanceOnChain,
+  getTokenBalanceOnChain,
 } from "@/core/stellar/escrow-contract";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
+import {
+  getPrimaryEscrowAsset,
+  getSupportedEscrowAssets,
+  isSupportedEscrowAsset,
+  parseEscrowAssetAmount,
+  requireSupportedEscrowAsset,
+} from "@/core/stellar/payment-assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -15,15 +22,28 @@ import {
 } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AttachmentUploader } from "@/features/attachments/components";
 import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
+import {
+  getLocalTimezoneLabel,
+  parseDatetimeLocalValue,
+  toDatetimeLocalValue,
+  validateDeadlineTimestamp,
+} from "@/features/deadlines";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   analyzeJobScamSignals,
   DISALLOWED_JOB_POST_MESSAGE,
 } from "@/features/marketplace/lib/scam-signals";
-import { api } from "@repo/convex-client";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import { api, type TConvexId } from "@repo/convex-client";
+import {
+  HighrableV2Badge,
+  HighrableV2IconNotice,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
+import { DateTimePicker } from "@repo/ui/components/ui-customs/date-time-picker";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
@@ -33,14 +53,16 @@ import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
+import type { TDraftAttachment } from "@/features/attachments/types";
 import type {
   TCreateJobFormErrors,
   TCreateJobFormState,
   TCreateMilestoneFormState,
   TJobType,
+  TRevisionPolicy,
 } from "@/features/marketplace/types";
 
-const DEFAULT_STABLECOIN_ASSET = stablecoinConfig.tokenContractId ?? "";
+const DEFAULT_STABLECOIN_ASSET = getPrimaryEscrowAsset().tokenContractId;
 const MAX_HUMAN_BUDGET = 10_000_000;
 
 const CREATE_JOB_SCHEMA = z.object({
@@ -71,6 +93,7 @@ const CREATE_JOB_SCHEMA = z.object({
     .transform(sanitizeSingleLineInput)
     .pipe(z.string().min(3, "Payment asset is required."))
     .pipe(z.string().max(255, "Payment asset is too long.")),
+  deadlineAt: z.string().transform(sanitizeSingleLineInput).optional(),
 });
 
 const CREATE_MILESTONE_SCHEMA = z.object({
@@ -94,10 +117,18 @@ const CREATE_MILESTONE_SCHEMA = z.object({
     .refine((value) => value <= MAX_HUMAN_BUDGET, {
       message: "Milestone amount exceeds the allowed range.",
     }),
+  deadlineAt: z
+    .string()
+    .transform(sanitizeSingleLineInput)
+    .pipe(z.string().min(1, "Milestone deadline is required.")),
 });
 
 type TCreateJobPayload = z.infer<typeof CREATE_JOB_SCHEMA>;
 type TCreateMilestonePayload = z.infer<typeof CREATE_MILESTONE_SCHEMA>;
+type TParsedMilestonePayload = TCreateMilestonePayload & {
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
+};
 
 function createClientJobHash(): string {
   const uniqueId =
@@ -128,7 +159,106 @@ function createDraftMilestone(): TCreateMilestoneFormState {
     title: "",
     description: "",
     amount: "",
+    deadlineAt: "",
+    revisionPolicy: "fixed",
+    revisionLimit: "2",
   };
+}
+
+function parseRevisionPolicy(input: { revisionPolicy: TRevisionPolicy; revisionLimit: string }): {
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: number | null;
+} {
+  if (input.revisionPolicy === "none" || input.revisionPolicy === "unlimited") {
+    return { revisionPolicy: input.revisionPolicy, revisionLimit: null };
+  }
+
+  const limit = Number.parseInt(input.revisionLimit.trim(), 10);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25) {
+    throw new Error("Fixed revisions require a limit between 1 and 25.");
+  }
+
+  return { revisionPolicy: "fixed", revisionLimit: limit };
+}
+
+function RevisionPolicyControls({
+  idPrefix,
+  revisionPolicy,
+  revisionLimit,
+  disabled,
+  error,
+  onPolicyChange,
+  onLimitChange,
+}: {
+  idPrefix: string;
+  revisionPolicy: TRevisionPolicy;
+  revisionLimit: string;
+  disabled?: boolean;
+  error?: string;
+  onPolicyChange: (policy: TRevisionPolicy) => void;
+  onLimitChange: (limit: string) => void;
+}) {
+  const options: Array<{ value: TRevisionPolicy; label: string }> = [
+    { value: "none", label: "No revisions" },
+    { value: "fixed", label: "Fixed revisions" },
+    { value: "unlimited", label: "Unlimited revisions" },
+  ];
+
+  return (
+    <div className="border border-[#e8e8e8] bg-white p-4">
+      <p className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+        Revision policy
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPolicyChange(option.value)}
+            className={`border p-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+              revisionPolicy === option.value
+                ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+                : "border-[#e8e8e8] bg-white text-[#5f5f5f] hover:border-[#FF7003]/50"
+            }`}
+            aria-pressed={revisionPolicy === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {revisionPolicy === "fixed" ? (
+        <div className="mt-3 max-w-48">
+          <label
+            htmlFor={`${idPrefix}-revision-limit`}
+            className="mb-1 block text-sm font-medium text-gray-700"
+          >
+            Revision limit
+          </label>
+          <AppInput
+            id={`${idPrefix}-revision-limit`}
+            type="number"
+            min={1}
+            max={25}
+            step={1}
+            value={revisionLimit}
+            disabled={disabled}
+            onChange={(event) => onLimitChange(event.target.value)}
+          />
+        </div>
+      ) : null}
+      {revisionPolicy === "unlimited" ? (
+        <div className="mt-3">
+          <HighrableV2IconNotice
+            label="Unlimited revisions warning"
+            tone="warning"
+            message="Unlimited revisions can delay completion. Use this only when both parties agree on a flexible review process."
+          />
+        </div>
+      ) : null}
+      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+    </div>
+  );
 }
 
 function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErrors {
@@ -136,12 +266,23 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
   const parsed = CREATE_JOB_SCHEMA.safeParse(formState);
 
   if (parsed.success) {
+    const deadlineAt = parseDatetimeLocalValue(formState.deadlineAt);
+    const deadlineError = validateDeadlineTimestamp(deadlineAt);
+    if (deadlineError) {
+      errors.deadlineAt = deadlineError;
+    }
     return errors;
   }
 
   for (const issue of parsed.error.issues) {
     const field = issue.path[0];
-    if (field === "title" || field === "description" || field === "budget" || field === "asset") {
+    if (
+      field === "title" ||
+      field === "description" ||
+      field === "budget" ||
+      field === "asset" ||
+      field === "deadlineAt"
+    ) {
       if (!errors[field]) {
         errors[field] = issue.message;
       }
@@ -153,30 +294,41 @@ function buildCreateJobErrors(formState: TCreateJobFormState): TCreateJobFormErr
 
 export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => void }) {
   const { address, isConnected, signTransaction, walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const createJob = useMutation(api.jobs.createJob);
   const createMilestoneProject = useMutation(api.milestones.createMilestoneProject);
+  const attachFilesToParent = useMutation(api.attachments.attachFilesToParent);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const stablecoinValidation = useMemo(() => validateStablecoinConfig(), []);
   const isStablecoinConfigured = useMemo(() => hasStablecoinConfig(), []);
+  const supportedEscrowAssets = useMemo(() => getSupportedEscrowAssets(), []);
   const [formState, setFormState] = useState<TCreateJobFormState>({
     title: "",
     description: "",
     budget: "",
     asset: DEFAULT_STABLECOIN_ASSET,
+    deadlineAt: "",
     fundEscrowNow: false,
     jobType: "micro_gig",
+    revisionPolicy: "fixed",
+    revisionLimit: "2",
     milestones: [
       {
         id: "initial",
         title: "",
         description: "",
         amount: "",
+        deadlineAt: "",
+        revisionPolicy: "fixed",
+        revisionLimit: "2",
       },
     ],
   });
+  const isSelectedEscrowAssetSupported = isSupportedEscrowAsset(formState.asset);
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
+  const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const scamAnalysis = useMemo(
     () =>
@@ -189,7 +341,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
   const helperText = useMemo(() => {
     if (isStablecoinConfigured && stablecoinConfig.tokenContractId) {
-      return `${stablecoinConfig.symbol} is configured for MVP escrow payments (${shortenContractId(
+      return `${stablecoinConfig.symbol} escrow is recommended because the job value stays stable (${shortenContractId(
         stablecoinConfig.tokenContractId,
       )}).`;
     }
@@ -198,6 +350,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   }, [isStablecoinConfigured]);
 
   const isMilestoneProject = formState.jobType === "milestone_project";
+  const minimumDeadlineInputValue = toDatetimeLocalValue(Date.now() + 30 * 60 * 1000);
   const parsedMilestoneTotal = useMemo(() => {
     return formState.milestones.reduce((total, milestone) => {
       const amount = Number(parseHumanAmount(milestone.amount || "0"));
@@ -209,9 +362,23 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     ? "Project budget is calculated from milestone amounts."
     : "This amount will be locked in Stellar escrow after the client funds the contract.";
 
-  const updateField = (field: "title" | "description" | "budget" | "asset", value: string) => {
+  const updateField = (
+    field: "title" | "description" | "budget" | "asset" | "deadlineAt",
+    value: string,
+  ) => {
     setFormState((currentValue) => ({ ...currentValue, [field]: value }));
     setErrors((currentValue) => ({ ...currentValue, [field]: undefined, submit: undefined }));
+  };
+
+  const clampDeadlineInputValue = (value: string): string => {
+    const timestamp = parseDatetimeLocalValue(value);
+    const minimumTimestamp = Date.now() + 30 * 60 * 1000;
+
+    if (timestamp !== null && timestamp < minimumTimestamp) {
+      return toDatetimeLocalValue(minimumTimestamp);
+    }
+
+    return value;
   };
 
   const updateJobType = (jobType: TJobType) => {
@@ -221,6 +388,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       fundEscrowNow: jobType === "milestone_project" ? false : currentValue.fundEscrowNow,
     }));
     setErrors({});
+  };
+
+  const updateRevisionPolicy = (revisionPolicy: TRevisionPolicy) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      revisionPolicy,
+      revisionLimit: revisionPolicy === "fixed" ? currentValue.revisionLimit || "2" : "",
+    }));
+    setErrors((currentValue) => ({
+      ...currentValue,
+      revisionPolicy: undefined,
+      revisionLimit: undefined,
+      submit: undefined,
+    }));
+  };
+
+  const updateRevisionLimit = (revisionLimit: string) => {
+    setFormState((currentValue) => ({ ...currentValue, revisionLimit }));
+    setErrors((currentValue) => ({ ...currentValue, revisionLimit: undefined, submit: undefined }));
   };
 
   const updateFundEscrowNow = (value: boolean) => {
@@ -237,6 +423,22 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       ...currentValue,
       milestones: currentValue.milestones.map((milestone) =>
         milestone.id === milestoneId ? { ...milestone, [field]: value } : milestone,
+      ),
+    }));
+    setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
+  };
+
+  const updateMilestoneRevisionPolicy = (milestoneId: string, revisionPolicy: TRevisionPolicy) => {
+    setFormState((currentValue) => ({
+      ...currentValue,
+      milestones: currentValue.milestones.map((milestone) =>
+        milestone.id === milestoneId
+          ? {
+              ...milestone,
+              revisionPolicy,
+              revisionLimit: revisionPolicy === "fixed" ? milestone.revisionLimit || "2" : "",
+            }
+          : milestone,
       ),
     }));
     setErrors((currentValue) => ({ ...currentValue, milestones: undefined, submit: undefined }));
@@ -259,8 +461,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     }));
   };
 
-  const parseMilestones = (): TCreateMilestonePayload[] | null => {
-    const parsedMilestones: TCreateMilestonePayload[] = [];
+  const parseMilestones = (): TParsedMilestonePayload[] | null => {
+    const parsedMilestones: TParsedMilestonePayload[] = [];
 
     if (formState.milestones.length < 1) {
       setErrors({ milestones: "At least one milestone is required." });
@@ -275,7 +477,40 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         });
         return null;
       }
-      parsedMilestones.push(parsed.data);
+      const deadlineAt = parseDatetimeLocalValue(parsed.data.deadlineAt);
+      const deadlineError = validateDeadlineTimestamp(deadlineAt);
+      if (deadlineError) {
+        setErrors({ milestones: `Milestone ${index + 1}: ${deadlineError}` });
+        return null;
+      }
+      const previousMilestone = parsedMilestones[index - 1];
+      const previousDeadlineAt = previousMilestone
+        ? parseDatetimeLocalValue(previousMilestone.deadlineAt)
+        : null;
+      if (previousDeadlineAt !== null && deadlineAt !== null && deadlineAt < previousDeadlineAt) {
+        setErrors({
+          milestones: `Milestone ${index + 1} cannot be due before Milestone ${index}.`,
+        });
+        return null;
+      }
+      try {
+        parseRevisionPolicy({
+          revisionPolicy: milestone.revisionPolicy,
+          revisionLimit: milestone.revisionLimit,
+        });
+      } catch (error) {
+        setErrors({
+          milestones: `Milestone ${index + 1}: ${
+            error instanceof Error ? error.message : "Invalid revision policy."
+          }`,
+        });
+        return null;
+      }
+      parsedMilestones.push({
+        ...parsed.data,
+        revisionPolicy: milestone.revisionPolicy,
+        revisionLimit: milestone.revisionLimit,
+      });
     }
 
     const totalBudget = parsedMilestones.reduce((total, milestone) => total + milestone.amount, 0);
@@ -287,10 +522,48 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     return parsedMilestones;
   };
 
+  const attachDraftAttachmentsToJob = async (jobId: string) => {
+    if (!walletIdentity.walletAddress) {
+      throw new Error("Missing wallet identity.");
+    }
+
+    const attachmentIds = draftAttachments
+      .filter((attachment) => attachment.status === "ready")
+      .map((attachment) => attachment.id as TConvexId<"attachments">);
+
+    if (attachmentIds.length === 0) {
+      return;
+    }
+
+    await attachFilesToParent({
+      attachmentIds,
+      walletAddress: walletIdentity.walletAddress,
+      parentType: "job",
+      parentId: jobId,
+      visibility: "public",
+    });
+  };
+
+  const attachDraftAttachmentsOrReport = async (jobId: string): Promise<boolean> => {
+    try {
+      await attachDraftAttachmentsToJob(jobId);
+      return true;
+    } catch (error) {
+      setErrors({
+        submit: `Job was created, but attachments could not be linked. ${getReadableErrorMessage(
+          error,
+          "Please try attaching them again.",
+        )}`,
+      });
+      onCreated(jobId);
+      return false;
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!isConnected || !address) {
+    if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
       setErrors({ submit: "Connect wallet to create a job." });
       return;
     }
@@ -304,12 +577,28 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       return;
     }
 
-    const validationErrors = buildCreateJobErrors({
-      ...formState,
-      budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
-    });
+    const validationErrors = isMilestoneProject
+      ? buildCreateJobErrors({
+          ...formState,
+          budget: String(parsedMilestoneTotal),
+          deadlineAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        })
+      : buildCreateJobErrors(formState);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
+      return;
+    }
+
+    if (draftAttachments.some((attachment) => attachment.status === "uploading")) {
+      setErrors({ submit: "Wait for attachment uploads to finish before creating the job." });
+      return;
+    }
+
+    const failedAttachment = draftAttachments.find((attachment) => attachment.status === "failed");
+    if (failedAttachment) {
+      setErrors({
+        submit: failedAttachment.error ?? "Remove failed attachments before creating the job.",
+      });
       return;
     }
 
@@ -331,8 +620,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         setIsSubmitting(false);
         return;
       }
-
       const payload: TCreateJobPayload = parsed.data;
+      const selectedEscrowAsset = requireSupportedEscrowAsset(payload.asset);
       const parsedScamAnalysis = analyzeJobScamSignals({
         title: payload.title,
         description: payload.description,
@@ -355,24 +644,47 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           title: payload.title,
           description: payload.description,
           asset: payload.asset,
-          clientWallet: address,
+          clientWallet: walletIdentity.walletAddress,
+          ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
           milestones: milestones.map((milestone) => ({
             title: milestone.title,
             ...(milestone.description ? { description: milestone.description } : {}),
+            requiredOutput: milestone.description || milestone.title,
             amount: milestone.amount,
+            deadlineAt: parseDatetimeLocalValue(milestone.deadlineAt)!,
+            ...parseRevisionPolicy({
+              revisionPolicy: milestone.revisionPolicy,
+              revisionLimit: milestone.revisionLimit,
+            }),
           })),
         });
+        const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
+        if (!attachmentsLinked) {
+          return;
+        }
 
         setFormState({
           title: "",
           description: "",
           budget: "",
           asset: DEFAULT_STABLECOIN_ASSET,
+          deadlineAt: "",
           fundEscrowNow: false,
           jobType: "micro_gig",
+          revisionPolicy: "fixed",
+          revisionLimit: "2",
           milestones: [createDraftMilestone()],
         });
+        setDraftAttachments([]);
         onCreated(createdJobId);
+        return;
+      }
+
+      const deadlineAt = parseDatetimeLocalValue(payload.deadlineAt ?? "");
+      const deadlineError = validateDeadlineTimestamp(deadlineAt);
+      if (deadlineError || deadlineAt === null) {
+        setErrors({ deadlineAt: deadlineError ?? "Deadline is required." });
+        setIsSubmitting(false);
         return;
       }
 
@@ -381,6 +693,23 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       let jobHashBytes: Uint8Array | null = null;
 
       if (formState.fundEscrowNow) {
+        if (walletIdentity.walletType === "passkey_smart_account") {
+          setErrors({
+            submit:
+              "Create the job with your passkey smart account, then create and fund escrow from the escrow action panel.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
+          setErrors({
+            submit: "Connect a Stellar wallet before funding escrow.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         if (!walletState.isTestnet) {
           setErrors({ submit: "Switch your wallet to Stellar Testnet before funding escrow." });
           setIsSubmitting(false);
@@ -405,27 +734,18 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         preFundingConfig = getRequiredEscrowActionConfig();
 
-        if (payload.asset !== preFundingConfig.stablecoinTokenContractId) {
-          setErrors({
-            submit:
-              "This job's payment asset must match the configured stablecoin to pre-fund escrow.",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-
-        const requiredBalance = toTokenAmount(payload.budget);
-        const stablecoinBalance = await getStablecoinBalanceOnChain({
+        const requiredBalance = parseEscrowAssetAmount(selectedEscrowAsset, payload.budget);
+        const escrowTokenBalance = await getTokenBalanceOnChain({
           rpcUrl: preFundingConfig.rpcUrl,
           networkPassphrase: preFundingConfig.networkPassphrase,
-          stablecoinTokenContractId: preFundingConfig.stablecoinTokenContractId,
+          tokenContractId: selectedEscrowAsset.tokenContractId,
           sourceAddress: address,
           walletAddress: address,
         });
 
-        if (stablecoinBalance < requiredBalance) {
+        if (escrowTokenBalance < requiredBalance) {
           setErrors({
-            submit: `You do not have enough ${stablecoinConfig.symbol} to pre-fund this escrow.`,
+            submit: `You do not have enough ${selectedEscrowAsset.symbol} to pre-fund this escrow.`,
           });
           setIsSubmitting(false);
           return;
@@ -439,9 +759,19 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: payload.description,
         budget: payload.budget,
         asset: payload.asset,
-        clientWallet: address,
+        deadlineAt,
+        clientWallet: walletIdentity.walletAddress,
+        ...parseRevisionPolicy({
+          revisionPolicy: formState.revisionPolicy,
+          revisionLimit: formState.revisionLimit,
+        }),
+        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         jobHash,
       });
+      const attachmentsLinked = await attachDraftAttachmentsOrReport(createdJobId);
+      if (!attachmentsLinked) {
+        return;
+      }
 
       if (formState.fundEscrowNow && preFundingConfig && jobHashBytes) {
         const clientRequestId = createClientRequestId(createdJobId);
@@ -449,7 +779,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         let confirmedTxHash: string | null = null;
 
         await createTransaction({
-          walletAddress: address,
+          walletAddress: address!,
           type: "create_escrow",
           clientRequestId,
           jobId: createdJobId,
@@ -461,11 +791,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             rpcUrl: preFundingConfig.rpcUrl,
             networkPassphrase: preFundingConfig.networkPassphrase,
             escrowContractId: preFundingConfig.escrowContractId,
-            sourceAddress: address,
+            sourceAddress: address!,
             signTransaction,
-            client: address,
-            asset: preFundingConfig.stablecoinTokenContractId,
+            client: address!,
+            asset: selectedEscrowAsset.tokenContractId,
             amount: payload.budget,
+            assetDecimals: selectedEscrowAsset.decimals,
             jobHash: jobHashBytes,
           });
           confirmedEscrowId = result.escrowId;
@@ -474,9 +805,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           await createEscrowRecord({
             jobId: createdJobId,
             escrowId: result.escrowId,
-            clientWallet: address,
+            clientWallet: address!,
             amount: payload.budget,
-            asset: preFundingConfig.stablecoinTokenContractId,
+            asset: selectedEscrowAsset.tokenContractId,
             status: "funded",
             createTxHash: result.txHash,
             fundTxHash: result.txHash,
@@ -519,10 +850,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         description: "",
         budget: "",
         asset: DEFAULT_STABLECOIN_ASSET,
+        deadlineAt: "",
         fundEscrowNow: false,
         jobType: "micro_gig",
+        revisionPolicy: "fixed",
+        revisionLimit: "2",
         milestones: [createDraftMilestone()],
       });
+      setDraftAttachments([]);
       onCreated(createdJobId);
     } catch (error) {
       setErrors({
@@ -534,43 +869,63 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-gray-900">Post a freelance job</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Define escrow-ready job terms with the configured stablecoin payment asset for the MVP.
-      </p>
+    <section className="border border-[#e8e8e8] bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] pb-5">
+        <div className="space-y-2">
+          <SectionLabel>Job Builder</SectionLabel>
+          <h2 className="text-xl font-semibold text-gray-900">Post a freelance job</h2>
+          <p className="max-w-2xl text-sm text-gray-600">
+            Define escrow-ready job terms with the configured payment asset.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!isStablecoinConfigured ? (
+            <HighrableV2IconNotice
+              label="Stablecoin configuration warning"
+              tone="warning"
+              message="Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set."
+            />
+          ) : null}
+          {walletIdentity.walletType === "passkey_smart_account" ? (
+            <HighrableV2IconNotice
+              label="Passkey smart account connected"
+              tone="success"
+              message="Passkey smart account connected. Escrow signing is enabled with passkey from the escrow action panel after the job is created."
+            />
+          ) : null}
+          {walletIdentity.walletType === "external_wallet" &&
+          walletState.isTestnet &&
+          walletState.isFunded === false ? (
+            <HighrableV2IconNotice
+              label="Funded account warning"
+              tone="warning"
+              message="You can create off-chain jobs, but Stellar transactions in later steps require a funded testnet account."
+            />
+          ) : null}
+        </div>
+      </div>
 
-      {!isStablecoinConfigured ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will
-          be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set.
-        </p>
-      ) : null}
-
-      {!isConnected ? (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="mb-3">Connect wallet to create a job.</p>
-          <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white" />
+      {!walletIdentity.isConnected ? (
+        <div className="mt-5 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="mb-3">
+            Connect an external wallet or passkey smart account to create a job.
+          </p>
+          <WalletConnectTrigger className="hr-v2-button-primary rounded-none px-4 py-2 font-medium text-white" />
         </div>
       ) : null}
 
-      {isConnected && walletState.isTestnet && walletState.isFunded === false ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          You can create off-chain jobs, but Stellar transactions in later steps require a funded
-          testnet account.
-        </p>
-      ) : null}
-
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-        <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-          <p className="text-sm font-semibold text-[#0a0a0a]">Work mode</p>
+      <form onSubmit={handleSubmit} className="mt-5 space-y-5">
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <p className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+            Work mode
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => updateJobType("micro_gig")}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`border p-4 text-left transition-colors ${
                 formState.jobType === "micro_gig"
-                  ? "border-[#FF7003] bg-white"
+                  ? "border-[#0a0a0a] bg-white shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.12)]"
                   : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
               }`}
               aria-pressed={formState.jobType === "micro_gig"}
@@ -583,9 +938,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <button
               type="button"
               onClick={() => updateJobType("milestone_project")}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`border p-4 text-left transition-colors ${
                 formState.jobType === "milestone_project"
-                  ? "border-[#FF7003] bg-white"
+                  ? "border-[#0a0a0a] bg-white shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.12)]"
                   : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
               }`}
               aria-pressed={formState.jobType === "milestone_project"}
@@ -610,7 +965,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             value={formState.title}
             onChange={(event) => updateField("title", event.target.value)}
             maxLength={140}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+            className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Build a responsive frontend with Stellar wallet integration"
           />
           {errors.title ? <p className="mt-1 text-xs text-red-600">{errors.title}</p> : null}
@@ -629,7 +984,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             onChange={(event) => updateField("description", event.target.value)}
             rows={4}
             maxLength={4000}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+            className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Scope, deliverables, and acceptance criteria"
           />
           {errors.description ? (
@@ -638,34 +993,31 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </div>
 
         {scamAnalysis.signals.length > 0 ? (
-          <Alert
-            variant={scamAnalysis.isBlocked ? "destructive" : "default"}
-            className={`rounded-xl border p-3 text-sm ${
-              scamAnalysis.isBlocked
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-amber-200 bg-amber-50 text-amber-900"
-            }`}
-            role={scamAnalysis.isBlocked ? "alert" : "note"}
-          >
-            <AlertTitle>
-              {scamAnalysis.isBlocked
-                ? DISALLOWED_JOB_POST_MESSAGE
-                : "This job post contains language that may look suspicious to freelancers."}
-            </AlertTitle>
-            <AlertDescription>
-              {!scamAnalysis.isBlocked ? (
-                <p>
-                  This job may look suspicious because it asks users to move off-platform or pay
-                  upfront.
-                </p>
-              ) : null}
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                {scamAnalysis.signals.map((signal) => (
-                  <li key={signal.type}>{signal.message}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-center gap-2">
+            <HighrableV2IconNotice
+              label={
+                scamAnalysis.isBlocked ? "Blocked scam language" : "Suspicious job language warning"
+              }
+              tone={scamAnalysis.isBlocked ? "danger" : "warning"}
+              message={
+                <span className="space-y-1">
+                  <span className="block">
+                    {scamAnalysis.isBlocked
+                      ? DISALLOWED_JOB_POST_MESSAGE
+                      : "This job post contains language that may look suspicious to freelancers."}
+                  </span>
+                  {scamAnalysis.signals.map((signal) => (
+                    <span key={signal.type} className="block">
+                      {signal.message}
+                    </span>
+                  ))}
+                </span>
+              }
+            />
+            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              Review safety language
+            </span>
+          </div>
         ) : null}
 
         <div className={`grid gap-4 ${isMilestoneProject ? "" : "sm:grid-cols-2"}`}>
@@ -683,11 +1035,34 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 inputMode="decimal"
                 value={formState.budget}
                 onChange={(event) => updateField("budget", event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
                 placeholder="500"
               />
               <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
               {errors.budget ? <p className="mt-1 text-xs text-red-600">{errors.budget}</p> : null}
+            </div>
+          ) : null}
+
+          {!isMilestoneProject ? (
+            <div>
+              <label
+                htmlFor="marketplace-job-deadline"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Deadline
+              </label>
+              <DateTimePicker
+                id="marketplace-job-deadline"
+                min={minimumDeadlineInputValue}
+                value={formState.deadlineAt}
+                onValueChange={(value) => updateField("deadlineAt", clampDeadlineInputValue(value))}
+              />
+              <p className="mt-1 font-mono text-xs text-gray-500">
+                Stored in UTC. Displayed in {getLocalTimezoneLabel()}.
+              </p>
+              {errors.deadlineAt ? (
+                <p className="mt-1 text-xs text-red-600">{errors.deadlineAt}</p>
+              ) : null}
             </div>
           ) : null}
 
@@ -699,13 +1074,65 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               Payment asset
             </label>
             {isStablecoinConfigured ? (
-              <div className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900">
-                <p className="font-medium text-[#0a0a0a]">
-                  Payment asset: {formatAssetLabel(stablecoinConfig.tokenContractId ?? "")}
-                </p>
-                <p className="mt-1 font-mono text-xs break-all text-[#5f5f5f]">
-                  {stablecoinConfig.tokenContractId}
-                </p>
+              <div className="space-y-3">
+                <div className="grid gap-3">
+                  {supportedEscrowAssets.map((asset) => {
+                    const isSelected = formState.asset === asset.tokenContractId;
+                    const isDisabled = !asset.isConfigured;
+
+                    return (
+                      <div
+                        key={asset.kind}
+                        role="button"
+                        tabIndex={isDisabled ? -1 : 0}
+                        onClick={() => !isDisabled && updateField("asset", asset.tokenContractId)}
+                        onKeyDown={(e) => {
+                          if (!isDisabled && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            updateField("asset", asset.tokenContractId);
+                          }
+                        }}
+                        className={`border p-3 text-left transition-colors ${
+                          isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                        } ${
+                          isSelected
+                            ? "border-[#0a0a0a] bg-white"
+                            : "border-gray-300 bg-gray-50 hover:border-[#FF7003]/50"
+                        }`}
+                        aria-pressed={isSelected}
+                      >
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-[#0a0a0a]">{asset.displayName}</span>
+                          {asset.isPrimary ? (
+                            <HighrableV2Badge>Recommended</HighrableV2Badge>
+                          ) : (
+                            <HighrableV2Badge tone="solid">Advanced</HighrableV2Badge>
+                          )}
+                          {asset.kind === "native_xlm" && asset.isConfigured ? (
+                            <HighrableV2IconNotice
+                              label="XLM value warning"
+                              tone="warning"
+                              message="XLM escrow is available, but the job value may fluctuate."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : null}
+                        </span>
+                        <span className="mt-1 block text-sm text-[#5f5f5f]">
+                          {asset.kind === "stablecoin"
+                            ? "Recommended. Stable job value for freelance escrow."
+                            : asset.isConfigured
+                              ? "Advanced. Job value may fluctuate with XLM market price."
+                              : "XLM escrow is not configured for this deployment."}
+                        </span>
+                        {asset.tokenContractId ? (
+                          <span className="mt-1 block font-mono text-xs break-all text-[#5f5f5f]">
+                            {asset.tokenContractId}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <AppInput
@@ -713,7 +1140,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 value={formState.asset}
                 onChange={(event) => updateField("asset", event.target.value)}
                 maxLength={255}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
                 placeholder="Stablecoin token contract ID"
               />
             )}
@@ -722,24 +1149,49 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </div>
         </div>
 
+        {!isMilestoneProject ? (
+          <RevisionPolicyControls
+            idPrefix="micro-gig"
+            revisionPolicy={formState.revisionPolicy}
+            revisionLimit={formState.revisionLimit}
+            disabled={isSubmitting}
+            error={errors.revisionPolicy ?? errors.revisionLimit}
+            onPolicyChange={updateRevisionPolicy}
+            onLimitChange={updateRevisionLimit}
+          />
+        ) : null}
+
+        <AttachmentUploader
+          value={draftAttachments}
+          onChange={setDraftAttachments}
+          disabled={isSubmitting}
+        />
+
         {isMilestoneProject ? (
-          <div className="space-y-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <div className="space-y-4 border border-[#e8e8e8] bg-[#fafafa] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-[#0a0a0a]">Milestones</h3>
+                <h3 className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+                  Milestones
+                </h3>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
                   Define each deliverable and payment. Funding happens later per assigned milestone.
                 </p>
               </div>
-              <AppButton type="button" variant="secondary" onClick={addMilestone} className="gap-2">
+              <AppButton
+                type="button"
+                variant="secondary"
+                onClick={addMilestone}
+                className="hr-v2-button-secondary gap-2 rounded-none"
+              >
                 <Plus className="h-4 w-4" />
                 Add milestone
               </AppButton>
             </div>
 
-            <div className="space-y-4">
+            <div className="divide-y divide-[#e8e8e8] border-y border-[#e8e8e8] bg-white">
               {formState.milestones.map((milestone, index) => (
-                <div key={milestone.id} className="rounded-lg border border-[#e8e8e8] bg-white p-4">
+                <div key={milestone.id} className="p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-[#0a0a0a]">Milestone {index + 1}</p>
                     <AppButton
@@ -747,7 +1199,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       variant="secondary"
                       disabled={formState.milestones.length === 1}
                       onClick={() => removeMilestone(milestone.id)}
-                      className="h-8 gap-2 px-3 py-1.5 text-xs disabled:opacity-50"
+                      className="h-8 gap-2 rounded-none px-3 py-1.5 text-xs disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Remove
@@ -808,11 +1260,44 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       placeholder="Deliverable details and acceptance criteria"
                     />
                   </div>
+                  <div className="mt-3">
+                    <label
+                      htmlFor={`milestone-deadline-${milestone.id}`}
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Deadline
+                    </label>
+                    <DateTimePicker
+                      id={`milestone-deadline-${milestone.id}`}
+                      min={minimumDeadlineInputValue}
+                      value={milestone.deadlineAt}
+                      onValueChange={(value) =>
+                        updateMilestone(milestone.id, "deadlineAt", clampDeadlineInputValue(value))
+                      }
+                    />
+                    <p className="mt-1 font-mono text-xs text-gray-500">
+                      {getLocalTimezoneLabel()}
+                    </p>
+                  </div>
+                  <div className="mt-3">
+                    <RevisionPolicyControls
+                      idPrefix={`milestone-${milestone.id}`}
+                      revisionPolicy={milestone.revisionPolicy}
+                      revisionLimit={milestone.revisionLimit}
+                      disabled={isSubmitting}
+                      onPolicyChange={(policy) =>
+                        updateMilestoneRevisionPolicy(milestone.id, policy)
+                      }
+                      onLimitChange={(limit) =>
+                        updateMilestone(milestone.id, "revisionLimit", limit)
+                      }
+                    />
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="rounded-lg border border-[#e8e8e8] bg-white p-3 text-sm">
+            <div className="border border-[#e8e8e8] bg-white p-3 text-sm">
               <span className="font-medium text-[#0a0a0a]">Total project budget:</span>{" "}
               {parsedMilestoneTotal.toLocaleString(undefined, {
                 maximumFractionDigits: 7,
@@ -824,15 +1309,30 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         ) : null}
 
         {!isMilestoneProject ? (
-          <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <label
-                  htmlFor="fund-escrow-now"
-                  className="block text-sm font-semibold text-[#0a0a0a]"
-                >
-                  Create and fund escrow now
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor="fund-escrow-now"
+                    className="block text-sm font-semibold text-[#0a0a0a]"
+                  >
+                    Create and fund escrow now
+                  </label>
+                  {walletIdentity.walletType === "passkey_smart_account" ? (
+                    <HighrableV2IconNotice
+                      label="Passkey escrow funding notice"
+                      tone="warning"
+                      message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
+                    />
+                  ) : (
+                    <HighrableV2IconNotice
+                      label="Escrow funding info"
+                      tone="warning"
+                      message="Locking the budget in escrow demonstrates commitment to applicants and secures the payment for the future freelancer."
+                    />
+                  )}
+                </div>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
                   Lock the full budget in Stellar escrow while the job is still open for applicants.
                 </p>
@@ -841,7 +1341,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 id="fund-escrow-now"
                 checked={formState.fundEscrowNow}
                 onCheckedChange={updateFundEscrowNow}
-                disabled={!isStablecoinConfigured || !isConnected || isSubmitting}
+                disabled={
+                  !isSelectedEscrowAssetSupported ||
+                  !walletIdentity.canSignEscrowTransactions ||
+                  walletIdentity.walletType === "passkey_smart_account" ||
+                  isSubmitting
+                }
                 aria-label="Create and fund escrow when posting this job"
               />
             </div>
@@ -852,18 +1357,21 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             ) : null}
           </div>
         ) : (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Milestone projects are not funded upfront. Assign and fund each milestone separately
-            after applications arrive.
-          </p>
+          <div>
+            <HighrableV2IconNotice
+              label="Milestone funding notice"
+              tone="warning"
+              message="Milestone projects are not funded upfront. Assign and fund each milestone separately after applications arrive."
+            />
+          </div>
         )}
 
         {errors.submit ? <p className="text-sm text-red-600">{errors.submit}</p> : null}
 
         <AppButton
           type="submit"
-          disabled={isSubmitting || !isConnected}
-          className="disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSubmitting || !walletIdentity.isConnected}
+          className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting
             ? formState.fundEscrowNow

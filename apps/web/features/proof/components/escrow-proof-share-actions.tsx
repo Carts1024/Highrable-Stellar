@@ -1,5 +1,6 @@
 "use client";
 
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button } from "@repo/ui/components/ui/button";
 import { Check, Copy } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -10,8 +11,8 @@ type TCopyTarget = "proof_link" | "escrow_id" | "release_tx";
 
 const COPY_SUCCESS_MESSAGE: Record<TCopyTarget, string> = {
   proof_link: "Copied proof link.",
-  escrow_id: "Copied escrow ID.",
-  release_tx: "Copied release transaction hash.",
+  escrow_id: "Copied payment ID.",
+  release_tx: "Copied payment receipt.",
 };
 
 async function copyText(value: string): Promise<void> {
@@ -47,17 +48,18 @@ export function EscrowProofShareActions({ proof }: { readonly proof: TEscrowProo
 
   const actions: Array<{ target: TCopyTarget; label: string; value?: string }> = [
     { target: "proof_link", label: "Copy proof link", value: proofLink },
-    { target: "escrow_id", label: "Copy escrow ID", value: proof.escrow.escrowId },
+    { target: "escrow_id", label: "Copy payment ID", value: proof.escrow.escrowId },
     {
       target: "release_tx",
-      label: "Copy release transaction",
+      label: "Copy payment receipt",
       value: proof.escrow.releaseTxHash,
     },
   ];
 
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Share proof</h2>
+    <section className="h-full border border-[#e8e8e8] bg-white p-4">
+      <SectionLabel>Share</SectionLabel>
+      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Copy receipt details</h2>
       <div className="mt-4 flex flex-wrap gap-2">
         {actions.map((action) => (
           <Button
@@ -66,7 +68,7 @@ export function EscrowProofShareActions({ proof }: { readonly proof: TEscrowProo
             variant="outline"
             disabled={!action.value}
             onClick={() => void handleCopy(action.target, action.value)}
-            className="h-9 rounded-lg"
+            className="h-9 rounded-none"
           >
             {copiedTarget === action.target ? (
               <Check className="h-4 w-4" />

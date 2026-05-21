@@ -110,7 +110,7 @@ export const applyEscrowStatusSync = internalMutation({
       const jobStatusPatch = getJobStatusFromEscrowStatus(
         incomingStatus as "funded" | "submitted" | "released" | "cancelled" | "disputed",
       );
-      await ctx.db.patch(escrow.jobId, { status: jobStatusPatch });
+      await ctx.db.patch(escrow.jobId, { status: jobStatusPatch, updatedAt: Date.now() });
     }
 
     return {

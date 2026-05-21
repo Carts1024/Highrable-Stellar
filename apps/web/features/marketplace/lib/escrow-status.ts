@@ -60,6 +60,18 @@ const MARKETPLACE_STATUS_META: Record<TMarketplaceStatus, TMarketplaceStatusMeta
     badgeClassName: "border-indigo-200 bg-indigo-50 text-indigo-700",
     trustWarning: null,
   },
+  revision_requested: {
+    label: "Revision Requested",
+    description: "Client requested changes. Freelancer response is pending.",
+    badgeClassName: "border-orange-200 bg-orange-50 text-orange-800",
+    trustWarning: null,
+  },
+  revision_submitted: {
+    label: "Revision Submitted",
+    description: "Freelancer submitted revised work. Client review is pending.",
+    badgeClassName: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    trustWarning: null,
+  },
   released: {
     label: "Paid",
     description: "Payment has been released to the freelancer.",

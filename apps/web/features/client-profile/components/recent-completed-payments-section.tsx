@@ -7,6 +7,7 @@ import {
 } from "@/features/client-profile/lib/client-profile-format";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -19,19 +20,22 @@ export function RecentCompletedPaymentsSection({
   readonly payments: readonly TClientEscrowActivity[];
 }) {
   return (
-    <section className="space-y-3">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Recent completed payments</h2>
-      {payments.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
-          No completed escrow payments yet.
+    <section className="border border-[#e8e8e8] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] p-5 sm:p-6">
+        <div>
+          <SectionLabel>Completed Payments</SectionLabel>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent released escrows</h2>
+        </div>
+        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+          {payments.length} record{payments.length === 1 ? "" : "s"}
         </p>
+      </div>
+      {payments.length === 0 ? (
+        <p className="p-5 text-sm text-[#5f5f5f] sm:p-6">No completed escrow payments yet.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y divide-[#e8e8e8]">
           {payments.map((payment) => (
-            <article
-              key={payment.escrowId}
-              className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4"
-            >
+            <article key={payment.escrowId} className="p-5 transition-colors hover:bg-[#fafafa]">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -73,7 +77,7 @@ export function RecentCompletedPaymentsSection({
                   </p>
                 </div>
 
-                <div className="space-y-2 text-left md:text-right">
+                <div className="min-w-44 space-y-2 text-left md:text-right">
                   <p className="font-semibold text-[#0a0a0a]">
                     {formatAmount(payment.amount)} {formatAsset(payment.asset)}
                   </p>

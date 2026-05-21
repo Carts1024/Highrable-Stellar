@@ -1,17 +1,26 @@
 "use client";
 
-import { formatAssetLabel, isConfiguredStablecoin } from "@/core/stellar/assets";
+import { formatAssetLabel } from "@/core/stellar/assets";
 import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
+import {
+  getEscrowAssetByContractId,
+  getUnsupportedEscrowAssetMessage,
+  isSupportedEscrowAsset,
+} from "@/core/stellar/payment-assets";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { CancelWorkButton } from "@/features/cancellations";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
+import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
@@ -40,7 +49,8 @@ export function MilestoneActionPanel({
   applications: TConvexDoc<"applications">[];
 }) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
-  const { address, walletState } = useWallet();
+  const { walletState } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const verifiedReviewData = useQuery(
     api.reputation_records.queries.getVerifiedReviewForMilestone,
     milestone._id ? { milestoneId: milestone._id } : "skip",
@@ -56,31 +66,38 @@ export function MilestoneActionPanel({
     txExplorerUrl,
     createEscrow,
     fundEscrow,
-    submitWork,
     approveAndRelease,
-    cancelEscrow,
-    markDisputed,
   } = useMilestoneEscrowActions({ job, milestone, escrow, applications });
+  const activeDispute = useQuery(
+    api.disputes.getActiveDisputeForEscrow,
+    escrow && walletIdentity.walletAddress
+      ? { escrowId: escrow._id, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
 
   const isStablecoinConfigured = hasStablecoinConfig();
   const stablecoinConfigValidation = validateStablecoinConfig();
-  const isMilestoneAssetConfiguredStablecoin = isConfiguredStablecoin(milestone.asset);
+  const milestoneEscrowAsset = getEscrowAssetByContractId(milestone.asset);
+  const isMilestoneAssetSupported = isSupportedEscrowAsset(milestone.asset);
+  const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
   const stablecoinReadiness = useStablecoinReadiness({
-    walletAddress: address,
+    walletAddress: walletIdentity.walletAddress,
     requiredAmount: milestone.amount,
     tokenContractId: milestone.asset || stablecoinConfig.tokenContractId,
+    asset: milestoneEscrowAsset ?? undefined,
     enabled:
       milestone.status === "escrow_created" &&
       role === "client" &&
-      walletState.isConnected &&
-      walletState.isTestnet,
+      walletIdentity.canSignEscrowTransactions &&
+      walletIdentity.isConnected &&
+      (isPasskeyMode || walletState.isTestnet),
   });
   const isFundEscrowDisabled =
     isPending ||
+    !walletIdentity.canSignEscrowTransactions ||
     role !== "client" ||
     escrow?.status !== "created" ||
-    !isStablecoinConfigured ||
-    !isMilestoneAssetConfiguredStablecoin ||
+    !isMilestoneAssetSupported ||
     stablecoinReadiness.isLoading ||
     stablecoinReadiness.requiredAmountAtomic === null ||
     stablecoinReadiness.error !== null ||
@@ -89,6 +106,8 @@ export function MilestoneActionPanel({
   const verifiedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
   const isReleased = milestone.status === "released" || escrow?.status === "released";
   const showPendingVerifiedSync = isReleased && escrow?.status === "released" && !reputationRecord;
+  const canShowReleasedWorkSubmission =
+    isReleased && Boolean(verifiedEscrow) && (role === "client" || role === "selectedFreelancer");
 
   const handleConfirmRelease = async ({
     rating,
@@ -128,16 +147,29 @@ export function MilestoneActionPanel({
         </div>
       ) : null}
 
-      {!isStablecoinConfigured ? (
+      {!isStablecoinConfigured && milestoneEscrowAsset?.kind === "stablecoin" ? (
         <TrustWarning
           message={
             stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
           }
         />
       ) : null}
-      {isStablecoinConfigured && !isMilestoneAssetConfiguredStablecoin ? (
-        <TrustWarning message="This milestone uses a different payment asset than the configured MVP stablecoin. Escrow funding is disabled for safety." />
+      {!isMilestoneAssetSupported ? (
+        <TrustWarning
+          message={milestoneEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage()}
+        />
       ) : null}
+      {milestoneEscrowAsset?.kind === "native_xlm" ? (
+        <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+      ) : null}
+      {walletIdentity.walletType ? (
+        <p className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-sm text-[#3f3f3f]">
+          {isPasskeyMode
+            ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
+            : "Signing with Freighter or WalletConnect."}
+        </p>
+      ) : null}
+      {activeDispute ? <DisputeActionGuardNotice /> : null}
 
       {milestone.status === "open" ? (
         <p className="text-sm text-[#5f5f5f]">
@@ -152,7 +184,7 @@ export function MilestoneActionPanel({
           {role === "client" ? (
             <AppButton
               type="button"
-              disabled={isPending || escrow !== null}
+              disabled={isPending || escrow !== null || !walletIdentity.canSignEscrowTransactions}
               onClick={() => void createEscrow()}
               className="disabled:opacity-60"
             >
@@ -171,16 +203,17 @@ export function MilestoneActionPanel({
           {role === "client" ? (
             <>
               <StablecoinBalancePanel
-                walletAddress={address}
+                walletAddress={walletIdentity.walletAddress}
                 requiredAmount={milestone.amount}
                 tokenContractId={milestone.asset || stablecoinConfig.tokenContractId}
+                asset={milestoneEscrowAsset ?? undefined}
                 enabled
                 readinessState={stablecoinReadiness}
                 isRefreshDisabled={isPending}
               />
               {stablecoinReadiness.hasSufficientBalance === false ? (
                 <TrustWarning
-                  message={`Insufficient stablecoin balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${stablecoinConfig.symbol}.`}
+                  message={`Insufficient ${milestoneEscrowAsset?.symbol ?? stablecoinConfig.symbol} balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${milestoneEscrowAsset?.symbol ?? stablecoinConfig.symbol}.`}
                 />
               ) : null}
               <div className="flex flex-wrap gap-2">
@@ -192,14 +225,7 @@ export function MilestoneActionPanel({
                 >
                   {pendingAction === "fund_escrow" ? "Funding..." : "Fund Milestone"}
                 </AppButton>
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  disabled={isPending}
-                  onClick={() => void cancelEscrow()}
-                >
-                  {pendingAction === "cancel_escrow" ? "Cancelling..." : "Cancel"}
-                </AppButton>
+                <CancelWorkButton job={job} milestone={milestone} escrow={escrow} />
               </div>
             </>
           ) : (
@@ -213,52 +239,53 @@ export function MilestoneActionPanel({
       {milestone.status === "funded" && escrow?.status === "funded" ? (
         <div className="space-y-3">
           {role === "selectedFreelancer" ? (
-            <div className="flex flex-wrap gap-2">
-              <AppButton
-                type="button"
-                disabled={isPending}
-                onClick={() => void submitWork()}
-                className="disabled:opacity-60"
-              >
-                {pendingAction === "submit_work" ? "Submitting..." : "Submit Work"}
-              </AppButton>
-              <AppButton
-                type="button"
-                variant="secondary"
-                disabled={isPending}
-                onClick={() => void markDisputed()}
+            <div className="space-y-3">
+              <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
+              <OpenDisputeButton
+                job={job}
+                milestone={milestone}
+                escrow={escrow}
+                parentType="milestone"
+                parentId={milestone._id}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 className="border-red-300 text-red-700 hover:bg-red-50"
-              >
-                {pendingAction === "mark_disputed" ? "Disputing..." : "Dispute"}
-              </AppButton>
+              />
             </div>
-          ) : (
+          ) : null}
+          {role === "client" ? (
+            <div className="space-y-3">
+              <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
+              <CancelWorkButton job={job} milestone={milestone} escrow={escrow} />
+            </div>
+          ) : null}
+          {role !== "selectedFreelancer" && role !== "client" ? (
             <p className="text-sm text-[#5f5f5f]">Waiting for freelancer submission.</p>
-          )}
+          ) : null}
         </div>
       ) : null}
 
       {milestone.status === "submitted" && escrow?.status === "submitted" ? (
         <div className="space-y-3">
+          <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={escrow} />
           {role === "client" ? (
             <div className="flex flex-wrap gap-2">
               <AppButton
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 onClick={() => setIsReleaseDialogOpen(true)}
                 className="disabled:opacity-60"
               >
                 Approve and Release
               </AppButton>
-              <AppButton
-                type="button"
-                variant="secondary"
-                disabled={isPending}
-                onClick={() => void markDisputed()}
+              <OpenDisputeButton
+                job={job}
+                milestone={milestone}
+                escrow={escrow}
+                parentType="milestone"
+                parentId={milestone._id}
+                disabled={isPending || !walletIdentity.canSignEscrowTransactions}
                 className="border-red-300 text-red-700 hover:bg-red-50"
-              >
-                {pendingAction === "mark_disputed" ? "Disputing..." : "Dispute"}
-              </AppButton>
+              />
             </div>
           ) : (
             <p className="text-sm text-[#5f5f5f]">Waiting for client approval.</p>
@@ -269,6 +296,9 @@ export function MilestoneActionPanel({
       {isReleased && verifiedEscrow ? (
         <div className="space-y-3">
           <p className="text-sm font-medium text-emerald-800">Milestone paid.</p>
+          {canShowReleasedWorkSubmission ? (
+            <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={verifiedEscrow} />
+          ) : null}
           {reputationRecord ? (
             <VerifiedReviewCard
               jobTitle={`${job.title} - ${milestone.title}`}

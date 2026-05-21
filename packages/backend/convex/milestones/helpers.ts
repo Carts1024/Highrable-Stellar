@@ -5,6 +5,7 @@ import type { TApplicationGateStatus, TMilestoneStatus } from "./schema";
 import type { TMilestoneApplicationGate, TMilestoneDoc } from "./types";
 
 import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/errors";
+import { sanitizeSupportedEscrowAsset } from "../_shared/escrowAssets";
 import {
   normalizeWalletAddress,
   optionalNonEmptyString,
@@ -39,7 +40,7 @@ export function sanitizeMilestoneAmount(amount: number): number {
 }
 
 export function sanitizeMilestoneAsset(asset: string): string {
-  return requireNonEmptyString(asset, "asset");
+  return sanitizeSupportedEscrowAsset(asset);
 }
 
 export function sanitizeMilestoneWallet(walletAddress: string): string {
@@ -299,7 +300,7 @@ export async function patchParentJobStatusForMilestoneProject(
   jobId: Id<"jobs">,
 ): Promise<void> {
   const status = await deriveMilestoneProjectJobStatus(ctx, jobId);
-  await ctx.db.patch(jobId, { status });
+  await ctx.db.patch(jobId, { status, updatedAt: Date.now() });
 }
 
 export async function patchMilestoneForEscrowStatus(

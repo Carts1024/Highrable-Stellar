@@ -2,6 +2,7 @@
 
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
+import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
@@ -90,6 +91,15 @@ export function MilestoneCard({
           <dd className="font-semibold text-[#0a0a0a]">{safeApplications.length}</dd>
         </div>
       </dl>
+
+      <DeadlineBadge
+        deadlineAt={milestone.deadlineAt}
+        submittedAt={milestone.submittedAt}
+        completedAt={milestone.completedAt}
+        approvedAt={milestone.approvedAt}
+        escrowStatus={escrow?.status}
+        workStatus={milestone.status}
+      />
 
       <TrustSafetyNotice type={isFunded ? "verified_funded" : "unfunded"} compact />
       {!isFunded ? (

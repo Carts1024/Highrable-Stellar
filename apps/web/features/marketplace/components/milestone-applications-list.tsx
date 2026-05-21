@@ -1,6 +1,6 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -25,17 +25,20 @@ export function MilestoneApplicationsList({
   applications: TConvexDoc<"applications">[] | undefined;
   isLoading: boolean;
 }) {
-  const { address, isConnected } = useWallet();
+  const walletIdentity = useHighrableWalletIdentity();
   const assignFreelancerToMilestone = useMutation(api.milestones.assignFreelancerToMilestone);
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingWallet, setSelectingWallet] = useState<string | null>(null);
 
-  const isClient = isSameWallet(address, job.clientWallet);
+  const isClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const canAssign =
-    isConnected && isClient && milestone.status === "open" && applicationGate.canApply;
+    walletIdentity.isConnected &&
+    isClient &&
+    milestone.status === "open" &&
+    applicationGate.canApply;
 
   const handleAssign = async (freelancerWallet: string) => {
-    if (!address) {
+    if (!walletIdentity.walletAddress) {
       setSelectionError("Connect your wallet to assign a freelancer.");
       return;
     }
@@ -46,7 +49,7 @@ export function MilestoneApplicationsList({
     try {
       await assignFreelancerToMilestone({
         milestoneId: milestone._id as TConvexId<"milestones">,
-        clientWallet: address,
+        clientWallet: walletIdentity.walletAddress,
         freelancerWallet,
       });
     } catch (error) {
@@ -93,21 +96,43 @@ export function MilestoneApplicationsList({
                   Applied {new Date(application.createdAt).toLocaleString()}
                 </p>
               </div>
-              {canAssign ? (
+              <div className="flex flex-wrap justify-end gap-2">
                 <AppButton
-                  type="button"
+                  asChild
                   variant="secondary"
-                  disabled={selectingWallet === application.freelancerWallet || isAssigned}
-                  onClick={() => void handleAssign(application.freelancerWallet)}
-                  className="h-8 px-3 py-1.5 text-xs disabled:opacity-60"
+                  className="h-8 border-[#e8e8e8] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
                 >
-                  {isAssigned
-                    ? "Assigned"
-                    : selectingWallet === application.freelancerWallet
-                      ? "Assigning..."
-                      : "Assign"}
+                  <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
+                    View profile
+                  </Link>
                 </AppButton>
-              ) : null}
+                {application.showcasedWorkEscrowId ? (
+                  <AppButton
+                    asChild
+                    variant="secondary"
+                    className="h-8 border-[#FF7003] px-3 py-1.5 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
+                  >
+                    <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
+                      View showcased work
+                    </Link>
+                  </AppButton>
+                ) : null}
+                {canAssign ? (
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    disabled={selectingWallet === application.freelancerWallet || isAssigned}
+                    onClick={() => void handleAssign(application.freelancerWallet)}
+                    className="h-8 px-3 py-1.5 text-xs disabled:opacity-60"
+                  >
+                    {isAssigned
+                      ? "Assigned"
+                      : selectingWallet === application.freelancerWallet
+                        ? "Assigning..."
+                        : "Assign"}
+                  </AppButton>
+                ) : null}
+              </div>
             </div>
             <p className="mt-2 text-sm text-[#5f5f5f]">{application.proposal}</p>
           </article>

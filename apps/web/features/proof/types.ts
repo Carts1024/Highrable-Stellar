@@ -36,6 +36,10 @@ export type TProofJob = {
   readonly jobType: "micro_gig" | "milestone_project";
   readonly status: string;
   readonly clientWallet: string;
+  readonly deadlineAt?: number;
+  readonly submittedAt?: number;
+  readonly completedAt?: number;
+  readonly approvedAt?: number;
   readonly createdAt: number;
 };
 
@@ -47,6 +51,10 @@ export type TProofMilestone = {
   readonly amount: number;
   readonly asset: string;
   readonly status: string;
+  readonly deadlineAt?: number;
+  readonly submittedAt?: number;
+  readonly completedAt?: number;
+  readonly approvedAt?: number;
   readonly assignedFreelancerWallet?: string;
 };
 
@@ -70,6 +78,7 @@ export type TProofProfile = {
   readonly name?: string;
   readonly companyName?: string;
   readonly skills?: readonly string[];
+  readonly walletType?: "external_wallet" | "passkey_smart_account";
 };
 
 export type TProofTransaction = {

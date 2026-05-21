@@ -11,6 +11,7 @@ export type TClientProfile = {
   readonly name?: string;
   readonly companyName?: string;
   readonly bio?: string;
+  readonly avatarUrl?: string;
   readonly websiteUrl?: string;
   readonly location?: string;
   readonly walletType?: "external_wallet" | "passkey_smart_account";

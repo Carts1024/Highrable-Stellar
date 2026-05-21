@@ -3,7 +3,14 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { sanitizeClientWallet, sanitizeFreelancerWallet } from "./helpers";
 
-const MARKETPLACE_JOB_STATUSES = ["open", "selected", "funded", "submitted"] as const;
+const MARKETPLACE_JOB_STATUSES = [
+  "open",
+  "selected",
+  "funded",
+  "submitted",
+  "revision_requested",
+  "revision_submitted",
+] as const;
 const MARKETPLACE_STATUS_LIMIT = 75;
 
 export const getJob = query({

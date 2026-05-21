@@ -5,12 +5,24 @@ import { TChallengeRequestSchema, TVerifyRequestSchema } from "@/core/wallet/val
 import type { IWalletAuthService, TAuthChallenge, TAuthSession } from "@/core/wallet/types";
 
 async function parseResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Authentication endpoint returned ${response.status} ${response.statusText || "non-JSON response"}. Restart the web server and retry.`,
+    );
+  }
+
+  const data = (await response.json().catch(() => null)) as ({ error?: string } & T) | null;
+
   if (!response.ok) {
-    const data = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(data?.error ?? "Authentication request failed");
   }
 
-  return (await response.json()) as T;
+  if (!data) {
+    throw new Error("Authentication endpoint returned an invalid JSON response.");
+  }
+
+  return data;
 }
 
 export class StellarAuthService implements IWalletAuthService {
@@ -19,6 +31,7 @@ export class StellarAuthService implements IWalletAuthService {
 
     const response = await fetch("/api/auth/stellar/challenge", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -36,6 +49,7 @@ export class StellarAuthService implements IWalletAuthService {
 
     const response = await fetch("/api/auth/stellar/verify", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });

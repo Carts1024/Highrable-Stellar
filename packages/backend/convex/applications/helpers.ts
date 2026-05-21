@@ -14,6 +14,45 @@ export function sanitizeProposal(proposal: string): string {
   return requireNonEmptyString(proposal, "proposal");
 }
 
+export function sanitizeShowcasedWorkEscrowId(
+  showcasedWorkEscrowId: string | undefined,
+): string | undefined {
+  if (showcasedWorkEscrowId === undefined) {
+    return undefined;
+  }
+
+  return requireNonEmptyString(showcasedWorkEscrowId, "showcasedWorkEscrowId");
+}
+
+export async function validateShowcasedWorkEscrowId(
+  ctx: QueryCtx,
+  freelancerWallet: string,
+  showcasedWorkEscrowId: string | undefined,
+): Promise<string | undefined> {
+  if (showcasedWorkEscrowId === undefined) {
+    return undefined;
+  }
+
+  const showcasedEscrow = await ctx.db
+    .query("escrows")
+    .withIndex("by_escrowId", (q) => q.eq("escrowId", showcasedWorkEscrowId))
+    .unique();
+
+  if (!showcasedEscrow) {
+    throw new NotFoundError("Showcased work not found.");
+  }
+
+  if (showcasedEscrow.status !== "released") {
+    throw new ForbiddenError("Only completed paid work can be showcased.");
+  }
+
+  if (showcasedEscrow.freelancerWallet !== freelancerWallet) {
+    throw new ForbiddenError("Freelancer can only showcase their own completed work.");
+  }
+
+  return showcasedEscrow.escrowId;
+}
+
 export async function assertCanApplyToJob(
   ctx: QueryCtx,
   jobId: Id<"jobs">,

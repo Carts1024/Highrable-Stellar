@@ -1,15 +1,20 @@
 "use client";
 
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { parseWalletAddressParam } from "@/core/seo";
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
-import { FreelancerReviewsSection } from "@/features/profile/components/freelancer-reviews-section";
-import { FreelancerStatsCards } from "@/features/profile/components/freelancer-stats-cards";
-import { RecentContractsSection } from "@/features/profile/components/recent-contracts-section";
-import { ReputationExplanationCard } from "@/features/profile/components/reputation-explanation-card";
+import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
 import { api } from "@repo/convex-client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 
@@ -17,21 +22,16 @@ import type { TFreelancerProfileResponse } from "@/features/profile/types";
 
 export function FreelancerProfilePage({ walletAddress }: { readonly walletAddress: string }) {
   const decodedWalletAddress = useMemo(() => {
-    try {
-      return decodeURIComponent(walletAddress).trim();
-    } catch {
-      return walletAddress.trim();
-    }
+    return parseWalletAddressParam(walletAddress);
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
-  const { address } = useWallet();
-  const hasWalletAddress = decodedWalletAddress.length > 0;
+  const walletIdentity = useHighrableWalletIdentity();
   const profileData = useQuery(
     api.profiles.getFreelancerProfile,
-    hasWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
+    decodedWalletAddress ? { walletAddress: decodedWalletAddress } : "skip",
   ) as TFreelancerProfileResponse | null | undefined;
 
-  if (!hasWalletAddress) {
+  if (!decodedWalletAddress) {
     return <p className="text-sm text-gray-700">Freelancer profile not found.</p>;
   }
 
@@ -44,7 +44,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
-  const canEdit = isSameWallet(address, profile.walletAddress);
+  const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
 
   return (
     <div className="space-y-8">
@@ -65,13 +65,23 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         onEdit={() => setIsEditing(true)}
       />
 
-      {isEditing && canEdit ? (
-        <EditFreelancerProfileForm
-          profile={profile}
-          onSaved={() => setIsEditing(false)}
-          onCancel={() => setIsEditing(false)}
-        />
-      ) : null}
+      <Dialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none border-[#e8e8e8] sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit profile</DialogTitle>
+            <DialogDescription>
+              Keep these fields aligned with your public onboarding identity.
+            </DialogDescription>
+          </DialogHeader>
+          {canEdit ? (
+            <EditFreelancerProfileForm
+              profile={profile}
+              onSaved={() => setIsEditing(false)}
+              onCancel={() => setIsEditing(false)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {stats.completedContracts === 0 ? (
         <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
@@ -79,10 +89,11 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         </p>
       ) : null}
 
-      <FreelancerStatsCards stats={stats} />
-      <FreelancerReviewsSection reviews={verifiedReviews} />
-      <RecentContractsSection contracts={recentContracts} />
-      <ReputationExplanationCard />
+      <FreelancerReputationSection
+        stats={stats}
+        reviews={verifiedReviews}
+        contracts={recentContracts}
+      />
     </div>
   );
 }

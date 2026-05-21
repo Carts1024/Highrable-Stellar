@@ -3,15 +3,8 @@
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerAppliedJobs } from "@/features/dashboard/hooks/use-freelancer-applied-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
 import {
   Table,
   TableBody,
@@ -20,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { BriefcaseBusiness, FileSearch } from "lucide-react";
+import { BriefcaseBusiness } from "lucide-react";
 import Link from "next/link";
 
 function formatDate(timestamp: number): string {
@@ -32,21 +25,24 @@ export function AppliedJobsSection() {
     useFreelancerAppliedJobs();
 
   return (
-    <Card className="border-[#e8e8e8] bg-white">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-[#0a0a0a]">
-          <FileSearch className="h-5 w-5 text-[#FF7003]" />
-          Applications
-        </CardTitle>
-        <CardDescription>Jobs you applied to with your current application status.</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <SectionLabel>Applications</SectionLabel>
+          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Applied jobs</h2>
+          <p className="mt-1 text-sm text-[#5f5f5f]">
+            Jobs you applied to with your current application status.
+          </p>
+        </div>
+      </div>
+
+      <div className="border-y border-[#e8e8e8]">
         {isInitialLoading ? (
-          <p className="text-sm text-gray-500">Loading applications...</p>
+          <p className="px-1 py-5 text-sm text-[#5f5f5f] sm:px-4">Loading applications...</p>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center">
-            <p className="text-sm text-gray-500">You have not applied to any jobs yet.</p>
-          </div>
+          <p className="bg-[#fafafa] px-1 py-10 text-center text-sm text-[#5f5f5f] sm:px-4">
+            You have not applied to any jobs yet.
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -63,11 +59,11 @@ export function AppliedJobsSection() {
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.applicationId}>
+                <TableRow key={item.applicationId} className="hover:bg-[#fff7ed]/40">
                   <TableCell className="max-w-55 font-medium">
-                    <p className="truncate">{item.title}</p>
+                    <p className="hr-text-primary truncate">{item.title}</p>
                     {item.milestoneTitle ? (
-                      <p className="truncate text-xs font-normal text-gray-500">
+                      <p className="hr-text-muted truncate text-xs font-normal">
                         Milestone: {item.milestoneTitle}
                       </p>
                     ) : null}
@@ -85,11 +81,15 @@ export function AppliedJobsSection() {
                   <TableCell>
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
                   </TableCell>
-                  <TableCell className="max-w-70 truncate text-gray-500">
+                  <TableCell className="hr-text-secondary max-w-70 truncate">
                     {item.proposalPreview || "-"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <AppButton asChild variant="secondary" className="h-8 px-3 text-xs">
+                    <AppButton
+                      asChild
+                      variant="secondary"
+                      className="h-8 rounded-none px-3 text-xs"
+                    >
                       <Link href={`/marketplace/jobs/${item.jobId}`}>
                         <BriefcaseBusiness className="h-3.5 w-3.5" />
                         View
@@ -101,18 +101,20 @@ export function AppliedJobsSection() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
+      </div>
+
       {(canLoadMore || isLoadingMore) && (
-        <CardFooter className="justify-end border-t pt-4">
+        <div className="flex justify-end">
           <AppButton
             variant="secondary"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
+            className="rounded-none"
           >
             {isLoadingMore ? "Loading..." : "Load more"}
           </AppButton>
-        </CardFooter>
+        </div>
       )}
-    </Card>
+    </section>
   );
 }

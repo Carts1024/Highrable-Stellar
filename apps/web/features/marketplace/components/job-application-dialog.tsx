@@ -1,10 +1,12 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { sanitizeMultilineInput } from "@/features/common";
 import {
   TrustSafetyNotice,
   type TTrustSafetyNoticeType,
 } from "@/features/marketplace/components/trust-safety-notice";
+import { useOnboardingState } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
@@ -14,8 +16,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/dialog";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { z } from "zod";
+
+import { ShowcaseWorkSelector } from "./showcase-work-selector";
 
 interface IJobApplicationDialogProps {
   readonly isOpen: boolean;
@@ -24,7 +29,7 @@ interface IJobApplicationDialogProps {
   readonly trustSafetyNoticeType: Extract<TTrustSafetyNoticeType, "unfunded" | "verified_funded">;
   readonly errorMessage: string | null;
   readonly onOpenChange: (isOpen: boolean) => void;
-  readonly onSubmit: (proposal: string) => Promise<void>;
+  readonly onSubmit: (proposal: string, showcasedWorkEscrowId: string | null) => Promise<void>;
 }
 
 const APPLY_PROPOSAL_SCHEMA = z
@@ -43,18 +48,28 @@ export function JobApplicationDialog({
   onOpenChange,
   onSubmit,
 }: IJobApplicationDialogProps) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const onboardingState = useOnboardingState();
+  const router = useRouter();
   const [proposal, setProposal] = useState("");
+  const [showcasedWorkEscrowId, setShowcasedWorkEscrowId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
       setProposal("");
+      setShowcasedWorkEscrowId(null);
       setValidationError(null);
     }
   }, [isOpen]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (onboardingState.isConnected && !onboardingState.isLoading && !onboardingState.isComplete) {
+      router.push("/onboarding");
+      return;
+    }
 
     const parsed = APPLY_PROPOSAL_SCHEMA.safeParse(proposal);
     if (!parsed.success) {
@@ -63,7 +78,7 @@ export function JobApplicationDialog({
     }
 
     setValidationError(null);
-    await onSubmit(parsed.data);
+    await onSubmit(parsed.data, showcasedWorkEscrowId);
   };
 
   return (
@@ -101,6 +116,12 @@ export function JobApplicationDialog({
               placeholder="Highlight your relevant experience and expected delivery timeline."
             />
           </div>
+
+          <ShowcaseWorkSelector
+            freelancerWallet={walletIdentity.walletAddress}
+            selectedEscrowId={showcasedWorkEscrowId}
+            onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
+          />
 
           {validationError ? (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

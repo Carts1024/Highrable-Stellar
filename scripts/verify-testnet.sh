@@ -25,6 +25,25 @@ extract_json_value() {
   printf "%s" "${value}"
 }
 
+verify_allowed_asset() {
+  local source_identity="$1"
+  local escrow_contract_id="$2"
+  local asset_id="$3"
+  local label="$4"
+
+  if [[ -z "${asset_id}" ]]; then
+    printf "  %s: not configured\n" "${label}"
+    return 0
+  fi
+
+  [[ "${asset_id}" =~ ^C[A-Z2-7]{55}$ ]] || fail "Invalid ${label}: ${asset_id}"
+
+  local allowed
+  allowed="$(normalize_output "$(invoke_contract "${source_identity}" "${escrow_contract_id}" is_allowed_asset --asset "${asset_id}")")"
+  [[ "${allowed}" == "true" ]] || fail "${label} is configured but not allowlisted in escrow contract."
+  printf "  %s: %s allowlisted=true\n" "${label}" "${asset_id}"
+}
+
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     fail "Required command '$1' is not installed or not in PATH."
@@ -102,6 +121,8 @@ main() {
   printf "  get_reputation_contract: %s\n" "${linked_reputation}"
   printf "  get_platform_admin: %s\n" "${linked_platform_admin}"
   printf "  get_next_escrow_id: %s\n" "${next_escrow_id}"
+  verify_allowed_asset "${source_identity}" "${escrow_contract_id}" "${NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID:-${STABLECOIN_TOKEN_CONTRACT_ID:-}}" "NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID"
+  verify_allowed_asset "${source_identity}" "${escrow_contract_id}" "${NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID:-${NATIVE_XLM_TOKEN_CONTRACT_ID:-}}" "NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID"
 }
 
 main "$@"

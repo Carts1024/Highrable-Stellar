@@ -5,6 +5,7 @@ export type TUserDoc = Doc<"users">;
 
 export type TUpsertUserArgs = {
   walletAddress: string;
-  role: "client" | "freelancer";
+  role?: "client" | "freelancer" | "admin";
   name?: string;
+  walletType?: "external_wallet" | "passkey_smart_account";
 };

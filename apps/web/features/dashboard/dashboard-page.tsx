@@ -1,7 +1,8 @@
 "use client";
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
-import { ProductPageHero } from "@/features/common";
+import { AdminDashboardPage } from "@/features/admin";
+import { ProductPageHero, RouteCallout } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
 import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
@@ -13,7 +14,11 @@ import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode"
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { DeadlineNotificationsPanel } from "@/features/deadlines";
+import { useRequireOnboarding } from "@/features/onboarding";
+import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -22,11 +27,44 @@ import {
   Clock,
   DollarSign,
   Hourglass,
+  LayoutDashboard,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 
 import type { TAssetAmount, TDashboardMode } from "@/features/dashboard/types";
+
+interface IQuickAction {
+  readonly href: string;
+  readonly title: string;
+  readonly description: string;
+  readonly icon: typeof Briefcase;
+  readonly iconContainerClassName?: string;
+}
+
+const QUICK_ACTIONS: readonly IQuickAction[] = [
+  {
+    href: "/marketplace",
+    title: "Browse Jobs",
+    description: "Find new opportunities",
+    icon: Briefcase,
+    iconContainerClassName: "hr-gradient-primary border-transparent text-white",
+  },
+  {
+    href: "/post-job",
+    title: "Post a Job",
+    description: "Hire talented freelancers",
+    icon: Users,
+    iconContainerClassName: "bg-primary text-primary-foreground border-transparent",
+  },
+  {
+    href: "/disputes",
+    title: "Disputes",
+    description: "Review active cases",
+    icon: AlertTriangle,
+    iconContainerClassName: "hr-v2-badge-accent text-current",
+  },
+] as const;
 
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
@@ -39,7 +77,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
       label: "Client Operations",
       title: (
         <>
-          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+          Client <span className="hr-v2-gradient-text">Jobs Dashboard</span>
         </>
       ),
       description:
@@ -51,7 +89,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
     label: "Freelancer Performance",
     title: (
       <>
-        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+        Freelancer <span className="hr-v2-gradient-text">Income Dashboard</span>
       </>
     ),
     description:
@@ -61,72 +99,122 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
 
 function UnfundedWarningBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+    <RouteCallout
+      tone="warning"
+      icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}
+      className="rounded-none"
+    >
       <span>
         Your testnet wallet is not funded. You can view your dashboard, but Stellar transactions
         require test XLM.
       </span>
-    </div>
+    </RouteCallout>
   );
 }
 
 function DashboardSkeletonCards() {
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-gray-100"
-        />
+        <div key={i} className="h-28 animate-pulse border border-[#e8e8e8] bg-[#fafafa]" />
       ))}
+    </div>
+  );
+}
+
+function DashboardCommandBar({
+  mode,
+  address,
+  onModeChange,
+}: {
+  readonly mode: TDashboardMode;
+  readonly address?: string | null;
+  readonly onModeChange: (mode: TDashboardMode) => void;
+}) {
+  const publicProfileHref = address
+    ? `/${mode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(address)}`
+    : null;
+
+  return (
+    <div className="border border-[#e8e8e8] bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center border border-[#e8e8e8] bg-[#fafafa] text-[#FF7003]">
+            <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <SectionLabel>Dashboard Mode</SectionLabel>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <DashboardModeLabel mode={mode} />
+              <p className="text-sm text-[#5f5f5f]">Switch between freelancer and client work.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {publicProfileHref ? (
+            <AppButton asChild variant="secondary" size="sm" className="rounded-none">
+              <Link href={publicProfileHref}>View public profile</Link>
+            </AppButton>
+          ) : null}
+          <DashboardModeSwitch selectedMode={mode} onModeChange={onModeChange} />
+        </div>
+      </div>
     </div>
   );
 }
 
 function QuickActions() {
   return (
-    <motion.div
+    <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.7 }}
-      className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm"
+      className="space-y-4"
     >
-      <h2 className="mb-4 text-xl font-semibold text-[#0a0a0a]">Quick Actions</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Link
-          href="/marketplace"
-          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-[#FF7003] to-[#FF8801]">
-            <Briefcase className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Browse Jobs</p>
-            <p className="text-sm text-[#5f5f5f]">Find new opportunities</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/post-job"
-          className="group flex items-center space-x-3 rounded-lg border border-[#e8e8e8] p-4 transition-all duration-200 hover:border-[#FF7003] hover:bg-[#FF7003]/5"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-blue-600">
-            <Users className="h-5 w-5 text-white" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-[#0a0a0a] group-hover:text-[#FF7003]">Post a Job</p>
-            <p className="text-sm text-[#5f5f5f]">Hire talented freelancers</p>
-          </div>
-        </Link>
-      </div>
-
-      <div className="mt-4 flex justify-end">
-        <AppButton asChild variant="secondary">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <SectionLabel>Quick Actions</SectionLabel>
+          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Common workflows</h2>
+        </div>
+        <AppButton asChild variant="secondary" className="rounded-none">
           <Link href="/marketplace">Open Marketplace Flow</Link>
         </AppButton>
       </div>
-    </motion.div>
+
+      <div className="border-y border-[#e8e8e8]">
+        {QUICK_ACTIONS.map((action) => {
+          const Icon = action.icon;
+
+          return (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="group flex items-center justify-between gap-4 border-b border-[#e8e8e8] bg-white px-1 py-5 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40 sm:px-4"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center border",
+                    action.iconContainerClassName,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-semibold text-[#0a0a0a] group-hover:text-[#B94A00]">
+                    {action.title}
+                  </p>
+                  <p className="text-sm text-[#5f5f5f]">{action.description}</p>
+                </div>
+              </div>
+              <span className="font-mono text-xs tracking-[0.06em] text-[#B94A00] uppercase">
+                Open
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </motion.section>
   );
 }
 
@@ -134,6 +222,7 @@ function QuickActions() {
 export function DashboardPage() {
   const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
     useFreelancerDashboard();
+  const onboardingGuard = useRequireOnboarding();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
   const {
     selectedMode,
@@ -158,31 +247,45 @@ export function DashboardPage() {
     );
   }
 
+  if (onboardingGuard.isCheckingOnboarding) {
+    return <p className="hr-text-secondary text-sm">Checking onboarding...</p>;
+  }
+
+  if (!isRoleLoading && role === "admin") {
+    return <AdminDashboardPage />;
+  }
+
   return (
-    <div className="space-y-8">
-      <ProductPageHero
-        label={heroCopy.label}
-        title={heroCopy.title}
-        description={heroCopy.description}
-      />
+    <div className="space-y-10">
+      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+        <ProductPageHero
+          label={heroCopy.label}
+          title={heroCopy.title}
+          description={heroCopy.description}
+        />
+
+        <div className="grid gap-5 border-t border-[#e8e8e8] pt-6 lg:border-t-0 lg:border-l lg:py-2 lg:pt-0">
+          <HighrableV2Metric label="Mode" value={selectedMode === "client" ? "Client" : "Talent"} />
+          <HighrableV2Metric label="Network" value={isTestnet ? "Testnet" : "Mainnet"} />
+          <HighrableV2Metric
+            label="Wallet"
+            value={isFunded === false ? "Needs XLM" : "Ready"}
+            className={isFunded === false ? "text-[#B94A00]" : undefined}
+          />
+        </div>
+      </section>
 
       {!isRoleLoading && isModeReady && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {address ? (
-            <AppButton asChild variant="secondary" size="sm">
-              <Link href={`/freelancers/${encodeURIComponent(address)}`}>View public profile</Link>
-            </AppButton>
-          ) : null}
-          <DashboardModeLabel mode={selectedMode} />
-          <DashboardModeSwitch selectedMode={selectedMode} onModeChange={setSelectedMode} />
-        </div>
+        <DashboardCommandBar mode={selectedMode} address={address} onModeChange={setSelectedMode} />
       )}
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 
+      <DeadlineNotificationsPanel />
+
       {isLoading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <p className="mb-4 text-sm text-gray-500">Loading income dashboard…</p>
+          <p className="hr-text-secondary mb-4 text-sm">Loading income dashboard…</p>
           <DashboardSkeletonCards />
         </motion.div>
       )}
@@ -193,15 +296,14 @@ export function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           >
             <IncomeMetricCard
               title="Total Earned"
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
               subtitle="Completed escrow payments via Stellar"
               icon={DollarSign}
-              colorClass="from-emerald-500 to-emerald-600"
-              bgColorClass="from-emerald-500/10 to-emerald-600/10"
+              iconClassName="hr-gradient-primary border-transparent text-white"
               animationDelay={0.3}
             />
 
@@ -210,8 +312,7 @@ export function DashboardPage() {
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
               subtitle="Funds already locked by clients"
               icon={Clock}
-              colorClass="from-blue-500 to-blue-600"
-              bgColorClass="from-blue-500/10 to-blue-600/10"
+              iconClassName="bg-primary text-primary-foreground border-transparent"
               animationDelay={0.35}
             />
 
@@ -220,8 +321,7 @@ export function DashboardPage() {
               value={summary.completedJobs.toString()}
               subtitle="Payments released through Stellar escrow"
               icon={CheckCircle}
-              colorClass="from-[#FF7003] to-[#FF8801]"
-              bgColorClass="from-[#FF7003]/10 to-[#FF8801]/10"
+              iconClassName="hr-v2-badge-accent text-current"
               animationDelay={0.4}
             />
 
@@ -230,8 +330,7 @@ export function DashboardPage() {
               value={summary.activeJobs.toString()}
               subtitle="Funded or submitted, awaiting release"
               icon={Briefcase}
-              colorClass="from-violet-500 to-violet-600"
-              bgColorClass="from-violet-500/10 to-violet-600/10"
+              iconClassName="hr-surface-muted hr-text-primary"
               animationDelay={0.45}
             />
 
@@ -240,8 +339,7 @@ export function DashboardPage() {
               value={summary.awaitingFunding.toString()}
               subtitle="Escrows created but not yet funded by client"
               icon={Hourglass}
-              colorClass="from-gray-400 to-gray-500"
-              bgColorClass="from-gray-400/10 to-gray-500/10"
+              iconClassName="border-border text-muted-foreground"
               animationDelay={0.5}
             />
           </motion.div>

@@ -40,6 +40,7 @@ pub struct TEscrow {
     pub asset: Address,
     pub amount: i128,
     pub job_hash: BytesN<32>,
+    pub proof_hash: Option<BytesN<32>>,
     pub status: TEscrowStatus,
     pub created_at: u64,
     pub funded_at: u64,
@@ -60,6 +61,7 @@ pub enum Error {
     InvalidRating = 7,
     InvalidFreelancer = 8,
     AssetNotAllowed = 9,
+    InvalidShareBps = 10,
 }
 
 #[contract]
@@ -300,7 +302,12 @@ impl EscrowContract {
         Ok(())
     }
 
-    pub fn submit_work(env: Env, freelancer: Address, escrow_id: u64) -> Result<(), Error> {
+    pub fn submit_work(
+        env: Env,
+        freelancer: Address,
+        escrow_id: u64,
+        proof_hash: BytesN<32>,
+    ) -> Result<(), Error> {
         touch_instance(&env);
         require_initialized(&env)?;
 
@@ -315,6 +322,7 @@ impl EscrowContract {
         }
 
         escrow.status = TEscrowStatus::Submitted;
+        escrow.proof_hash = Some(proof_hash);
         escrow.submitted_at = now(&env);
 
         write_escrow(&env, &escrow);
@@ -417,7 +425,10 @@ impl EscrowContract {
         let mut escrow = read_escrow(&env, escrow_id)?;
         let assigned_freelancer = get_assigned_freelancer(&escrow)?;
 
-        if caller != escrow.client && caller != assigned_freelancer {
+        if caller != escrow.client
+            && caller != assigned_freelancer
+            && !is_platform_admin(&env, &caller)?
+        {
             return Err(Error::Unauthorized);
         }
 
@@ -431,6 +442,47 @@ impl EscrowContract {
             | TEscrowStatus::Disputed => {
                 return Err(Error::InvalidStatus);
             }
+        }
+
+        write_escrow(&env, &escrow);
+
+        Ok(())
+    }
+
+    pub fn resolve_dispute(
+        env: Env,
+        platform_admin: Address,
+        escrow_id: u64,
+        freelancer_share_bps: u32,
+        _resolution_hash: BytesN<32>,
+    ) -> Result<(), Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+        require_platform_admin(&env, &platform_admin)?;
+        validate_freelancer_share_bps(freelancer_share_bps)?;
+
+        let mut escrow = read_escrow(&env, escrow_id)?;
+        require_status(&escrow.status, TEscrowStatus::Disputed)?;
+
+        let freelancer = get_assigned_freelancer(&escrow)?;
+        let contract_address = env.current_contract_address();
+        let token_client = token::Client::new(&env, &escrow.asset);
+
+        let freelancer_amount = (escrow.amount * freelancer_share_bps as i128) / 10_000;
+        let client_amount = escrow.amount - freelancer_amount;
+
+        if freelancer_amount > 0 {
+            token_client.transfer(&contract_address, &freelancer, &freelancer_amount);
+        }
+        if client_amount > 0 {
+            token_client.transfer(&contract_address, &escrow.client, &client_amount);
+        }
+
+        if freelancer_share_bps == 0 {
+            escrow.status = TEscrowStatus::Cancelled;
+        } else {
+            escrow.status = TEscrowStatus::Released;
+            escrow.released_at = now(&env);
         }
 
         write_escrow(&env, &escrow);
@@ -507,6 +559,7 @@ fn create_escrow_internal(
         asset,
         amount,
         job_hash,
+        proof_hash: None,
         status,
         created_at: now(env),
         funded_at,
@@ -562,17 +615,21 @@ fn get_reputation_contract_internal(env: &Env) -> Result<Address, Error> {
 fn require_platform_admin(env: &Env, platform_admin: &Address) -> Result<(), Error> {
     platform_admin.require_auth();
 
+    if !is_platform_admin(env, platform_admin)? {
+        return Err(Error::Unauthorized);
+    }
+
+    Ok(())
+}
+
+fn is_platform_admin(env: &Env, wallet: &Address) -> Result<bool, Error> {
     let stored_admin = env
         .storage()
         .instance()
         .get::<DataKey, Address>(&DataKey::PlatformAdmin)
         .ok_or(Error::NotInitialized)?;
 
-    if &stored_admin != platform_admin {
-        return Err(Error::Unauthorized);
-    }
-
-    Ok(())
+    Ok(&stored_admin == wallet)
 }
 
 fn get_allowed_asset_count_internal(env: &Env) -> u32 {
@@ -611,6 +668,14 @@ fn validate_amount(amount: i128) -> Result<(), Error> {
 fn validate_rating(rating: u32) -> Result<(), Error> {
     if !(1..=5).contains(&rating) {
         return Err(Error::InvalidRating);
+    }
+
+    Ok(())
+}
+
+fn validate_freelancer_share_bps(freelancer_share_bps: u32) -> Result<(), Error> {
+    if freelancer_share_bps > 10_000 {
+        return Err(Error::InvalidShareBps);
     }
 
     Ok(())

@@ -15,12 +15,14 @@ struct TTestContext {
     escrow_client: EscrowContractClient<'static>,
     reputation_client: ReputationContractClient<'static>,
     mock_usdc_client: token::Client<'static>,
+    mock_xlm_client: token::Client<'static>,
     escrow_contract_id: Address,
     platform_admin: Address,
     client: Address,
     freelancer: Address,
     outsider: Address,
     mock_usdc_token: Address,
+    mock_xlm_token: Address,
 }
 
 fn hash_from_byte(env: &Env, value: u8) -> BytesN<32> {
@@ -48,6 +50,9 @@ fn setup() -> TTestContext {
     let mock_usdc_admin = Address::generate(&env);
     let mock_usdc_token_contract = env.register_stellar_asset_contract_v2(mock_usdc_admin.clone());
     let mock_usdc_token = mock_usdc_token_contract.address();
+    let mock_xlm_admin = Address::generate(&env);
+    let mock_xlm_token_contract = env.register_stellar_asset_contract_v2(mock_xlm_admin.clone());
+    let mock_xlm_token = mock_xlm_token_contract.address();
 
     let reputation_contract_id = env.register(ReputationContract, ());
     let escrow_contract_id = env.register(EscrowContract, ());
@@ -62,18 +67,22 @@ fn setup() -> TTestContext {
 
     let token_admin_client = token::StellarAssetClient::new(env_ref, &mock_usdc_token);
     token_admin_client.mint(&client, &10_000);
+    let xlm_admin_client = token::StellarAssetClient::new(env_ref, &mock_xlm_token);
+    xlm_admin_client.mint(&client, &20_000);
 
     TTestContext {
         env: env_ref.clone(),
         escrow_client,
         reputation_client,
         mock_usdc_client: token::Client::new(env_ref, &mock_usdc_token),
+        mock_xlm_client: token::Client::new(env_ref, &mock_xlm_token),
         escrow_contract_id,
         platform_admin,
         client,
         freelancer,
         outsider,
         mock_usdc_token,
+        mock_xlm_token,
     }
 }
 
@@ -103,9 +112,20 @@ fn fund_escrow(context: &TTestContext, escrow_id: u64) {
 }
 
 fn submit_work(context: &TTestContext, escrow_id: u64) {
-    context
-        .escrow_client
-        .submit_work(&context.freelancer, &escrow_id);
+    context.escrow_client.submit_work(
+        &context.freelancer,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
+}
+
+fn resolve_dispute(context: &TTestContext, escrow_id: u64, freelancer_share_bps: u32, hash: u8) {
+    context.escrow_client.resolve_dispute(
+        &context.platform_admin,
+        &escrow_id,
+        &freelancer_share_bps,
+        &hash_from_byte(&context.env, hash),
+    );
 }
 
 #[test]
@@ -167,9 +187,7 @@ fn multiple_milestone_escrows_can_share_parent_parties_with_distinct_hashes() {
 
     assert_ne!(first_milestone_escrow_id, second_milestone_escrow_id);
 
-    let first_escrow: TEscrow = context
-        .escrow_client
-        .get_escrow(&first_milestone_escrow_id);
+    let first_escrow: TEscrow = context.escrow_client.get_escrow(&first_milestone_escrow_id);
     let second_escrow: TEscrow = context
         .escrow_client
         .get_escrow(&second_milestone_escrow_id);
@@ -402,9 +420,11 @@ fn unassigned_funded_escrow_rejects_freelancer_required_actions() {
         &hash_from_byte(&context.env, 59),
     );
 
-    let submit = context
-        .escrow_client
-        .try_submit_work(&context.freelancer, &escrow_id);
+    let submit = context.escrow_client.try_submit_work(
+        &context.freelancer,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
     assert_eq!(submit, Err(Ok(Error::InvalidFreelancer)));
 
     let release = context.escrow_client.try_approve_and_release(
@@ -434,6 +454,7 @@ fn submit_work_works() {
     let escrow = context.escrow_client.get_escrow(&escrow_id);
     assert_eq!(escrow.status, TEscrowStatus::Submitted);
     assert_eq!(escrow.submitted_at, 20);
+    assert_eq!(escrow.proof_hash, Some(hash_from_byte(&context.env, 42)));
 }
 
 #[test]
@@ -443,9 +464,11 @@ fn unauthorized_submit_fails() {
     let escrow_id = create_escrow(&context, 220, 10);
     fund_escrow(&context, escrow_id);
 
-    let result = context
-        .escrow_client
-        .try_submit_work(&context.outsider, &escrow_id);
+    let result = context.escrow_client.try_submit_work(
+        &context.outsider,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
 
     assert_eq!(result, Err(Ok(Error::Unauthorized)));
 }
@@ -455,9 +478,11 @@ fn submit_wrong_status_fails() {
     let context = setup();
 
     let created_escrow_id = create_escrow(&context, 220, 11);
-    let before_funding = context
-        .escrow_client
-        .try_submit_work(&context.freelancer, &created_escrow_id);
+    let before_funding = context.escrow_client.try_submit_work(
+        &context.freelancer,
+        &created_escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
     assert_eq!(before_funding, Err(Ok(Error::InvalidStatus)));
 
     let escrow_id = create_escrow(&context, 400, 12);
@@ -471,9 +496,11 @@ fn submit_wrong_status_fails() {
         &hash_from_byte(&context.env, 13),
     );
 
-    let after_release = context
-        .escrow_client
-        .try_submit_work(&context.freelancer, &escrow_id);
+    let after_release = context.escrow_client.try_submit_work(
+        &context.freelancer,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
     assert_eq!(after_release, Err(Ok(Error::InvalidStatus)));
 
     let cancelled_escrow_id = create_escrow(&context, 330, 14);
@@ -481,9 +508,11 @@ fn submit_wrong_status_fails() {
         .escrow_client
         .cancel_escrow(&context.client, &cancelled_escrow_id);
 
-    let after_cancel = context
-        .escrow_client
-        .try_submit_work(&context.freelancer, &cancelled_escrow_id);
+    let after_cancel = context.escrow_client.try_submit_work(
+        &context.freelancer,
+        &cancelled_escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
     assert_eq!(after_cancel, Err(Ok(Error::InvalidStatus)));
 }
 
@@ -749,6 +778,21 @@ fn mark_disputed_works() {
 }
 
 #[test]
+fn platform_admin_can_mark_disputed_for_retry_flow() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 180, 35);
+    fund_escrow(&context, escrow_id);
+
+    context
+        .escrow_client
+        .mark_disputed(&context.platform_admin, &escrow_id);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Disputed);
+}
+
+#[test]
 fn unauthorized_dispute_fails() {
     let context = setup();
 
@@ -808,6 +852,134 @@ fn dispute_wrong_status_fails() {
         .escrow_client
         .try_mark_disputed(&context.client, &disputed_id);
     assert_eq!(already_disputed, Err(Ok(Error::InvalidStatus)));
+}
+
+#[test]
+fn resolve_dispute_refunds_client_for_zero_share() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 450, 66);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_550);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
+
+    resolve_dispute(&context, escrow_id, 0, 67);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Cancelled);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 10_000);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_releases_full_amount_to_freelancer_for_full_share() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 520, 68);
+    fund_escrow(&context, escrow_id);
+    submit_work(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.freelancer, &escrow_id);
+
+    resolve_dispute(&context, escrow_id, 10_000, 69);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_480);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 520);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_splits_amount_with_remainder_to_client() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 101, 70);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    resolve_dispute(&context, escrow_id, 3_333, 71);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_967);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 33);
+    assert_eq!(
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn resolve_dispute_rejects_unauthorized_admin() {
+    let context = setup();
+
+    let escrow_id = create_escrow(&context, 300, 72);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    let unauthorized = context.escrow_client.try_resolve_dispute(
+        &context.outsider,
+        &escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 73),
+    );
+
+    assert_eq!(unauthorized, Err(Ok(Error::Unauthorized)));
+}
+
+#[test]
+fn resolve_dispute_rejects_invalid_share_or_status() {
+    let context = setup();
+
+    let disputed_escrow_id = create_escrow(&context, 300, 74);
+    fund_escrow(&context, disputed_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &disputed_escrow_id);
+
+    let invalid_share = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &disputed_escrow_id,
+        &10_001,
+        &hash_from_byte(&context.env, 75),
+    );
+
+    assert_eq!(invalid_share, Err(Ok(Error::InvalidShareBps)));
+
+    let funded_escrow_id = create_escrow(&context, 300, 76);
+    fund_escrow(&context, funded_escrow_id);
+
+    let wrong_status = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &funded_escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 77),
+    );
+
+    assert_eq!(wrong_status, Err(Ok(Error::InvalidStatus)));
 }
 
 #[test]
@@ -892,9 +1064,11 @@ fn submit_after_dispute_fails() {
         .escrow_client
         .mark_disputed(&context.client, &escrow_id);
 
-    let result = context
-        .escrow_client
-        .try_submit_work(&context.freelancer, &escrow_id);
+    let result = context.escrow_client.try_submit_work(
+        &context.freelancer,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
 
     assert_eq!(result, Err(Ok(Error::InvalidStatus)));
 }
@@ -969,6 +1143,124 @@ fn allowlist_rejects_non_allowed_assets_when_configured() {
         &other_asset,
         &200,
         &hash_from_byte(&context.env, 53),
+    );
+
+    assert_eq!(result, Err(Ok(Error::AssetNotAllowed)));
+}
+
+#[test]
+fn platform_admin_can_allow_native_xlm_sac_asset() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    assert_eq!(
+        context
+            .escrow_client
+            .is_allowed_asset(&context.mock_xlm_token),
+        true
+    );
+}
+
+#[test]
+fn xlm_sac_escrow_lifecycle_uses_token_transfer_semantics() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_usdc_token);
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    let escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &1_500,
+        &hash_from_byte(&context.env, 58),
+    );
+    context
+        .escrow_client
+        .fund_escrow(&context.client, &escrow_id);
+    context.escrow_client.submit_work(
+        &context.freelancer,
+        &escrow_id,
+        &hash_from_byte(&context.env, 42),
+    );
+    context.escrow_client.approve_and_release(
+        &context.client,
+        &escrow_id,
+        &5,
+        &hash_from_byte(&context.env, 59),
+    );
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.asset, context.mock_xlm_token);
+    assert_eq!(escrow.status, TEscrowStatus::Released);
+    assert_eq!(context.mock_xlm_client.balance(&context.client), 18_500);
+    assert_eq!(context.mock_xlm_client.balance(&context.freelancer), 1_500);
+    assert_eq!(
+        context.mock_xlm_client.balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn funded_xlm_sac_escrow_cancel_refunds_client() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+
+    let escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &2_000,
+        &hash_from_byte(&context.env, 60),
+    );
+    context
+        .escrow_client
+        .fund_escrow(&context.client, &escrow_id);
+    context
+        .escrow_client
+        .cancel_escrow(&context.client, &escrow_id);
+
+    let escrow = context.escrow_client.get_escrow(&escrow_id);
+
+    assert_eq!(escrow.status, TEscrowStatus::Cancelled);
+    assert_eq!(context.mock_xlm_client.balance(&context.client), 20_000);
+    assert_eq!(
+        context.mock_xlm_client.balance(&context.escrow_contract_id),
+        0
+    );
+}
+
+#[test]
+fn removing_xlm_sac_from_allowlist_blocks_new_escrows() {
+    let context = setup();
+
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+    context
+        .escrow_client
+        .remove_allowed_asset(&context.platform_admin, &context.mock_xlm_token);
+    context
+        .escrow_client
+        .add_allowed_asset(&context.platform_admin, &context.mock_usdc_token);
+
+    let result = context.escrow_client.try_create_escrow(
+        &context.client,
+        &context.freelancer,
+        &context.mock_xlm_token,
+        &500,
+        &hash_from_byte(&context.env, 61),
     );
 
     assert_eq!(result, Err(Ok(Error::AssetNotAllowed)));

@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
       <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-12">{children}</main>
       <Footer />

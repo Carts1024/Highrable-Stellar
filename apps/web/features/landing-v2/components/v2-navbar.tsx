@@ -1,6 +1,11 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
+import {
+  V2_BUTTON_PRIMARY_CLASS,
+  V2_BUTTON_SECONDARY_CLASS,
+  V2_PAGE_CONTAINER_CLASS,
+} from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -15,7 +20,7 @@ function Logo() {
         alt="Highrable logo"
         className="h-8 w-8 rounded-md object-cover"
       />
-      <span className="font-semibold tracking-tight text-[#0a0a0a]">{APP_NAME}</span>
+      <span className="hr-text-primary font-semibold tracking-tight">{APP_NAME}</span>
     </Link>
   );
 }
@@ -27,7 +32,7 @@ function NavLinks() {
         <a
           key={link.href}
           href={link.href}
-          className="font-mono text-xs tracking-[0.06em] text-[#5f5f5f] uppercase transition-colors hover:text-[#FF7003]"
+          className="hr-text-secondary hover:hr-text-accent font-mono text-xs tracking-[0.06em] uppercase transition-colors"
         >
           {link.label}
         </a>
@@ -41,13 +46,13 @@ function NavActions() {
     <div className="flex items-center gap-3">
       <Link
         href="/jobs"
-        className="hidden border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-widest text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003] sm:block"
+        className={`${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`}
       >
         Find Work
       </Link>
       <Link
         href="/post-job"
-        className="bg-[#0a0a0a] px-4 py-2 font-mono text-xs tracking-widest text-white uppercase transition-colors hover:bg-[#1a1a1a]"
+        className={`${V2_BUTTON_PRIMARY_CLASS} px-4 py-2 font-mono text-xs tracking-widest uppercase`}
       >
         Post a Job
       </Link>
@@ -69,10 +74,10 @@ export function V2Navbar() {
     <header
       className={cn(
         "fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-300",
-        isScrolled ? "shadow-[0_1px_0_#e8e8e8]" : "",
+        isScrolled ? "shadow-[0_1px_0_theme(colors.border)]" : "",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
         <Logo />
         <NavLinks />
         <NavActions />

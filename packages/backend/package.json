@@ -3,15 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dashboard": "convex-bundled dashboard",
-    "dev": "convex-bundled dev",
+    "dashboard": "convex dashboard",
+    "dev": "convex dev",
     "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.2.0",
-    "convex": "^1.38.0"
+    "convex": "1.38.0",
+    "sanitize-html": "^2.17.0"
   },
   "devDependencies": {
-    "@types/node": "^25.2.3"
+    "@types/node": "^25.2.3",
+    "@types/sanitize-html": "^2.16.0"
   }
 }

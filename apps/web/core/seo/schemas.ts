@@ -3,6 +3,14 @@ import { z } from "zod";
 const MAX_SEO_TEXT_LENGTH = 280;
 const DEFAULT_SITE_URL = "http://localhost:3000";
 
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
 export const TSeoTextSchema = z
   .string()
   .trim()
@@ -18,19 +26,19 @@ export const TSeoTextSchema = z
 export const TWalletAddressParamSchema = z
   .string()
   .trim()
-  .transform((value) => decodeURIComponent(value))
+  .transform(safeDecodeURIComponent)
   .pipe(
     z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^G[A-Z2-7]{55}$/),
+      .regex(/^[CG][A-Z2-7]{55}$/),
   );
 
 export const TConvexIdParamSchema = z
   .string()
   .trim()
-  .transform((value) => decodeURIComponent(value))
+  .transform(safeDecodeURIComponent)
   .pipe(
     z
       .string()
@@ -43,7 +51,7 @@ export const TConvexIdParamSchema = z
 export const TEscrowIdParamSchema = z
   .string()
   .trim()
-  .transform((value) => decodeURIComponent(value))
+  .transform(safeDecodeURIComponent)
   .pipe(
     z
       .string()

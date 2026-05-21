@@ -1,6 +1,7 @@
 import { STABLECOIN_ASSET_CODE, STABLECOIN_ISSUER } from "@/core/config/stellar-contracts";
 import { Asset } from "@stellar/stellar-sdk";
 
+import { getEscrowAssetByContractId, isStablecoinEscrowAsset } from "./payment-assets";
 import { stablecoinConfig } from "./stablecoin-config";
 
 export const USDC_ASSET_CODE = STABLECOIN_ASSET_CODE;
@@ -17,11 +18,7 @@ export function shortenContractId(contractId: string, visibleChars = 6): string 
 }
 
 export function isConfiguredStablecoin(assetContractId: string): boolean {
-  if (!stablecoinConfig.tokenContractId) {
-    return false;
-  }
-
-  return assetContractId.trim() === stablecoinConfig.tokenContractId;
+  return isStablecoinEscrowAsset(assetContractId);
 }
 
 export function formatAssetLabel(assetContractId: string): string {
@@ -29,11 +26,14 @@ export function formatAssetLabel(assetContractId: string): string {
     return stablecoinConfig.symbol;
   }
 
-  return isConfiguredStablecoin(assetContractId)
-    ? stablecoinConfig.symbol
-    : shortenContractId(assetContractId);
+  const escrowAsset = getEscrowAssetByContractId(assetContractId);
+  return escrowAsset?.isConfigured ? escrowAsset.symbol : shortenContractId(assetContractId);
 }
 
 export function getUsdcAsset(): Asset {
+  if (!USDC_ISSUER) {
+    throw new Error("USDC issuer is missing. Set NEXT_PUBLIC_USDC_ASSET_ISSUER.");
+  }
+
   return new Asset(USDC_ASSET_CODE, USDC_ISSUER);
 }
