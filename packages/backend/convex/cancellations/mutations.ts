@@ -14,6 +14,13 @@ import {
 import { patchMilestoneForEscrowStatus } from "../milestones/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
+  createAgreementSystemMessage,
+  createWorkAgreementEvent,
+  ensureAgreementVersionForAgreement,
+  getAcceptedAgreementForJob,
+  getActiveAgreementVersionForAgreement,
+} from "../work_agreements/helpers";
+import {
   assertCanCreateCancellationRequest,
   assertCanExecuteCancellation,
   assertCanRespondToCancellation,
@@ -243,6 +250,11 @@ export const createCancellationRequest = mutation({
     }
 
     const now = Date.now();
+    const agreement = await getAcceptedAgreementForJob(ctx, parent.jobId);
+    const agreementVersion = agreement
+      ? ((await getActiveAgreementVersionForAgreement(ctx, agreement)) ??
+        (await ensureAgreementVersionForAgreement(ctx, { agreement })))
+      : null;
     const completesWithoutOnChain =
       eligibility.canCancelImmediately && !eligibility.canExecuteOnChain;
     const status = completesWithoutOnChain
@@ -274,6 +286,11 @@ export const createCancellationRequest = mutation({
         : {}),
       ...(args.freelancerWalletType !== undefined
         ? { freelancerWalletType: args.freelancerWalletType }
+        : {}),
+      ...(agreement ? { agreementId: agreement._id } : {}),
+      ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+      ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
+        ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
         : {}),
       requestedByWallet,
       requestedByWalletType: args.requestedByWalletType,
@@ -320,6 +337,29 @@ export const createCancellationRequest = mutation({
       createdAt: now,
     });
 
+    if (agreement) {
+      await createWorkAgreementEvent(ctx, {
+        agreementId: agreement._id,
+        ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+        jobId: agreement.jobId,
+        ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+        ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+        type: "agreement_referenced_in_cancellation",
+        actorWallet: requestedByWallet,
+        actorWalletType: args.requestedByWalletType,
+        actorRole: "client",
+        message: "Agreement referenced for cancellation review.",
+        oldStatus: agreement.status,
+        newStatus: agreement.status,
+        relatedEntityType: "cancellation",
+        relatedEntityId: requestId,
+        metadata: {
+          agreementHash: agreementVersion?.agreementHash ?? agreement.agreementHash,
+          versionNumber: agreementVersion?.versionNumber ?? agreement.version,
+        },
+      });
+    }
+
     if (eligibility.requiresFreelancerResponse) {
       await createCancellationEvent(ctx, {
         cancellationRequestId: requestId,
@@ -342,6 +382,14 @@ export const createCancellationRequest = mutation({
       eventType: "cancellation_requested",
       body: "Cancellation requested: Client requested to cancel this escrow.",
     });
+    if (agreement) {
+      await createAgreementSystemMessage(ctx, {
+        agreement,
+        eventType: "agreement_referenced_in_cancellation",
+        body: `Cancellation review: Agreement v${agreementVersion?.versionNumber ?? agreement.version} was attached as context.`,
+        agreementHash: agreementVersion?.agreementHash ?? agreement.agreementHash,
+      });
+    }
     if (request.freelancerWallet) {
       await createCancellationNotification(ctx, {
         request,

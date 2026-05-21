@@ -22,6 +22,12 @@ import {
 } from "../revisions/helpers";
 import { walletTypeValidator } from "../users/schema";
 import {
+  createWorkAgreementEvent,
+  ensureAgreementVersionForAgreement,
+  getAcceptedAgreementForJob,
+  getActiveAgreementVersionForAgreement,
+} from "../work_agreements/helpers";
+import {
   assertAttachmentsOwnedBySubmitter,
   assertCanAnchorSubmissionForCurrentPolicy,
   assertCanCreateSubmission,
@@ -50,6 +56,11 @@ export const createWorkSubmissionDraft = mutation({
           })
         : null;
     const now = Date.now();
+    const agreement = await getAcceptedAgreementForJob(ctx, context.escrow.jobId);
+    const agreementVersion = agreement
+      ? ((await getActiveAgreementVersionForAgreement(ctx, agreement)) ??
+        (await ensureAgreementVersionForAgreement(ctx, { agreement })))
+      : null;
 
     return await ctx.db.insert("workSubmissions", {
       parentType: context.parentType,
@@ -60,6 +71,11 @@ export const createWorkSubmissionDraft = mutation({
         : {}),
       escrowId: context.escrow._id,
       onChainEscrowId: context.escrow.escrowId,
+      ...(agreement ? { agreementId: agreement._id } : {}),
+      ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+      ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
+        ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
+        : {}),
       ...(revisionContext
         ? {
             revisionRequestId: revisionContext.revision._id,
@@ -170,6 +186,29 @@ export const submitWorkProofMetadata = mutation({
       submittedLate: deadlineStatus === "submitted_late",
       updatedAt: now,
     });
+
+    if (submission.agreementId !== undefined) {
+      await createWorkAgreementEvent(ctx, {
+        agreementId: submission.agreementId,
+        ...(submission.agreementVersionId
+          ? { agreementVersionId: submission.agreementVersionId }
+          : {}),
+        ...(submission.jobId ? { jobId: submission.jobId } : { jobId: parent.jobId }),
+        ...(submission.milestoneId ? { milestoneId: submission.milestoneId } : {}),
+        ...(submission.escrowId ? { escrowId: submission.escrowId } : {}),
+        type: "agreement_referenced_in_proof_review",
+        actorWallet: submittedByWallet,
+        actorWalletType: submission.submittedByWalletType,
+        actorRole: "freelancer",
+        message: "Agreement referenced in proof review.",
+        relatedEntityType: "work_submission",
+        relatedEntityId: args.submissionId,
+        metadata: {
+          agreementHash: submission.agreementHash,
+          proofHash,
+        },
+      });
+    }
 
     if (submission.revisionRequestId !== undefined) {
       const { revision } = await assertCanSubmitRevision(ctx, {

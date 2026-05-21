@@ -32,6 +32,7 @@ import type { TConvexDoc } from "@repo/convex-client";
 import { useCancellationActions } from "../hooks/use-cancellation-actions";
 import {
   CancellationActionGuardNotice,
+  CancellationAgreementContext,
   CancellationEligibilityNotice,
   CancellationTimeline,
   FreelancerCancellationResponsePanel,
@@ -220,6 +221,7 @@ export function CancelWorkButton({ job, milestone, escrow, className }: ICancelW
             <CancellationStatusBadge status={displayedRequest.status} />
           </div>
           <p className="text-sm text-[#5f5f5f]">{displayedRequest.reasonText}</p>
+          <CancellationAgreementContext cancellationRequestId={displayedRequest._id} />
           <FreelancerCancellationResponsePanel request={displayedRequest} />
           {isClient && shouldExecuteRequest && displayedRequest.onChainStatus !== "confirmed" ? (
             <Button

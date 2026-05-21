@@ -16,7 +16,19 @@ import { Checkbox } from "@repo/ui/components/ui/checkbox";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
-import { Check, FileText, Loader2, Lock, RefreshCw, Send, Upload, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Download,
+  FileText,
+  GitBranch,
+  Loader2,
+  Lock,
+  RefreshCw,
+  Send,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
@@ -34,12 +46,24 @@ type TAgreementStatus =
   | "pending_acceptance"
   | "accepted"
   | "locked"
+  | "superseded"
   | "rejected"
   | "cancelled";
 
 type TWorkAgreement = TConvexDoc<"workAgreements"> & {
   sourceAttachment?: (TConvexDoc<"attachments"> & { url?: string | null }) | null;
 };
+type TAgreementVersion = Omit<TConvexDoc<"workAgreementVersions">, "_id"> & {
+  _id?: TConvexId<"workAgreementVersions"> | null;
+};
+type TAgreementContext = {
+  agreement: TWorkAgreement;
+  version?: TAgreementVersion | null;
+  label: string;
+  agreementHash?: string | null;
+  versionNumber: number;
+  fallback?: string | null;
+} | null;
 
 const AGREEMENT_ACCEPT =
   "application/pdf,text/markdown,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -56,6 +80,7 @@ function getAgreementStatusLabel(status?: TAgreementStatus): string {
     pending_acceptance: "Pending acceptance",
     accepted: "Accepted",
     locked: "Locked",
+    superseded: "Superseded",
     rejected: "Rejected",
     cancelled: "Cancelled",
   };
@@ -99,6 +124,21 @@ export function AgreementLegalDisclaimer() {
       For high-value, regulated, or jurisdiction-specific work, both parties should consult a
       qualified professional.
     </div>
+  );
+}
+
+export function AgreementHashBadge({ hash }: { readonly hash?: string | null }) {
+  if (!hash) {
+    return (
+      <Badge className="rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] text-[#5f5f5f] uppercase hover:bg-white">
+        No hash
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="max-w-full rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] break-all text-[#0a0a0a] uppercase hover:bg-white">
+      SHA-256 {hash.slice(0, 12)}...
+    </Badge>
   );
 }
 
@@ -376,6 +416,338 @@ function AgreementSummaryCard({ agreement }: { agreement: TWorkAgreement }) {
   );
 }
 
+export function AgreementReferenceCard({
+  context,
+  emptyMessage = "No agreement version was attached to this record.",
+}: {
+  readonly context: TAgreementContext | undefined;
+  readonly emptyMessage?: string;
+}) {
+  if (context === undefined) {
+    return (
+      <section className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
+        Loading agreement context...
+      </section>
+    );
+  }
+  if (!context) {
+    return (
+      <section className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
+        {emptyMessage}
+      </section>
+    );
+  }
+
+  const agreement = context.agreement;
+  const version = context.version;
+  return (
+    <section className="space-y-3 rounded-lg border border-[#d8d8d8] bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+            Agreement context
+          </p>
+          <h3 className="mt-1 text-base font-semibold text-[#0a0a0a]">{context.label}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <AgreementStatusBadge status={version?.status ?? agreement.status} />
+          <AgreementHashBadge hash={context.agreementHash} />
+        </div>
+      </div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Payment release</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            {formatAmount(version?.paymentAmount ?? agreement.paymentAmount)}{" "}
+            {version?.paymentAssetSymbol ?? agreement.paymentAssetSymbol} through escrow review.
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            {version?.revisionPolicy ?? agreement.revisionPolicy ?? "Not specified"}
+            {version?.revisionLimit !== undefined || agreement.revisionLimit !== undefined
+              ? ` (limit ${version?.revisionLimit ?? agreement.revisionLimit ?? "none"})`
+              : ""}
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Deadline</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            {(version?.deadlineAt ?? agreement.deadlineAt)
+              ? new Date(version?.deadlineAt ?? agreement.deadlineAt ?? 0).toLocaleString()
+              : "Milestone deadlines apply if configured."}
+          </dd>
+        </div>
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
+          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Content protection</dt>
+          <dd className="mt-1 text-[#0a0a0a]">
+            Download restricted under Agreement v{context.versionNumber} until payment release,
+            unless a platform review outcome explicitly allows access.
+          </dd>
+        </div>
+      </dl>
+      {context.fallback ? <p className="text-sm text-amber-700">{context.fallback}</p> : null}
+    </section>
+  );
+}
+
+export function AgreementMismatchWarning({
+  agreementDeadlineAt,
+  productDeadlineAt,
+}: {
+  readonly agreementDeadlineAt?: number | null;
+  readonly productDeadlineAt?: number | null;
+}) {
+  if (!agreementDeadlineAt || !productDeadlineAt || agreementDeadlineAt === productDeadlineAt) {
+    return null;
+  }
+  return (
+    <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+      <p>
+        Product deadline differs from the locked agreement deadline. Update deadlines only through
+        the agreement-aware deadline workflow.
+      </p>
+    </div>
+  );
+}
+
+export function AgreementAmendmentBanner({
+  agreementId,
+}: {
+  readonly agreementId?: TConvexId<"workAgreements">;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+      <div>
+        <p className="font-mono text-xs tracking-[0.08em] uppercase">Amendments</p>
+        <p className="mt-1">
+          Amendment editing is deferred. Locked agreement terms are immutable until both-party
+          amendment review is enabled.
+        </p>
+      </div>
+      {agreementId ? (
+        <Badge className="rounded-md border border-orange-300 bg-white font-mono text-[0.65rem] text-orange-950 uppercase hover:bg-white">
+          {shortenWalletAddress(agreementId)}
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+export function AgreementVersionCard({ version }: { readonly version: TAgreementVersion }) {
+  return (
+    <div className="rounded-lg border border-[#d8d8d8] bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-xs text-[#7f7f7f] uppercase">
+            Version {version.versionNumber}
+          </p>
+          <p className="mt-1 text-sm text-[#5f5f5f]">
+            Created {new Date(version.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <AgreementStatusBadge status={version.status} />
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <AgreementHashBadge hash={version.agreementHash} />
+        <Badge className="rounded-md border border-[#d8d8d8] bg-[#fafafa] font-mono text-[0.65rem] text-[#0a0a0a] uppercase hover:bg-[#fafafa]">
+          {version.paymentAssetSymbol}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+export function AgreementVersionTimeline({
+  agreementId,
+}: {
+  readonly agreementId: TConvexId<"workAgreements">;
+}) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const versions = useQuery(
+    api.work_agreements.getAgreementVersions,
+    walletIdentity.walletAddress
+      ? { agreementId, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  ) as TAgreementVersion[] | undefined;
+
+  if (!walletIdentity.walletAddress || !versions || versions.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <GitBranch className="h-4 w-4 text-[#FF7003]" />
+        <h3 className="text-base font-semibold text-[#0a0a0a]">Agreement Version History</h3>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {versions.map((version) => (
+          <AgreementVersionCard
+            key={version._id ?? `${version.agreementId}-${version.versionNumber}`}
+            version={version}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function AgreementChangeSummary({
+  previousVersion,
+  proposedVersion,
+}: {
+  readonly previousVersion?: TAgreementVersion | null;
+  readonly proposedVersion?: TAgreementVersion | null;
+}) {
+  if (!previousVersion || !proposedVersion) {
+    return (
+      <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-3 text-sm text-[#5f5f5f]">
+        No amendment comparison is available yet.
+      </p>
+    );
+  }
+
+  const changes = [
+    previousVersion.deadlineAt !== proposedVersion.deadlineAt ? "Deadline terms changed" : null,
+    previousVersion.revisionPolicy !== proposedVersion.revisionPolicy
+      ? "Revision policy changed"
+      : null,
+    previousVersion.revisionLimit !== proposedVersion.revisionLimit
+      ? "Revision limit changed"
+      : null,
+    previousVersion.paymentAmount !== proposedVersion.paymentAmount ||
+    previousVersion.paymentAssetContractId !== proposedVersion.paymentAssetContractId
+      ? "Payment terms changed"
+      : null,
+    previousVersion.contentMarkdown !== proposedVersion.contentMarkdown
+      ? "Agreement text changed"
+      : null,
+  ].filter(Boolean);
+
+  return (
+    <ul className="space-y-2 rounded-lg border border-[#d8d8d8] bg-white p-3 text-sm text-[#0a0a0a]">
+      {(changes.length > 0 ? changes : ["No section-level changes detected."]).map((change) => (
+        <li key={change}>{change}</li>
+      ))}
+    </ul>
+  );
+}
+
+export function AgreementVersionCompare({
+  previousVersion,
+  proposedVersion,
+}: {
+  readonly previousVersion?: TAgreementVersion | null;
+  readonly proposedVersion?: TAgreementVersion | null;
+}) {
+  return (
+    <section className="space-y-3 rounded-lg border border-[#d8d8d8] bg-[#fafafa] p-4">
+      <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+        Version Compare
+      </p>
+      <AgreementChangeSummary previousVersion={previousVersion} proposedVersion={proposedVersion} />
+    </section>
+  );
+}
+
+export function AgreementAmendmentDialog() {
+  return <AgreementAmendmentBanner />;
+}
+
+export function AgreementAmendmentReview() {
+  return <AgreementAmendmentBanner />;
+}
+
+export function AgreementAuditTimeline({
+  agreementId,
+}: {
+  readonly agreementId: TConvexId<"workAgreements">;
+}) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const events = useQuery(
+    api.work_agreements.getAgreementAuditTimeline,
+    walletIdentity.walletAddress
+      ? { agreementId, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
+
+  if (!walletIdentity.walletAddress || !events || events.length === 0) return null;
+  return (
+    <section className="rounded-lg border border-[#d8d8d8] bg-white p-4">
+      <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+        Agreement Audit Timeline
+      </p>
+      <ol className="mt-3 space-y-3">
+        {events.map((event) => (
+          <li key={event._id} className="border-l border-[#d8d8d8] pl-3 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <span className="font-medium text-[#0a0a0a]">{event.message}</span>
+              <span className="font-mono text-[11px] text-[#7f7f7f]">
+                {new Date(event.createdAt).toLocaleString()}
+              </span>
+            </div>
+            <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-[#7f7f7f] uppercase">
+              {event.type.replace(/_/g, " ")}
+              {event.newVersion ? ` · v${event.newVersion}` : ""}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export function AgreementExportButton({ agreement }: { readonly agreement: TWorkAgreement }) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const recordExported = useMutation(api.work_agreements.recordAgreementExported);
+  const canExport = agreement.status === "accepted" || agreement.status === "locked";
+
+  const exportMarkdown = async () => {
+    if (!walletIdentity.walletAddress || !walletIdentity.walletType || !canExport) return;
+    await recordExported({
+      agreementId: agreement._id,
+      walletAddress: walletIdentity.walletAddress,
+      walletType: walletIdentity.walletType,
+    });
+    const markdown = [
+      `# ${agreement.title}`,
+      "",
+      `Agreement version: ${agreement.version}`,
+      `Agreement hash: ${agreement.agreementHash ?? "Not generated"}`,
+      `Client wallet: ${agreement.clientWallet}`,
+      `Client wallet type: ${agreement.clientWalletType}`,
+      `Freelancer wallet: ${agreement.freelancerWallet ?? "Not selected"}`,
+      `Freelancer wallet type: ${agreement.freelancerWalletType ?? "Not recorded"}`,
+      `Accepted at: ${
+        agreement.acceptedByFreelancerAt
+          ? new Date(agreement.acceptedByFreelancerAt).toISOString()
+          : "Not accepted"
+      }`,
+      `Locked at: ${agreement.lockedAt ? new Date(agreement.lockedAt).toISOString() : "Not locked"}`,
+      "",
+      "## Disclaimer",
+      "This Highrable-generated agreement is a workflow template and is not legal advice.",
+      "",
+      agreement.contentMarkdown ?? "Client-uploaded agreement content is stored as an attachment.",
+    ].join("\n");
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${agreement.agreementNumber}-v${agreement.version}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (!canExport) return null;
+  return (
+    <AppButton type="button" variant="secondary" onClick={() => void exportMarkdown()}>
+      <Download className="mr-2 h-4 w-4" />
+      Export Markdown
+    </AppButton>
+  );
+}
+
 function AgreementActions({
   agreement,
   disabled,
@@ -596,6 +968,9 @@ export function FreelancerAgreementReview({
           SHA-256: {agreement.agreementHash}
         </p>
       ) : null}
+      <AgreementAmendmentBanner agreementId={agreement._id} />
+      <AgreementVersionTimeline agreementId={agreement._id} />
+      <AgreementAuditTimeline agreementId={agreement._id} />
       {agreement.status === "pending_acceptance" ? (
         <div className="space-y-4 border border-[#d8d8d8] p-4">
           <label htmlFor="accept-work-agreement" className="flex gap-3 text-sm text-[#0a0a0a]">
@@ -837,6 +1212,12 @@ export function WorkAgreementSetupPanel({
               }, "Agreement could not be cancelled.")
             }
           />
+          <div className="flex flex-wrap gap-2">
+            <AgreementExportButton agreement={agreement} />
+          </div>
+          <AgreementAmendmentBanner agreementId={agreement._id} />
+          <AgreementVersionTimeline agreementId={agreement._id} />
+          <AgreementAuditTimeline agreementId={agreement._id} />
         </AgreementPreviewShell>
       ) : walletAddress ? (
         <div className="space-y-4">

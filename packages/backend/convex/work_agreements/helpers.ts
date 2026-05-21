@@ -710,21 +710,31 @@ export async function createWorkAgreementEvent(
   ctx: MutationCtx,
   input: {
     agreementId: Id<"workAgreements">;
+    agreementVersionId?: Id<"workAgreementVersions">;
     jobId: Id<"jobs">;
+    microGigId?: Id<"jobs">;
+    milestoneId?: Id<"milestones">;
     escrowId?: Id<"escrows">;
     type: TAgreementEventType;
     actorWallet: string;
     actorWalletType?: TWalletType;
-    actorRole: "client" | "freelancer" | "system";
+    actorRole: "client" | "freelancer" | "system" | "moderator";
     message: string;
     oldStatus?: TAgreementStatus;
     newStatus?: TAgreementStatus;
+    oldVersion?: number;
+    newVersion?: number;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
     metadata?: unknown;
   },
 ) {
   return await ctx.db.insert("workAgreementEvents", {
     agreementId: input.agreementId,
+    ...(input.agreementVersionId ? { agreementVersionId: input.agreementVersionId } : {}),
     jobId: input.jobId,
+    ...(input.microGigId ? { microGigId: input.microGigId } : {}),
+    ...(input.milestoneId ? { milestoneId: input.milestoneId } : {}),
     ...(input.escrowId ? { escrowId: input.escrowId } : {}),
     type: input.type,
     actorWallet: normalizeWalletAddress(input.actorWallet),
@@ -733,9 +743,150 @@ export async function createWorkAgreementEvent(
     message: input.message.slice(0, 500),
     ...(input.oldStatus ? { oldStatus: input.oldStatus } : {}),
     ...(input.newStatus ? { newStatus: input.newStatus } : {}),
+    ...(input.oldVersion !== undefined ? { oldVersion: input.oldVersion } : {}),
+    ...(input.newVersion !== undefined ? { newVersion: input.newVersion } : {}),
+    ...(input.relatedEntityType ? { relatedEntityType: input.relatedEntityType } : {}),
+    ...(input.relatedEntityId ? { relatedEntityId: input.relatedEntityId } : {}),
     createdAt: Date.now(),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   });
+}
+
+export async function getAgreementVersionByNumber(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; versionNumber: number },
+) {
+  return await ctx.db
+    .query("workAgreementVersions")
+    .withIndex("by_agreement_version", (q) =>
+      q.eq("agreementId", input.agreementId).eq("versionNumber", input.versionNumber),
+    )
+    .first();
+}
+
+export async function getActiveAgreementVersionForAgreement(
+  ctx: QueryCtx,
+  agreement: Doc<"workAgreements">,
+) {
+  const locked = await ctx.db
+    .query("workAgreementVersions")
+    .withIndex("by_agreement_status", (q) =>
+      q.eq("agreementId", agreement._id).eq("status", "locked"),
+    )
+    .order("desc")
+    .first();
+  if (locked) return locked;
+
+  const accepted = await ctx.db
+    .query("workAgreementVersions")
+    .withIndex("by_agreement_status", (q) =>
+      q.eq("agreementId", agreement._id).eq("status", "accepted"),
+    )
+    .order("desc")
+    .first();
+  return accepted;
+}
+
+export function buildAgreementVersionFromAgreement(
+  agreement: Doc<"workAgreements">,
+  status?: TAgreementStatus,
+) {
+  const now = Date.now();
+  return {
+    agreementId: agreement._id,
+    versionNumber: agreement.version,
+    status: status ?? agreement.status,
+    agreementType: agreement.agreementType,
+    ...(agreement.contentMarkdown ? { contentMarkdown: agreement.contentMarkdown } : {}),
+    ...(agreement.contentHtml ? { contentHtml: agreement.contentHtml } : {}),
+    ...(agreement.sourceAttachmentId ? { sourceAttachmentId: agreement.sourceAttachmentId } : {}),
+    ...(agreement.immutableSnapshot ? { immutableSnapshot: agreement.immutableSnapshot } : {}),
+    ...(agreement.generatedFromSnapshot
+      ? { generatedFromSnapshot: agreement.generatedFromSnapshot }
+      : {}),
+    ...(agreement.agreementHash ? { agreementHash: agreement.agreementHash } : {}),
+    ...(agreement.hashAlgorithm ? { hashAlgorithm: agreement.hashAlgorithm } : {}),
+    ...(agreement.hashEncoding ? { hashEncoding: agreement.hashEncoding } : {}),
+    proposedByWallet: agreement.createdByWallet,
+    proposedByWalletType: agreement.createdByWalletType,
+    ...(agreement.acceptedByFreelancerAt
+      ? { acceptedByFreelancerAt: agreement.acceptedByFreelancerAt }
+      : {}),
+    ...(agreement.acceptedByFreelancerWallet
+      ? { acceptedByFreelancerWallet: agreement.acceptedByFreelancerWallet }
+      : {}),
+    ...(agreement.acceptedByFreelancerWalletType
+      ? { acceptedByFreelancerWalletType: agreement.acceptedByFreelancerWalletType }
+      : {}),
+    ...(agreement.clientConfirmedAt ? { clientConfirmedAt: agreement.clientConfirmedAt } : {}),
+    ...(agreement.lockedAt ? { lockedAt: agreement.lockedAt } : {}),
+    paymentAmount: agreement.paymentAmount,
+    paymentAssetContractId: agreement.paymentAssetContractId,
+    paymentAssetSymbol: agreement.paymentAssetSymbol,
+    paymentAssetDecimals: agreement.paymentAssetDecimals,
+    ...(agreement.deadlineAt ? { deadlineAt: agreement.deadlineAt } : {}),
+    ...(agreement.revisionPolicy ? { revisionPolicy: agreement.revisionPolicy } : {}),
+    ...(agreement.revisionLimit !== undefined ? { revisionLimit: agreement.revisionLimit } : {}),
+    contentProtectionEnabled: agreement.contentProtectionEnabled,
+    createdAt: agreement.createdAt,
+    updatedAt: now,
+    metadata: {
+      materializedFromAgreement: true,
+      agreementStatusAtMaterialization: agreement.status,
+    },
+  };
+}
+
+export async function ensureAgreementVersionForAgreement(
+  ctx: MutationCtx,
+  input: { agreement: Doc<"workAgreements">; status?: TAgreementStatus },
+) {
+  const existing = await getAgreementVersionByNumber(ctx, {
+    agreementId: input.agreement._id,
+    versionNumber: input.agreement.version,
+  });
+  if (existing) return existing;
+
+  const versionId = await ctx.db.insert(
+    "workAgreementVersions",
+    buildAgreementVersionFromAgreement(input.agreement, input.status),
+  );
+  return await ctx.db.get(versionId);
+}
+
+export async function resolveAgreementContextForParent(
+  ctx: QueryCtx,
+  input: { jobId?: Id<"jobs">; escrowId?: Id<"escrows">; viewerWallet?: string },
+) {
+  let agreement: Doc<"workAgreements"> | null = null;
+  if (input.jobId) {
+    agreement = await getAcceptedAgreementForJob(ctx, input.jobId);
+  }
+  if (!agreement && input.escrowId) {
+    const escrow = await ctx.db.get(input.escrowId);
+    if (escrow) agreement = await getAcceptedAgreementForJob(ctx, escrow.jobId);
+  }
+  if (!agreement) return null;
+  await assertCanViewWorkAgreement(ctx, agreement, input.viewerWallet);
+  const version = await getActiveAgreementVersionForAgreement(ctx, agreement);
+  return {
+    agreement,
+    version,
+    fallback: version ? null : "No materialized agreement version was found.",
+    label: version ? `Agreement v${version.versionNumber}` : `Agreement v${agreement.version}`,
+    agreementHash: version?.agreementHash ?? agreement.agreementHash ?? null,
+    versionNumber: version?.versionNumber ?? agreement.version,
+  };
+}
+
+export function assertAgreementVersionImmutable(version: Doc<"workAgreementVersions">) {
+  if (
+    version.status === "accepted" ||
+    version.status === "locked" ||
+    version.status === "superseded"
+  ) {
+    throw new BadRequestError("Locked agreement versions cannot be edited.");
+  }
 }
 
 function toHex(bytes: ArrayBuffer): string {
@@ -1030,7 +1181,17 @@ export async function createAgreementSystemMessage(
   ctx: MutationCtx,
   input: {
     agreement: Doc<"workAgreements">;
-    eventType: "agreement_sent" | "agreement_accepted" | "agreement_rejected" | "agreement_locked";
+    eventType:
+      | "agreement_sent"
+      | "agreement_accepted"
+      | "agreement_rejected"
+      | "agreement_locked"
+      | "agreement_amendment_proposed"
+      | "agreement_amendment_accepted"
+      | "agreement_amendment_rejected"
+      | "agreement_superseded"
+      | "agreement_referenced_in_dispute"
+      | "agreement_referenced_in_cancellation";
     body: string;
     agreementHash?: string;
   },
@@ -1108,8 +1269,37 @@ export async function lockWorkAgreementForCommitment(
     lockedSnapshotHash: agreementHash,
     updatedAt: now,
   });
+  const lockedAgreement = {
+    ...agreement,
+    status: "locked" as const,
+    lockedAt: now,
+    lockedBy: input.lockedBy,
+    lockReason: input.lockReason,
+    immutableSnapshot,
+    agreementHash,
+    hashAlgorithm: "sha256" as const,
+    hashEncoding: "hex" as const,
+    lockedSnapshotHash: agreementHash,
+    updatedAt: now,
+  };
+  const lockedVersion = await ensureAgreementVersionForAgreement(ctx, {
+    agreement: lockedAgreement,
+    status: "locked",
+  });
+  if (lockedVersion && lockedVersion.status !== "locked") {
+    await ctx.db.patch(lockedVersion._id, {
+      status: "locked",
+      lockedAt: now,
+      agreementHash,
+      hashAlgorithm: "sha256",
+      hashEncoding: "hex",
+      immutableSnapshot,
+      updatedAt: now,
+    });
+  }
   await createWorkAgreementEvent(ctx, {
     agreementId: agreement._id,
+    ...(lockedVersion ? { agreementVersionId: lockedVersion._id } : {}),
     jobId: agreement.jobId,
     ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
     type: "agreement_locked",

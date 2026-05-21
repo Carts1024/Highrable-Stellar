@@ -1,5 +1,7 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import { useAction, useQuery } from "convex/react";
 import { useCallback, useMemo, useState } from "react";
@@ -57,6 +59,7 @@ function formatSyncMessage(result: TSyncResult): string {
 }
 
 export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
+  const walletIdentity = useHighrableWalletIdentity();
   const sanitizedEscrowId = useMemo(() => sanitizeEscrowIdParam(escrowId), [escrowId]);
   const proof = useQuery(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,6 +72,12 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
   const syncReputationRecordAction = useAction((api as any).sync.syncReputationRecord);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const agreementContext = useQuery(
+    api.work_agreements.getAgreementContextForProof,
+    proof?.job?._id && walletIdentity.walletAddress
+      ? { jobId: proof.job._id, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
 
   const runSync = useCallback(
     async (syncType: "escrow" | "reputation") => {
@@ -118,6 +127,10 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       <EscrowProofHeader proof={proof} />
+      <AgreementReferenceCard
+        context={agreementContext}
+        emptyMessage="No agreement version was attached to this proof submission."
+      />
       <EscrowProofWorkDetails proof={proof} />
       <EscrowProofParticipants
         clientWallet={proof.escrow.clientWallet}

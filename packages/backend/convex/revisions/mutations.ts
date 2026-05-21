@@ -6,6 +6,12 @@ import { normalizeWalletAddress } from "../_shared/input";
 import { resolveDeadlineParent, upsertDeadlineReminders } from "../deadlines/helpers";
 import { revisionPolicyValidator } from "../jobs/schema";
 import { walletTypeValidator } from "../users/schema";
+import {
+  createWorkAgreementEvent,
+  ensureAgreementVersionForAgreement,
+  getAcceptedAgreementForJob,
+  getActiveAgreementVersionForAgreement,
+} from "../work_agreements/helpers";
 import { workSubmissionParentTypeValidator } from "../work_submissions/schema";
 import {
   assertCanRequestRevision,
@@ -93,6 +99,11 @@ export const requestRevision = mutation({
 
     const now = Date.now();
     const revisionNumber = config.revisionCount + 1;
+    const agreement = parent.jobId ? await getAcceptedAgreementForJob(ctx, parent.jobId) : null;
+    const agreementVersion = agreement
+      ? ((await getActiveAgreementVersionForAgreement(ctx, agreement)) ??
+        (await ensureAgreementVersionForAgreement(ctx, { agreement })))
+      : null;
     const revisionRequestId = await ctx.db.insert("revisionRequests", {
       parentType: parent.parentType,
       parentId: parent.parentId,
@@ -102,6 +113,11 @@ export const requestRevision = mutation({
       workSubmissionId: submission._id,
       ...(submission.previousSubmissionId !== undefined
         ? { previousSubmissionId: submission.previousSubmissionId }
+        : {}),
+      ...(agreement ? { agreementId: agreement._id } : {}),
+      ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+      ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
+        ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
         : {}),
       clientWallet,
       freelancerWallet: parent.freelancerWallet,
@@ -139,6 +155,30 @@ export const requestRevision = mutation({
       revisionStatus: "revision_requested",
       revisionCount: revisionNumber,
     });
+
+    if (agreement) {
+      await createWorkAgreementEvent(ctx, {
+        agreementId: agreement._id,
+        ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+        jobId: agreement.jobId,
+        ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+        ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+        type: "agreement_referenced_in_revision",
+        actorWallet: clientWallet,
+        actorWalletType: args.requestedByWalletType,
+        actorRole: "client",
+        message: "Agreement referenced for revision request.",
+        oldStatus: agreement.status,
+        newStatus: agreement.status,
+        relatedEntityType: "revision_request",
+        relatedEntityId: revisionRequestId,
+        metadata: {
+          agreementHash: agreementVersion?.agreementHash ?? agreement.agreementHash,
+          versionNumber: agreementVersion?.versionNumber ?? agreement.version,
+          revisionNumber,
+        },
+      });
+    }
 
     const deadlineParent = await resolveDeadlineParent(ctx, {
       parentType: parent.parentType === "milestone" ? "milestone" : "micro_gig",

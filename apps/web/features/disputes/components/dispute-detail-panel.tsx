@@ -8,6 +8,7 @@ import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
+import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
@@ -51,6 +52,15 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   );
   const timeline = useQuery(
     api.disputes.getDisputeTimeline,
+    walletIdentity.walletAddress
+      ? {
+          disputeId: disputeId as TConvexId<"disputes">,
+          viewerWallet: walletIdentity.walletAddress,
+        }
+      : "skip",
+  );
+  const agreementContext = useQuery(
+    api.work_agreements.getAgreementContextForDispute,
     walletIdentity.walletAddress
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
@@ -285,6 +295,13 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             </div>
           </div>
         ) : null}
+      </section>
+
+      <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">
+        <h2 className="mb-3 text-lg font-semibold text-[#0a0a0a]">
+          Agreement Context for Platform-Reviewed Dispute
+        </h2>
+        <AgreementReferenceCard context={agreementContext} />
       </section>
 
       <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">

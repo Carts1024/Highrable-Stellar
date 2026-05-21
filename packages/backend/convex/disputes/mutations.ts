@@ -10,6 +10,13 @@ import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/error
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
 import { walletTypeValidator } from "../users/schema";
 import {
+  createAgreementSystemMessage,
+  createWorkAgreementEvent,
+  ensureAgreementVersionForAgreement,
+  getAcceptedAgreementForJob,
+  getActiveAgreementVersionForAgreement,
+} from "../work_agreements/helpers";
+import {
   assertCanOpenDispute,
   assertCanRespondToDispute,
   attachEvidenceToDispute,
@@ -171,6 +178,11 @@ export const createDispute = mutation({
     });
 
     const now = Date.now();
+    const agreement = parent.jobId ? await getAcceptedAgreementForJob(ctx, parent.jobId) : null;
+    const agreementVersion = agreement
+      ? ((await getActiveAgreementVersionForAgreement(ctx, agreement)) ??
+        (await ensureAgreementVersionForAgreement(ctx, { agreement })))
+      : null;
     const disputeId = await ctx.db.insert("disputes", {
       disputeNumber: buildDisputeNumber(now),
       parentType: parent.parentType,
@@ -200,6 +212,11 @@ export const createDispute = mutation({
         args.relatedRevisionRequestIds ?? [],
         "Revision references",
       ),
+      ...(agreement ? { agreementId: agreement._id } : {}),
+      ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+      ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
+        ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
+        : {}),
       ...(args.relatedMessageIds !== undefined
         ? { relatedMessageIds: validateRelatedIds(args.relatedMessageIds, "Message references") }
         : {}),
@@ -237,12 +254,43 @@ export const createDispute = mutation({
       createdAt: now,
     });
 
+    if (agreement) {
+      await createWorkAgreementEvent(ctx, {
+        agreementId: agreement._id,
+        ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
+        jobId: agreement.jobId,
+        ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+        ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+        type: "agreement_referenced_in_dispute",
+        actorWallet: openedByWallet,
+        actorWalletType: args.openedByWalletType,
+        actorRole: openedByRole,
+        message: "Agreement referenced for dispute review.",
+        oldStatus: agreement.status,
+        newStatus: agreement.status,
+        relatedEntityType: "dispute",
+        relatedEntityId: disputeId,
+        metadata: {
+          agreementHash: agreementVersion?.agreementHash ?? agreement.agreementHash,
+          versionNumber: agreementVersion?.versionNumber ?? agreement.version,
+        },
+      });
+    }
+
     const dispute = await getDisputeOrThrow(ctx, disputeId);
     await createDisputeSystemMessage(ctx, {
       dispute,
       eventType: "dispute_opened",
       body: `Dispute opened: ${openedByRole === "client" ? "Client" : "Freelancer"} opened a dispute for this escrow.`,
     });
+    if (agreement) {
+      await createAgreementSystemMessage(ctx, {
+        agreement,
+        eventType: "agreement_referenced_in_dispute",
+        body: `Dispute review: Agreement v${agreementVersion?.versionNumber ?? agreement.version} was attached as context.`,
+        agreementHash: agreementVersion?.agreementHash ?? agreement.agreementHash,
+      });
+    }
 
     const recipientWallet =
       openedByRole === "client" ? dispute.freelancerWallet : dispute.clientWallet;

@@ -18,6 +18,7 @@ import {
   createAgreementNotification,
   createAgreementSystemMessage,
   createWorkAgreementEvent as insertWorkAgreementEvent,
+  ensureAgreementVersionForAgreement,
   hashAgreementManifest,
   lockWorkAgreementForCommitment,
   renderHighrableAgreementMarkdown,
@@ -440,8 +441,13 @@ export const acceptWorkAgreement = mutation({
       acceptedByFreelancerWalletType: args.walletType,
       updatedAt: acceptedAt,
     };
+    const acceptedVersion = await ensureAgreementVersionForAgreement(ctx, {
+      agreement: updatedAgreement,
+      status: "accepted",
+    });
     await insertWorkAgreementEvent(ctx, {
       agreementId: args.agreementId,
+      ...(acceptedVersion ? { agreementVersionId: acceptedVersion._id } : {}),
       jobId: agreement.jobId,
       ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
       type: "agreement_hash_generated",
@@ -455,6 +461,7 @@ export const acceptWorkAgreement = mutation({
     });
     await insertWorkAgreementEvent(ctx, {
       agreementId: args.agreementId,
+      ...(acceptedVersion ? { agreementVersionId: acceptedVersion._id } : {}),
       jobId: agreement.jobId,
       ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
       type: "agreement_accepted",
@@ -687,6 +694,157 @@ export const cancelPendingAgreement = mutation({
       ...(statusReason ? { metadata: { statusReason } } : {}),
     });
     return true;
+  },
+});
+
+export const createAgreementVersionFromLockedAgreement = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    if (agreement.status !== "accepted" && agreement.status !== "locked") {
+      throw new BadRequestError("Only accepted or locked agreements can be versioned.");
+    }
+    return await ensureAgreementVersionForAgreement(ctx, { agreement });
+  },
+});
+
+export const proposeAgreementAmendment = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    await insertWorkAgreementEvent(ctx, {
+      agreementId: agreement._id,
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "amendment_proposed",
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: agreement.clientWallet === args.walletAddress ? "client" : "freelancer",
+      message: "Agreement amendment requested, but amendment editing is not enabled yet.",
+      oldStatus: agreement.status,
+      newStatus: agreement.status,
+      metadata: {
+        deferred: true,
+        ...(args.reason ? { reason: args.reason.slice(0, 500) } : {}),
+      },
+    });
+    throw new BadRequestError(
+      "Agreement amendments are deferred for this phase. Locked terms remain immutable.",
+    );
+  },
+});
+
+export const acceptAgreementAmendment = mutation({
+  args: {
+    agreementVersionId: v.id("workAgreementVersions"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async () => {
+    throw new BadRequestError("Agreement amendments are deferred for this phase.");
+  },
+});
+
+export const rejectAgreementAmendment = mutation({
+  args: {
+    agreementVersionId: v.id("workAgreementVersions"),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    reason: v.optional(v.string()),
+  },
+  handler: async () => {
+    throw new BadRequestError("Agreement amendments are deferred for this phase.");
+  },
+});
+
+export const recordAgreementReferenced = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    agreementVersionId: v.optional(v.id("workAgreementVersions")),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+    relatedEntityType: v.string(),
+    relatedEntityId: v.string(),
+    type: v.union(
+      v.literal("agreement_referenced_in_proof_review"),
+      v.literal("agreement_referenced_in_revision"),
+      v.literal("agreement_referenced_in_dispute"),
+      v.literal("agreement_referenced_in_cancellation"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    return await insertWorkAgreementEvent(ctx, {
+      agreementId: agreement._id,
+      ...(args.agreementVersionId ? { agreementVersionId: args.agreementVersionId } : {}),
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: args.type,
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: agreement.clientWallet === args.walletAddress ? "client" : "freelancer",
+      message: "Agreement referenced for workflow review.",
+      oldStatus: agreement.status,
+      newStatus: agreement.status,
+      relatedEntityType: args.relatedEntityType,
+      relatedEntityId: args.relatedEntityId,
+    });
+  },
+});
+
+export const recordAgreementExported = mutation({
+  args: {
+    agreementId: v.id("workAgreements"),
+    agreementVersionId: v.optional(v.id("workAgreementVersions")),
+    walletAddress: v.string(),
+    walletType: walletTypeValidator,
+  },
+  handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) {
+      throw new NotFoundError("Work agreement not found.");
+    }
+    await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    if (agreement.status !== "accepted" && agreement.status !== "locked") {
+      throw new BadRequestError("Only accepted or locked agreement versions can be exported.");
+    }
+    return await insertWorkAgreementEvent(ctx, {
+      agreementId: agreement._id,
+      ...(args.agreementVersionId ? { agreementVersionId: args.agreementVersionId } : {}),
+      jobId: agreement.jobId,
+      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
+      type: "agreement_exported",
+      actorWallet: args.walletAddress,
+      actorWalletType: args.walletType,
+      actorRole: agreement.clientWallet === args.walletAddress ? "client" : "freelancer",
+      message: "Agreement exported.",
+      oldStatus: agreement.status,
+      newStatus: agreement.status,
+      metadata: { agreementHash: agreement.agreementHash },
+    });
   },
 });
 

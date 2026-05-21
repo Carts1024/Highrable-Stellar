@@ -69,7 +69,8 @@ export function ProtectionNotice() {
   return (
     <div className="rounded-lg border border-[#ffd7bd] bg-[#fff7f1] p-3 text-sm text-[#5f2a00]">
       Protected until payment release. You can preview this work, but downloads are restricted until
-      the freelancer is paid.
+      the freelancer is paid. Agreement context may keep downloads restricted during cancellation or
+      dispute review unless the platform-reviewed outcome explicitly allows access.
     </div>
   );
 }

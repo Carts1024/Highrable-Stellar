@@ -94,6 +94,12 @@ export function formatEventMessage(eventType: TMessageEventType): string {
     agreement_accepted: "Work agreement was accepted.",
     agreement_rejected: "Work agreement was rejected.",
     agreement_locked: "Work agreement was locked.",
+    agreement_amendment_proposed: "Agreement amendment was proposed.",
+    agreement_amendment_accepted: "Agreement amendment was accepted.",
+    agreement_amendment_rejected: "Agreement amendment was rejected.",
+    agreement_superseded: "Agreement was superseded.",
+    agreement_referenced_in_dispute: "Agreement was attached to dispute context.",
+    agreement_referenced_in_cancellation: "Agreement was attached to cancellation context.",
   };
 
   return labels[eventType];

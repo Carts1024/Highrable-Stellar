@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
@@ -104,6 +105,25 @@ export function CancellationTimeline({ cancellationRequestId }: ICancellationTim
         ))}
       </ol>
     </div>
+  );
+}
+
+export function CancellationAgreementContext({
+  cancellationRequestId,
+}: ICancellationTimelineProps) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const context = useQuery(
+    api.work_agreements.getAgreementContextForCancellation,
+    walletIdentity.walletAddress
+      ? { cancellationRequestId, viewerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
+
+  return (
+    <AgreementReferenceCard
+      context={context}
+      emptyMessage="No accepted agreement was attached to this cancellation request."
+    />
   );
 }
 

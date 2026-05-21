@@ -57,6 +57,12 @@ const messageEventTypeEnum = createStringEnum([
   "agreement_accepted",
   "agreement_rejected",
   "agreement_locked",
+  "agreement_amendment_proposed",
+  "agreement_amendment_accepted",
+  "agreement_amendment_rejected",
+  "agreement_superseded",
+  "agreement_referenced_in_dispute",
+  "agreement_referenced_in_cancellation",
 ] as const);
 
 export const conversationParentTypeValidator = conversationParentTypeEnum.validator;

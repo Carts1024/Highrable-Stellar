@@ -14,9 +14,12 @@ import {
   assertCanRejectAgreement,
   assertCanSendAgreement,
   assertCanViewWorkAgreement,
+  buildAgreementVersionFromAgreement,
+  getActiveAgreementVersionForAgreement,
   getAcceptedAgreementForJob,
   getActiveAgreementByJob,
   getAgreementOrThrow,
+  resolveAgreementContextForParent,
   hasAcceptedAgreement as hasAcceptedAgreementForJob,
   requiresAcceptedAgreement as requiresAcceptedAgreementForParent,
 } from "./helpers";
@@ -145,6 +148,252 @@ export const getWorkAgreementEvents = query({
 });
 
 export const getAgreementEvents = getWorkAgreementEvents;
+
+export const getAgreementAuditTimeline = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+    return await ctx.db
+      .query("workAgreementEvents")
+      .withIndex("by_agreement", (q) => q.eq("agreementId", args.agreementId))
+      .order("asc")
+      .take(200);
+  },
+});
+
+export const getAgreementVersions = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+    const versions = await ctx.db
+      .query("workAgreementVersions")
+      .withIndex("by_agreement_version", (q) => q.eq("agreementId", args.agreementId))
+      .order("asc")
+      .take(50);
+    if (versions.length > 0) return versions;
+    if (agreement.status === "accepted" || agreement.status === "locked") {
+      return [
+        {
+          ...buildAgreementVersionFromAgreement(agreement),
+          _id: null,
+          _creationTime: agreement._creationTime,
+        },
+      ];
+    }
+    return [];
+  },
+});
+
+export const getActiveAgreementVersion = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+    return (
+      (await getActiveAgreementVersionForAgreement(ctx, agreement)) ??
+      (agreement.status === "accepted" || agreement.status === "locked"
+        ? {
+            ...buildAgreementVersionFromAgreement(agreement),
+            _id: null,
+            _creationTime: agreement._creationTime,
+          }
+        : null)
+    );
+  },
+});
+
+export const getAgreementVersion = query({
+  args: {
+    agreementVersionId: v.id("workAgreementVersions"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const version = await ctx.db.get(args.agreementVersionId);
+    if (!version) return null;
+    const agreement = await getAgreementOrThrow(ctx, version.agreementId);
+    await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+    return version;
+  },
+});
+
+export const getAgreementContextForProof = query({
+  args: {
+    submissionId: v.optional(v.id("workSubmissions")),
+    jobId: v.optional(v.id("jobs")),
+    escrowId: v.optional(v.id("escrows")),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.submissionId) {
+      const submission = await ctx.db.get(args.submissionId);
+      if (!submission) return null;
+      if (submission.agreementVersionId) {
+        const version = await ctx.db.get(submission.agreementVersionId);
+        if (version) {
+          const agreement = await getAgreementOrThrow(ctx, version.agreementId);
+          await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+          return {
+            agreement,
+            version,
+            label: `Agreement v${version.versionNumber}`,
+            agreementHash: submission.agreementHash ?? version.agreementHash ?? null,
+            versionNumber: version.versionNumber,
+            fallback: null,
+          };
+        }
+      }
+      return await resolveAgreementContextForParent(ctx, {
+        ...(submission.jobId ? { jobId: submission.jobId } : {}),
+        ...(submission.escrowId ? { escrowId: submission.escrowId } : {}),
+        viewerWallet: args.viewerWallet,
+      });
+    }
+    return await resolveAgreementContextForParent(ctx, args);
+  },
+});
+
+export const getAgreementContextForRevision = query({
+  args: {
+    revisionRequestId: v.id("revisionRequests"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const revision = await ctx.db.get(args.revisionRequestId);
+    if (!revision) return null;
+    return await resolveAgreementContextForParent(ctx, {
+      jobId: revision.jobId,
+      ...(revision.escrowId ? { escrowId: revision.escrowId } : {}),
+      viewerWallet: args.viewerWallet,
+    });
+  },
+});
+
+export const getAgreementContextForDispute = query({
+  args: {
+    disputeId: v.id("disputes"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const dispute = await ctx.db.get(args.disputeId);
+    if (!dispute) return null;
+    if (dispute.agreementVersionId) {
+      const version = await ctx.db.get(dispute.agreementVersionId);
+      if (version) {
+        const agreement = await getAgreementOrThrow(ctx, version.agreementId);
+        await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+        return {
+          agreement,
+          version,
+          label: `Agreement v${version.versionNumber}`,
+          agreementHash: dispute.agreementHash ?? version.agreementHash ?? null,
+          versionNumber: version.versionNumber,
+          fallback: null,
+        };
+      }
+    }
+    return await resolveAgreementContextForParent(ctx, {
+      ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
+      ...(dispute.escrowId ? { escrowId: dispute.escrowId } : {}),
+      viewerWallet: args.viewerWallet,
+    });
+  },
+});
+
+export const getAgreementContextForCancellation = query({
+  args: {
+    cancellationRequestId: v.id("cancellationRequests"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const request = await ctx.db.get(args.cancellationRequestId);
+    if (!request) return null;
+    if (request.agreementVersionId) {
+      const version = await ctx.db.get(request.agreementVersionId);
+      if (version) {
+        const agreement = await getAgreementOrThrow(ctx, version.agreementId);
+        await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+        return {
+          agreement,
+          version,
+          label: `Agreement v${version.versionNumber}`,
+          agreementHash: request.agreementHash ?? version.agreementHash ?? null,
+          versionNumber: version.versionNumber,
+          fallback: null,
+        };
+      }
+    }
+    return await resolveAgreementContextForParent(ctx, {
+      ...(request.jobId ? { jobId: request.jobId } : {}),
+      ...(request.escrowId ? { escrowId: request.escrowId } : {}),
+      viewerWallet: args.viewerWallet,
+    });
+  },
+});
+
+export const canProposeAgreementAmendment = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+    try {
+      await assertCanViewWorkAgreement(ctx, agreement, args.walletAddress);
+    } catch (error) {
+      return {
+        allowed: false,
+        reason:
+          error instanceof Error
+            ? error.message
+            : "Only agreement participants can view this agreement.",
+      };
+    }
+    return {
+      allowed: false,
+      reason:
+        "Agreement amendments are deferred for this phase. Locked terms remain immutable until a reviewed amendment flow is enabled.",
+    };
+  },
+});
+
+export const canAcceptAgreementAmendment = canProposeAgreementAmendment;
+
+export const canExportAgreement = query({
+  args: {
+    agreementId: v.id("workAgreements"),
+    viewerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const agreement = await getAgreementOrThrow(ctx, args.agreementId);
+      await assertCanViewWorkAgreement(ctx, agreement, args.viewerWallet);
+      return {
+        allowed: agreement.status === "accepted" || agreement.status === "locked",
+        reason:
+          agreement.status === "accepted" || agreement.status === "locked"
+            ? null
+            : "Only accepted or locked agreement versions can be exported.",
+      };
+    } catch (error) {
+      return {
+        allowed: false,
+        reason:
+          error instanceof Error ? error.message : "Agreement export failed. Please try again.",
+      };
+    }
+  },
+});
 
 export const canCreateWorkAgreement = query({
   args: {
