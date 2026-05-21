@@ -17,6 +17,17 @@ import {
   normalizeSubmissionNotes,
 } from "@/features/work-submissions/lib/proof-hash";
 import { api } from "@repo/convex-client";
+import {
+  HighrableV2Bullet,
+  HighrableV2Metric,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
+import {
+  V2_BUTTON_PRIMARY_CLASS,
+  V2_BUTTON_SECONDARY_CLASS,
+  V2_PANEL_CLASS,
+  V2_THEME,
+} from "@repo/ui/components/highrable/v2-theme";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
@@ -27,10 +38,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@repo/ui/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import { cn } from "@repo/ui/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { Check, Eye, FileCheck2, GitPullRequest, RotateCcw, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ArrowUpRight,
+  Check,
+  Clock3,
+  Eye,
+  FileCheck2,
+  GitPullRequest,
+  Info,
+  RotateCcw,
+  Send,
+} from "lucide-react";
+import { useState } from "react";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -203,13 +226,6 @@ function WorkProofSubmissionDialogContent({
     latestSubmission.status !== "draft" &&
     latestSubmission.status !== "cancelled",
   );
-
-  const generatedPreview = useMemo(() => {
-    if (!latestSubmission?.proofHash) {
-      return null;
-    }
-    return latestSubmission.proofHash;
-  }, [latestSubmission?.proofHash]);
 
   const anchorSubmission = async (submission: TConvexDoc<"workSubmissions">) => {
     if (!escrow?.escrowId || !walletIdentity.walletAddress || !walletIdentity.walletType) {
@@ -452,307 +468,395 @@ function WorkProofSubmissionDialogContent({
       : "Submit Proof";
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-[#0a0a0a]">Proof of Work</h3>
-          <p className="mt-1 text-sm text-[#5f5f5f]">
-            Files stay in Convex storage. Accepted proof hashes are anchored on Stellar.
+    <div className="space-y-10">
+      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+        <div className="space-y-5">
+          <SectionLabel>Project Delivery</SectionLabel>
+          <h1 className="text-3xl font-semibold tracking-tight text-[#0a0a0a]">
+            {milestone ? milestone.title : job.title}
+          </h1>
+          <p className={cn("max-w-2xl text-sm leading-6", V2_THEME.colors.textMuted)}>
+            Your files and notes are securely stored. Finalized work is verified on the Stellar
+            blockchain for trust and transparency.
           </p>
         </div>
-        {walletIdentity.walletType ? (
-          <Badge variant="secondary" className="rounded-md">
-            {walletIdentity.walletType.replace(/_/g, " ")}
-          </Badge>
-        ) : null}
-      </div>
 
-      {!agreementAccepted ? (
-        <div className="border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {agreementStatus?.status === "pending_acceptance"
-            ? "The selected freelancer must accept the agreement before proof can be submitted."
-            : agreementStatus?.status === "rejected"
-              ? "This agreement was rejected. Create a new agreement before continuing."
-              : "A work agreement must be accepted before proof can be submitted."}
+        <div className="grid gap-5 border-l border-[#e8e8e8] py-2">
+          <HighrableV2Metric
+            label="Revision policy"
+            value={formatRevisionPolicy(revisionPolicy ?? undefined)}
+          />
+          <HighrableV2Metric label="Submissions" value={submissions?.length ?? 0} />
+          {walletIdentity.walletType && (
+            <HighrableV2Metric
+              label="Wallet Type"
+              value={walletIdentity.walletType.replace(/_/g, " ")}
+            />
+          )}
         </div>
-      ) : null}
+      </section>
 
-      <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-        <p className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</p>
-        <p className="mt-1 text-sm font-medium text-[#0a0a0a]">
-          {formatRevisionPolicy(revisionPolicy ?? undefined)}
-        </p>
-        {activeRevision ? (
-          <p className="mt-2 text-sm text-[#5f5f5f]">
-            Active Revision #{activeRevision.revisionNumber}: {activeRevision.requestedChanges}
-          </p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 border-b border-[#e8e8e8] pb-2">
+          <div className="flex items-center gap-2">
+            <SectionLabel>Submission Action</SectionLabel>
+            {walletIdentity.isConnected &&
+              isSameWallet(
+                walletIdentity.walletAddress,
+                escrow?.clientWallet ?? job.clientWallet,
+              ) &&
+              !canRequestRevision && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="p-1 text-[#7f7f7f] transition-colors hover:text-[#0a0a0a]"
+                      aria-label="Revision information"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-80 rounded-none border-none bg-white p-4 text-sm shadow-xl"
+                    align="start"
+                  >
+                    <p className="leading-relaxed text-[#5f5f5f]">
+                      {activeRevision
+                        ? "There is already an active revision request."
+                        : revisionPolicy?.revisionPolicy === "none"
+                          ? "This work does not allow revisions."
+                          : revisionPolicy?.remainingRevisions === 0
+                            ? "The revision limit has already been reached."
+                            : escrow?.status === "funded" || escrow?.status === "submitted"
+                              ? "Revision request is currently unavailable."
+                              : "Revisions can be requested after work is submitted for review."}
+                    </p>
+                  </PopoverContent>
+                </Popover>
+              )}
+          </div>
+          <span className="font-mono text-[10px] tracking-widest text-[#7f7f7f] uppercase">
+            {canSubmit ? "Freelancer Mode" : "Client Mode"}
+          </span>
+        </div>
+
+        {!agreementAccepted ? (
+          <div className="border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+            {agreementStatus?.status === "pending_acceptance"
+              ? "The freelancer must accept the agreement before work can be submitted."
+              : agreementStatus?.status === "rejected"
+                ? "This agreement was rejected. Create a new agreement before continuing."
+                : "A work agreement must be accepted before work can be submitted."}
+          </div>
         ) : null}
-      </div>
 
-      {canSubmit && (!isImmutable || canSubmitRevision) ? (
-        <div className="space-y-3">
-          <DeadlineBadge
-            deadlineAt={milestone?.deadlineAt ?? job.deadlineAt}
-            submittedAt={milestone?.submittedAt ?? job.submittedAt}
-            completedAt={milestone?.completedAt ?? job.completedAt}
-            approvedAt={milestone?.approvedAt ?? job.approvedAt}
-            escrowStatus={escrow?.status}
-            workStatus={milestone?.status ?? job.status}
-          />
-          <Textarea
-            value={notes}
-            disabled={pending}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder={
-              canSubmitRevision
-                ? "Summarize the revised work and what changed from the previous submission."
-                : "Summarize completed work, delivery notes, links, or acceptance details."
-            }
-            className="min-h-28 rounded-lg border-[#d8d8d8] bg-white"
-          />
-          <AttachmentUploader
-            value={draftAttachments}
-            onChange={setDraftAttachments}
-            disabled={pending}
-            ownerRole="freelancer"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <AppButton
-              type="button"
-              disabled={
-                pending || isRevisionPolicyLoading || hasUploadingAttachment || !hasProofBody
+        {canSubmit && (!isImmutable || canSubmitRevision) ? (
+          <div className="space-y-6 pt-2">
+            <div className="flex items-center gap-3">
+              <DeadlineBadge
+                deadlineAt={milestone?.deadlineAt ?? job.deadlineAt}
+                submittedAt={milestone?.submittedAt ?? job.submittedAt}
+                completedAt={milestone?.completedAt ?? job.completedAt}
+                approvedAt={milestone?.approvedAt ?? job.approvedAt}
+                escrowStatus={escrow?.status}
+                workStatus={milestone?.status ?? job.status}
+              />
+            </div>
+            <Textarea
+              value={notes}
+              disabled={pending}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder={
+                canSubmitRevision
+                  ? "Summarize the revised work and what changed from the previous submission."
+                  : "Summarize completed work, delivery notes, links, or acceptance details."
               }
-              onClick={() => void handleSubmit()}
-              className="gap-2 disabled:opacity-60"
-            >
-              <Send className="h-4 w-4" />
-              {pending
-                ? canSubmitRevision
-                  ? "Submitting Revision Preview..."
-                  : isPreviewEnabled
-                    ? "Submitting Preview..."
-                    : "Submitting Proof..."
-                : submitButtonLabel}
-            </AppButton>
-            <p className="font-mono text-xs text-[#7f7f7f]">
-              {attachmentIds.length} attachment{attachmentIds.length === 1 ? "" : "s"} ready
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {canAcceptPreview ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e8e8e8] bg-[#fffaf5] p-3">
-          <div>
-            <h4 className="text-sm font-semibold text-[#0a0a0a]">Preview ready for review</h4>
-            <p className="mt-1 text-sm text-[#5f5f5f]">
-              Accepting locks this proof hash as the final version the freelancer can submit
-              on-chain.
-            </p>
-          </div>
-          <AppButton
-            type="button"
-            disabled={acceptingPreview}
-            onClick={() => void handleAcceptPreview()}
-            className="gap-2 disabled:opacity-60"
-          >
-            <Check className="h-4 w-4" />
-            {acceptingPreview ? "Accepting..." : "Accept as Final"}
-          </AppButton>
-        </div>
-      ) : null}
-
-      {canAnchorAcceptedPreview && acceptedSubmission ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e8e8e8] bg-[#f7fff9] p-3">
-          <div>
-            <h4 className="text-sm font-semibold text-[#0a0a0a]">Final proof accepted</h4>
-            <p className="mt-1 text-sm text-[#5f5f5f]">
-              Submit the accepted preview hash on-chain to start client release review.
-            </p>
-          </div>
-          <AppButton
-            type="button"
-            disabled={pending}
-            onClick={() => void handleRetry(acceptedSubmission)}
-            className="gap-2 disabled:opacity-60"
-          >
-            <Send className="h-4 w-4" />
-            {pending ? "Submitting On-Chain..." : "Submit Final On-Chain"}
-          </AppButton>
-        </div>
-      ) : null}
-
-      {canRequestRevision ? (
-        <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-3">
-          <div>
-            <h4 className="text-sm font-semibold text-[#0a0a0a]">Request revision</h4>
-            <p className="mt-1 text-sm text-[#5f5f5f]">
-              This creates a structured revision request and notifies the freelancer.
-            </p>
-          </div>
-          <Textarea
-            value={revisionReason}
-            disabled={requestingRevision}
-            onChange={(event) => setRevisionReason(event.target.value)}
-            placeholder="Short reason"
-            className="min-h-20 rounded-lg border-[#d8d8d8] bg-white"
-          />
-          <Textarea
-            value={requestedChanges}
-            disabled={requestingRevision}
-            onChange={(event) => setRequestedChanges(event.target.value)}
-            placeholder="Requested changes"
-            className="min-h-28 rounded-lg border-[#d8d8d8] bg-white"
-          />
-          <AttachmentUploader
-            value={revisionAttachments}
-            onChange={setRevisionAttachments}
-            disabled={requestingRevision}
-            ownerRole="client"
-          />
-          <AppButton
-            type="button"
-            disabled={requestingRevision || !requestedChanges.trim()}
-            onClick={() => void handleRequestRevision()}
-            className="gap-2 disabled:opacity-60"
-          >
-            <GitPullRequest className="h-4 w-4" />
-            {requestingRevision ? "Sending..." : "Request Revision"}
-          </AppButton>
-        </div>
-      ) : latestSubmittedSubmission &&
-        walletIdentity.isConnected &&
-        isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet) ? (
-        <p className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm text-[#5f5f5f]">
-          {activeRevision
-            ? "There is already an active revision request."
-            : revisionPolicy?.revisionPolicy === "none"
-              ? "This work does not allow revisions."
-              : revisionPolicy?.remainingRevisions === 0
-                ? "The revision limit has already been reached."
-                : escrow?.status === "funded" || escrow?.status === "submitted"
-                  ? "Revision request is unavailable."
-                  : "Revisions can be requested after submitted work is ready for review."}
-        </p>
-      ) : null}
-
-      {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-
-      {canViewProof && submissions === undefined ? (
-        <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
-          Loading proof submission...
-        </p>
-      ) : null}
-
-      {canViewProof && submissions !== undefined && !latestSubmission && !canSubmit ? (
-        <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
-          No proof submission has been saved for this escrow yet.
-        </p>
-      ) : null}
-
-      {latestSubmission ? (
-        <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Badge className="rounded-md bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]">
-              {getStatusLabel(latestSubmission.status)}
-            </Badge>
-            {latestSubmission.status === "anchor_failed" &&
-            (canSubmit || canAnchorAcceptedPreview) ? (
+              className="min-h-32 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+            />
+            <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
+              <AttachmentUploader
+                value={draftAttachments}
+                onChange={setDraftAttachments}
+                disabled={pending}
+                ownerRole="freelancer"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-6">
               <AppButton
                 type="button"
-                variant="secondary"
-                size="sm"
-                disabled={pending}
-                onClick={() => void handleRetry(latestSubmission)}
-                className="gap-2"
+                disabled={
+                  pending || isRevisionPolicyLoading || hasUploadingAttachment || !hasProofBody
+                }
+                onClick={() => void handleSubmit()}
+                className={cn("hr-v2-button-primary h-12 min-w-44 gap-2 rounded-none")}
               >
-                <RotateCcw className="h-4 w-4" />
-                Retry anchoring
-              </AppButton>
-            ) : null}
-          </div>
-          {latestSubmission.notes ? (
-            <p className="text-sm whitespace-pre-wrap text-[#3f3f3f]">{latestSubmission.notes}</p>
-          ) : null}
-          <AttachmentList attachments={latestSubmission.attachments ?? []} readOnly />
-          <dl className="grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-[#7f7f7f]">Proof hash</dt>
-              <dd className="font-mono text-xs break-all text-[#0a0a0a]">
-                {generatedPreview ?? "Pending"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[#7f7f7f]">Submitted</dt>
-              <dd className="text-[#0a0a0a]">{formatDate(latestSubmission.submittedAt)}</dd>
-            </div>
-            <div>
-              <dt className="text-[#7f7f7f]">Transaction</dt>
-              <dd className="font-mono text-xs break-all text-[#0a0a0a]">
-                {latestSubmission.stellarExpertUrl ? (
-                  <a href={latestSubmission.stellarExpertUrl} target="_blank" rel="noreferrer">
-                    {latestSubmission.transactionHash}
-                  </a>
+                {pending ? (
+                  <RotateCcw className="h-4 w-4 animate-spin" />
                 ) : (
-                  (latestSubmission.transactionHash ?? "Pending")
+                  <Send className="h-4 w-4" />
                 )}
-              </dd>
+                {pending
+                  ? canSubmitRevision
+                    ? "Submitting Revision..."
+                    : isPreviewEnabled
+                      ? "Submitting Review..."
+                      : "Submitting..."
+                  : submitButtonLabel}
+              </AppButton>
+              <div className="flex items-center gap-2 font-mono text-xs tracking-wider text-[#7f7f7f] uppercase">
+                <HighrableV2Bullet tone="muted" />
+                {attachmentIds.length} attachment{attachmentIds.length === 1 ? "" : "s"} ready
+              </div>
             </div>
-            <div>
-              <dt className="text-[#7f7f7f]">Hash</dt>
-              <dd className="font-mono text-xs text-[#0a0a0a]">
-                {latestSubmission.hashAlgorithm}/{latestSubmission.hashEncoding}
-              </dd>
+          </div>
+        ) : null}
+
+        {canAcceptPreview && (
+          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                  <Check className="h-4 w-4" />
+                  Work Ready for Review
+                </div>
+                <h4 className="text-xl font-semibold text-[#0a0a0a]">Deliverables Accepted</h4>
+                <p className="max-w-xl text-sm leading-relaxed text-[#5f5f5f]">
+                  The freelancer has submitted the work. Review the files below and accept to
+                  finalize the version for network recording.
+                </p>
+              </div>
+              <AppButton
+                type="button"
+                disabled={acceptingPreview}
+                onClick={() => void handleAcceptPreview()}
+                className="hr-v2-button-primary h-11 min-w-40 rounded-none"
+              >
+                {acceptingPreview ? "Accepting..." : "Accept as Final"}
+              </AppButton>
             </div>
-            <div>
-              <dt className="text-[#7f7f7f]">Deadline status</dt>
-              <dd className="text-[#0a0a0a]">
-                {latestSubmission.deadlineStatus?.replace(/_/g, " ") ?? "Not recorded"}
-              </dd>
+          </div>
+        )}
+
+        {canAnchorAcceptedPreview && acceptedSubmission && (
+          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#f7fff9]/40">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                  <Check className="h-4 w-4" />
+                  Work Finalized
+                </div>
+                <h4 className="text-xl font-semibold text-[#0a0a0a]">
+                  Ready for Network Recording
+                </h4>
+                <p className="max-w-xl text-sm leading-relaxed text-[#5f5f5f]">
+                  Work has been accepted. Finalize the details on the blockchain to move the escrow
+                  to the next stage.
+                </p>
+              </div>
+              <AppButton
+                type="button"
+                disabled={pending}
+                onClick={() => void handleRetry(acceptedSubmission)}
+                className="hr-v2-button-primary h-11 min-w-40 rounded-none"
+              >
+                {pending ? "Recording..." : "Finalize on Network"}
+              </AppButton>
             </div>
-          </dl>
-          {latestSubmission.anchorErrorMessage ? (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {latestSubmission.anchorErrorMessage}
-            </p>
-          ) : null}
+          </div>
+        )}
+
+        {canRequestRevision && (
+          <div className="space-y-6 border border-[#e8e8e8] p-6">
+            <div className="space-y-1">
+              <h4 className="text-lg font-semibold text-[#0a0a0a]">Request Revision</h4>
+              <p className="text-sm text-[#5f5f5f]">
+                Specify the required changes to help the freelancer improve the deliverables.
+              </p>
+            </div>
+            <div className="grid gap-4">
+              <Textarea
+                value={revisionReason}
+                disabled={requestingRevision}
+                onChange={(event) => setRevisionReason(event.target.value)}
+                placeholder="Short reason (e.g., Code Style, Missing Assets)"
+                className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-[#FF7003]/30"
+              />
+              <Textarea
+                value={requestedChanges}
+                disabled={requestingRevision}
+                onChange={(event) => setRequestedChanges(event.target.value)}
+                placeholder="Detailed change requests..."
+                className="min-h-28 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+              />
+            </div>
+            <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
+              <AttachmentUploader
+                value={revisionAttachments}
+                onChange={setRevisionAttachments}
+                disabled={requestingRevision}
+                ownerRole="client"
+              />
+            </div>
+            <AppButton
+              type="button"
+              disabled={requestingRevision || !requestedChanges.trim()}
+              onClick={() => void handleRequestRevision()}
+              className="hr-v2-button-primary h-11 min-w-44 gap-2 rounded-none"
+            >
+              {requestingRevision ? (
+                <RotateCcw className="h-4 w-4 animate-spin" />
+              ) : (
+                <GitPullRequest className="h-4 w-4" />
+              )}
+              {requestingRevision ? "Sending..." : "Request Revision"}
+            </AppButton>
+          </div>
+        )}
+      </div>
+
+      {error ? (
+        <div className="border-l-4 border-red-500 bg-red-50 p-4 text-sm font-medium text-red-800">
+          {error}
         </div>
       ) : null}
 
-      {revisionTimeline && revisionTimeline.length > 0 ? (
-        <div className="space-y-2 rounded-lg border border-[#e8e8e8] bg-white p-3">
-          <h4 className="text-sm font-semibold text-[#0a0a0a]">Revision Timeline</h4>
-          {revisionTimeline.map((event) => (
-            <div
-              key={`${event.kind}-${event.at}-${
-                event.submission?._id ?? event.revision?._id ?? "event"
-              }`}
-              className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Badge variant="secondary" className="rounded-md">
-                  {event.kind === "submission"
-                    ? event.submission?.revisionRequestId
-                      ? "revised submission"
-                      : "original submission"
-                    : "revision request"}
-                </Badge>
-                <span className="text-xs text-[#7f7f7f]">{formatDate(event.at)}</span>
-              </div>
-              {event.kind === "submission" ? (
-                <p className="mt-2 font-mono text-xs break-all text-[#0a0a0a]">
-                  {event.submission?.proofHash ?? "Proof hash pending"}
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-[#3f3f3f]">
-                  Revision #{event.revision?.revisionNumber}: {event.revision?.requestedChanges}
-                </p>
-              )}
-            </div>
-          ))}
+      <section className="space-y-6 border-t border-[#e8e8e8] pt-10">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <SectionLabel>Delivery Details</SectionLabel>
+            <h2 className="text-xl font-semibold text-[#0a0a0a]">Submission Feed</h2>
+          </div>
         </div>
-      ) : null}
-    </section>
+
+        {canViewProof && submissions === undefined ? (
+          <div className="grid gap-4">
+            {[0, 1].map((item) => (
+              <div key={item} className="h-32 animate-pulse border border-[#e8e8e8] bg-gray-50" />
+            ))}
+          </div>
+        ) : latestSubmission ? (
+          <div className="space-y-8">
+            <article className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-4">
+                <div className="flex items-center gap-3">
+                  <Badge className="rounded-none bg-[#0a0a0a] px-3 py-1 text-[10px] font-bold tracking-widest text-white uppercase">
+                    {getStatusLabel(latestSubmission.status)}
+                  </Badge>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    Submitted {formatDate(latestSubmission.submittedAt)}
+                  </span>
+                </div>
+                {latestSubmission.status === "anchor_failed" &&
+                  (canSubmit || canAnchorAcceptedPreview) && (
+                    <AppButton
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => void handleRetry(latestSubmission)}
+                      className="gap-2 rounded-none border-[#e8e8e8] hover:bg-[#0a0a0a] hover:text-white"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry network recording
+                    </AppButton>
+                  )}
+              </div>
+
+              <div className="space-y-4">
+                {latestSubmission.notes && (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-[#5f5f5f]">
+                    {latestSubmission.notes}
+                  </p>
+                )}
+
+                <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
+                  <AttachmentList attachments={latestSubmission.attachments ?? []} readOnly />
+                </div>
+
+                <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2 font-mono text-xs font-medium tracking-wider text-[#7f7f7f] uppercase">
+                  <span className="inline-flex items-center gap-2">
+                    <HighrableV2Bullet tone="muted" />
+                    Status: {latestSubmission.deadlineStatus?.replace(/_/g, " ") ?? "Unknown"}
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <HighrableV2Bullet tone="muted" />
+                    Verify:{" "}
+                    {latestSubmission.stellarExpertUrl ? (
+                      <a
+                        href={latestSubmission.stellarExpertUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#FF7003] hover:underline"
+                      >
+                        Stellar Explorer
+                        <ArrowUpRight className="ml-0.5 inline h-3 w-3" />
+                      </a>
+                    ) : (
+                      "Pending network confirm"
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {latestSubmission.anchorErrorMessage ? (
+                <div className="mt-4 border-l-4 border-red-500 bg-red-50 p-4 text-xs text-red-800">
+                  Network error: {latestSubmission.anchorErrorMessage}
+                </div>
+              ) : null}
+            </article>
+
+            {revisionTimeline && revisionTimeline.length > 0 && (
+              <div className="space-y-4">
+                <SectionLabel>History & Revisions</SectionLabel>
+                <div className="border-y border-[#e8e8e8]">
+                  {revisionTimeline.map((event) => (
+                    <div
+                      key={`${event.kind}-${event.at}-${event.submission?._id ?? event.revision?._id ?? "event"}`}
+                      className="border-b border-[#e8e8e8] px-1 py-5 last:border-b-0"
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="secondary"
+                              className="rounded-none border-[#e8e8e8] text-[10px] font-bold tracking-widest uppercase"
+                            >
+                              {event.kind === "submission"
+                                ? event.submission?.revisionRequestId
+                                  ? "revised version"
+                                  : "original version"
+                                : "change request"}
+                            </Badge>
+                            <span className="font-mono text-[11px] font-medium text-gray-500">
+                              {formatDate(event.at)}
+                            </span>
+                          </div>
+                        </div>
+                        {event.kind !== "submission" && (
+                          <div className="space-y-2">
+                            <h5 className="text-sm font-bold text-[#0a0a0a]">
+                              Revision #{event.revision?.revisionNumber}
+                            </h5>
+                            <p className="text-sm leading-relaxed text-[#5f5f5f]">
+                              {event.revision?.requestedChanges}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="border border-dashed border-[#e8e8e8] bg-white p-12 text-center">
+            <p className="text-sm text-[#7f7f7f]">No deliverables have been submitted yet.</p>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -846,21 +950,24 @@ export function WorkProofSubmissionPanel({
   const isReleased = escrow?.status === "released" || job.status === "completed";
 
   return (
-    <section className="border border-[#e8e8e8] bg-white p-3" aria-label="Work submission">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className={cn(V2_PANEL_CLASS, "bg-white p-4")} aria-label="Work submission">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <FileCheck2 className="h-4 w-4 text-[#FF7003]" aria-hidden="true" />
-            <h3 className="text-sm font-semibold text-[#0a0a0a]">
+            <h3 className="text-sm font-bold tracking-wider text-[#0a0a0a] uppercase">
               {isReleased ? "Final work" : "Work submission"}
             </h3>
             {latestSubmission ? (
-              <Badge variant="secondary" className="rounded-none">
+              <Badge
+                variant="secondary"
+                className="rounded-none text-[10px] tracking-wider uppercase"
+              >
                 {getStatusLabel(latestSubmission.status)}
               </Badge>
             ) : null}
           </div>
-          <p className="text-sm text-[#5f5f5f]">{summary}</p>
+          <p className={cn("text-sm", V2_THEME.colors.textMuted)}>{summary}</p>
         </div>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
@@ -868,21 +975,26 @@ export function WorkProofSubmissionPanel({
               type="button"
               variant={isReleased ? "default" : "outline"}
               disabled={!escrow?.escrowId || !walletIdentity.isConnected}
-              className="shrink-0 rounded-none disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(
+                "shrink-0 rounded-none disabled:cursor-not-allowed disabled:opacity-60",
+                isReleased ? V2_BUTTON_PRIMARY_CLASS : V2_BUTTON_SECONDARY_CLASS,
+              )}
               aria-label={buttonLabel}
             >
               <Eye className="mr-2 h-4 w-4" />
               {buttonLabel}
             </AppButton>
           </DialogTrigger>
-          <DialogContent className="max-h-[90svh] overflow-y-auto rounded-none sm:max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>{isReleased ? "Final Work" : "Work Submission"}</DialogTitle>
-              <DialogDescription>
-                Submit, review, revise, and download deliverables for this escrow.
+          <DialogContent className="max-h-[95svh] overflow-y-auto rounded-none border-none shadow-2xl sm:max-w-4xl">
+            <DialogHeader className="border-b border-[#e8e8e8] pb-4">
+              <DialogTitle className="text-xl font-bold tracking-widest uppercase">
+                {isReleased ? "Final Work" : "Work Submission"}
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                Submit, review, and manage project deliverables.
               </DialogDescription>
             </DialogHeader>
-            <div className="border-t border-[#e8e8e8] pt-4">
+            <div className="pt-6">
               <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
             </div>
           </DialogContent>

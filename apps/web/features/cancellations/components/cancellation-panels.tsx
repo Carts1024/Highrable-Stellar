@@ -43,14 +43,9 @@ export function CancellationEligibilityNotice({ eligibility }: ICancellationNoti
         {eligibility.blocked ? "Cancellation blocked" : "Cancellation eligibility checked"}
       </p>
       {eligibility.reason ? <p className="mt-1">{eligibility.reason}</p> : null}
-      {eligibility.latestProof?.proofHash ? (
-        <p className="mt-2 font-mono text-xs break-all">
-          Proof hash: {eligibility.latestProof.proofHash}
-        </p>
-      ) : null}
       {eligibility.latestProof?.submittedAt ? (
-        <p className="mt-1 text-xs">
-          Proof submitted: {new Date(eligibility.latestProof.submittedAt).toLocaleString()}
+        <p className="mt-2 text-xs">
+          Work submitted: {new Date(eligibility.latestProof.submittedAt).toLocaleString()}
         </p>
       ) : null}
       {eligibility.warnings.length > 0 ? (

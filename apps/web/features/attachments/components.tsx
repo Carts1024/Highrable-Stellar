@@ -236,8 +236,8 @@ export function AttachmentPreviewCard({
   return (
     <div
       className={cn(
-        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background py-3 last:border-b-0",
-        isFailed ? "bg-red-50/60 px-3" : undefined,
+        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b border-border bg-background px-4 py-4 last:border-b-0",
+        isFailed ? "bg-red-50/60" : undefined,
       )}
     >
       <div className="hr-surface-muted hr-text-primary flex h-10 w-10 shrink-0 items-center justify-center border border-border">
@@ -337,7 +337,7 @@ export function AttachmentPreviewCard({
 export function AttachmentList({ attachments, readOnly = false, onRemove }: IAttachmentListProps) {
   if (attachments.length === 0) {
     return (
-      <div className="hr-text-secondary flex items-center gap-2 border-y border-dashed border-border py-3 text-sm">
+      <div className="hr-text-secondary flex items-center gap-2 border-y border-dashed border-border px-4 py-4 text-sm">
         <HighrableV2Bullet tone="muted" aria-hidden="true" />
         <span>No attachments added.</span>
       </div>

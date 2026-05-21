@@ -71,14 +71,14 @@ export function SafetyInfoDisclosure({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[380px] max-w-[90vw] p-0 shadow-xl border-amber-100"
+        className="w-[380px] max-w-[90vw] border-amber-100 p-0 shadow-xl"
         side="bottom"
         align="end"
         sideOffset={8}
       >
         <div className="flex flex-col">
           <header className="border-b border-amber-100 bg-amber-50/50 px-4 py-2.5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900/70">
+            <h3 className="text-xs font-bold tracking-wider text-amber-900/70 uppercase">
               Safety & Security Notices ({validChildren.length})
             </h3>
           </header>
@@ -87,7 +87,7 @@ export function SafetyInfoDisclosure({
               {validChildren.map((child, index) => (
                 <div
                   key={`notice-${index}`}
-                  className="animate-in fade-in slide-in-from-top-1 duration-200"
+                  className="animate-in duration-200 fade-in slide-in-from-top-1"
                 >
                   {child}
                 </div>
