@@ -98,10 +98,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const showPendingSyncState =
     hasReleasedCompletion && mergedEscrow?.status === "released" && !reputationRecord;
   const safetyStatus = getJobSafetyStatus({ job, escrow: mergedEscrow });
+  const isConnectedClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const isSelectedConnectedFreelancer = isSameWallet(
     walletIdentity.walletAddress,
     job.selectedFreelancerWallet,
   );
+  const canViewAgreementPanel = isConnectedClient || isSelectedConnectedFreelancer;
   const scamAnalysis = analyzeJobScamSignals({
     title: job.title,
     description: job.description,
@@ -284,10 +286,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       <ClientTrustCard clientWallet={job.clientWallet} />
 
-      <WorkAgreementSetupPanel
-        jobId={convexJobId}
-        {...(mergedEscrow?._id ? { escrowId: mergedEscrow._id } : {})}
-      />
+      {canViewAgreementPanel ? (
+        <WorkAgreementSetupPanel
+          jobId={convexJobId}
+          {...(mergedEscrow?._id ? { escrowId: mergedEscrow._id } : {})}
+        />
+      ) : null}
 
       {!isMilestoneProject ? (
         <>

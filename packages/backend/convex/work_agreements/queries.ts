@@ -4,6 +4,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
+import { ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
 import { serializeAttachmentForViewer } from "../attachments/helpers";
 import { walletTypeValidator } from "../users/schema";
@@ -19,6 +20,7 @@ import {
   getAcceptedAgreementForJob,
   getActiveAgreementByJob,
   getAgreementOrThrow,
+  getCurrentAgreementByJob,
   resolveAgreementContextForParent,
   hasAcceptedAgreement as hasAcceptedAgreementForJob,
   requiresAcceptedAgreement as requiresAcceptedAgreementForParent,
@@ -97,11 +99,18 @@ export const getWorkAgreementByJob = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const agreement = await getActiveAgreementByJob(ctx, args.jobId);
+    const agreement = await getCurrentAgreementByJob(ctx, args.jobId);
     if (!agreement) {
       return null;
     }
-    return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
+    try {
+      return await serializeAgreementForViewer(ctx, agreement, args.viewerWallet);
+    } catch (error) {
+      if (!(error instanceof ForbiddenError) && !(error instanceof NotFoundError)) {
+        throw error;
+      }
+      return null;
+    }
   },
 });
 

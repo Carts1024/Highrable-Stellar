@@ -1,3 +1,5 @@
+import sanitizeHtml from "sanitize-html";
+
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { TWalletType } from "../users/schema";
@@ -21,10 +23,14 @@ import { createSystemMessageForEvent } from "../conversations/helpers";
 const EDITABLE_STATUSES = new Set<TAgreementStatus>(["draft", "pending_preview", "ready_to_send"]);
 const PREPARED_STATUSES = new Set<TAgreementStatus>(["draft", "pending_preview", "ready_to_send"]);
 const ACCEPTED_STATUSES = new Set<TAgreementStatus>(["accepted", "locked"]);
+const NON_BLOCKING_STATUSES = new Set<TAgreementStatus>(["rejected", "cancelled", "superseded"]);
 const AGREEMENT_FILE_TYPES = new Set(["pdf", "document", "markdown", "file"]);
 const DEFAULT_STABLECOIN_SYMBOL = "USDC";
 const DEFAULT_STABLECOIN_DECIMALS = 7;
 const NATIVE_XLM_DECIMALS = 7;
+const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
+const AGREEMENT_ALLOWED_HEADER_LEVELS = [1, 2] as const;
+const AGREEMENT_ALLOWED_LIST_TYPES = ["ordered", "bullet"] as const;
 const REQUIRED_DISCLAIMER =
   "This Highrable-generated agreement is provided as a workflow template and is not legal advice. For high-value, regulated, or jurisdiction-specific work, both parties should consult a qualified professional.";
 
@@ -90,6 +96,7 @@ export interface IAgreementImmutableSnapshot extends IAgreementSnapshot {
   freelancerWallet: string;
   freelancerWalletType: TWalletType;
   contentMarkdown?: string;
+  contentDelta?: string;
   contentHtml?: string;
   sourceAttachment?: {
     attachmentId: string;
@@ -103,6 +110,42 @@ export interface IAgreementImmutableSnapshot extends IAgreementSnapshot {
     fileHashTodo?: string;
   };
   acceptedAt: number;
+}
+
+export interface IAgreementRichTextInput {
+  delta: string;
+  html: string;
+  text: string;
+}
+
+export interface IAgreementRichTextValue {
+  contentDelta: string;
+  contentHtml: string;
+}
+
+type TAgreementInlineAttributes = {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  link?: string;
+};
+
+type TAgreementBlockAttributes = {
+  blockquote?: boolean;
+  list?: (typeof AGREEMENT_ALLOWED_LIST_TYPES)[number];
+  header?: (typeof AGREEMENT_ALLOWED_HEADER_LEVELS)[number];
+};
+
+type TAgreementRichTextAttributes = TAgreementInlineAttributes & TAgreementBlockAttributes;
+
+interface IAgreementRichTextOperation {
+  insert: string;
+  attributes?: TAgreementRichTextAttributes;
+}
+
+interface IAgreementRichTextDelta {
+  ops: IAgreementRichTextOperation[];
 }
 
 type TAgreementSource = {
@@ -122,6 +165,279 @@ function sanitizeTitle(value: string): string {
     throw new BadRequestError("Agreement title is too short.");
   }
   return title;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function isAllowedHeaderLevel(value: unknown): value is 1 | 2 {
+  return AGREEMENT_ALLOWED_HEADER_LEVELS.includes(value as 1 | 2);
+}
+
+function isAllowedListType(value: unknown): value is "ordered" | "bullet" {
+  return AGREEMENT_ALLOWED_LIST_TYPES.includes(value as "ordered" | "bullet");
+}
+
+function normalizeAgreementLink(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  if (trimmedValue.startsWith("mailto:")) {
+    try {
+      const mailtoUrl = new URL(trimmedValue);
+      return mailtoUrl.protocol === "mailto:" ? mailtoUrl.toString() : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  const candidateValue =
+    /^https?:\/\//i.test(trimmedValue) || /^[a-z][a-z0-9+.-]*:/i.test(trimmedValue)
+      ? trimmedValue
+      : `https://${trimmedValue}`;
+
+  try {
+    const url = new URL(candidateValue);
+    if (url.protocol === "http:" || url.protocol === "https:" || url.protocol === "mailto:") {
+      return url.toString();
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function normalizeAgreementRichTextAttributes(
+  value: unknown,
+  { isLineBreak }: { isLineBreak: boolean },
+): TAgreementRichTextAttributes | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const allowedAttributeKeys = new Set([
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "link",
+    "blockquote",
+    "list",
+    "header",
+  ]);
+  const unsupportedAttribute = Object.keys(value).find((key) => !allowedAttributeKeys.has(key));
+  if (unsupportedAttribute) {
+    throw new BadRequestError("Agreement content contains unsupported formatting.");
+  }
+
+  const attributes: TAgreementRichTextAttributes = {};
+
+  if (value.bold !== undefined && value.bold !== true) {
+    throw new BadRequestError("Agreement content contains invalid bold formatting.");
+  }
+  if (value.italic !== undefined && value.italic !== true) {
+    throw new BadRequestError("Agreement content contains invalid italic formatting.");
+  }
+  if (value.underline !== undefined && value.underline !== true) {
+    throw new BadRequestError("Agreement content contains invalid underline formatting.");
+  }
+  if (value.strike !== undefined && value.strike !== true) {
+    throw new BadRequestError("Agreement content contains invalid strikethrough formatting.");
+  }
+
+  if (value.bold === true) attributes.bold = true;
+  if (value.italic === true) attributes.italic = true;
+  if (value.underline === true) attributes.underline = true;
+  if (value.strike === true) attributes.strike = true;
+
+  const normalizedLink = normalizeAgreementLink(value.link);
+  if (value.link !== undefined && !normalizedLink) {
+    throw new BadRequestError("Agreement content contains an invalid link.");
+  }
+  if (normalizedLink) {
+    attributes.link = normalizedLink;
+  }
+
+  if (isLineBreak) {
+    if (value.blockquote !== undefined && value.blockquote !== true) {
+      throw new BadRequestError("Agreement content contains invalid quote formatting.");
+    }
+    if (value.blockquote === true) {
+      attributes.blockquote = true;
+    }
+    if (isAllowedListType(value.list)) {
+      attributes.list = value.list;
+    }
+    if (isAllowedHeaderLevel(value.header)) {
+      attributes.header = value.header;
+    }
+    if (value.list !== undefined && !isAllowedListType(value.list)) {
+      throw new BadRequestError("Agreement content contains an invalid list format.");
+    }
+    if (value.header !== undefined && !isAllowedHeaderLevel(value.header)) {
+      throw new BadRequestError("Agreement content contains an invalid heading format.");
+    }
+  } else if (
+    value.blockquote !== undefined ||
+    value.list !== undefined ||
+    value.header !== undefined
+  ) {
+    throw new BadRequestError("Agreement content contains an invalid block format.");
+  }
+
+  return Object.keys(attributes).length > 0 ? attributes : undefined;
+}
+
+function normalizeAgreementRichTextOperation(value: unknown): IAgreementRichTextOperation {
+  if (!isRecord(value) || typeof value.insert !== "string") {
+    throw new BadRequestError("Agreement content contains an unsupported rich text block.");
+  }
+
+  const insert = value.insert.replace(/\r\n?/g, "\n");
+  if (!insert) {
+    throw new BadRequestError("Agreement content contains an empty rich text block.");
+  }
+
+  const attributes = normalizeAgreementRichTextAttributes(value.attributes, {
+    isLineBreak: insert === "\n",
+  });
+
+  if (
+    insert !== "\n" &&
+    attributes &&
+    ("blockquote" in attributes || "list" in attributes || "header" in attributes)
+  ) {
+    throw new BadRequestError("Agreement content contains an invalid block format.");
+  }
+
+  return attributes ? { insert, attributes } : { insert };
+}
+
+function normalizeAgreementRichTextDelta(value: string): IAgreementRichTextDelta {
+  let parsedValue: unknown;
+  try {
+    parsedValue = JSON.parse(value);
+  } catch {
+    throw new BadRequestError("Agreement content contains malformed rich text.");
+  }
+
+  if (!isRecord(parsedValue) || !Array.isArray(parsedValue.ops)) {
+    throw new BadRequestError("Agreement content is missing rich text operations.");
+  }
+
+  const ops = parsedValue.ops.map((operation) => normalizeAgreementRichTextOperation(operation));
+  if (ops.length === 0) {
+    throw new BadRequestError("Agreement content is missing rich text operations.");
+  }
+
+  const lastOperation = ops[ops.length - 1];
+  if (!lastOperation || lastOperation.insert !== "\n") {
+    ops.push({ insert: "\n" });
+  }
+
+  return { ops };
+}
+
+function getAgreementTextFromDelta(delta: IAgreementRichTextDelta): string {
+  return delta.ops.map((operation) => operation.insert).join("");
+}
+
+function normalizeAgreementPlainText(value: string): string {
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+}
+
+function sanitizeAgreementHtml(value: string): string {
+  const transformAnchorTag = (
+    tagName: string,
+    attribs: Record<string, string>,
+  ): { tagName: string; attribs: Record<string, string> } => {
+    const normalizedHref = normalizeAgreementLink(attribs.href);
+    return {
+      tagName,
+      attribs: {
+        ...(normalizedHref ? { href: normalizedHref } : {}),
+        target: "_blank",
+        rel: "noopener noreferrer",
+      },
+    };
+  };
+
+  return sanitizeHtml(value, {
+    allowedTags: [
+      "p",
+      "br",
+      "strong",
+      "em",
+      "u",
+      "s",
+      "a",
+      "blockquote",
+      "ol",
+      "ul",
+      "li",
+      "h1",
+      "h2",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: transformAnchorTag,
+    },
+  }).trim();
+}
+
+export function normalizeAgreementRichText(
+  value: IAgreementRichTextInput | undefined,
+): IAgreementRichTextValue | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalizedDelta = normalizeAgreementRichTextDelta(value.delta);
+  const deltaText = normalizeAgreementPlainText(getAgreementTextFromDelta(normalizedDelta));
+  const providedText = normalizeAgreementPlainText(value.text);
+  const normalizedText = deltaText || providedText;
+
+  if (!normalizedText) {
+    return undefined;
+  }
+  if (normalizedText.length > AGREEMENT_CONTENT_MAX_LENGTH) {
+    throw new BadRequestError(
+      `Agreement content must be ${AGREEMENT_CONTENT_MAX_LENGTH} characters or fewer.`,
+    );
+  }
+
+  const sanitizedHtml = sanitizeAgreementHtml(value.html);
+  if (!sanitizedHtml) {
+    throw new BadRequestError("Agreement content contains no supported rich text.");
+  }
+
+  return {
+    contentDelta: JSON.stringify(normalizedDelta),
+    contentHtml: sanitizedHtml,
+  };
 }
 
 function getStablecoinDecimals(): number {
@@ -211,7 +527,23 @@ export async function getActiveAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) 
 
   return (
     agreements
-      .filter((agreement) => agreement.status !== "cancelled")
+      .filter((agreement) => !NON_BLOCKING_STATUSES.has(agreement.status))
+      .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
+  );
+}
+
+export async function getCurrentAgreementByJob(ctx: QueryCtx, jobId: Id<"jobs">) {
+  const active = await getActiveAgreementByJob(ctx, jobId);
+  if (active) return active;
+
+  const agreements = await ctx.db
+    .query("workAgreements")
+    .withIndex("by_job", (q) => q.eq("jobId", jobId))
+    .collect();
+
+  return (
+    agreements
+      .filter((agreement) => agreement.status === "rejected")
       .sort((left, right) => right.updatedAt - left.updatedAt)[0] ?? null
   );
 }
@@ -279,6 +611,21 @@ export async function assertCanEditWorkAgreement(
         ? "Accepted agreements cannot be edited directly."
         : "This agreement draft can no longer be modified.",
     );
+  }
+  return { agreement, walletAddress };
+}
+
+export async function assertCanRecoverRejectedAgreement(
+  ctx: QueryCtx,
+  input: { agreementId: Id<"workAgreements">; walletAddress: string },
+) {
+  const agreement = await getAgreementOrThrow(ctx, input.agreementId);
+  const walletAddress = normalizeWalletAddress(input.walletAddress);
+  if (!isSameWallet(agreement.clientWallet, walletAddress)) {
+    throw new ForbiddenError("Only the client can recover this rejected agreement.");
+  }
+  if (agreement.status !== "rejected") {
+    throw new BadRequestError("Only rejected agreements can use this recovery action.");
   }
   return { agreement, walletAddress };
 }
@@ -676,6 +1023,75 @@ export function renderHighrableAgreementMarkdown(snapshot: IAgreementSnapshot): 
   ].join("\n");
 }
 
+export function renderAgreementMarkdownAsRichText(markdown: string): IAgreementRichTextValue {
+  const ops: IAgreementRichTextOperation[] = [];
+  const htmlParts: string[] = [];
+  let activeList: "ul" | null = null;
+
+  const closeList = () => {
+    if (activeList) {
+      htmlParts.push(`</${activeList}>`);
+      activeList = null;
+    }
+  };
+
+  for (const rawLine of markdown.replace(/\r\n?/g, "\n").split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      ops.push({ insert: "\n" });
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      closeList();
+      const text = line.slice(2).trim();
+      ops.push({ insert: text }, { insert: "\n", attributes: { header: 1 } });
+      htmlParts.push(`<h1>${escapeHtml(text)}</h1>`);
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      closeList();
+      const text = line.slice(3).trim();
+      ops.push({ insert: text }, { insert: "\n", attributes: { header: 2 } });
+      htmlParts.push(`<h2>${escapeHtml(text)}</h2>`);
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      closeList();
+      const text = line.slice(4).trim();
+      ops.push({ insert: text, attributes: { bold: true } }, { insert: "\n" });
+      htmlParts.push(`<p><strong>${escapeHtml(text)}</strong></p>`);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      const text = line.slice(2).trim();
+      if (!activeList) {
+        activeList = "ul";
+        htmlParts.push("<ul>");
+      }
+      ops.push({ insert: text }, { insert: "\n", attributes: { list: "bullet" } });
+      htmlParts.push(`<li>${escapeHtml(text)}</li>`);
+      continue;
+    }
+
+    closeList();
+    ops.push({ insert: line }, { insert: "\n" });
+    htmlParts.push(`<p>${escapeHtml(line)}</p>`);
+  }
+
+  closeList();
+
+  return normalizeAgreementRichText({
+    delta: JSON.stringify({ ops }),
+    html: htmlParts.join(""),
+    text: markdown,
+  })!;
+}
+
 export async function validateAgreementSourceAttachment(
   ctx: QueryCtx,
   input: {
@@ -798,6 +1214,7 @@ export function buildAgreementVersionFromAgreement(
     status: status ?? agreement.status,
     agreementType: agreement.agreementType,
     ...(agreement.contentMarkdown ? { contentMarkdown: agreement.contentMarkdown } : {}),
+    ...(agreement.contentDelta ? { contentDelta: agreement.contentDelta } : {}),
     ...(agreement.contentHtml ? { contentHtml: agreement.contentHtml } : {}),
     ...(agreement.sourceAttachmentId ? { sourceAttachmentId: agreement.sourceAttachmentId } : {}),
     ...(agreement.immutableSnapshot ? { immutableSnapshot: agreement.immutableSnapshot } : {}),
@@ -920,9 +1337,16 @@ export async function hashAgreementManifest(manifest: unknown): Promise<string> 
 }
 
 async function hashAgreementContent(agreement: Doc<"workAgreements">): Promise<string | undefined> {
-  const content = agreement.contentMarkdown ?? agreement.contentHtml;
-  if (!content) return undefined;
-  return await hashAgreementManifest({ content });
+  if (!agreement.contentDelta && !agreement.contentHtml && !agreement.contentMarkdown) {
+    return undefined;
+  }
+  return await hashAgreementManifest({
+    content: {
+      ...(agreement.contentDelta ? { delta: agreement.contentDelta } : {}),
+      ...(agreement.contentHtml ? { html: agreement.contentHtml } : {}),
+      ...(agreement.contentMarkdown ? { markdown: agreement.contentMarkdown } : {}),
+    },
+  });
 }
 
 export async function buildAgreementImmutableSnapshot(
@@ -968,6 +1392,7 @@ export async function buildAgreementImmutableSnapshot(
     freelancerWallet: agreement.freelancerWallet,
     freelancerWalletType: input.freelancerWalletType,
     ...(agreement.contentMarkdown ? { contentMarkdown: agreement.contentMarkdown } : {}),
+    ...(agreement.contentDelta ? { contentDelta: agreement.contentDelta } : {}),
     ...(agreement.contentHtml ? { contentHtml: agreement.contentHtml } : {}),
     ...(sourceAttachment
       ? {
@@ -1068,12 +1493,18 @@ export async function assertCanSendAgreement(
   if (!job) {
     throw new NotFoundError("Job not found.");
   }
-  if (!job.selectedFreelancerWallet || !agreement.freelancerWallet) {
+  if (!job.selectedFreelancerWallet) {
     throw new BadRequestError("Select a freelancer before sending the agreement.");
+  }
+  const freelancerWallet = normalizeWalletAddress(job.selectedFreelancerWallet);
+  if (agreement.freelancerWallet && !isSameWallet(agreement.freelancerWallet, freelancerWallet)) {
+    throw new BadRequestError(
+      "This agreement is assigned to a different freelancer. Create a new agreement for the selected freelancer.",
+    );
   }
   const freelancerUser = await ctx.db
     .query("users")
-    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", agreement.freelancerWallet!))
+    .withIndex("by_walletAddress", (q) => q.eq("walletAddress", freelancerWallet))
     .first();
   const freelancerWalletType = agreement.freelancerWalletType ?? freelancerUser?.walletType;
   if (!freelancerWalletType) {
@@ -1091,7 +1522,7 @@ export async function assertCanSendAgreement(
   if (agreement.agreementType === "client_uploaded" && !agreement.sourceAttachmentId) {
     throw new BadRequestError("Agreement must be previewed before sending.");
   }
-  return { agreement, job, walletAddress, freelancerWalletType };
+  return { agreement, job, walletAddress, freelancerWallet, freelancerWalletType };
 }
 
 export async function assertCanAcceptAgreement(
@@ -1502,13 +1933,16 @@ export function buildBaseAgreementFields(input: {
 export function sanitizeAgreementUpdate(input: {
   title?: string;
   contentMarkdown?: string;
+  content?: IAgreementRichTextInput;
   metadata?: unknown;
 }) {
+  const richText = normalizeAgreementRichText(input.content);
   return {
     ...(input.title !== undefined ? { title: sanitizeTitle(input.title) } : {}),
     ...(input.contentMarkdown !== undefined
       ? { contentMarkdown: optionalNonEmptyString(input.contentMarkdown, "contentMarkdown") }
       : {}),
+    ...(richText ? richText : {}),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   };
 }

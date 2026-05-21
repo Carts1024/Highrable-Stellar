@@ -10,6 +10,8 @@ import {
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { RichTextContent } from "@repo/ui/components/ui-customs/rich-text-content";
+import { RichTextEditor } from "@repo/ui/components/ui-customs/rich-text-editor";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
@@ -30,7 +32,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { TAttachmentType } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -51,10 +53,21 @@ type TAgreementStatus =
   | "cancelled";
 
 type TWorkAgreement = TConvexDoc<"workAgreements"> & {
+  contentDelta?: string;
+  contentHtml?: string;
+  contentMarkdown?: string;
   sourceAttachment?: (TConvexDoc<"attachments"> & { url?: string | null }) | null;
+};
+type TAgreementRichTextInput = {
+  delta: string;
+  html: string;
+  text: string;
 };
 type TAgreementVersion = Omit<TConvexDoc<"workAgreementVersions">, "_id"> & {
   _id?: TConvexId<"workAgreementVersions"> | null;
+  contentDelta?: string;
+  contentHtml?: string;
+  contentMarkdown?: string;
 };
 type TAgreementContext = {
   agreement: TWorkAgreement;
@@ -67,6 +80,7 @@ type TAgreementContext = {
 
 const AGREEMENT_ACCEPT =
   "application/pdf,text/markdown,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
 
 function getReadableError(error: unknown, fallback: string): string {
   return getReadableAttachmentError(error, fallback);
@@ -85,6 +99,120 @@ function getAgreementStatusLabel(status?: TAgreementStatus): string {
     cancelled: "Cancelled",
   };
   return status ? labels[status] : "No agreement";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getPlainTextFromMarkdown(markdown: string | undefined): string {
+  return (markdown ?? "")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/^-\s+/gm, "")
+    .replace(/\u00a0/g, " ")
+    .trim();
+}
+
+function getPlainTextFromHtml(html: string | undefined): string {
+  if (!html) return "";
+  if (typeof window === "undefined") {
+    return html
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  const element = document.createElement("div");
+  element.innerHTML = html;
+  return (element.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function getAgreementRichTextValue(agreement: TWorkAgreement): TAgreementRichTextInput | undefined {
+  if (agreement.contentDelta && agreement.contentHtml) {
+    return {
+      delta: agreement.contentDelta,
+      html: agreement.contentHtml,
+      text:
+        getPlainTextFromMarkdown(agreement.contentMarkdown) ||
+        getPlainTextFromHtml(agreement.contentHtml),
+    };
+  }
+
+  if (!agreement.contentMarkdown) {
+    return undefined;
+  }
+
+  const ops: Array<{ insert: string; attributes?: Record<string, unknown> }> = [];
+  const htmlParts: string[] = [];
+  let activeList = false;
+
+  const closeList = () => {
+    if (activeList) {
+      htmlParts.push("</ul>");
+      activeList = false;
+    }
+  };
+
+  for (const rawLine of agreement.contentMarkdown.replace(/\r\n?/g, "\n").split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      closeList();
+      ops.push({ insert: "\n" });
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      closeList();
+      const text = line.slice(2).trim();
+      ops.push({ insert: text }, { insert: "\n", attributes: { header: 1 } });
+      htmlParts.push(`<h1>${escapeHtml(text)}</h1>`);
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      closeList();
+      const text = line.slice(3).trim();
+      ops.push({ insert: text }, { insert: "\n", attributes: { header: 2 } });
+      htmlParts.push(`<h2>${escapeHtml(text)}</h2>`);
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      closeList();
+      const text = line.slice(4).trim();
+      ops.push({ insert: text, attributes: { bold: true } }, { insert: "\n" });
+      htmlParts.push(`<p><strong>${escapeHtml(text)}</strong></p>`);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      const text = line.slice(2).trim();
+      if (!activeList) {
+        activeList = true;
+        htmlParts.push("<ul>");
+      }
+      ops.push({ insert: text }, { insert: "\n", attributes: { list: "bullet" } });
+      htmlParts.push(`<li>${escapeHtml(text)}</li>`);
+      continue;
+    }
+
+    closeList();
+    ops.push({ insert: line }, { insert: "\n" });
+    htmlParts.push(`<p>${escapeHtml(line)}</p>`);
+  }
+
+  closeList();
+
+  return {
+    delta: JSON.stringify({ ops }),
+    html: htmlParts.join(""),
+    text: getPlainTextFromMarkdown(agreement.contentMarkdown),
+  };
 }
 
 export function AgreementStatusBadge({ status }: { status?: TAgreementStatus }) {
@@ -391,6 +519,23 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
   );
 }
 
+function AgreementRichTextPreview({ agreement }: { agreement: TWorkAgreement }) {
+  if (agreement.contentHtml?.trim()) {
+    return (
+      <div className="max-h-[560px] overflow-auto rounded-lg border border-[#e8e8e8] bg-white p-4">
+        <RichTextContent
+          html={agreement.contentHtml}
+          fallbackText={getPlainTextFromMarkdown(agreement.contentMarkdown)}
+          emptyLabel="Agreement preview could not be generated. Please try again."
+          className="text-[#1f1f1f]"
+        />
+      </div>
+    );
+  }
+
+  return <AgreementMarkdownPreview markdown={agreement.contentMarkdown} />;
+}
+
 function AgreementSummaryCard({ agreement }: { agreement: TWorkAgreement }) {
   return (
     <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -619,6 +764,8 @@ export function AgreementChangeSummary({
     previousVersion.paymentAssetContractId !== proposedVersion.paymentAssetContractId
       ? "Payment terms changed"
       : null,
+    previousVersion.contentDelta !== proposedVersion.contentDelta ||
+    previousVersion.contentHtml !== proposedVersion.contentHtml ||
     previousVersion.contentMarkdown !== proposedVersion.contentMarkdown
       ? "Agreement text changed"
       : null,
@@ -709,7 +856,7 @@ export function AgreementExportButton({ agreement }: { readonly agreement: TWork
       walletAddress: walletIdentity.walletAddress,
       walletType: walletIdentity.walletType,
     });
-    const markdown = [
+    const metadata = [
       `# ${agreement.title}`,
       "",
       `Agreement version: ${agreement.version}`,
@@ -728,13 +875,35 @@ export function AgreementExportButton({ agreement }: { readonly agreement: TWork
       "## Disclaimer",
       "This Highrable-generated agreement is a workflow template and is not legal advice.",
       "",
-      agreement.contentMarkdown ?? "Client-uploaded agreement content is stored as an attachment.",
-    ].join("\n");
-    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    ];
+    const exportBody = agreement.contentHtml
+      ? [
+          "<!doctype html>",
+          '<html lang="en">',
+          "<head>",
+          '<meta charset="utf-8" />',
+          `<title>${escapeHtml(agreement.title)}</title>`,
+          "</head>",
+          "<body>",
+          `<pre>${escapeHtml(metadata.join("\n"))}</pre>`,
+          agreement.contentHtml,
+          "</body>",
+          "</html>",
+        ].join("\n")
+      : [
+          ...metadata,
+          agreement.contentMarkdown ??
+            "Client-uploaded agreement content is stored as an attachment.",
+        ].join("\n");
+    const blob = new Blob([exportBody], {
+      type: agreement.contentHtml ? "text/html;charset=utf-8" : "text/markdown;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${agreement.agreementNumber}-v${agreement.version}.md`;
+    link.download = `${agreement.agreementNumber}-v${agreement.version}.${
+      agreement.contentHtml ? "html" : "md"
+    }`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -743,7 +912,7 @@ export function AgreementExportButton({ agreement }: { readonly agreement: TWork
   return (
     <AppButton type="button" variant="secondary" onClick={() => void exportMarkdown()}>
       <Download className="mr-2 h-4 w-4" />
-      Export Markdown
+      Export Agreement
     </AppButton>
   );
 }
@@ -751,26 +920,61 @@ export function AgreementExportButton({ agreement }: { readonly agreement: TWork
 function AgreementActions({
   agreement,
   disabled,
+  canRevise = true,
   onRegenerate,
   onSend,
   onLock,
   onCancel,
+  onRevise,
+  onAbandon,
 }: {
   agreement: TWorkAgreement;
   disabled?: boolean;
+  canRevise?: boolean;
   onRegenerate: () => Promise<void>;
   onSend: () => Promise<void>;
   onLock: () => Promise<void>;
   onCancel: () => Promise<void>;
+  onRevise: () => Promise<void>;
+  onAbandon: () => Promise<void>;
 }) {
   const editable = agreement.status === "draft" || agreement.status === "pending_preview";
   const sendable =
     agreement.status === "draft" ||
     agreement.status === "pending_preview" ||
     agreement.status === "ready_to_send";
+  const cancellable =
+    agreement.status === "draft" ||
+    agreement.status === "pending_preview" ||
+    agreement.status === "ready_to_send" ||
+    agreement.status === "pending_acceptance" ||
+    agreement.status === "accepted";
 
   return (
     <div className="flex flex-wrap gap-2">
+      {agreement.status === "rejected" ? (
+        <>
+          <AppButton
+            type="button"
+            disabled={disabled || !canRevise}
+            onClick={() => void onRevise()}
+            className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Revise agreement
+          </AppButton>
+          <AppButton
+            type="button"
+            variant="secondary"
+            disabled={disabled}
+            onClick={() => void onAbandon()}
+            className="rounded-none"
+          >
+            <X className="mr-2 h-4 w-4" />
+            Abandon / choose another freelancer
+          </AppButton>
+        </>
+      ) : null}
       {editable && agreement.agreementType === "highrable_generated" ? (
         <AppButton
           type="button"
@@ -805,16 +1009,18 @@ function AgreementActions({
           Lock agreement
         </AppButton>
       ) : null}
-      <AppButton
-        type="button"
-        variant="secondary"
-        disabled={disabled}
-        onClick={() => void onCancel()}
-        className="rounded-none"
-      >
-        <X className="mr-2 h-4 w-4" />
-        Cancel
-      </AppButton>
+      {cancellable ? (
+        <AppButton
+          type="button"
+          variant="secondary"
+          disabled={disabled}
+          onClick={() => void onCancel()}
+          className="rounded-none"
+        >
+          <X className="mr-2 h-4 w-4" />
+          Cancel
+        </AppButton>
+      ) : null}
       {agreement.status === "pending_acceptance" && agreement.freelancerWallet ? (
         <AppButton asChild type="button" variant="secondary" className="rounded-none">
           <Link href={`/work-agreements/${agreement._id}/review`}>Review link</Link>
@@ -960,7 +1166,7 @@ export function FreelancerAgreementReview({
       ) : (
         <>
           <AgreementLegalDisclaimer />
-          <AgreementMarkdownPreview markdown={agreement.contentMarkdown} />
+          <AgreementRichTextPreview agreement={agreement} />
         </>
       )}
       {agreement.agreementHash ? (
@@ -1036,22 +1242,41 @@ export function WorkAgreementSetupPanel({
   const generateAgreement = useMutation(api.work_agreements.generateHighrableWorkAgreement);
   const createUploadedAgreement = useMutation(api.work_agreements.createClientUploadedAgreement);
   const regenerateAgreement = useMutation(api.work_agreements.regenerateHighrableWorkAgreement);
+  const updateAgreementDraft = useMutation(api.work_agreements.updateWorkAgreementDraft);
   const sendAgreement = useMutation(api.work_agreements.sendAgreementForAcceptance);
   const lockAgreement = useMutation(api.work_agreements.lockWorkAgreement);
   const cancelDraft = useMutation(api.work_agreements.cancelWorkAgreementDraft);
   const cancelPending = useMutation(api.work_agreements.cancelPendingAgreement);
+  const reviseRejectedAgreement = useMutation(api.work_agreements.reviseRejectedAgreement);
+  const abandonRejectedAgreement = useMutation(api.work_agreements.abandonRejectedAgreement);
 
   const [agreementType, setAgreementType] = useState<TAgreementType>("highrable_generated");
   const [uploadedAttachmentId, setUploadedAttachmentId] = useState<TConvexId<"attachments"> | null>(
     null,
   );
+  const [revisedAttachmentId, setRevisedAttachmentId] = useState<TConvexId<"attachments"> | null>(
+    null,
+  );
   const [title, setTitle] = useState("");
+  const [isEditingAgreementContent, setIsEditingAgreementContent] = useState(false);
+  const [agreementContentDraft, setAgreementContentDraft] = useState<
+    TAgreementRichTextInput | undefined
+  >(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const walletAddress = walletIdentity.walletAddress;
   const walletType = walletIdentity.walletType as TWalletType | null;
   const canSubmit = Boolean(walletAddress && walletType);
+
+  useEffect(() => {
+    setRevisedAttachmentId(null);
+  }, [agreement?._id, agreement?.status]);
+
+  useEffect(() => {
+    setIsEditingAgreementContent(false);
+    setAgreementContentDraft(agreement ? getAgreementRichTextValue(agreement) : undefined);
+  }, [agreement?._id, agreement?.contentDelta, agreement?.contentHtml, agreement?.contentMarkdown]);
 
   const createAgreement = async () => {
     if (!walletAddress || !walletType) {
@@ -1105,6 +1330,53 @@ export function WorkAgreementSetupPanel({
     }
   };
 
+  const beginAgreementContentEdit = () => {
+    if (!agreement) return;
+    setAgreementContentDraft(getAgreementRichTextValue(agreement));
+    setIsEditingAgreementContent(true);
+    setError(null);
+  };
+
+  const cancelAgreementContentEdit = () => {
+    if (!agreement) return;
+    setAgreementContentDraft(getAgreementRichTextValue(agreement));
+    setIsEditingAgreementContent(false);
+    setError(null);
+  };
+
+  const saveAgreementContent = async () => {
+    if (!walletAddress || !walletType || !agreement) {
+      setError("Missing wallet identity.");
+      return;
+    }
+    if (!agreementContentDraft) {
+      setError("Agreement content cannot be empty.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await updateAgreementDraft({
+        agreementId: agreement._id,
+        walletAddress,
+        title: agreement.title,
+        content: agreementContentDraft,
+      });
+      setIsEditingAgreementContent(false);
+    } catch (saveError) {
+      setError(getReadableError(saveError, "Agreement content could not be saved."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const canEditGeneratedAgreement =
+    agreement?.agreementType === "highrable_generated" &&
+    (agreement.status === "draft" ||
+      agreement.status === "pending_preview" ||
+      agreement.status === "ready_to_send");
+
   return (
     <section className="space-y-4 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1153,7 +1425,65 @@ export function WorkAgreementSetupPanel({
           ) : (
             <>
               <AgreementLegalDisclaimer />
-              <AgreementMarkdownPreview markdown={agreement.contentMarkdown} />
+              {isEditingAgreementContent ? (
+                <div className="space-y-3">
+                  <RichTextEditor
+                    value={agreementContentDraft}
+                    onChange={setAgreementContentDraft}
+                    placeholder="Edit the generated agreement..."
+                    disabled={isSubmitting}
+                    maxLength={AGREEMENT_CONTENT_MAX_LENGTH}
+                    aria-label="Generated agreement content"
+                    editorClassName="[&_.ql-container]:max-h-[min(36rem,58svh)] [&_.ql-container]:overflow-hidden [&_.ql-editor]:max-h-[min(36rem,58svh)] [&_.ql-editor]:overflow-y-auto"
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-[#7f7f7f]">
+                      {agreementContentDraft?.text.length ?? 0}/{AGREEMENT_CONTENT_MAX_LENGTH}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <AppButton
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => void saveAgreementContent()}
+                        className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Save changes
+                      </AppButton>
+                      <AppButton
+                        type="button"
+                        variant="secondary"
+                        disabled={isSubmitting}
+                        onClick={cancelAgreementContentEdit}
+                        className="rounded-none"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <AgreementRichTextPreview agreement={agreement} />
+                  {canEditGeneratedAgreement ? (
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      disabled={isSubmitting}
+                      onClick={beginAgreementContentEdit}
+                      className="rounded-none"
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Edit agreement
+                    </AppButton>
+                  ) : null}
+                </div>
+              )}
             </>
           )}
           {escrowId ? (
@@ -1161,9 +1491,37 @@ export function WorkAgreementSetupPanel({
               Linked escrow record: {escrowId}
             </p>
           ) : null}
+          {agreement.status === "rejected" ? (
+            <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+              <div>
+                <p className="font-mono text-xs tracking-[0.08em] uppercase">
+                  Freelancer rejected this agreement
+                </p>
+                <p className="mt-1">
+                  {agreement.rejectionReason
+                    ? agreement.rejectionReason
+                    : "No rejection reason was provided."}
+                </p>
+              </div>
+              {agreement.agreementType === "client_uploaded" ? (
+                <div className="space-y-2">
+                  <p className="text-[#5f1f1f]">
+                    Upload a revised agreement file before creating the replacement agreement.
+                  </p>
+                  <ClientUploadedAgreementPicker
+                    disabled={isSubmitting}
+                    onUploaded={setRevisedAttachmentId}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <AgreementActions
             agreement={agreement}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isEditingAgreementContent}
+            canRevise={
+              agreement.agreementType !== "client_uploaded" || Boolean(revisedAttachmentId)
+            }
             onRegenerate={() =>
               runAgreementAction(
                 () =>
@@ -1210,6 +1568,33 @@ export function WorkAgreementSetupPanel({
                   ? cancelDraft(args)
                   : cancelPending(args);
               }, "Agreement could not be cancelled.")
+            }
+            onRevise={() =>
+              runAgreementAction(() => {
+                if (agreement.agreementType === "client_uploaded" && !revisedAttachmentId) {
+                  throw new Error("Upload a revised agreement file before continuing.");
+                }
+                return reviseRejectedAgreement({
+                  agreementId: agreement._id,
+                  walletAddress: walletAddress!,
+                  walletType: walletType!,
+                  ...(agreement.agreementType === "client_uploaded" && revisedAttachmentId
+                    ? { sourceAttachmentId: revisedAttachmentId }
+                    : {}),
+                });
+              }, "Agreement could not be revised.")
+            }
+            onAbandon={() =>
+              runAgreementAction(
+                () =>
+                  abandonRejectedAgreement({
+                    agreementId: agreement._id,
+                    walletAddress: walletAddress!,
+                    walletType: walletType!,
+                    statusReason: "Client abandoned the rejected agreement.",
+                  }),
+                "Agreement could not be abandoned.",
+              )
             }
           />
           <div className="flex flex-wrap gap-2">
