@@ -1,14 +1,9 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { ClientTrustActivitySection } from "@/features/client-profile/components/client-trust-activity-section";
 import { ClientTrustProfileHeader } from "@/features/client-profile/components/client-trust-profile-header";
-import { ClientTrustStatsCards } from "@/features/client-profile/components/client-trust-stats-cards";
-import { ClientWorkBreakdown } from "@/features/client-profile/components/client-work-breakdown";
 import { EditClientProfileForm } from "@/features/client-profile/components/edit-client-profile-form";
-import { RecentClientJobsSection } from "@/features/client-profile/components/recent-client-jobs-section";
-import { RecentCompletedPaymentsSection } from "@/features/client-profile/components/recent-completed-payments-section";
-import { RecentFundedEscrowsSection } from "@/features/client-profile/components/recent-funded-escrows-section";
-import { ReportedJobsSummaryCard } from "@/features/client-profile/components/reported-jobs-summary-card";
 import { getClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
@@ -84,12 +79,13 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
         />
       ) : null}
 
-      <ClientTrustStatsCards stats={stats} />
-      <ClientWorkBreakdown stats={stats} />
-      <RecentFundedEscrowsSection escrows={recentFundedEscrows} />
-      <RecentCompletedPaymentsSection payments={recentCompletedPayments} />
-      <RecentClientJobsSection jobs={recentJobs} />
-      {reportedJobsSummary ? <ReportedJobsSummaryCard summary={reportedJobsSummary} /> : null}
+      <ClientTrustActivitySection
+        stats={stats}
+        recentJobs={recentJobs}
+        recentFundedEscrows={recentFundedEscrows}
+        recentCompletedPayments={recentCompletedPayments}
+        {...(reportedJobsSummary ? { reportedJobsSummary } : {})}
+      />
     </div>
   );
 }

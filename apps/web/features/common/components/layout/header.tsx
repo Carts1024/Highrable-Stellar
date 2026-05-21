@@ -34,7 +34,7 @@ export function Header() {
   const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
   const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
   const connectedWalletClass =
-    "rounded-lg border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]";
+    "hidden rounded-lg border border-[#e8e8e8] bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003] sm:inline-flex";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -93,44 +93,44 @@ export function Header() {
           </button>
         </div>
 
-        <AnimatePresence>
-          {mobileMenuOpen ? (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-border bg-white md:hidden"
-            >
-              <div className="space-y-3 px-4 py-4">
-                {navigation.map(({ href, icon: Icon, name }) => (
-                  <Link
-                    key={name}
-                    href={href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
-                      isActivePath(pathname, href)
-                        ? `${V2_THEME.gradients.primaryStrong} text-white`
-                        : inactiveNavigationClass
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{name}</span>
-                  </Link>
-                ))}
-                <div className="border-t border-border pt-3">
-                  {!walletIdentity.isConnected ? (
-                    <WalletConnectTrigger className={walletDrawerActionClass} />
-                  ) : (
-                    <WalletAccountButton
-                      className={`${walletDrawerActionClass} border border-[#e8e8e8] bg-white text-[#0a0a0a]`}
-                    />
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </nav>
+      <AnimatePresence>
+        {mobileMenuOpen ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="absolute inset-x-0 top-16 overflow-hidden border-t border-border bg-white shadow-[0_16px_32px_rgba(10,10,10,0.08)] md:hidden"
+          >
+            <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-3 py-4")}>
+              {navigation.map(({ href, icon: Icon, name }) => (
+                <Link
+                  key={name}
+                  href={href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
+                    isActivePath(pathname, href)
+                      ? `${V2_THEME.gradients.primaryStrong} text-white`
+                      : inactiveNavigationClass
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{name}</span>
+                </Link>
+              ))}
+              <div className="border-t border-border pt-3">
+                {!walletIdentity.isConnected ? (
+                  <WalletConnectTrigger className={walletDrawerActionClass} />
+                ) : (
+                  <WalletAccountButton
+                    className={`${walletDrawerActionClass} border border-[#e8e8e8] bg-white text-[#0a0a0a]`}
+                  />
+                )}
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }
