@@ -1,7 +1,5 @@
 "use client";
 
-import { SmartAccountMainnetReadinessPanel } from "@/core/stellar/components/smart-account-mainnet-readiness-panel";
-import { PasskeyReadinessPanel } from "@/core/wallet/components/passkey-readiness-panel";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -64,7 +62,7 @@ export function PasskeySmartAccountCard() {
   if (!isSupported) {
     return (
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Use Passkey Smart Account</p>
+        <p className="text-sm font-semibold text-gray-900">Passkey account</p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           Passkeys are not supported on this browser or device.
         </p>
@@ -75,158 +73,146 @@ export function PasskeySmartAccountCard() {
   if (!hasConfig) {
     return (
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-900">Use Passkey Smart Account</p>
+        <p className="text-sm font-semibold text-gray-900">Passkey account</p>
         <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Passkey smart account configuration is missing.
+          Passkey account setup is missing.
         </p>
       </section>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
-            <KeyRound className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">Use Passkey Smart Account</p>
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
+          <KeyRound className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">Passkey account</p>
 
-            {isPasskeyConnected && smartAccountAddress ? (
-              <div className="mt-3 space-y-3">
-                <p className="text-sm font-medium text-emerald-700">
-                  Passkey smart account connected
-                </p>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-xs font-medium text-gray-500">Smart account address</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <p className="min-w-0 flex-1 font-mono text-sm break-all text-gray-900">
-                      {shortenWalletAddress(smartAccountAddress)}
-                    </p>
-                    <AppButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleCopy()}
-                      aria-label="Copy smart account address"
-                    >
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </AppButton>
-                  </div>
+          {isPasskeyConnected && smartAccountAddress ? (
+            <div className="mt-3 space-y-3">
+              <p className="text-sm font-medium text-emerald-700">Passkey account connected</p>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-500">Account address</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="min-w-0 flex-1 font-mono text-sm break-all text-gray-900">
+                    {shortenWalletAddress(smartAccountAddress)}
+                  </p>
+                  <AppButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleCopy()}
+                    aria-label="Copy passkey account address"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </AppButton>
                 </div>
-                <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                  Passkey smart account connected. Escrow signing enabled with passkey when fee
-                  funding or relayer readiness passes.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
+                  disabled={isCreating || isReconnecting || isRestoring}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Switch account
+                </AppButton>
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => void disconnectPasskeyAccount()}
+                >
+                  <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Disconnect
+                </AppButton>
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void clearLocalPasskeySession()}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Clear local session
+                </AppButton>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-3">
+              <p className="text-sm text-gray-600">
+                Create a device-secured account for faster approvals without a seed phrase.
+              </p>
+              {isCreating ? (
+                <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                  Creating passkey account... Follow your device prompt.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <AppButton
-                    type="button"
-                    variant="outline"
-                    onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
-                    disabled={isCreating || isReconnecting || isRestoring}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Switch Passkey Account
-                  </AppButton>
-                  <AppButton
-                    type="button"
-                    variant="outline"
-                    onClick={() => void disconnectPasskeyAccount()}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Disconnect Passkey
-                  </AppButton>
+              ) : null}
+              {isReconnecting ? (
+                <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                  Reconnecting passkey account... Follow your device prompt.
+                </p>
+              ) : null}
+              {isRestoring ? (
+                <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                  Restoring passkey session...
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <AppButton
+                  type="button"
+                  onClick={() => void runPasskeyUiAction(createPasskeyAccount)}
+                  disabled={isCreating || isReconnecting || isRestoring}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Create passkey account
+                </AppButton>
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
+                  disabled={isCreating || isReconnecting || isRestoring}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Reconnect
+                </AppButton>
+                {error ? (
                   <AppButton
                     type="button"
                     variant="ghost"
                     onClick={() => void clearLocalPasskeySession()}
+                    disabled={isCreating || isReconnecting || isRestoring}
                   >
                     <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Clear local passkey session
+                    Clear local session
                   </AppButton>
-                </div>
+                ) : null}
               </div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                <p className="text-sm text-gray-600">
-                  Create a Stellar smart account secured by your device passkey. No seed phrase
-                  required.
-                </p>
-                {isCreating ? (
-                  <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                    Creating passkey smart account... Follow your device prompt.
-                  </p>
-                ) : null}
-                {isReconnecting ? (
-                  <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                    Reconnecting passkey... Follow your device prompt.
-                  </p>
-                ) : null}
-                {isRestoring ? (
-                  <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-                    Restoring passkey session...
-                  </p>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  <AppButton
-                    type="button"
-                    onClick={() => void runPasskeyUiAction(createPasskeyAccount)}
-                    disabled={isCreating || isReconnecting || isRestoring}
-                  >
-                    <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Create Passkey Account
-                  </AppButton>
-                  <AppButton
-                    type="button"
-                    variant="outline"
-                    onClick={() => void runPasskeyUiAction(reconnectPasskeyAccount)}
-                    disabled={isCreating || isReconnecting || isRestoring}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-                    Reconnect Passkey
-                  </AppButton>
-                  {error ? (
-                    <AppButton
-                      type="button"
-                      variant="ghost"
-                      onClick={() => void clearLocalPasskeySession()}
-                      disabled={isCreating || isReconnecting || isRestoring}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                      Clear local passkey session
-                    </AppButton>
-                  ) : null}
-                </div>
-              </div>
-            )}
+            </div>
+          )}
 
-            {error ? (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <p>{error}</p>
-                <AppButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearPasskeyError}
-                  className="mt-2"
-                >
-                  Clear warning
-                </AppButton>
-              </div>
-            ) : null}
-          </div>
+          {error ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <p>{error}</p>
+              <AppButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearPasskeyError}
+                className="mt-2"
+              >
+                Clear warning
+              </AppButton>
+            </div>
+          ) : null}
         </div>
-      </section>
-      <PasskeyReadinessPanel />
-      <SmartAccountMainnetReadinessPanel />
+      </div>
       <Dialog open={isContractPickerOpen} onOpenChange={(open) => !open && dismissContractPicker()}>
         <DialogContent className="max-w-2xl border-[#e8e8e8] bg-white">
           <DialogHeader>
-            <DialogTitle>Select Smart Account</DialogTitle>
+            <DialogTitle>Select passkey account</DialogTitle>
             <DialogDescription>
-              This passkey can connect to multiple smart accounts. Choose the exact contract you
-              want to use before retrying escrow.
+              This passkey can connect to multiple accounts. Choose the one you want to use.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -261,6 +247,6 @@ export function PasskeySmartAccountCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </section>
   );
 }

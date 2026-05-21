@@ -52,10 +52,9 @@ export function WalletConnectTrigger({
       <DialogContent className="max-h-[min(90vh,48rem)] max-w-3xl overflow-hidden border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
         <div className="max-h-[min(90vh,48rem)] overflow-y-auto overscroll-contain p-5 pr-12 sm:p-6 sm:pr-14">
           <DialogHeader>
-            <DialogTitle>Choose Wallet Identity</DialogTitle>
+            <DialogTitle>Choose account method</DialogTitle>
             <DialogDescription>
-              Use an external Stellar wallet for escrow transactions, or a passkey smart account for
-              Highrable off-chain identity.
+              Connect an external wallet or use a device passkey account.
             </DialogDescription>
           </DialogHeader>
 

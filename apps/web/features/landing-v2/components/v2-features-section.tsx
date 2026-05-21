@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  V2_NUMBER_BADGE_CLASS,
+  V2_PAGE_CONTAINER_CLASS,
+  V2_PANEL_INTERACTIVE_CLASS,
+  V2_SECTION_SPACING_CLASS,
+} from "@/features/common/lib/v2-theme";
 import { motion } from "framer-motion";
 
 import type { TFeatureItem } from "../types/landing-v2.types";
@@ -22,17 +28,17 @@ function FeatureCard({ feature, number, index }: IFeatureCardProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.07 }}
-      className="group border border-[#e8e8e8] bg-white p-6 transition-all hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+      className={`${V2_PANEL_INTERACTIVE_CLASS} group p-6 transition-all hover:border-ring/30`}
     >
       <div className="mb-4 flex items-start justify-between">
-        <div className="flex h-9 w-9 items-center justify-center bg-linear-to-br from-[#FF8801] to-[#E85D00]">
+        <div className={`${V2_NUMBER_BADGE_CLASS} flex h-9 w-9 items-center justify-center`}>
           <span className="font-mono text-[0.6rem] font-bold text-white">{number}</span>
         </div>
       </div>
-      <h3 className="mb-2 font-semibold text-[#0a0a0a]">{feature.title}</h3>
-      <p className="mb-4 text-sm leading-relaxed text-[#5f5f5f]">{feature.description}</p>
-      <div className="border-t border-[#f5f5f5] pt-3">
-        <p className="text-xs leading-relaxed text-[#B94A00]">
+      <h3 className="hr-text-primary mb-2 font-semibold">{feature.title}</h3>
+      <p className="hr-text-secondary mb-4 text-sm leading-relaxed">{feature.description}</p>
+      <div className="border-t border-border/70 pt-3">
+        <p className="hr-text-accent text-xs leading-relaxed">
           <span className="mr-1 font-mono tracking-wider uppercase">Impact -</span>
           {feature.businessValue}
         </p>
@@ -44,8 +50,8 @@ function FeatureCard({ feature, number, index }: IFeatureCardProps) {
 /** Six-feature grid highlighting Highrable's core platform capabilities. */
 export function V2FeaturesSection() {
   return (
-    <section id="features" className="bg-white py-25">
-      <div className="mx-auto max-w-7xl px-6">
+    <section id="features" className={`bg-white ${V2_SECTION_SPACING_CLASS}`}>
+      <div className={V2_PAGE_CONTAINER_CLASS}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -54,10 +60,10 @@ export function V2FeaturesSection() {
           className="mb-14 max-w-2xl"
         >
           <SectionLabel className="mb-4">Key Features</SectionLabel>
-          <h2 className="text-3xl leading-[1.15] font-medium text-[#0a0a0a] md:text-4xl">
+          <h2 className="hr-text-primary text-3xl leading-[1.15] font-medium md:text-4xl">
             Everything you need in one trusted platform
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[#5f5f5f]">
+          <p className="hr-text-secondary mt-4 text-base leading-relaxed">
             Highrable integrates AI hiring, blockchain escrow, and portable reputation into a single
             seamless workflow - for both freelancers and clients.
           </p>

@@ -215,6 +215,97 @@
     border: 1px solid var(--highrable-border);
     border-radius: 0.75rem;
   }
+  .hr-v2-gradient-text {
+    background-image: var(--highrable-gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hr-v2-badge-accent {
+    background-color: var(--highrable-surface-accent);
+    border: 1px solid rgba(255, 112, 3, 0.3);
+    color: var(--highrable-text-accent);
+  }
+  .hr-v2-badge-solid {
+    background-color: var(--highrable-text-primary);
+    color: var(--primary-foreground);
+  }
+  .hr-v2-number-badge {
+    background-image: var(--highrable-gradient-primary-strong);
+    color: var(--primary-foreground);
+  }
+  .hr-v2-step-badge {
+    background-color: var(--card);
+    border: 1px solid var(--ring);
+    color: var(--ring);
+  }
+  .hr-v2-button-primary {
+    background-image: var(--highrable-gradient-primary);
+    color: var(--primary-foreground);
+    border-radius: 0.5rem;
+    transition:
+      box-shadow 0.2s ease,
+      filter 0.2s ease,
+      transform 0.2s ease;
+  }
+  .hr-v2-button-primary:hover {
+    box-shadow: var(--highrable-shadow-hard-strong);
+    filter: brightness(1.04);
+  }
+  .hr-v2-button-secondary {
+    background-color: var(--card);
+    border: 1px solid var(--highrable-text-primary);
+    color: var(--highrable-text-primary);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .hr-v2-button-secondary:hover {
+    background-color: var(--highrable-text-primary);
+    color: var(--primary-foreground);
+  }
+  .hr-v2-button-light {
+    background-color: var(--card);
+    color: var(--highrable-orange-3);
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+  .hr-v2-button-light:hover {
+    box-shadow: var(--highrable-shadow-hard-strong);
+  }
+  .hr-v2-button-inverse {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.88);
+    color: var(--primary-foreground);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .hr-v2-button-inverse:hover {
+    background-color: var(--card);
+    border-color: var(--card);
+    color: var(--highrable-orange-3);
+  }
+  .hr-v2-grid-overlay {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.9) 0px,
+        rgba(0, 0, 0, 0.9) 1px,
+        transparent 1px,
+        transparent 40px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.9) 0px,
+        rgba(0, 0, 0, 0.9) 1px,
+        transparent 1px,
+        transparent 40px
+      );
+  }
   .hr-square-dot::before {
     content: "";
     display: inline-block;

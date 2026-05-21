@@ -1,6 +1,5 @@
 "use client";
 
-import { formatAssetLabel } from "@/core/stellar/assets";
 import { StablecoinBalancePanel } from "@/core/stellar/components/stablecoin-balance-panel";
 import { XlmToUsdcTopUpPanel } from "@/core/stellar/components/xlm-to-usdc-top-up-panel";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
@@ -180,56 +179,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
-  const readinessChecklist = [
-    {
-      label: "Stellar network",
-      isReady: isPasskeyMode ? !passkeyMainnetBlocked : walletState.isTestnet,
-      value: isPasskeyMode
-        ? passkeyReadiness.network
-        : walletState.isTestnet
-          ? "testnet"
-          : "not testnet",
-    },
-    {
-      label:
-        jobEscrowAsset?.kind === "native_xlm" ? "XLM escrow configured" : "USDC escrow configured",
-      isReady: isJobAssetSupported,
-      value: isJobAssetSupported ? formatAssetLabel(job.asset) : "missing",
-    },
-    {
-      label: "Wallet connected",
-      isReady: walletIdentity.isConnected,
-      value: walletIdentity.isConnected ? "connected" : "not connected",
-    },
-    {
-      label: isPasskeyMode ? "Fee funding or relayer" : "Wallet has testnet XLM",
-      isReady: isPasskeyMode || walletState.isFunded !== false,
-      value: isPasskeyMode
-        ? "checked during signing"
-        : walletState.isFunded === false
-          ? "missing"
-          : "ready",
-    },
-    {
-      label: "Job uses supported escrow asset",
-      isReady: isJobAssetSupported,
-      value: formatAssetLabel(job.asset),
-    },
-    {
-      label: "Escrow amount valid",
-      isReady: stablecoinReadiness.requiredAmountAtomic !== null,
-      value: stablecoinReadiness.requiredAmountDisplay ?? "invalid",
-    },
-    {
-      label: `Enough ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol}`,
-      isReady:
-        stablecoinReadiness.hasSufficientBalance === null
-          ? stablecoinReadiness.error === null
-          : stablecoinReadiness.hasSufficientBalance,
-      value: stablecoinReadiness.balanceDisplay ?? "unknown",
-    },
-  ];
-
   const handleConfirmRelease = async ({
     rating,
     reviewText,
@@ -250,7 +199,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       aria-label="Escrow lifecycle and actions"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Escrow Management</h2>
+        <h2 className="text-lg font-semibold text-[#0a0a0a]">Payment flow</h2>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <JobSafetyBadge status={safetyStatus.status} />
           <StatusBadge label={currentStatus} />
@@ -285,37 +234,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             : "Signing with Freighter or WalletConnect."}
         </p>
       ) : null}
-      {passkeyMainnetBlocked ? (
-        <TrustWarning message="Mainnet passkey escrow is blocked until the issues below are resolved." />
-      ) : null}
       {activeDispute ? (
         <div className="mt-3">
           <DisputeActionGuardNotice />
         </div>
       ) : null}
-
-      <div className="mt-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-        <h3 className="text-sm font-semibold text-[#0a0a0a]">Escrow readiness checklist</h3>
-        <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          {readinessChecklist.map((item) => (
-            <li
-              key={item.label}
-              className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-[#5f5f5f]"
-            >
-              <span
-                className={`mr-2 font-medium ${item.isReady ? "text-emerald-700" : "text-red-700"}`}
-              >
-                {item.isReady ? "Ready" : "Blocked"}
-              </span>
-              <span className="text-[#0a0a0a]">{item.label}:</span> {item.value}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-[#5f5f5f]">
-          Fee XLM and escrow token balances are checked separately. XLM escrow uses the native XLM
-          token contract and still requires network fee funding.
-        </p>
-      </div>
 
       {!isStablecoinConfigured ? (
         <div className="mt-4">

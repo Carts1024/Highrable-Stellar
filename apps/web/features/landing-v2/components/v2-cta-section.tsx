@@ -1,30 +1,31 @@
 "use client";
 
+import {
+  V2_BUTTON_INVERSE_CLASS,
+  V2_BUTTON_LIGHT_CLASS,
+  V2_GRID_OVERLAY_CLASS,
+  V2_PAGE_CONTAINER_CLASS,
+  V2_SECTION_SPACING_CLASS,
+} from "@/features/common/lib/v2-theme";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
 /** Full-width final CTA with orange gradient background. */
 export function V2CtaSection() {
   return (
-    <section className="relative overflow-hidden py-25">
+    <section className={`relative overflow-hidden ${V2_SECTION_SPACING_CLASS}`}>
       {/* Orange gradient background */}
-      <div className="absolute inset-0 bg-linear-to-br from-[#FF8801] via-[#FF7003] to-[#E85D00]" />
+      <div className="hr-gradient-primary absolute inset-0" />
 
       {/* Hard-shadow grid texture overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-10"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, #000 0px, #000 1px, transparent 1px, transparent 40px)",
-        }}
-      />
+      <div className={`${V2_GRID_OVERLAY_CLASS} pointer-events-none absolute inset-0 opacity-10`} />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.7 }}
-        className="relative mx-auto max-w-7xl px-6 text-center"
+        className={`${V2_PAGE_CONTAINER_CLASS} relative text-center`}
       >
         <div className="mb-4 inline-flex items-center gap-2">
           <span className="h-1 w-1 bg-white/80" aria-hidden="true" />
@@ -45,13 +46,13 @@ export function V2CtaSection() {
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href="/jobs"
-            className="bg-white px-8 py-3.5 font-mono text-xs tracking-widest text-[#E85D00] uppercase transition-all hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.25)]"
+            className={`${V2_BUTTON_LIGHT_CLASS} px-8 py-3.5 font-mono text-xs tracking-widest uppercase`}
           >
             Find Work
           </Link>
           <Link
             href="/post-job"
-            className="border border-white bg-transparent px-8 py-3.5 font-mono text-xs tracking-widest text-white uppercase transition-colors hover:bg-white hover:text-[#E85D00]"
+            className={`${V2_BUTTON_INVERSE_CLASS} px-8 py-3.5 font-mono text-xs tracking-widest uppercase`}
           >
             Post a Job
           </Link>
