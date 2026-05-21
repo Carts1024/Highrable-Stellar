@@ -15,10 +15,13 @@ import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
+import {
+  HighrableV2IconNotice,
+  HighrableV2Metric,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
-import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 import type { TConvexId } from "@repo/convex-client";
@@ -32,7 +35,6 @@ import { JobSafetyBadge } from "./job-safety-badge";
 import { MilestoneCard } from "./milestone-card";
 import { ReportJobButton } from "./report-job-button";
 import { StatusBadge } from "./status-badge";
-import { TrustSafetyNotice } from "./trust-safety-notice";
 
 export function JobDetail({ jobId }: { jobId: string }) {
   const walletIdentity = useHighrableWalletIdentity();
@@ -116,144 +118,181 @@ export function JobDetail({ jobId }: { jobId: string }) {
       } as const);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ProductPageHero
         label="Job Detail"
         title={
           <>
-            {job.title} <span className="text-[#FF7003]">Execution Flow</span>
+            {job.title} <span className="hr-v2-gradient-text">Execution Flow</span>
           </>
         }
-        description="Review posting terms, application progress, escrow status, and verified completion data in a single workflow surface."
+        description="Review the core terms, escrow state, and next actions without leaving the marketplace workflow."
       />
 
-      <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-2xl font-semibold text-[#0a0a0a]">Contract Snapshot</h2>
+      <section className="border border-[#e8e8e8] bg-white">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
+          <div className="space-y-2">
+            <SectionLabel>Contract Snapshot</SectionLabel>
+            <h2 className="text-2xl font-semibold text-[#0a0a0a]">
+              {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
+            </h2>
+          </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <JobSafetyBadge status={safetyStatus.status} />
             <StatusBadge label={mergedEscrow?.status ?? job.status} />
-          </div>
-        </div>
-
-        <div className="mb-4 space-y-3">
-          <TrustSafetyNotice type="off_platform" />
-          {safetyStatus.status === "unfunded" ? (
-            <TrustSafetyNotice
-              type={isSelectedConnectedFreelancer ? "selected_unfunded" : "unfunded"}
+            <HighrableV2IconNotice
+              label="Off-platform safety notice"
+              tone="warning"
+              message="Keep communication and payment on Highrable. Off-platform work is harder to prove and protect."
             />
-          ) : null}
-          {safetyStatus.status === "escrow_created" ? (
-            <TrustSafetyNotice type="selected_unfunded" />
-          ) : null}
-          {safetyStatus.status === "verified_funded" ? (
-            <TrustSafetyNotice type="verified_funded" />
-          ) : null}
-        </div>
-
-        {scamAnalysis.riskLevel !== "low" ? (
-          <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900" role="note">
-            <AlertTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Suspicious language detected
-            </AlertTitle>
-            <AlertDescription>
-              <p>
-                This job may look suspicious because it asks users to move off-platform or pay
-                upfront.
-              </p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                {scamAnalysis.signals.map((signal) => (
-                  <li key={signal.type}>{signal.message}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        <p className="mb-5 text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
-
-        {!isMilestoneProject ? (
-          <div className="mb-5">
-            <DeadlineBadge
-              deadlineAt={job.deadlineAt}
-              submittedAt={job.submittedAt}
-              completedAt={job.completedAt}
-              approvedAt={job.approvedAt}
-              escrowStatus={mergedEscrow?.status}
-              workStatus={job.status}
-            />
-          </div>
-        ) : null}
-
-        <dl className="grid gap-4 text-sm text-[#5f5f5f] sm:grid-cols-2">
-          <div>
-            <dt className="text-[#7f7f7f]">Work mode</dt>
-            <dd className="font-semibold text-[#0a0a0a]">
-              {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[#7f7f7f]">Budget</dt>
-            <dd className="font-semibold text-[#0a0a0a]">
-              {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[#7f7f7f]">Asset</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
-            {isNativeXlmJob ? (
-              <p className="mt-1 text-xs text-amber-800">
-                XLM escrow is volatile. Final fiat value may change.
-              </p>
+            {safetyStatus.status === "unfunded" ? (
+              <HighrableV2IconNotice
+                label="Unfunded job warning"
+                tone="warning"
+                message={
+                  isSelectedConnectedFreelancer
+                    ? "You were selected, but escrow is not funded yet. Wait for funding before starting work."
+                    : "This job is not funded yet. Confirm escrow status before starting work."
+                }
+              />
+            ) : null}
+            {safetyStatus.status === "escrow_created" ? (
+              <HighrableV2IconNotice
+                label="Escrow created warning"
+                tone="warning"
+                message="Escrow exists, but funding has not been verified yet."
+              />
+            ) : null}
+            {safetyStatus.status === "verified_funded" ? (
+              <HighrableV2IconNotice
+                label="Verified funded escrow"
+                tone="success"
+                message="Escrow funding is verified for this job."
+              />
+            ) : null}
+            {scamAnalysis.riskLevel !== "low" ? (
+              <HighrableV2IconNotice
+                label="Suspicious language detected"
+                tone="warning"
+                message={
+                  <span className="space-y-1">
+                    <span className="block">
+                      This job may look suspicious because it asks users to move off-platform or pay
+                      upfront.
+                    </span>
+                    {scamAnalysis.signals.map((signal) => (
+                      <span key={signal.type} className="block">
+                        {signal.message}
+                      </span>
+                    ))}
+                  </span>
+                }
+              />
             ) : null}
           </div>
-          <div>
-            <dt className="text-[#7f7f7f]">Client wallet</dt>
-            <dd className="font-semibold text-[#0a0a0a]">
-              <Link
-                href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-                className="hover:text-[#FF7003]"
-              >
-                {shortenWalletAddress(job.clientWallet)}
-              </Link>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[#7f7f7f]">Selected freelancer wallet</dt>
-            <dd className="font-semibold text-[#0a0a0a]">
-              {job.selectedFreelancerWallet ? (
+        </div>
+
+        <div className="p-5 sm:p-6">
+          <p className="max-w-4xl text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
+
+          {!isMilestoneProject ? (
+            <div className="mt-5">
+              <DeadlineBadge
+                deadlineAt={job.deadlineAt}
+                submittedAt={job.submittedAt}
+                completedAt={job.completedAt}
+                approvedAt={job.approvedAt}
+                escrowStatus={mergedEscrow?.status}
+                workStatus={job.status}
+              />
+            </div>
+          ) : null}
+
+          <dl className="mt-6 grid gap-5 border-t border-[#e8e8e8] pt-5 text-sm text-[#5f5f5f] sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Work mode
+              </dt>
+              <dd className="font-semibold text-[#0a0a0a]">
+                {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Budget
+              </dt>
+              <dd className="font-semibold text-[#0a0a0a]">
+                {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Asset
+              </dt>
+              <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
+              {isNativeXlmJob ? (
+                <div className="mt-2">
+                  <HighrableV2IconNotice
+                    label="XLM volatility warning"
+                    tone="warning"
+                    message="XLM escrow is volatile. Final fiat value may change."
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Client wallet
+              </dt>
+              <dd className="font-semibold text-[#0a0a0a]">
                 <Link
-                  href={`/freelancers/${encodeURIComponent(job.selectedFreelancerWallet)}`}
+                  href={`/clients/${encodeURIComponent(job.clientWallet)}`}
                   className="hover:text-[#FF7003]"
                 >
-                  {shortenWalletAddress(job.selectedFreelancerWallet)}
+                  {shortenWalletAddress(job.clientWallet)}
                 </Link>
-              ) : (
-                shortenWalletAddress(job.selectedFreelancerWallet)
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[#7f7f7f]">Job hash</dt>
-            <dd className="font-semibold break-all text-[#0a0a0a]">{job.jobHash}</dd>
-          </div>
-        </dl>
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Freelancer
+              </dt>
+              <dd className="font-semibold text-[#0a0a0a]">
+                {job.selectedFreelancerWallet ? (
+                  <Link
+                    href={`/freelancers/${encodeURIComponent(job.selectedFreelancerWallet)}`}
+                    className="hover:text-[#FF7003]"
+                  >
+                    {shortenWalletAddress(job.selectedFreelancerWallet)}
+                  </Link>
+                ) : (
+                  shortenWalletAddress(job.selectedFreelancerWallet)
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                Job hash
+              </dt>
+              <dd className="font-semibold break-all text-[#0a0a0a]">{job.jobHash}</dd>
+            </div>
+          </dl>
 
-        <div className="mt-5">
-          <ReportJobButton jobId={convexJobId} />
-          {mergedEscrow ? (
-            <Link
-              href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}
-              className="mt-3 inline-flex text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
-            >
-              View escrow proof
-            </Link>
-          ) : null}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <ReportJobButton jobId={convexJobId} />
+            {mergedEscrow ? (
+              <Link
+                href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}
+                className="inline-flex text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+              >
+                View escrow proof
+              </Link>
+            ) : null}
+          </div>
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+      <section className="space-y-3 border border-[#e8e8e8] bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-[#0a0a0a]">Attachments</h2>
@@ -306,10 +345,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {isMilestoneProject ? (
         <section className="space-y-5">
-          <div className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+          <div className="border border-[#e8e8e8] bg-white p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-[#0a0a0a]">Milestone Progress</h2>
+                <SectionLabel>Milestone Progress</SectionLabel>
+                <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Funding status</h2>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
                   Funding and Verified Funded status are tracked per milestone, not for the whole
                   project.
@@ -318,38 +358,28 @@ export function JobDetail({ jobId }: { jobId: string }) {
               <StatusBadge label={job.status} />
             </div>
 
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-5">
-              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-                <dt className="text-[#7f7f7f]">Total</dt>
-                <dd className="font-semibold text-[#0a0a0a]">
-                  {projectSummary?.milestones.length ?? job.milestoneCount ?? 0}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-                <dt className="text-[#7f7f7f]">Paid</dt>
-                <dd className="font-semibold text-[#0a0a0a]">
-                  {projectSummary?.milestoneCountsByStatus.released ?? 0}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-                <dt className="text-[#7f7f7f]">Funded</dt>
-                <dd className="font-semibold text-[#0a0a0a]">
-                  {projectSummary?.milestoneCountsByStatus.funded ?? 0}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-                <dt className="text-[#7f7f7f]">Open</dt>
-                <dd className="font-semibold text-[#0a0a0a]">
-                  {projectSummary?.milestoneCountsByStatus.open ?? 0}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-                <dt className="text-[#7f7f7f]">Disputed</dt>
-                <dd className="font-semibold text-[#0a0a0a]">
-                  {projectSummary?.milestoneCountsByStatus.disputed ?? 0}
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-5 grid gap-5 border-t border-[#e8e8e8] pt-5 text-sm sm:grid-cols-5">
+              <HighrableV2Metric
+                label="Total"
+                value={projectSummary?.milestones.length ?? job.milestoneCount ?? 0}
+              />
+              <HighrableV2Metric
+                label="Paid"
+                value={projectSummary?.milestoneCountsByStatus.released ?? 0}
+              />
+              <HighrableV2Metric
+                label="Funded"
+                value={projectSummary?.milestoneCountsByStatus.funded ?? 0}
+              />
+              <HighrableV2Metric
+                label="Open"
+                value={projectSummary?.milestoneCountsByStatus.open ?? 0}
+              />
+              <HighrableV2Metric
+                label="Disputed"
+                value={projectSummary?.milestoneCountsByStatus.disputed ?? 0}
+              />
+            </div>
 
             <p className="mt-4 text-sm font-medium text-[#0a0a0a]">
               {projectSummary?.milestoneCountsByStatus.released ?? 0} of{" "}
@@ -432,21 +462,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {!isMilestoneProject ? (
         <>
-          <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">Apply</h2>
-            <ApplyToJobForm job={job} onApplied={() => {}} />
-          </section>
+          <ApplyToJobForm job={job} onApplied={() => {}} />
 
-          <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">Applications</h2>
-            <ApplicationsList
-              job={job}
-              escrow={mergedEscrow}
-              applications={applications}
-              isLoading={applications === undefined}
-              onSelected={() => {}}
-            />
-          </section>
+          <ApplicationsList
+            job={job}
+            escrow={mergedEscrow}
+            applications={applications}
+            isLoading={applications === undefined}
+            onSelected={() => {}}
+          />
         </>
       ) : null}
     </div>

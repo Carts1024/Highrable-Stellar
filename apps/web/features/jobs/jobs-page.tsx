@@ -5,7 +5,6 @@ import { ProductPageHero } from "@/features/common";
 import { JobApplicationDialog } from "@/features/marketplace/components/job-application-dialog";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
-import { TrustSafetyNotice } from "@/features/marketplace/components/trust-safety-notice";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   compareJobsBySafetyThenNewest,
@@ -15,10 +14,16 @@ import {
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import {
+  HighrableV2Bullet,
+  HighrableV2IconNotice,
+  HighrableV2Metric,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { useMutation, useQuery } from "convex/react";
-import { Briefcase, Clock3, Filter, Search, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Briefcase, Clock3, Filter, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -161,8 +166,8 @@ export function JobsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+    <div className="space-y-10">
+      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
         <ProductPageHero
           label="Open Opportunities"
           title={
@@ -173,38 +178,25 @@ export function JobsPage() {
           description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
           actions={
             <>
-              <AppButton asChild>
+              <AppButton asChild className="hr-v2-button-primary rounded-none">
                 <Link href="/post-job">Post a Job</Link>
               </AppButton>
             </>
           }
         />
 
-        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-[#e8e8e8] bg-white p-4 shadow-sm">
-          <div className="rounded-xl bg-[#f5f5f5] p-4">
-            <div className="text-2xl font-bold text-[#0a0a0a]">
-              {marketplaceRows?.length ?? "-"}
-            </div>
-            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Active jobs
-            </div>
-          </div>
-          <div className="rounded-xl bg-[#f5f5f5] p-4">
-            <div className="text-2xl font-bold text-[#0a0a0a]">{visibleJobs.length}</div>
-            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Matching
-            </div>
-          </div>
-          <div className="col-span-2 rounded-xl bg-[#fff7ed] p-4">
-            <div className="text-2xl font-bold text-[#B94A00]">{formatBudget(totalBudget)}</div>
-            <div className="mt-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#B94A00]/80 uppercase">
-              Visible budget pool
-            </div>
-          </div>
+        <div className="grid gap-5 border-l border-[#e8e8e8] py-2">
+          <HighrableV2Metric label="Active jobs" value={marketplaceRows?.length ?? "-"} />
+          <HighrableV2Metric label="Matching" value={visibleJobs.length} />
+          <HighrableV2Metric
+            label="Visible budget pool"
+            value={formatBudget(totalBudget)}
+            className="text-[#B94A00]"
+          />
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e8e8e8] bg-white p-4 shadow-sm">
+      <section className="border border-[#e8e8e8] bg-white p-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
           <label htmlFor={searchInputId} className="relative block">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -214,7 +206,7 @@ export function JobsPage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by title, description, asset, or wallet"
-              className="pr-3 pl-10"
+              className="h-11 rounded-none border-[#e8e8e8] pr-3 pl-10 focus-visible:ring-[#FF7003]/30"
             />
           </label>
 
@@ -224,7 +216,7 @@ export function JobsPage() {
               id={sortSelectId}
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as TJobSortOption)}
-              className="h-11 w-full appearance-none rounded-lg border border-[#e8e8e8] bg-white pr-3 pl-9 text-sm font-medium text-[#5f5f5f] outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
+              className="h-11 w-full appearance-none rounded-none border border-[#e8e8e8] bg-white pr-3 pl-9 text-sm font-medium text-[#5f5f5f] outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
             >
               <option value="safest">Safest first</option>
               <option value="budget_high">Highest budget</option>
@@ -232,11 +224,11 @@ export function JobsPage() {
             </select>
           </label>
         </div>
-        <div className="mt-3 inline-flex rounded-lg border border-[#e8e8e8] bg-white p-1">
+        <div className="mt-3 inline-flex border border-[#e8e8e8] bg-white p-1">
           <button
             type="button"
             onClick={() => setFilter("all")}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+            className={`px-3 py-1.5 font-mono text-xs tracking-[0.04em] uppercase ${
               filter === "all" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
             }`}
           >
@@ -245,7 +237,7 @@ export function JobsPage() {
           <button
             type="button"
             onClick={() => setFilter("verified_funded")}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+            className={`px-3 py-1.5 font-mono text-xs tracking-[0.04em] uppercase ${
               filter === "verified_funded" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
             }`}
           >
@@ -267,31 +259,29 @@ export function JobsPage() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-[#FF7003]" />
+          <div className="space-y-1">
+            <SectionLabel>Marketplace Feed</SectionLabel>
             <h2 className="text-lg font-semibold text-[#0a0a0a]">
               {visibleJobs.length} jobs found
             </h2>
           </div>
           <Link
             href="/marketplace"
-            className="font-mono text-xs tracking-[0.06em] text-[#B94A00] uppercase hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-xs tracking-[0.06em] text-[#B94A00] uppercase hover:underline"
           >
             Manage marketplace flow
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
 
         {marketplaceRows === undefined ? (
           <div className="grid gap-4">
             {[0, 1, 2].map((item) => (
-              <div
-                key={item}
-                className="h-48 animate-pulse rounded-2xl border border-gray-100 bg-gray-50"
-              />
+              <div key={item} className="h-36 animate-pulse border border-gray-100 bg-gray-50" />
             ))}
           </div>
         ) : visibleJobs.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+          <div className="border border-dashed border-gray-300 bg-white p-10 text-center">
             <Briefcase className="mx-auto h-12 w-12 text-gray-300" />
             <h3 className="mt-4 text-lg font-semibold text-gray-900">No matching jobs</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
@@ -299,7 +289,7 @@ export function JobsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="border-y border-[#e8e8e8]">
             {visibleJobs.map((row) => {
               const { job, escrow } = row;
               const isMilestoneProject = (job.jobType ?? "micro_gig") === "milestone_project";
@@ -314,13 +304,27 @@ export function JobsPage() {
               return (
                 <article
                   key={job._id}
-                  className="rounded-2xl border border-[#e8e8e8] bg-white p-5 transition-colors hover:border-[#FF7003]/40 hover:shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                  className="group border-b border-[#e8e8e8] bg-white px-1 py-5 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40 sm:px-4"
                 >
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
                     <div className="min-w-0 space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <JobSafetyBadge status={safetyStatus.status} />
                         <StatusBadge label={escrow?.status ?? job.status} />
+                        {safetyStatus.status === "unfunded" ? (
+                          <HighrableV2IconNotice
+                            label="Unfunded job warning"
+                            tone="warning"
+                            message="This job has not been funded yet. Confirm escrow before starting work."
+                          />
+                        ) : null}
+                        {safetyStatus.status === "verified_funded" ? (
+                          <HighrableV2IconNotice
+                            label="Verified funded job"
+                            tone="success"
+                            message="Escrow funding is verified for this job."
+                          />
+                        ) : null}
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500">
                           <Clock3 className="h-3.5 w-3.5" />
                           Posted {formatPostedAt(job.createdAt)}
@@ -332,17 +336,13 @@ export function JobsPage() {
                           {job.description}
                         </p>
                       </div>
-                      {safetyStatus.status === "unfunded" ? (
-                        <TrustSafetyNotice type="unfunded" compact />
-                      ) : null}
-                      {safetyStatus.status === "verified_funded" ? (
-                        <TrustSafetyNotice type="verified_funded" compact />
-                      ) : null}
-                      <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-600">
-                        <span className="rounded-full bg-gray-100 px-3 py-1">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-gray-600">
+                        <span className="inline-flex items-center gap-2">
+                          <HighrableV2Bullet tone="muted" />
                           {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
                         </span>
-                        <span className="rounded-full bg-gray-100 px-3 py-1">
+                        <span className="inline-flex items-center gap-2">
+                          <HighrableV2Bullet tone="muted" />
                           Client{" "}
                           <Link
                             href={`/clients/${encodeURIComponent(job.clientWallet)}`}
@@ -351,17 +351,18 @@ export function JobsPage() {
                             {shortenWalletAddress(job.clientWallet)}
                           </Link>
                         </span>
-                        <span className="rounded-full bg-gray-100 px-3 py-1 break-all">
+                        <span className="inline-flex items-center gap-2 break-all">
+                          <HighrableV2Bullet tone="muted" />
                           Asset {shortenWalletAddress(job.asset)}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+                        <span className="inline-flex items-center gap-1 text-emerald-700">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-col gap-3 lg:w-48 lg:items-end">
+                    <div className="flex shrink-0 flex-col gap-3 lg:items-end">
                       <div className="lg:text-right">
                         <div className="text-2xl font-bold text-[#B94A00]">
                           {formatBudget(job.totalBudget ?? job.budget)}
@@ -373,7 +374,7 @@ export function JobsPage() {
                       <div className="flex flex-wrap gap-2 lg:justify-end">
                         <Link
                           href={`/marketplace/jobs/${job._id}`}
-                          className="rounded-lg border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-[#f5f5f5]"
+                          className="border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-white"
                         >
                           Details
                         </Link>
@@ -382,7 +383,7 @@ export function JobsPage() {
                             type="button"
                             disabled={applyingJobId === job._id}
                             onClick={() => openApplyDialog(row)}
-                            className="px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                            className="hr-v2-button-primary rounded-none px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {applyingJobId === job._id ? "Applying..." : "Apply"}
                           </AppButton>

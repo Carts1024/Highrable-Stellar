@@ -8,7 +8,16 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import { useMutation } from "convex/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -184,7 +193,7 @@ export function ApplicationsList({
   if (!applications || applications.length === 0) {
     return (
       <p
-        className="rounded-xl border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-4 text-sm text-[#5f5f5f]"
+        className="border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-4 text-sm text-[#5f5f5f]"
         role="status"
       >
         No applications yet. Freelancers can apply once you post the job.
@@ -198,10 +207,16 @@ export function ApplicationsList({
       role="region"
       aria-label={`Freelancer applications (${applicationCount})`}
     >
+      <div className="flex flex-wrap items-center justify-between gap-3 border border-[#e8e8e8] bg-white p-4">
+        <div>
+          <SectionLabel>Applications</SectionLabel>
+          <p className="mt-1 text-sm text-[#5f5f5f]">{applicationCount} submitted proposals</p>
+        </div>
+      </div>
       {applications.map((application) => (
         <article
           key={application._id}
-          className="rounded-xl border border-[#e8e8e8] bg-white p-4 transition-colors focus-within:ring-2 focus-within:ring-[#FF7003]/50 hover:border-[#FF7003]/40"
+          className="border border-[#e8e8e8] bg-white p-4 transition-colors focus-within:ring-2 focus-within:ring-[#FF7003]/50 hover:border-[#FF7003]/40"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
@@ -220,10 +235,32 @@ export function ApplicationsList({
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <AppButton
+                    type="button"
+                    variant="secondary"
+                    className="h-8 rounded-none border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
+                  >
+                    Proposal
+                  </AppButton>
+                </DialogTrigger>
+                <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{shortenWalletAddress(application.freelancerWallet)}</DialogTitle>
+                    <DialogDescription>
+                      Applied {new Date(application.createdAt).toLocaleString()}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <p className="border-y border-[#e8e8e8] py-5 text-sm leading-relaxed text-[#5f5f5f]">
+                    {application.proposal}
+                  </p>
+                </DialogContent>
+              </Dialog>
               <AppButton
                 asChild
                 variant="secondary"
-                className="h-8 border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
+                className="h-8 rounded-none border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
               >
                 <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
                   View profile
@@ -233,7 +270,7 @@ export function ApplicationsList({
                 <AppButton
                   asChild
                   variant="secondary"
-                  className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
+                  className="h-8 rounded-none border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
                 >
                   <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
                     View showcased work
@@ -246,7 +283,7 @@ export function ApplicationsList({
                   onClick={() => void handleSelectFreelancer(application.freelancerWallet)}
                   disabled={selectingWallet === application.freelancerWallet}
                   variant="secondary"
-                  className="h-8 border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-8 rounded-none border-[#FF7003] px-3 py-2 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
                   aria-label={`Select ${shortenWalletAddress(application.freelancerWallet)} as freelancer for ${job.title}`}
                   aria-busy={selectingWallet === application.freelancerWallet}
                 >
@@ -255,14 +292,12 @@ export function ApplicationsList({
               ) : null}
             </div>
           </div>
-
-          <p className="mt-3 text-sm leading-relaxed text-[#5f5f5f]">{application.proposal}</p>
         </article>
       ))}
 
       {selectionError ? (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          className="border border-red-200 bg-red-50 p-3 text-sm text-red-700"
           role="alert"
           aria-atomic="true"
         >

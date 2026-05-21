@@ -4,13 +4,16 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@repo/ui/components/ui/card";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import { useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -28,11 +31,11 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
 
   if (trustStats === undefined) {
     return (
-      <Card className="border-[#e8e8e8] bg-white">
-        <CardContent>
+      <section className="border border-[#e8e8e8] bg-white p-5">
+        <div>
           <p className="text-sm text-[#7f7f7f]">Loading client trust signals...</p>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     );
   }
 
@@ -44,51 +47,52 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
       : "None yet";
 
   return (
-    <Card className="border-[#e8e8e8] bg-white">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-[#0a0a0a]">
-          <ShieldCheck className="h-5 w-5 text-[#FF7003]" />
-          Client Trust Signals
-        </CardTitle>
-        <CardDescription>
-          Client trust signals are based on Highrable escrow activity.{" "}
-          <Link
-            href={`/clients/${encodeURIComponent(clientWallet)}`}
-            className="font-medium text-[#FF7003] hover:text-[#E85D00]"
-          >
-            View full client profile
-          </Link>
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        <dl className={`grid gap-3 text-sm ${compact ? "grid-cols-2" : "sm:grid-cols-2"}`}>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Wallet</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{shortenWalletAddress(clientWallet)}</dd>
+    <section className="border border-[#e8e8e8] bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <SectionLabel>Client Trust</SectionLabel>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-[#FF7003]" />
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">
+              {shortenWalletAddress(clientWallet)}
+            </h2>
           </div>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Jobs posted</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{trustStats.jobsPosted}</dd>
-          </div>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Jobs funded</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{trustStats.fundedJobs}</dd>
-          </div>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Jobs completed</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{trustStats.completedJobs}</dd>
-          </div>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Jobs disputed</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{trustStats.disputedJobs}</dd>
-          </div>
-          <div className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
-            <dt className="text-[#7f7f7f]">Total escrow funded</dt>
-            <dd className="font-semibold text-[#0a0a0a]">{fundedAssets}</dd>
-          </div>
-        </dl>
-      </CardContent>
-    </Card>
+        </div>
+        <div className={`grid gap-5 ${compact ? "grid-cols-2" : "sm:grid-cols-3"}`}>
+          <HighrableV2Metric label="Posted" value={trustStats.jobsPosted} />
+          <HighrableV2Metric label="Funded" value={trustStats.fundedJobs} />
+          <HighrableV2Metric label="Disputed" value={trustStats.disputedJobs} />
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <AppButton type="button" variant="secondary" className="rounded-none">
+              View trust signals
+            </AppButton>
+          </DialogTrigger>
+          <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Client Trust Signals</DialogTitle>
+              <DialogDescription>
+                Escrow activity for {shortenWalletAddress(clientWallet)}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-5 border-y border-[#e8e8e8] py-5 sm:grid-cols-2">
+              <HighrableV2Metric label="Wallet" value={shortenWalletAddress(clientWallet)} />
+              <HighrableV2Metric label="Jobs posted" value={trustStats.jobsPosted} />
+              <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
+              <HighrableV2Metric label="Jobs completed" value={trustStats.completedJobs} />
+              <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
+              <HighrableV2Metric label="Total escrow funded" value={fundedAssets} />
+            </div>
+            <Link
+              href={`/clients/${encodeURIComponent(clientWallet)}`}
+              className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+            >
+              View full client profile
+            </Link>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </section>
   );
 }

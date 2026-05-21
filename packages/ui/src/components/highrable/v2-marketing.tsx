@@ -1,7 +1,9 @@
 import { cn } from "@repo/ui/lib/utils";
+import { Info } from "lucide-react";
 
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
   V2_BADGE_ACCENT_CLASS,
   V2_BADGE_SOLID_CLASS,
@@ -45,6 +47,25 @@ export interface IHighrableV2NumberBadgeProps extends ComponentPropsWithoutRef<"
 export interface IHighrableV2BulletProps extends ComponentPropsWithoutRef<"span"> {
   readonly tone?: "accent" | "muted" | "inverse";
 }
+
+export interface IHighrableV2MetricProps extends ComponentPropsWithoutRef<"div"> {
+  readonly label: string;
+  readonly value: ReactNode;
+  readonly description?: ReactNode;
+}
+
+export interface IHighrableV2IconNoticeProps extends ComponentPropsWithoutRef<"button"> {
+  readonly label: string;
+  readonly message: ReactNode;
+  readonly tone?: "neutral" | "warning" | "danger" | "success";
+}
+
+const ICON_NOTICE_CLASSES: Record<Required<IHighrableV2IconNoticeProps>["tone"], string> = {
+  neutral: "border-border bg-background hr-text-secondary hover:hr-text-primary",
+  warning: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
+  danger: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+};
 
 /** Square-dot prefixed, monospaced uppercase label for section headers. */
 export function HighrableV2SectionLabel({
@@ -166,6 +187,56 @@ export function HighrableV2Bullet({
       )}
       {...props}
     />
+  );
+}
+
+export function HighrableV2Metric({
+  label,
+  value,
+  description,
+  className,
+  ...props
+}: IHighrableV2MetricProps) {
+  return (
+    <div className={cn("border-l border-border pl-4", className)} {...props}>
+      <p className="hr-label-caps hr-text-muted">{label}</p>
+      <div className="hr-text-primary mt-1 text-2xl leading-none font-semibold">{value}</div>
+      {description ? (
+        <p className="hr-text-secondary mt-2 text-xs leading-relaxed">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function HighrableV2IconNotice({
+  label,
+  message,
+  tone = "neutral",
+  className,
+  ...props
+}: IHighrableV2IconNoticeProps) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-none border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+              ICON_NOTICE_CLASSES[tone],
+              className,
+            )}
+            {...props}
+          >
+            <Info className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent sideOffset={8} className="max-w-xs leading-relaxed">
+          {message}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

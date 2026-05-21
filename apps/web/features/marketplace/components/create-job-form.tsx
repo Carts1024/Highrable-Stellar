@@ -38,8 +38,12 @@ import {
   DISALLOWED_JOB_POST_MESSAGE,
 } from "@/features/marketplace/lib/scam-signals";
 import { api, type TConvexId } from "@repo/convex-client";
+import {
+  HighrableV2Badge,
+  HighrableV2IconNotice,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { DateTimePicker } from "@repo/ui/components/ui-customs/date-time-picker";
-import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
@@ -201,8 +205,10 @@ function RevisionPolicyControls({
   ];
 
   return (
-    <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-      <p className="text-sm font-semibold text-[#0a0a0a]">Revision policy</p>
+    <div className="border border-[#e8e8e8] bg-white p-4">
+      <p className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+        Revision policy
+      </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {options.map((option) => (
           <button
@@ -210,9 +216,9 @@ function RevisionPolicyControls({
             type="button"
             disabled={disabled}
             onClick={() => onPolicyChange(option.value)}
-            className={`rounded-lg border p-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            className={`border p-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               revisionPolicy === option.value
-                ? "border-[#FF7003] bg-white text-[#0a0a0a]"
+                ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
                 : "border-[#e8e8e8] bg-white text-[#5f5f5f] hover:border-[#FF7003]/50"
             }`}
             aria-pressed={revisionPolicy === option.value}
@@ -242,10 +248,13 @@ function RevisionPolicyControls({
         </div>
       ) : null}
       {revisionPolicy === "unlimited" ? (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Unlimited revisions can delay completion. Use this only when both parties agree on a
-          flexible review process.
-        </p>
+        <div className="mt-3">
+          <HighrableV2IconNotice
+            label="Unlimited revisions warning"
+            tone="warning"
+            message="Unlimited revisions can delay completion. Use this only when both parties agree on a flexible review process."
+          />
+        </div>
       ) : null}
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
     </div>
@@ -860,54 +869,63 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-gray-900">Post a freelance job</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        Define escrow-ready job terms with the configured stablecoin payment asset for the MVP.
-      </p>
-
-      {!isStablecoinConfigured ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will
-          be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set.
-        </p>
-      ) : null}
+    <section className="border border-[#e8e8e8] bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] pb-5">
+        <div className="space-y-2">
+          <SectionLabel>Job Builder</SectionLabel>
+          <h2 className="text-xl font-semibold text-gray-900">Post a freelance job</h2>
+          <p className="max-w-2xl text-sm text-gray-600">
+            Define escrow-ready job terms with the configured payment asset.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!isStablecoinConfigured ? (
+            <HighrableV2IconNotice
+              label="Stablecoin configuration warning"
+              tone="warning"
+              message="Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set."
+            />
+          ) : null}
+          {walletIdentity.walletType === "passkey_smart_account" ? (
+            <HighrableV2IconNotice
+              label="Passkey smart account connected"
+              tone="success"
+              message="Passkey smart account connected. Escrow signing is enabled with passkey from the escrow action panel after the job is created."
+            />
+          ) : null}
+          {walletIdentity.walletType === "external_wallet" &&
+          walletState.isTestnet &&
+          walletState.isFunded === false ? (
+            <HighrableV2IconNotice
+              label="Funded account warning"
+              tone="warning"
+              message="You can create off-chain jobs, but Stellar transactions in later steps require a funded testnet account."
+            />
+          ) : null}
+        </div>
+      </div>
 
       {!walletIdentity.isConnected ? (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mt-5 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           <p className="mb-3">
             Connect an external wallet or passkey smart account to create a job.
           </p>
-          <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 font-medium text-white" />
+          <WalletConnectTrigger className="hr-v2-button-primary rounded-none px-4 py-2 font-medium text-white" />
         </div>
       ) : null}
 
-      {walletIdentity.walletType === "passkey_smart_account" ? (
-        <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          Passkey smart account connected. Escrow signing is enabled with passkey from the escrow
-          action panel after the job is created.
-        </p>
-      ) : null}
-
-      {walletIdentity.walletType === "external_wallet" &&
-      walletState.isTestnet &&
-      walletState.isFunded === false ? (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          You can create off-chain jobs, but Stellar transactions in later steps require a funded
-          testnet account.
-        </p>
-      ) : null}
-
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-        <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
-          <p className="text-sm font-semibold text-[#0a0a0a]">Work mode</p>
+      <form onSubmit={handleSubmit} className="mt-5 space-y-5">
+        <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <p className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+            Work mode
+          </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => updateJobType("micro_gig")}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`border p-4 text-left transition-colors ${
                 formState.jobType === "micro_gig"
-                  ? "border-[#FF7003] bg-white"
+                  ? "border-[#0a0a0a] bg-white shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.12)]"
                   : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
               }`}
               aria-pressed={formState.jobType === "micro_gig"}
@@ -920,9 +938,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <button
               type="button"
               onClick={() => updateJobType("milestone_project")}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`border p-4 text-left transition-colors ${
                 formState.jobType === "milestone_project"
-                  ? "border-[#FF7003] bg-white"
+                  ? "border-[#0a0a0a] bg-white shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.12)]"
                   : "border-[#e8e8e8] bg-white hover:border-[#FF7003]/50"
               }`}
               aria-pressed={formState.jobType === "milestone_project"}
@@ -947,7 +965,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             value={formState.title}
             onChange={(event) => updateField("title", event.target.value)}
             maxLength={140}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+            className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Build a responsive frontend with Stellar wallet integration"
           />
           {errors.title ? <p className="mt-1 text-xs text-red-600">{errors.title}</p> : null}
@@ -966,7 +984,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             onChange={(event) => updateField("description", event.target.value)}
             rows={4}
             maxLength={4000}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+            className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
             placeholder="Scope, deliverables, and acceptance criteria"
           />
           {errors.description ? (
@@ -975,34 +993,31 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </div>
 
         {scamAnalysis.signals.length > 0 ? (
-          <Alert
-            variant={scamAnalysis.isBlocked ? "destructive" : "default"}
-            className={`rounded-xl border p-3 text-sm ${
-              scamAnalysis.isBlocked
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-amber-200 bg-amber-50 text-amber-900"
-            }`}
-            role={scamAnalysis.isBlocked ? "alert" : "note"}
-          >
-            <AlertTitle>
-              {scamAnalysis.isBlocked
-                ? DISALLOWED_JOB_POST_MESSAGE
-                : "This job post contains language that may look suspicious to freelancers."}
-            </AlertTitle>
-            <AlertDescription>
-              {!scamAnalysis.isBlocked ? (
-                <p>
-                  This job may look suspicious because it asks users to move off-platform or pay
-                  upfront.
-                </p>
-              ) : null}
-              <ul className="mt-2 list-disc space-y-1 pl-5">
-                {scamAnalysis.signals.map((signal) => (
-                  <li key={signal.type}>{signal.message}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-center gap-2">
+            <HighrableV2IconNotice
+              label={
+                scamAnalysis.isBlocked ? "Blocked scam language" : "Suspicious job language warning"
+              }
+              tone={scamAnalysis.isBlocked ? "danger" : "warning"}
+              message={
+                <span className="space-y-1">
+                  <span className="block">
+                    {scamAnalysis.isBlocked
+                      ? DISALLOWED_JOB_POST_MESSAGE
+                      : "This job post contains language that may look suspicious to freelancers."}
+                  </span>
+                  {scamAnalysis.signals.map((signal) => (
+                    <span key={signal.type} className="block">
+                      {signal.message}
+                    </span>
+                  ))}
+                </span>
+              }
+            />
+            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              Review safety language
+            </span>
+          </div>
         ) : null}
 
         <div className={`grid gap-4 ${isMilestoneProject ? "" : "sm:grid-cols-2"}`}>
@@ -1020,7 +1035,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 inputMode="decimal"
                 value={formState.budget}
                 onChange={(event) => updateField("budget", event.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
                 placeholder="500"
               />
               <p className="mt-1 text-xs text-gray-500">{budgetHelperText}</p>
@@ -1071,9 +1086,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                         type="button"
                         disabled={isDisabled}
                         onClick={() => updateField("asset", asset.tokenContractId)}
-                        className={`rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                           isSelected
-                            ? "border-[#FF7003] bg-white"
+                            ? "border-[#0a0a0a] bg-white"
                             : "border-gray-300 bg-gray-50 hover:border-[#FF7003]/50"
                         }`}
                         aria-pressed={isSelected}
@@ -1081,13 +1096,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-[#0a0a0a]">{asset.displayName}</span>
                           {asset.isPrimary ? (
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                              Recommended
-                            </span>
+                            <HighrableV2Badge>Recommended</HighrableV2Badge>
                           ) : (
-                            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
-                              Advanced
-                            </span>
+                            <HighrableV2Badge tone="solid">Advanced</HighrableV2Badge>
                           )}
                         </span>
                         <span className="mt-1 block text-sm text-[#5f5f5f]">
@@ -1098,8 +1109,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                               : "XLM escrow is not configured for this deployment."}
                         </span>
                         {asset.kind === "native_xlm" && asset.isConfigured ? (
-                          <span className="mt-1 block text-xs text-amber-800">
-                            XLM escrow is available, but the job value may fluctuate.
+                          <span
+                            className="mt-2 inline-flex h-7 w-7 items-center justify-center border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800"
+                            title="XLM escrow is available, but the job value may fluctuate."
+                            aria-label="XLM value warning"
+                          >
+                            i
                           </span>
                         ) : null}
                         {asset.tokenContractId ? (
@@ -1118,7 +1133,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 value={formState.asset}
                 onChange={(event) => updateField("asset", event.target.value)}
                 maxLength={255}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
+                className="w-full rounded-none border border-gray-300 px-3 py-2 text-sm focus:border-[#FF7003] focus:outline-hidden"
                 placeholder="Stablecoin token contract ID"
               />
             )}
@@ -1146,23 +1161,30 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         />
 
         {isMilestoneProject ? (
-          <div className="space-y-4 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <div className="space-y-4 border border-[#e8e8e8] bg-[#fafafa] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-[#0a0a0a]">Milestones</h3>
+                <h3 className="font-mono text-xs font-medium tracking-[0.06em] text-[#7f7f7f] uppercase">
+                  Milestones
+                </h3>
                 <p className="mt-1 text-sm text-[#5f5f5f]">
                   Define each deliverable and payment. Funding happens later per assigned milestone.
                 </p>
               </div>
-              <AppButton type="button" variant="secondary" onClick={addMilestone} className="gap-2">
+              <AppButton
+                type="button"
+                variant="secondary"
+                onClick={addMilestone}
+                className="hr-v2-button-secondary gap-2 rounded-none"
+              >
                 <Plus className="h-4 w-4" />
                 Add milestone
               </AppButton>
             </div>
 
-            <div className="space-y-4">
+            <div className="divide-y divide-[#e8e8e8] border-y border-[#e8e8e8] bg-white">
               {formState.milestones.map((milestone, index) => (
-                <div key={milestone.id} className="rounded-lg border border-[#e8e8e8] bg-white p-4">
+                <div key={milestone.id} className="p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-[#0a0a0a]">Milestone {index + 1}</p>
                     <AppButton
@@ -1170,7 +1192,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       variant="secondary"
                       disabled={formState.milestones.length === 1}
                       onClick={() => removeMilestone(milestone.id)}
-                      className="h-8 gap-2 px-3 py-1.5 text-xs disabled:opacity-50"
+                      className="h-8 gap-2 rounded-none px-3 py-1.5 text-xs disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Remove
@@ -1268,7 +1290,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               ))}
             </div>
 
-            <div className="rounded-lg border border-[#e8e8e8] bg-white p-3 text-sm">
+            <div className="border border-[#e8e8e8] bg-white p-3 text-sm">
               <span className="font-medium text-[#0a0a0a]">Total project budget:</span>{" "}
               {parsedMilestoneTotal.toLocaleString(undefined, {
                 maximumFractionDigits: 7,
@@ -1280,7 +1302,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         ) : null}
 
         {!isMilestoneProject ? (
-          <div className="rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+          <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <label
@@ -1307,10 +1329,13 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               />
             </div>
             {walletIdentity.walletType === "passkey_smart_account" ? (
-              <p className="mt-3 text-xs text-amber-700">
-                Passkey smart accounts create and fund escrow after posting so role checks use the
-                smart account address consistently.
-              </p>
+              <div className="mt-3">
+                <HighrableV2IconNotice
+                  label="Passkey escrow funding notice"
+                  tone="warning"
+                  message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
+                />
+              </div>
             ) : null}
             {formState.fundEscrowNow ? (
               <p className="mt-3 text-xs text-[#5f5f5f]">
@@ -1319,10 +1344,13 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             ) : null}
           </div>
         ) : (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Milestone projects are not funded upfront. Assign and fund each milestone separately
-            after applications arrive.
-          </p>
+          <div>
+            <HighrableV2IconNotice
+              label="Milestone funding notice"
+              tone="warning"
+              message="Milestone projects are not funded upfront. Assign and fund each milestone separately after applications arrive."
+            />
+          </div>
         )}
 
         {errors.submit ? <p className="text-sm text-red-600">{errors.submit}</p> : null}
@@ -1330,7 +1358,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         <AppButton
           type="submit"
           disabled={isSubmitting || !walletIdentity.isConnected}
-          className="disabled:cursor-not-allowed disabled:opacity-60"
+          className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting
             ? formState.fundEscrowNow

@@ -10,11 +10,20 @@ import {
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { RichTextContent } from "@repo/ui/components/ui-customs/rich-text-content";
 import { RichTextEditor } from "@repo/ui/components/ui-customs/rich-text-editor";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
@@ -1308,6 +1317,7 @@ export function WorkAgreementSetupPanel({
   const [agreementContentDraft, setAgreementContentDraft] = useState<
     TAgreementRichTextInput | undefined
   >(undefined);
+  const [isAgreementWorkspaceOpen, setIsAgreementWorkspaceOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1427,17 +1437,15 @@ export function WorkAgreementSetupPanel({
       agreement.status === "ready_to_send");
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
+    <section className="space-y-4 border border-[#e8e8e8] bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-            Work agreement
-          </p>
+          <SectionLabel>Work Agreement</SectionLabel>
           <h2 className="mt-1 text-lg font-semibold text-[#0a0a0a]">Agreement</h2>
           <p className="mt-1 text-sm text-[#5f5f5f]">
             {isClientViewer
-              ? "Create, send, revise, and lock the workflow agreement for this work."
-              : "Review the workflow agreement and respond as the selected freelancer."}
+              ? "Create, send, revise, and lock agreement terms from a focused workspace."
+              : "Review and respond to agreement terms from a focused workspace."}
           </p>
         </div>
         {agreement ? (
@@ -1461,210 +1469,236 @@ export function WorkAgreementSetupPanel({
       ) : null}
 
       {agreement ? (
-        <AgreementPreviewShell agreement={agreement}>
-          <AgreementSummaryCard agreement={agreement} />
-          {agreement.agreementType === "client_uploaded" ? (
-            <div className="space-y-2">
-              {agreement.sourceAttachment ? (
-                <AttachmentPreviewCard attachment={agreement.sourceAttachment} readOnly />
-              ) : (
-                <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-white p-4 text-sm text-[#5f5f5f]">
-                  Uploaded agreement metadata is not available.
-                </p>
-              )}
-            </div>
-          ) : (
-            <>
-              <AgreementLegalDisclaimer />
-              {isEditingAgreementContent ? (
-                <div className="space-y-3">
-                  <RichTextEditor
-                    value={agreementContentDraft}
-                    onChange={setAgreementContentDraft}
-                    placeholder="Edit the generated agreement..."
-                    disabled={isSubmitting}
-                    maxLength={AGREEMENT_CONTENT_MAX_LENGTH}
-                    aria-label="Generated agreement content"
-                    editorClassName="[&_.ql-container]:max-h-[min(36rem,58svh)] [&_.ql-container]:overflow-hidden [&_.ql-editor]:max-h-[min(36rem,58svh)] [&_.ql-editor]:overflow-y-auto"
-                  />
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-[#7f7f7f]">
-                      {agreementContentDraft?.text.length ?? 0}/{AGREEMENT_CONTENT_MAX_LENGTH}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <AppButton
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => void saveAgreementContent()}
-                        className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
-                      >
-                        {isSubmitting ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="mr-2 h-4 w-4" />
-                        )}
-                        Save changes
-                      </AppButton>
-                      <AppButton
-                        type="button"
-                        variant="secondary"
-                        disabled={isSubmitting}
-                        onClick={cancelAgreementContentEdit}
-                        className="rounded-none"
-                      >
-                        <X className="mr-2 h-4 w-4" />
-                        Cancel
-                      </AppButton>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <AgreementRichTextPreview agreement={agreement} />
-                  {canEditGeneratedAgreement ? (
-                    <AppButton
-                      type="button"
-                      variant="secondary"
-                      disabled={isSubmitting}
-                      onClick={beginAgreementContentEdit}
-                      className="rounded-none"
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      Edit agreement
-                    </AppButton>
-                  ) : null}
-                </div>
-              )}
-            </>
-          )}
-          {escrowId ? (
-            <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-              Linked escrow record: {escrowId}
-            </p>
-          ) : null}
-          {agreement.status === "rejected" ? (
-            <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-              <div>
-                <p className="font-mono text-xs tracking-[0.08em] uppercase">
-                  Freelancer rejected this agreement
-                </p>
-                <p className="mt-1">
-                  {agreement.rejectionReason
-                    ? agreement.rejectionReason
-                    : "No rejection reason was provided."}
-                </p>
-              </div>
-              {isClientViewer && agreement.agreementType === "client_uploaded" ? (
-                <div className="space-y-2">
-                  <p className="text-[#5f1f1f]">
-                    Upload a revised agreement file before creating the replacement agreement.
-                  </p>
-                  <ClientUploadedAgreementPicker
-                    disabled={isSubmitting}
-                    onUploaded={setRevisedAttachmentId}
-                  />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {isClientViewer ? (
-            <AgreementActions
-              agreement={agreement}
-              disabled={isSubmitting || isEditingAgreementContent}
-              canRevise={
-                agreement.agreementType !== "client_uploaded" || Boolean(revisedAttachmentId)
-              }
-              onRegenerate={() =>
-                runAgreementAction(
-                  () =>
-                    regenerateAgreement({
-                      agreementId: agreement._id,
-                      walletAddress: walletAddress!,
-                      walletType: walletType!,
-                    }),
-                  "Agreement could not be regenerated.",
-                )
-              }
-              onSend={() =>
-                runAgreementAction(
-                  () =>
-                    sendAgreement({
-                      agreementId: agreement._id,
-                      walletAddress: walletAddress!,
-                      walletType: walletType!,
-                    }),
-                  "Agreement could not be sent.",
-                )
-              }
-              onLock={() =>
-                runAgreementAction(
-                  () =>
-                    lockAgreement({
-                      agreementId: agreement._id,
-                      walletAddress: walletAddress!,
-                      walletType: walletType!,
-                      lockedBy: "client",
-                      lockReason: "manual_lock",
-                    }),
-                  "Agreement could not be locked.",
-                )
-              }
-              onCancel={() =>
-                runAgreementAction(() => {
-                  const args = {
-                    agreementId: agreement._id,
-                    walletAddress: walletAddress!,
-                    walletType: walletType!,
-                  };
-                  return agreement.status === "draft" || agreement.status === "pending_preview"
-                    ? cancelDraft(args)
-                    : cancelPending(args);
-                }, "Agreement could not be cancelled.")
-              }
-              onRevise={() =>
-                runAgreementAction(() => {
-                  if (agreement.agreementType === "client_uploaded" && !revisedAttachmentId) {
-                    throw new Error("Upload a revised agreement file before continuing.");
-                  }
-                  return reviseRejectedAgreement({
-                    agreementId: agreement._id,
-                    walletAddress: walletAddress!,
-                    walletType: walletType!,
-                    ...(agreement.agreementType === "client_uploaded" && revisedAttachmentId
-                      ? { sourceAttachmentId: revisedAttachmentId }
-                      : {}),
-                  });
-                }, "Agreement could not be revised.")
-              }
-              onAbandon={() =>
-                runAgreementAction(
-                  () =>
-                    abandonRejectedAgreement({
-                      agreementId: agreement._id,
-                      walletAddress: walletAddress!,
-                      walletType: walletType!,
-                      statusReason: "Client abandoned the rejected agreement.",
-                    }),
-                  "Agreement could not be abandoned.",
-                )
-              }
+        <>
+          <div className="grid gap-5 border-y border-[#e8e8e8] py-5 sm:grid-cols-3">
+            <HighrableV2Metric label="Status" value={getAgreementStatusLabel(agreement.status)} />
+            <HighrableV2Metric
+              label="Source"
+              value={agreement.agreementType === "client_uploaded" ? "Client upload" : "Generated"}
             />
-          ) : null}
-          {isFreelancerViewer && agreement.status === "pending_acceptance" ? (
-            <AgreementFreelancerResponsePanel
-              agreementId={agreement._id}
-              walletAddress={walletAddress}
-              walletType={walletType}
-              showReviewLink
-            />
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <AgreementExportButton agreement={agreement} />
+            <HighrableV2Metric label="Version" value={`v${agreement.version}`} />
           </div>
-          <AgreementAmendmentBanner agreementId={agreement._id} />
-          <AgreementVersionTimeline agreementId={agreement._id} />
-          <AgreementAuditTimeline agreementId={agreement._id} />
-        </AgreementPreviewShell>
+          <Dialog open={isAgreementWorkspaceOpen} onOpenChange={setIsAgreementWorkspaceOpen}>
+            <DialogTrigger asChild>
+              <AppButton type="button" className="hr-v2-button-primary rounded-none">
+                Open agreement workspace
+              </AppButton>
+            </DialogTrigger>
+            <DialogContent className="max-h-[88svh] overflow-y-auto rounded-none sm:max-w-5xl">
+              <DialogHeader>
+                <DialogTitle>{agreement.title}</DialogTitle>
+                <DialogDescription>
+                  Agreement actions, previews, amendments, versions, and audit trail.
+                </DialogDescription>
+              </DialogHeader>
+              <AgreementPreviewShell agreement={agreement}>
+                <AgreementSummaryCard agreement={agreement} />
+                {agreement.agreementType === "client_uploaded" ? (
+                  <div className="space-y-2">
+                    {agreement.sourceAttachment ? (
+                      <AttachmentPreviewCard attachment={agreement.sourceAttachment} readOnly />
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-white p-4 text-sm text-[#5f5f5f]">
+                        Uploaded agreement metadata is not available.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <AgreementLegalDisclaimer />
+                    {isEditingAgreementContent ? (
+                      <div className="space-y-3">
+                        <RichTextEditor
+                          value={agreementContentDraft}
+                          onChange={setAgreementContentDraft}
+                          placeholder="Edit the generated agreement..."
+                          disabled={isSubmitting}
+                          maxLength={AGREEMENT_CONTENT_MAX_LENGTH}
+                          aria-label="Generated agreement content"
+                          editorClassName="[&_.ql-container]:max-h-[min(36rem,58svh)] [&_.ql-container]:overflow-hidden [&_.ql-editor]:max-h-[min(36rem,58svh)] [&_.ql-editor]:overflow-y-auto"
+                        />
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-xs text-[#7f7f7f]">
+                            {agreementContentDraft?.text.length ?? 0}/{AGREEMENT_CONTENT_MAX_LENGTH}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <AppButton
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() => void saveAgreementContent()}
+                              className="rounded-none bg-[#0a0a0a] text-white hover:bg-[#FF7003]"
+                            >
+                              {isSubmitting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="mr-2 h-4 w-4" />
+                              )}
+                              Save changes
+                            </AppButton>
+                            <AppButton
+                              type="button"
+                              variant="secondary"
+                              disabled={isSubmitting}
+                              onClick={cancelAgreementContentEdit}
+                              className="rounded-none"
+                            >
+                              <X className="mr-2 h-4 w-4" />
+                              Cancel
+                            </AppButton>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <AgreementRichTextPreview agreement={agreement} />
+                        {canEditGeneratedAgreement ? (
+                          <AppButton
+                            type="button"
+                            variant="secondary"
+                            disabled={isSubmitting}
+                            onClick={beginAgreementContentEdit}
+                            className="rounded-none"
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Edit agreement
+                          </AppButton>
+                        ) : null}
+                      </div>
+                    )}
+                  </>
+                )}
+                {escrowId ? (
+                  <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+                    Linked escrow record: {escrowId}
+                  </p>
+                ) : null}
+                {agreement.status === "rejected" ? (
+                  <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+                    <div>
+                      <p className="font-mono text-xs tracking-[0.08em] uppercase">
+                        Freelancer rejected this agreement
+                      </p>
+                      <p className="mt-1">
+                        {agreement.rejectionReason
+                          ? agreement.rejectionReason
+                          : "No rejection reason was provided."}
+                      </p>
+                    </div>
+                    {isClientViewer && agreement.agreementType === "client_uploaded" ? (
+                      <div className="space-y-2">
+                        <p className="text-[#5f1f1f]">
+                          Upload a revised agreement file before creating the replacement agreement.
+                        </p>
+                        <ClientUploadedAgreementPicker
+                          disabled={isSubmitting}
+                          onUploaded={setRevisedAttachmentId}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {isClientViewer ? (
+                  <AgreementActions
+                    agreement={agreement}
+                    disabled={isSubmitting || isEditingAgreementContent}
+                    canRevise={
+                      agreement.agreementType !== "client_uploaded" || Boolean(revisedAttachmentId)
+                    }
+                    onRegenerate={() =>
+                      runAgreementAction(
+                        () =>
+                          regenerateAgreement({
+                            agreementId: agreement._id,
+                            walletAddress: walletAddress!,
+                            walletType: walletType!,
+                          }),
+                        "Agreement could not be regenerated.",
+                      )
+                    }
+                    onSend={() =>
+                      runAgreementAction(
+                        () =>
+                          sendAgreement({
+                            agreementId: agreement._id,
+                            walletAddress: walletAddress!,
+                            walletType: walletType!,
+                          }),
+                        "Agreement could not be sent.",
+                      )
+                    }
+                    onLock={() =>
+                      runAgreementAction(
+                        () =>
+                          lockAgreement({
+                            agreementId: agreement._id,
+                            walletAddress: walletAddress!,
+                            walletType: walletType!,
+                            lockedBy: "client",
+                            lockReason: "manual_lock",
+                          }),
+                        "Agreement could not be locked.",
+                      )
+                    }
+                    onCancel={() =>
+                      runAgreementAction(() => {
+                        const args = {
+                          agreementId: agreement._id,
+                          walletAddress: walletAddress!,
+                          walletType: walletType!,
+                        };
+                        return agreement.status === "draft" ||
+                          agreement.status === "pending_preview"
+                          ? cancelDraft(args)
+                          : cancelPending(args);
+                      }, "Agreement could not be cancelled.")
+                    }
+                    onRevise={() =>
+                      runAgreementAction(() => {
+                        if (agreement.agreementType === "client_uploaded" && !revisedAttachmentId) {
+                          throw new Error("Upload a revised agreement file before continuing.");
+                        }
+                        return reviseRejectedAgreement({
+                          agreementId: agreement._id,
+                          walletAddress: walletAddress!,
+                          walletType: walletType!,
+                          ...(agreement.agreementType === "client_uploaded" && revisedAttachmentId
+                            ? { sourceAttachmentId: revisedAttachmentId }
+                            : {}),
+                        });
+                      }, "Agreement could not be revised.")
+                    }
+                    onAbandon={() =>
+                      runAgreementAction(
+                        () =>
+                          abandonRejectedAgreement({
+                            agreementId: agreement._id,
+                            walletAddress: walletAddress!,
+                            walletType: walletType!,
+                            statusReason: "Client abandoned the rejected agreement.",
+                          }),
+                        "Agreement could not be abandoned.",
+                      )
+                    }
+                  />
+                ) : null}
+                {isFreelancerViewer && agreement.status === "pending_acceptance" ? (
+                  <AgreementFreelancerResponsePanel
+                    agreementId={agreement._id}
+                    walletAddress={walletAddress}
+                    walletType={walletType}
+                    showReviewLink
+                  />
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <AgreementExportButton agreement={agreement} />
+                </div>
+                <AgreementAmendmentBanner agreementId={agreement._id} />
+                <AgreementVersionTimeline agreementId={agreement._id} />
+                <AgreementAuditTimeline agreementId={agreement._id} />
+              </AgreementPreviewShell>
+            </DialogContent>
+          </Dialog>
+        </>
       ) : walletAddress && isClientViewer ? (
         <div className="space-y-4">
           <AgreementTypeSelector

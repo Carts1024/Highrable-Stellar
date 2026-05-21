@@ -3,7 +3,16 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import type { TConvexDoc } from "@repo/convex-client";
@@ -24,17 +33,28 @@ export function FreelancerSafetyChecklist({
 
   if (!isSelectedFreelancer) {
     return (
-      <Card className="border-[#e8e8e8] bg-white">
-        <CardHeader>
-          <CardTitle className="text-[#0a0a0a]">Before Starting Work</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-[#5f5f5f]">
-            Only start after the job shows Verified Funded and the payment terms match the
-            agreement.
-          </p>
-        </CardContent>
-      </Card>
+      <section className="flex flex-wrap items-center justify-between gap-4 border border-[#e8e8e8] bg-white p-5">
+        <div className="space-y-2">
+          <SectionLabel>Work Safety</SectionLabel>
+          <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <AppButton type="button" variant="secondary" className="rounded-none">
+              View checklist
+            </AppButton>
+          </DialogTrigger>
+          <DialogContent className="rounded-none">
+            <DialogHeader>
+              <DialogTitle>Before Starting Work</DialogTitle>
+              <DialogDescription>
+                Only start after the job shows Verified Funded and the payment terms match the
+                agreement.
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      </section>
     );
   }
 
@@ -62,28 +82,44 @@ export function FreelancerSafetyChecklist({
   ];
 
   return (
-    <Card className="border-[#e8e8e8] bg-white">
-      <CardHeader>
-        <CardTitle className="text-[#0a0a0a]">Before Starting Work</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2 text-sm">
-          {checklist.map((item) => {
-            const Icon = item.isComplete ? CheckCircle2 : Circle;
+    <section className="flex flex-wrap items-center justify-between gap-4 border border-[#e8e8e8] bg-white p-5">
+      <div className="space-y-2">
+        <SectionLabel>Work Safety</SectionLabel>
+        <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
+      </div>
+      <Dialog>
+        <DialogTrigger asChild>
+          <AppButton type="button" variant="secondary" className="rounded-none">
+            View checklist
+          </AppButton>
+        </DialogTrigger>
+        <DialogContent className="rounded-none">
+          <DialogHeader>
+            <DialogTitle>Before Starting Work</DialogTitle>
+            <DialogDescription>
+              Confirm the escrow and payment terms before you begin delivery.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm">
+            {checklist.map((item) => {
+              const Icon = item.isComplete ? CheckCircle2 : Circle;
 
-            return (
-              <li key={item.label} className="flex items-center gap-2 text-[#5f5f5f]">
-                <Icon
-                  className={`h-4 w-4 shrink-0 ${
-                    item.isComplete ? "text-emerald-700" : "text-amber-600"
-                  }`}
-                />
-                <span className={item.isComplete ? "text-[#0a0a0a]" : undefined}>{item.label}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </CardContent>
-    </Card>
+              return (
+                <li key={item.label} className="flex items-center gap-2 text-[#5f5f5f]">
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${
+                      item.isComplete ? "text-emerald-700" : "text-amber-600"
+                    }`}
+                  />
+                  <span className={item.isComplete ? "text-[#0a0a0a]" : undefined}>
+                    {item.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }
