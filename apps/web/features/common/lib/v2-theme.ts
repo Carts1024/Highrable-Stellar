@@ -1,20 +1,20 @@
 export const V2_THEME = {
   colors: {
-    textPrimary: "text-[#0a0a0a]",
-    textSecondary: "text-[#5f5f5f]",
-    textMuted: "text-[#7f7f7f]",
-    accentText: "text-[#B94A00]",
-    border: "border-[#e8e8e8]",
-    surfaceMuted: "bg-[#f5f5f5]",
-    surfaceAccent: "bg-[#fff7ed]",
+    textPrimary: "hr-text-primary",
+    textSecondary: "hr-text-secondary",
+    textMuted: "hr-text-muted",
+    accentText: "hr-text-accent",
+    border: "border-border",
+    surfaceMuted: "hr-surface-muted",
+    surfaceAccent: "hr-surface-accent",
   },
   gradients: {
-    primary: "bg-linear-to-r from-[#FF8801] via-[#FF7003] to-[#E85D00]",
-    primaryStrong: "bg-linear-to-r from-[#FF7003] to-[#FF8801]",
+    primary: "hr-gradient-primary",
+    primaryStrong: "hr-gradient-primary-strong",
   },
   effects: {
-    hardShadow: "shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]",
-    hardShadowStrong: "shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.2)]",
+    hardShadow: "hr-hard-shadow",
+    hardShadowStrong: "hr-hard-shadow-strong",
   },
 } as const;
 

@@ -13,7 +13,7 @@ import { V2UniqueSection } from "./components/v2-unique-section";
 /** Renders the redesigned Highrable marketing landing page (v2). */
 export function LandingPageV2() {
   return (
-    <div className="bg-white font-sans antialiased">
+    <div className="bg-background font-sans text-foreground antialiased">
       <V2Navbar />
       <main>
         <V2Hero />

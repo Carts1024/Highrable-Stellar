@@ -37,6 +37,7 @@ export interface IClientEnv {
     | "openzeppelin_channels"
     | "sdk_source_account"
     | "unknown";
+  readonly NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER?: boolean;
   readonly NODE_ENV: "development" | "production" | "test";
 }
 
@@ -69,6 +70,26 @@ const Hash64Schema = z
   .string()
   .trim()
   .regex(/^[a-fA-F0-9]{64}$/, "Invalid 32-byte hash format");
+
+function normalizeOptionalBooleanEnv(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "true") {
+    return true;
+  }
+
+  if (normalized === "false") {
+    return false;
+  }
+
+  return value;
+}
+
+const OptionalBooleanEnvSchema = z.preprocess(normalizeOptionalBooleanEnv, z.boolean().optional());
 
 const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["local", "testnet", "mainnet", "public"]).default("testnet"),
@@ -104,6 +125,7 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: z
     .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
     .optional(),
+  NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: OptionalBooleanEnvSchema,
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
@@ -162,6 +184,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_PASSKEY_RP_NAME: process.env.NEXT_PUBLIC_PASSKEY_RP_NAME,
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL,
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
+    NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: process.env.NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
     HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
