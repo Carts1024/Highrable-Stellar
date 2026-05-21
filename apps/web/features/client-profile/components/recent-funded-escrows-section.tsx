@@ -8,6 +8,7 @@ import {
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -20,19 +21,24 @@ export function RecentFundedEscrowsSection({
   readonly escrows: readonly TClientEscrowActivity[];
 }) {
   return (
-    <section className="space-y-3">
-      <h2 className="text-xl font-semibold text-[#0a0a0a]">Recent funded escrows</h2>
+    <section className="border border-[#e8e8e8] bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] p-5 sm:p-6">
+        <div>
+          <SectionLabel>Funded Escrows</SectionLabel>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent funding activity</h2>
+        </div>
+        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+          {escrows.length} record{escrows.length === 1 ? "" : "s"}
+        </p>
+      </div>
       {escrows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
+        <p className="p-5 text-sm text-[#5f5f5f] sm:p-6">
           This client has no funded escrow history yet.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y divide-[#e8e8e8]">
           {escrows.map((escrow) => (
-            <article
-              key={escrow.escrowId}
-              className="rounded-xl border border-[#e8e8e8] bg-white p-4 shadow-sm"
-            >
+            <article key={escrow.escrowId} className="p-5 transition-colors hover:bg-[#fafafa]">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -69,7 +75,7 @@ export function RecentFundedEscrowsSection({
                   </p>
                 </div>
 
-                <div className="space-y-2 text-left md:text-right">
+                <div className="min-w-44 space-y-2 text-left md:text-right">
                   <p className="font-semibold text-[#0a0a0a]">
                     {formatAmount(escrow.amount)} {formatAsset(escrow.asset)}
                   </p>

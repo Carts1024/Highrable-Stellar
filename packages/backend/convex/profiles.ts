@@ -490,6 +490,7 @@ export const getClientTrustProfile = query({
         name: user?.name,
         companyName: user?.companyName,
         bio: user?.bio,
+        avatarUrl: await resolveAvatarUrl(ctx, user),
         websiteUrl: user?.websiteUrl,
         location: user?.location,
         walletType: user?.walletType,
