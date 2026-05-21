@@ -137,9 +137,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
           <div className="space-y-2">
             <SectionLabel>Contract Snapshot</SectionLabel>
-            <h2 className="text-2xl font-semibold text-[#0a0a0a]">
-              {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
-            </h2>
+            <h2 className="text-2xl font-semibold text-[#0a0a0a]">{job.description}</h2>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <JobSafetyBadge status={safetyStatus.status} />
@@ -233,16 +231,16 @@ export function JobDetail({ jobId }: { jobId: string }) {
               <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
                 Asset
               </dt>
-              <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
-              {isNativeXlmJob ? (
-                <div className="mt-2">
+              <dd className="flex items-center gap-2 font-semibold text-[#0a0a0a]">
+                {formatAssetLabel(job.asset)}
+                {isNativeXlmJob && (
                   <HighrableV2IconNotice
                     label="XLM volatility warning"
                     tone="warning"
                     message="XLM escrow is volatile. Final fiat value may change."
                   />
-                </div>
-              ) : null}
+                )}
+              </dd>
             </div>
             <div>
               <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">

@@ -1081,12 +1081,20 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     const isDisabled = !asset.isConfigured;
 
                     return (
-                      <button
+                      <div
                         key={asset.kind}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => updateField("asset", asset.tokenContractId)}
-                        className={`border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                        role="button"
+                        tabIndex={isDisabled ? -1 : 0}
+                        onClick={() => !isDisabled && updateField("asset", asset.tokenContractId)}
+                        onKeyDown={(e) => {
+                          if (!isDisabled && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            updateField("asset", asset.tokenContractId);
+                          }
+                        }}
+                        className={`border p-3 text-left transition-colors ${
+                          isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                        } ${
                           isSelected
                             ? "border-[#0a0a0a] bg-white"
                             : "border-gray-300 bg-gray-50 hover:border-[#FF7003]/50"
@@ -1100,6 +1108,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                           ) : (
                             <HighrableV2Badge tone="solid">Advanced</HighrableV2Badge>
                           )}
+                          {asset.kind === "native_xlm" && asset.isConfigured ? (
+                            <HighrableV2IconNotice
+                              label="XLM value warning"
+                              tone="warning"
+                              message="XLM escrow is available, but the job value may fluctuate."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : null}
                         </span>
                         <span className="mt-1 block text-sm text-[#5f5f5f]">
                           {asset.kind === "stablecoin"
@@ -1108,21 +1124,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                               ? "Advanced. Job value may fluctuate with XLM market price."
                               : "XLM escrow is not configured for this deployment."}
                         </span>
-                        {asset.kind === "native_xlm" && asset.isConfigured ? (
-                          <span
-                            className="mt-2 inline-flex h-7 w-7 items-center justify-center border border-amber-200 bg-amber-50 text-xs font-semibold text-amber-800"
-                            title="XLM escrow is available, but the job value may fluctuate."
-                            aria-label="XLM value warning"
-                          >
-                            i
-                          </span>
-                        ) : null}
                         {asset.tokenContractId ? (
                           <span className="mt-1 block font-mono text-xs break-all text-[#5f5f5f]">
                             {asset.tokenContractId}
                           </span>
                         ) : null}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

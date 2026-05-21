@@ -6,6 +6,7 @@ import { JobApplicationDialog } from "@/features/marketplace/components/job-appl
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import {
   compareJobsBySafetyThenNewest,
   getApplicationTrustSafetyNoticeType,
@@ -13,7 +14,6 @@ import {
   getJobSafetySortRank,
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
-import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import {

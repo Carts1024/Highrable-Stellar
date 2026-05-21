@@ -1,153 +1,89 @@
-"use client";
-
 import { APP_NAME } from "@/core/constants";
-import { motion } from "framer-motion";
+import {
+  HighrableV2Footer,
+  type THighrableV2FooterLink,
+  type THighrableV2FooterSection,
+} from "@repo/ui/components/highrable/v2-footer";
 import Link from "next/link";
 
-/** Renders the marketing footer for the Highrable landing page. */
+const FOOTER_SECTIONS = [
+  {
+    title: "Platform",
+    links: [
+      { label: "Find Jobs", href: "/jobs" },
+      { label: "Post a Job", href: "/post-job" },
+      { label: "Dashboard", href: "/dashboard" },
+      { label: "How It Works", href: "/home#how-it-works" },
+    ],
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Documentation", href: "#" },
+      { label: "Whitepaper", href: "#" },
+      { label: "Security", href: "#" },
+      { label: "FAQ", href: "#" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "About Us", href: "#" },
+      { label: "Blog", href: "#" },
+      { label: "Privacy Policy", href: "#" },
+      { label: "Terms of Service", href: "#" },
+    ],
+  },
+] satisfies readonly THighrableV2FooterSection[];
+
+const TRUST_SIGNALS = ["Escrow-backed", "Stellar payments", "Verified reputation"] as const;
+
+function renderFooterLink(link: THighrableV2FooterLink, className: string) {
+  const marker = (
+    <span
+      className="h-1 w-1 bg-current opacity-50 transition-opacity group-hover:opacity-100"
+      aria-hidden="true"
+    />
+  );
+
+  if (link.href === "#") {
+    return (
+      <span className={className}>
+        {marker}
+        {link.label}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={link.href} className={className}>
+      {marker}
+      {link.label}
+    </Link>
+  );
+}
+
+/** Renders the shared Highrable marketing footer with app-specific links and assets. */
 export function Footer() {
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="grid gap-8 md:grid-cols-4"
-        >
-          <div className="col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-              className="mb-4 flex items-center space-x-2"
-            >
-              <img
-                src="/logo/highrable-icon.jpg"
-                alt="Highrable logo"
-                className="h-8 w-8 rounded-md object-cover"
-              />
-              <span className="text-xl font-bold">{APP_NAME}</span>
-            </motion.div>
-            <p className="text-sm leading-relaxed text-gray-400">
-              The future of freelancing built on blockchain technology. Fair pay guaranteed, trust
-              built in.
-            </p>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <h3 className="mb-4 text-lg font-semibold">Platform</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/jobs"
-                  className="text-gray-400 transition-colors duration-200 hover:text-[#FF7003]"
-                >
-                  Find Jobs
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/post-job"
-                  className="text-gray-400 transition-colors duration-200 hover:text-[#FF7003]"
-                >
-                  Post a Job
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard"
-                  className="text-gray-400 transition-colors duration-200 hover:text-[#FF7003]"
-                >
-                  Dashboard
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/#how-it-works"
-                  className="text-gray-400 transition-colors duration-200 hover:text-[#FF7003]"
-                >
-                  How it Works
-                </Link>
-              </li>
-            </ul>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            <h3 className="mb-4 text-lg font-semibold">Resources</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <span className="text-gray-400">Documentation</span>
-              </li>
-              <li>
-                <span className="text-gray-400">Whitepaper</span>
-              </li>
-              <li>
-                <span className="text-gray-400">Security</span>
-              </li>
-              <li>
-                <span className="text-gray-400">FAQ</span>
-              </li>
-            </ul>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            <h3 className="mb-4 text-lg font-semibold">Company</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <span className="text-gray-400">About Us</span>
-              </li>
-              <li>
-                <span className="text-gray-400">Blog</span>
-              </li>
-              <li>
-                <span className="text-gray-400">Privacy Policy</span>
-              </li>
-              <li>
-                <span className="text-gray-400">Terms of Service</span>
-              </li>
-            </ul>
-          </motion.div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-          className="mt-12 flex flex-col items-center justify-between border-t border-gray-800 pt-8 sm:flex-row"
-        >
-          <p className="text-sm text-gray-400">© 2026 {APP_NAME}. All rights reserved.</p>
-          <div className="mt-4 flex items-center space-x-6 sm:mt-0">
-            <span className="text-sm text-gray-400">Built on</span>
-            <div className="flex items-center space-x-2">
-              <img
-                src="/logo/stellar/Stellar_Symbol.png"
-                alt="Stellar Network"
-                className="h-6 w-6"
-              />
-              <span className="text-sm text-gray-400">Stellar Network</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </footer>
+    <HighrableV2Footer
+      brand={{
+        name: APP_NAME,
+        description:
+          "A Stellar-native freelance marketplace for escrow-backed work, faster stablecoin payouts, and portable on-chain reputation.",
+        logoSrc: "/logo/highrable-icon.jpg",
+        logoAlt: "Highrable logo",
+      }}
+      sections={FOOTER_SECTIONS}
+      trustSignals={TRUST_SIGNALS}
+      network={{
+        label: "Built on",
+        name: "Stellar Network",
+        logoSrc: "/logo/stellar/Stellar_Symbol.png",
+        logoAlt: "Stellar Network",
+      }}
+      copyright={`© 2026 ${APP_NAME}. All rights reserved.`}
+      renderLink={renderFooterLink}
+    />
   );
 }

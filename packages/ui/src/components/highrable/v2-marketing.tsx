@@ -1,9 +1,11 @@
+"use client";
+
 import { cn } from "@repo/ui/lib/utils";
 import { Info } from "lucide-react";
 
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import {
   V2_BADGE_ACCENT_CLASS,
   V2_BADGE_SOLID_CLASS,
@@ -216,27 +218,25 @@ export function HighrableV2IconNotice({
   ...props
 }: IHighrableV2IconNoticeProps) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={label}
-            className={cn(
-              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-none border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
-              ICON_NOTICE_CLASSES[tone],
-              className,
-            )}
-            {...props}
-          >
-            <Info className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent sideOffset={8} className="max-w-xs leading-relaxed">
-          {message}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className={cn(
+            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-none border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+            ICON_NOTICE_CLASSES[tone],
+            className,
+          )}
+          {...props}
+        >
+          <Info className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" sideOffset={8} className="max-w-xs text-sm leading-relaxed">
+        {message}
+      </PopoverContent>
+    </Popover>
   );
 }
 

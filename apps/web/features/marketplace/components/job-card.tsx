@@ -3,9 +3,9 @@ import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
-import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
-import { getJobSafetyLabel } from "@/features/marketplace/lib/job-safety";
+import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 
@@ -85,12 +85,16 @@ export function JobCard({
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Asset</dt>
-          <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(job.asset)}</dd>
-          {isNativeXlmJob ? (
-            <p className="mt-1 text-xs text-amber-800">
-              XLM escrow is volatile. Final fiat value may change.
-            </p>
-          ) : null}
+          <dd className="flex items-center gap-2 font-semibold text-[#0a0a0a]">
+            {formatAssetLabel(job.asset)}
+            {isNativeXlmJob && (
+              <HighrableV2IconNotice
+                label="XLM volatility warning"
+                tone="warning"
+                message="XLM escrow is volatile. Final fiat value may change."
+              />
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-[#7f7f7f]">Client wallet</dt>
