@@ -31,6 +31,7 @@ import { WorkProofSubmissionPanel } from "@/features/work-submissions/components
 import { api } from "@repo/convex-client";
 import { SafetyInfoDisclosure } from "@repo/ui/components/highrable/safety-info-disclosure";
 import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { V2_BUTTON_SECONDARY_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Dialog,
@@ -233,7 +234,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
           ) : null}
           <Dialog open={isPaymentFlowOpen} onOpenChange={setIsPaymentFlowOpen}>
             <DialogTrigger asChild>
-              <AppButton type="button" className="hr-v2-button-primary rounded-none">
+              <AppButton
+                type="button"
+                variant="outline"
+                className={`${V2_BUTTON_SECONDARY_CLASS} rounded-none`}
+              >
                 Open payment flow
               </AppButton>
             </DialogTrigger>

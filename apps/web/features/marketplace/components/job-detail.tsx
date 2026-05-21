@@ -6,10 +6,8 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { AttachmentList } from "@/features/attachments/components";
 import { ConversationThread } from "@/features/chat";
 import { ProductPageHero } from "@/features/common";
-import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
-import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
@@ -21,7 +19,6 @@ import {
   HighrableV2Metric,
   SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 
@@ -70,8 +67,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
     hasJobId ? { jobId: convexJobId } : "skip",
   );
 
-  const { isSyncing, syncReputationRecord, syncMessage, syncResult } = useSyncActions({ escrow });
-
   if (!hasJobId) {
     return <p className="text-sm text-gray-700">Job not found.</p>;
   }
@@ -86,10 +81,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
   const safeApplications = applications ?? [];
   const mergedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
-  const reputationRecord = verifiedReviewData?.reputationRecord ?? null;
-  const hasReleasedCompletion = mergedEscrow?.status === "released" || job.status === "completed";
-  const showPendingSyncState =
-    hasReleasedCompletion && mergedEscrow?.status === "released" && !reputationRecord;
   const safetyStatus = getJobSafetyStatus({ job, escrow: mergedEscrow });
   const isConnectedClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
   const isSelectedConnectedFreelancer = isSameWallet(
@@ -413,52 +404,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
               />
             );
           })}
-        </section>
-      ) : null}
-
-      {!isMilestoneProject && hasReleasedCompletion ? (
-        <section className="space-y-3 rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#0a0a0a]">Verified completion</h2>
-
-          {reputationRecord && mergedEscrow ? (
-            <VerifiedReviewCard
-              jobTitle={job.title}
-              escrowId={mergedEscrow.escrowId}
-              clientWallet={mergedEscrow.clientWallet}
-              freelancerWallet={mergedEscrow.freelancerWallet ?? ""}
-              amount={mergedEscrow.amount}
-              asset={mergedEscrow.asset}
-              rating={reputationRecord.rating}
-              reviewText={reputationRecord.reviewText}
-              reviewHash={reputationRecord.reviewHash}
-              txHash={reputationRecord.txHash ?? mergedEscrow.releaseTxHash}
-              createdAt={reputationRecord.createdAt}
-            />
-          ) : null}
-
-          {showPendingSyncState ? (
-            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p>Payment was released, but the verified review record has not synced yet.</p>
-              <AppButton
-                type="button"
-                disabled={isSyncing}
-                onClick={() => void syncReputationRecord()}
-                variant="secondary"
-                className="h-8 rounded-lg border-amber-300 px-3 py-1.5 text-xs hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSyncing ? "Syncing..." : "Sync verified review"}
-              </AppButton>
-              {syncMessage ? (
-                <p className={`text-xs ${syncResult?.ok ? "text-emerald-700" : "text-red-700"}`}>
-                  {syncMessage}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {!reputationRecord && !showPendingSyncState ? (
-            <p className="text-sm text-gray-500">Could not load verified review.</p>
-          ) : null}
         </section>
       ) : null}
 

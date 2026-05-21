@@ -23,7 +23,6 @@ import {
   SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
 import {
-  V2_BUTTON_PRIMARY_CLASS,
   V2_BUTTON_SECONDARY_CLASS,
   V2_PANEL_CLASS,
   V2_THEME,
@@ -973,11 +972,11 @@ export function WorkProofSubmissionPanel({
           <DialogTrigger asChild>
             <AppButton
               type="button"
-              variant={isReleased ? "default" : "outline"}
+              variant="outline"
               disabled={!escrow?.escrowId || !walletIdentity.isConnected}
               className={cn(
                 "shrink-0 rounded-none disabled:cursor-not-allowed disabled:opacity-60",
-                isReleased ? V2_BUTTON_PRIMARY_CLASS : V2_BUTTON_SECONDARY_CLASS,
+                V2_BUTTON_SECONDARY_CLASS,
               )}
               aria-label={buttonLabel}
             >

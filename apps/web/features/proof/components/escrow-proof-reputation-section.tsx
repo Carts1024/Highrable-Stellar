@@ -1,14 +1,27 @@
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
+import { V2_PANEL_CLASS, V2_BADGE_ACCENT_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { Button } from "@repo/ui/components/ui/button";
-import { ExternalLink, Star } from "lucide-react";
+import { cn } from "@repo/ui/lib/utils";
+import { ExternalLink, Star, ShieldCheck } from "lucide-react";
 
 import type { TEscrowProof } from "../types";
 
-function RatingStars({ rating }: { readonly rating: number }) {
+export interface IRatingStarsProps {
+  readonly rating: number;
+}
+
+export interface IEscrowProofReputationSectionProps {
+  readonly proof: TEscrowProof;
+  readonly isSyncing: boolean;
+  readonly syncMessage: string | null;
+  readonly onSyncReputation: () => void;
+}
+
+function RatingStars({ rating }: IRatingStarsProps) {
   const normalizedRating = Math.max(0, Math.min(5, Math.round(rating)));
 
   return (
-    <span className="flex items-center gap-0.5 text-amber-400">
+    <span className="flex items-center gap-0.5 text-amber-500">
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={index}
@@ -17,7 +30,9 @@ function RatingStars({ rating }: { readonly rating: number }) {
           strokeWidth={1.5}
         />
       ))}
-      <span className="ml-2 text-sm text-[#5f5f5f]">{normalizedRating}/5</span>
+      <span className="hr-text-secondary ml-2 font-mono text-xs font-medium">
+        {normalizedRating}/5
+      </span>
     </span>
   );
 }
@@ -27,20 +42,19 @@ export function EscrowProofReputationSection({
   isSyncing,
   syncMessage,
   onSyncReputation,
-}: {
-  readonly proof: TEscrowProof;
-  readonly isSyncing: boolean;
-  readonly syncMessage: string | null;
-  readonly onSyncReputation: () => void;
-}) {
+}: IEscrowProofReputationSectionProps) {
   const reputationRecord = proof.reputationRecord;
 
   if (proof.escrow.status !== "released") {
     return (
-      <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-[#0a0a0a]">Reputation proof</h2>
-        <p className="mt-2 text-sm text-[#5f5f5f]">
-          Reputation proof is created only after payment release.
+      <section className={cn("p-6", V2_PANEL_CLASS, "bg-white")}>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="hr-text-muted h-5 w-5" />
+          <h2 className="hr-text-primary text-xl font-bold tracking-tight">Trust Verification</h2>
+        </div>
+        <p className="hr-text-secondary mt-3 text-sm leading-relaxed">
+          The trust verification record and on-chain review will be generated automatically once the
+          escrow payment is released.
         </p>
       </section>
     );
@@ -48,60 +62,108 @@ export function EscrowProofReputationSection({
 
   if (!reputationRecord) {
     return (
-      <section className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-        <div>
-          <h2 className="text-xl font-semibold text-amber-950">Reputation proof</h2>
-          <p className="mt-2 text-sm text-amber-900">
-            Payment was released, but the reputation record is not synced yet.
-          </p>
+      <section className={cn("space-y-4 p-6", V2_PANEL_CLASS, "border-amber-200 bg-amber-50/30")}>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-amber-600" />
+          <h2 className="text-xl font-bold tracking-tight text-amber-950">Pending Verification</h2>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={isSyncing}
-          onClick={onSyncReputation}
-          className="h-9 rounded-lg border-amber-300 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSyncing ? "Syncing..." : "Sync reputation record"}
-        </Button>
-        {syncMessage ? <p className="text-sm text-amber-900">{syncMessage}</p> : null}
+        <p className="text-sm leading-relaxed text-amber-900/80">
+          Payment has been released successfully, but the on-chain trust record is not yet
+          synchronized with this view.
+        </p>
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSyncing}
+            onClick={onSyncReputation}
+            className="h-9 rounded-lg border-amber-300 bg-white px-4 text-xs font-bold tracking-wide text-amber-700 uppercase transition-all hover:bg-amber-100 disabled:opacity-50"
+          >
+            {isSyncing ? "Syncing Record..." : "Sync Verification Record"}
+          </Button>
+        </div>
+        {syncMessage ? (
+          <p className="font-mono text-[10px] font-medium text-amber-800 uppercase">
+            {syncMessage}
+          </p>
+        ) : null}
       </section>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6 shadow-sm">
-      <h2 className="text-xl font-semibold text-emerald-950">Verified reputation record</h2>
-      <p className="mt-2 text-sm text-emerald-900">
-        This record was created after escrow payment was released.
+    <section className={cn("p-6", V2_PANEL_CLASS, "bg-white")}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="hr-text-accent h-5 w-5" />
+          <h2 className="hr-text-primary text-xl font-bold tracking-tight">
+            Verified Trust Record
+          </h2>
+        </div>
+        <div
+          className={cn(
+            "px-3 py-1 text-[10px] font-bold tracking-widest uppercase",
+            V2_BADGE_ACCENT_CLASS,
+          )}
+        >
+          On-Chain Verified
+        </div>
+      </div>
+
+      <p className="hr-text-secondary mt-3 text-sm leading-relaxed">
+        This record serves as cryptographic proof of a successful collaboration and payment through
+        the Highrable escrow system.
       </p>
 
-      <div className="mt-4 space-y-3 rounded-xl border border-emerald-100 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-[#5f5f5f]">Rating</span>
-          <RatingStars rating={reputationRecord.rating} />
+      <div className="mt-6 space-y-5 rounded-xl border border-gray-100 bg-gray-50/50 p-5">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Performance Rating
+            </p>
+            <div className="mt-2 text-sm font-medium">
+              <RatingStars rating={reputationRecord.rating} />
+            </div>
+          </div>
+
+          <div>
+            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Review Status
+            </p>
+            <p className="hr-text-primary mt-2 text-sm font-semibold">
+              {reputationRecord.reviewText ? "Written Review Included" : "Verified Completion Only"}
+            </p>
+          </div>
         </div>
+
         {reputationRecord.reviewText ? (
-          <p className="text-sm text-[#0a0a0a] italic">"{reputationRecord.reviewText}"</p>
+          <div className="border-t border-gray-100 pt-5">
+            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Client Feedback
+            </p>
+            <p className="hr-text-primary mt-2 text-sm leading-relaxed italic">
+              "{reputationRecord.reviewText}"
+            </p>
+          </div>
         ) : null}
-        {reputationRecord.reviewHash ? (
-          <p className="text-xs break-all text-[#5f5f5f]">
-            Review hash: {reputationRecord.reviewHash}
-          </p>
-        ) : null}
-        {reputationRecord.txHash ? (
-          <a
-            href={getTxExplorerUrl(reputationRecord.txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
-          >
-            Reputation transaction
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : (
-          <p className="text-xs text-[#7f7f7f]">Reputation transaction hash not stored.</p>
-        )}
+
+        <div className="border-t border-gray-100 pt-5">
+          {reputationRecord.txHash ? (
+            <a
+              href={getTxExplorerUrl(reputationRecord.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hr-text-accent inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase transition-colors hover:opacity-80"
+            >
+              View On-Chain Transaction
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : (
+            <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+              Transaction hash not recorded
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );

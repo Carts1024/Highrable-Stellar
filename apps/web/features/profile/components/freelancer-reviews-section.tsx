@@ -34,7 +34,6 @@ export function FreelancerReviewsSection({
               asset={review.asset}
               rating={review.rating}
               reviewText={review.reviewText}
-              reviewHash={review.reviewHash}
               txHash={review.txHash}
               createdAt={review.createdAt}
               completionType={getReviewCompletionType(review.workType)}

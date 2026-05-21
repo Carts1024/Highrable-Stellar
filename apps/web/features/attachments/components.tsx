@@ -27,10 +27,10 @@ import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
 import {
+  Download,
   File,
   FileArchive,
   FileText,
-  Download,
   Image,
   Link2,
   Loader2,
