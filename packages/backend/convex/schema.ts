@@ -14,6 +14,7 @@ import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
+import workAgreements, { workAgreementEvents } from "./work_agreements/schema";
 import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
@@ -33,6 +34,8 @@ export default defineSchema({
   reputationRecords,
   revisionRequests,
   transactions,
+  workAgreements,
+  workAgreementEvents,
   workSubmissions,
   deadlineReminders,
   notifications,

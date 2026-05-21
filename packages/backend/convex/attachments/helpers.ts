@@ -465,6 +465,20 @@ export async function assertCanAttachToParent(
     return;
   }
 
+  if (input.parentType === "work_agreement") {
+    const agreement = await ctx.db.get(input.parentId as Id<"workAgreements">);
+    if (!agreement || agreement.status === "cancelled") {
+      throw new NotFoundError("Work agreement was not found.");
+    }
+    if (agreement.clientWallet !== walletAddress) {
+      throw new ForbiddenError("Only the client can attach files to this work agreement.");
+    }
+    if (input.ownerRole !== "client") {
+      throw new ForbiddenError("Only client-owned files can be attached to work agreements.");
+    }
+    return;
+  }
+
   throw new BadRequestError("This attachment parent type is not supported yet.");
 }
 
@@ -586,6 +600,16 @@ export async function resolveAttachmentViewerRole(
     if (!cancellation) return null;
     if (isSameWallet(cancellation.clientWallet, normalizedViewerWallet)) return "client";
     if (isSameWallet(cancellation.freelancerWallet, normalizedViewerWallet)) {
+      return "assigned_freelancer";
+    }
+    return null;
+  }
+
+  if (attachment.parentType === "work_agreement" && attachment.parentId) {
+    const agreement = await ctx.db.get(attachment.parentId as Id<"workAgreements">);
+    if (!agreement) return null;
+    if (isSameWallet(agreement.clientWallet, normalizedViewerWallet)) return "client";
+    if (isSameWallet(agreement.freelancerWallet, normalizedViewerWallet)) {
       return "assigned_freelancer";
     }
     return null;
@@ -1082,6 +1106,21 @@ export async function assertCanViewAttachment(
       cancellation &&
       (cancellation.clientWallet === normalizedViewerWallet ||
         cancellation.freelancerWallet === normalizedViewerWallet)
+    ) {
+      return;
+    }
+  }
+
+  if (
+    attachment.visibility === "participants" &&
+    attachment.parentType === "work_agreement" &&
+    attachment.parentId
+  ) {
+    const agreement = await ctx.db.get(attachment.parentId as Id<"workAgreements">);
+    if (
+      agreement &&
+      (agreement.clientWallet === normalizedViewerWallet ||
+        agreement.freelancerWallet === normalizedViewerWallet)
     ) {
       return;
     }

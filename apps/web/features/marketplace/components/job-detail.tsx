@@ -13,6 +13,7 @@ import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
 import { Alert, AlertDescription, AlertTitle } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -282,6 +283,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
       </section>
 
       <ClientTrustCard clientWallet={job.clientWallet} />
+
+      <WorkAgreementSetupPanel
+        jobId={convexJobId}
+        {...(mergedEscrow?._id ? { escrowId: mergedEscrow._id } : {})}
+      />
 
       {!isMilestoneProject ? (
         <>

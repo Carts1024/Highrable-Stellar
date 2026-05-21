@@ -30,6 +30,7 @@ const attachmentParentTypeEnum = createStringEnum([
   "dispute",
   "cancellation",
   "chat_message",
+  "work_agreement",
   "profile",
   "unknown",
 ] as const);
