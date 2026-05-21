@@ -8,6 +8,7 @@
   "scripts": {
     "build": "turbo run build",
     "contracts:build": "cd contracts && stellar contract build",
+    "contracts:deploy:mainnet": "bash scripts/deploy-mainnet.sh",
     "contracts:deploy:testnet": "bash scripts/deploy-testnet.sh",
     "contracts:verify:testnet": "bash scripts/verify-testnet.sh",
     "dev": "turbo run dev",
