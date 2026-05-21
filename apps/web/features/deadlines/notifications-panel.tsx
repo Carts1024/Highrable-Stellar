@@ -2,6 +2,7 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { api } from "@repo/convex-client";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import { Bell } from "lucide-react";
@@ -33,13 +34,10 @@ export function DeadlineNotificationsPanel() {
   const rows = notifications ?? [];
 
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-white p-5 shadow-sm">
+    <section className="border border-[#e8e8e8] bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-[#0a0a0a]">
-            <Bell className="h-4 w-4 text-[#FF7003]" />
-            Deadline reminders
-          </h2>
+        <div className="p-5 sm:p-6">
+          <SectionLabel>Deadline Reminders</SectionLabel>
           <p className="mt-1 text-sm text-[#5f5f5f]">
             {unreadCount ?? 0} unread reminder{(unreadCount ?? 0) === 1 ? "" : "s"}
           </p>
@@ -50,23 +48,27 @@ export function DeadlineNotificationsPanel() {
           size="sm"
           disabled={(unreadCount ?? 0) === 0}
           onClick={() => void markAllRead({ recipientWallet: walletAddress })}
+          className="mr-5 rounded-none sm:mr-6"
         >
+          <Bell className="h-3.5 w-3.5" aria-hidden="true" />
           Mark all read
         </AppButton>
       </div>
 
       {notifications === undefined ? (
-        <p className="mt-4 text-sm text-gray-500">Loading reminders...</p>
+        <p className="border-t border-[#e8e8e8] px-5 py-4 text-sm text-gray-500 sm:px-6">
+          Loading reminders...
+        </p>
       ) : rows.length === 0 ? (
-        <p className="mt-4 rounded-lg border border-dashed border-[#e8e8e8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
+        <p className="border-t border-dashed border-[#e8e8e8] bg-[#fafafa] px-5 py-4 text-sm text-[#5f5f5f] sm:px-6">
           No deadline reminders yet.
         </p>
       ) : (
-        <div className="mt-4 space-y-2">
+        <div className="border-t border-[#e8e8e8]">
           {rows.slice(0, 5).map((notification) => (
             <article
               key={notification._id}
-              className={`rounded-lg border p-3 ${
+              className={`border-b p-4 last:border-b-0 sm:px-6 ${
                 notification.readAt ? "border-[#e8e8e8] bg-white" : "border-amber-200 bg-amber-50"
               }`}
             >

@@ -1,14 +1,13 @@
 "use client";
 
-import { RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerOngoingJobs } from "@/features/dashboard/hooks/use-freelancer-ongoing-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { CardContent, CardFooter } from "@repo/ui/components/ui/card";
 import {
   Table,
   TableBody,
@@ -17,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@repo/ui/components/ui/table";
-import { Briefcase, PlayCircle } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import Link from "next/link";
 
 function formatDateTime(timestamp: number): string {
@@ -29,17 +28,24 @@ export function OngoingJobsSection() {
     useFreelancerOngoingJobs();
 
   return (
-    <RoutePanel>
-      <RoutePanelHeader
-        title="Ongoing Jobs"
-        description="Active funded or submitted payment engagements in progress."
-        icon={<PlayCircle className="h-5 w-5" />}
-      />
-      <CardContent>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <SectionLabel>Ongoing Jobs</SectionLabel>
+          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Active work</h2>
+          <p className="mt-1 text-sm text-[#5f5f5f]">
+            Active funded or submitted payment engagements in progress.
+          </p>
+        </div>
+      </div>
+
+      <div className="border-y border-[#e8e8e8]">
         {isInitialLoading ? (
-          <p className="hr-text-secondary text-sm">Loading ongoing jobs...</p>
+          <p className="px-1 py-5 text-sm text-[#5f5f5f] sm:px-4">Loading ongoing jobs...</p>
         ) : items.length === 0 ? (
-          <RouteEmptyState description="No ongoing jobs right now." />
+          <p className="bg-[#fafafa] px-1 py-10 text-center text-sm text-[#5f5f5f] sm:px-4">
+            No ongoing jobs right now.
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -55,7 +61,7 @@ export function OngoingJobsSection() {
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.escrowId}>
+                <TableRow key={item.escrowId} className="hover:bg-[#fff7ed]/40">
                   <TableCell className="max-w-60 font-medium">
                     <p className="hr-text-primary truncate">{item.title}</p>
                     {item.milestoneTitle ? (
@@ -88,7 +94,11 @@ export function OngoingJobsSection() {
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <AppButton asChild variant="secondary" className="h-8 px-3 text-xs">
+                    <AppButton
+                      asChild
+                      variant="secondary"
+                      className="h-8 rounded-none px-3 text-xs"
+                    >
                       <Link href={`/marketplace/jobs/${item.jobId}`}>
                         <Briefcase className="h-3.5 w-3.5" />
                         Open
@@ -100,18 +110,20 @@ export function OngoingJobsSection() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
+      </div>
+
       {(canLoadMore || isLoadingMore) && (
-        <CardFooter className="justify-end border-t pt-4">
+        <div className="flex justify-end">
           <AppButton
             variant="secondary"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
+            className="rounded-none"
           >
             {isLoadingMore ? "Loading..." : "Load more"}
           </AppButton>
-        </CardFooter>
+        </div>
       )}
-    </RoutePanel>
+    </section>
   );
 }

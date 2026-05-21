@@ -5,14 +5,14 @@ import { motion } from "framer-motion";
 
 import type { LucideIcon } from "lucide-react";
 
-type IIncomeMetricCardProps = {
-  title: string;
-  value: string;
-  subtitle?: string;
-  icon: LucideIcon;
-  iconClassName?: string;
-  animationDelay?: number;
-};
+interface IIncomeMetricCardProps {
+  readonly title: string;
+  readonly value: string;
+  readonly subtitle?: string;
+  readonly icon: LucideIcon;
+  readonly iconClassName?: string;
+  readonly animationDelay?: number;
+}
 
 export function IncomeMetricCard({
   title,
@@ -27,21 +27,25 @@ export function IncomeMetricCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: animationDelay }}
-      className="hr-panel p-6 shadow-none"
+      className="border border-[#e8e8e8] bg-white p-5"
     >
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1 pr-3">
-          <p className="hr-text-secondary text-sm font-medium">{title}</p>
-          <p className="hr-text-primary mt-1 truncate text-2xl font-bold">{value}</p>
-          {subtitle ? <p className="hr-text-muted mt-1 text-xs">{subtitle}</p> : null}
+          <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">{title}</p>
+          <p className="mt-2 truncate text-2xl leading-none font-semibold text-[#0a0a0a]">
+            {value}
+          </p>
+          {subtitle ? (
+            <p className="mt-2 text-xs leading-relaxed text-[#5f5f5f]">{subtitle}</p>
+          ) : null}
         </div>
         <div
           className={cn(
-            "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background",
+            "flex h-10 w-10 shrink-0 items-center justify-center border border-[#e8e8e8] bg-white",
             iconClassName,
           )}
         >
-          <Icon className="h-6 w-6" />
+          <Icon className="h-5 w-5" />
         </div>
       </div>
     </motion.div>

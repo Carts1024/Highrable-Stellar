@@ -42,7 +42,7 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   } = payout;
 
   return (
-    <div className="hr-panel space-y-2 p-4 shadow-none">
+    <div className="space-y-2 border-b border-[#e8e8e8] bg-white p-4 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40">
       <p className="hr-text-primary truncate text-sm font-semibold">{jobTitle ?? "Untitled Job"}</p>
       {milestoneTitle ? (
         <p className="hr-text-secondary text-xs font-medium">Milestone: {milestoneTitle}</p>

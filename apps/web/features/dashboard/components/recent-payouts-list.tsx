@@ -1,9 +1,8 @@
 "use client";
 
-import { RouteEmptyState, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { RecentPayoutItem } from "@/features/dashboard/components/recent-payout-item";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { motion } from "framer-motion";
-import { Receipt } from "lucide-react";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -19,28 +18,25 @@ export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
       transition={{ delay: 0.6 }}
       className=""
     >
-      <RoutePanel className="overflow-hidden">
-        <RoutePanelHeader
-          title="Recent payouts"
-          description="Verified payouts are linked to completed escrow records."
-          icon={<Receipt className="h-5 w-5" />}
-        />
+      <section className="space-y-4">
+        <div>
+          <SectionLabel>Recent Payouts</SectionLabel>
+          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Verified releases</h2>
+          <p className="mt-1 text-sm text-[#5f5f5f]">
+            Verified payouts are linked to completed escrow records.
+          </p>
+        </div>
 
-        <div className="px-6 pb-6">
+        <div className="border-y border-[#e8e8e8]">
           {payouts.length === 0 ? (
-            <RouteEmptyState
-              icon={<Receipt className="h-5 w-5" />}
-              description="No completed payouts yet. Completed payment releases will appear here."
-            />
+            <p className="bg-[#fafafa] px-1 py-10 text-center text-sm text-[#5f5f5f] sm:px-4">
+              No completed payouts yet. Completed payment releases will appear here.
+            </p>
           ) : (
-            <div className="space-y-3">
-              {payouts.map((payout) => (
-                <RecentPayoutItem key={payout.escrowId} payout={payout} />
-              ))}
-            </div>
+            payouts.map((payout) => <RecentPayoutItem key={payout.escrowId} payout={payout} />)
           )}
         </div>
-      </RoutePanel>
+      </section>
     </motion.div>
   );
 }

@@ -121,8 +121,8 @@ const AGREEMENT_TITLE_MAX_LENGTH = 120;
 const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
 const REJECTION_REASON_MAX_LENGTH = 1000;
 const AGREEMENT_TEMPLATE_NOTICE = {
-  title: "Template notice",
-  body: "Highrable provides this agreement as a workflow template. For legal-sensitive, regulated, or high-value work, ask a qualified professional to review the terms.",
+  title: "Workflow template",
+  body: "Highrable-generated terms are a workflow template, not legal advice. Use professional review for regulated, jurisdiction-specific, or high-value work.",
 } as const;
 
 function sanitizeAgreementTitleInput(value: string): string {
@@ -337,17 +337,12 @@ export function AgreementSourceBadge({ type }: { type?: TAgreementType }) {
 
 export function AgreementLegalDisclaimer() {
   return (
-    <div className="flex items-start justify-between gap-3 border border-[#e8e8e8] bg-white p-3 text-sm">
-      <div className="min-w-0">
-        <p className="font-mono text-[0.65rem] tracking-[0.08em] text-[#B94A00] uppercase">
-          Agreement note
-        </p>
-        <p className="mt-1 text-[#5f5f5f]">
-          Template terms are workflow guidance. Review sensitive terms before sending.
-        </p>
-      </div>
+    <div className="inline-flex max-w-full items-center gap-2 border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-sm text-[#9a3f00]">
+      <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">
+        {AGREEMENT_TEMPLATE_NOTICE.title}
+      </span>
       <HighrableV2IconNotice
-        label="Template notice details"
+        label="Workflow template details"
         message={AGREEMENT_TEMPLATE_NOTICE.body}
         tone="warning"
       />
@@ -830,11 +825,13 @@ export function AgreementAmendmentBanner({
   readonly agreementId?: TConvexId<"workAgreements">;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border border-[#e8e8e8] bg-[#fafafa] p-4 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm">
       <div className="flex items-center gap-2">
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">Locked terms</p>
+        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+          Change control
+        </p>
         <HighrableV2IconNotice
-          label="Locked terms details"
+          label="Agreement change control"
           message="Locked terms stay fixed for escrow and dispute review. Any future term changes will require both parties to approve a new version."
           tone="neutral"
         />
