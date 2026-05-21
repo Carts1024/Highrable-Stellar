@@ -123,6 +123,7 @@ async function patchParentCancelled(
       escrowStatus: "cancelled",
       workStatus: "cancelled",
     }),
+    updatedAt: Date.now(),
   });
   await upsertDeadlineReminders(
     ctx,
@@ -171,6 +172,7 @@ async function patchWorkCancelledWithoutEscrow(
       approvedAt: job.approvedAt,
       workStatus: "cancelled",
     }),
+    updatedAt: Date.now(),
   });
   await upsertDeadlineReminders(
     ctx,

@@ -65,7 +65,7 @@ export const setRevisionPolicy = mutation({
     if (!parent.jobId) {
       throw new NotFoundError("Work item not found.");
     }
-    await ctx.db.patch(parent.jobId, patch);
+    await ctx.db.patch(parent.jobId, { ...patch, updatedAt: Date.now() });
     return await ctx.db.get(parent.jobId);
   },
 });

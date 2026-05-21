@@ -29,6 +29,7 @@ import {
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
 import { api } from "@repo/convex-client";
+import { SafetyInfoDisclosure } from "@repo/ui/components/highrable/safety-info-disclosure";
 import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
@@ -191,6 +192,10 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
+  const canShowWorkSubmission =
+    Boolean(escrow) &&
+    (currentStatus === "funded" || currentStatus === "submitted" || hasReleasedCompletion) &&
+    (role === "client" || role === "selectedFreelancer");
   const handleConfirmRelease = async ({
     rating,
     reviewText,
@@ -238,64 +243,71 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 <DialogDescription>{currentStatusMeta.description}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 border-t border-[#e8e8e8] pt-4">
-                <div className="flex flex-wrap gap-2">
-                  <JobSafetyBadge status={safetyStatus.status} />
-                  {shouldShowMarketplaceStatusBadge ? <StatusBadge label={currentStatus} /> : null}
-                </div>
-
-                {safetyStatus.status === "unfunded" ? (
-                  <TrustSafetyNotice
-                    type={role === "selectedFreelancer" ? "selected_unfunded" : "unfunded"}
-                    compact
-                  />
-                ) : null}
-                {safetyStatus.status === "escrow_created" ? (
-                  <TrustSafetyNotice
-                    type={role === "client" ? "client_funding" : "selected_unfunded"}
-                    compact
-                  />
-                ) : null}
-                {safetyStatus.status === "verified_funded" ? (
-                  <TrustSafetyNotice type="verified_funded" compact />
-                ) : null}
-                {currentStatusMeta.trustWarning ? (
-                  <TrustWarning message={currentStatusMeta.trustWarning} />
-                ) : null}
-                {walletIdentity.walletType ? (
-                  <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
-                    {isPasskeyMode
-                      ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
-                      : "Signing with Freighter or WalletConnect."}
-                  </p>
-                ) : null}
-                {activeDispute ? <DisputeActionGuardNotice /> : null}
-
-                {!isStablecoinConfigured ? (
-                  <TrustWarning
-                    message={
-                      stablecoinConfigValidation.message ??
-                      "Stablecoin token contract is not configured."
-                    }
-                  />
-                ) : null}
-
-                {!isJobAssetSupported ? (
-                  <TrustWarning
-                    message={jobEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage()}
-                  />
-                ) : null}
-
-                {jobEscrowAsset?.kind === "native_xlm" ? (
-                  <div className="space-y-2">
-                    <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
-                    {isPasskeyMode ? (
-                      <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
-                        XLM escrow will be funded through your passkey smart account using the
-                        native XLM token contract.
-                      </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <JobSafetyBadge status={safetyStatus.status} />
+                    {shouldShowMarketplaceStatusBadge ? (
+                      <StatusBadge label={currentStatus} />
                     ) : null}
                   </div>
-                ) : null}
+                  <SafetyInfoDisclosure>
+                    {safetyStatus.status === "unfunded" ? (
+                      <TrustSafetyNotice
+                        type={role === "selectedFreelancer" ? "selected_unfunded" : "unfunded"}
+                        compact
+                      />
+                    ) : null}
+                    {safetyStatus.status === "escrow_created" ? (
+                      <TrustSafetyNotice
+                        type={role === "client" ? "client_funding" : "selected_unfunded"}
+                        compact
+                      />
+                    ) : null}
+                    {safetyStatus.status === "verified_funded" ? (
+                      <TrustSafetyNotice type="verified_funded" compact />
+                    ) : null}
+                    {currentStatusMeta.trustWarning ? (
+                      <TrustWarning message={currentStatusMeta.trustWarning} />
+                    ) : null}
+                    {walletIdentity.walletType ? (
+                      <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+                        {isPasskeyMode
+                          ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
+                          : "Signing with Freighter or WalletConnect."}
+                      </p>
+                    ) : null}
+                    {activeDispute ? <DisputeActionGuardNotice /> : null}
+
+                    {!isStablecoinConfigured ? (
+                      <TrustWarning
+                        message={
+                          stablecoinConfigValidation.message ??
+                          "Stablecoin token contract is not configured."
+                        }
+                      />
+                    ) : null}
+
+                    {!isJobAssetSupported ? (
+                      <TrustWarning
+                        message={
+                          jobEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage()
+                        }
+                      />
+                    ) : null}
+
+                    {jobEscrowAsset?.kind === "native_xlm" ? (
+                      <div className="space-y-2">
+                        <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+                        {isPasskeyMode ? (
+                          <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+                            XLM escrow will be funded through your passkey smart account using the
+                            native XLM token contract.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </SafetyInfoDisclosure>
+                </div>
 
                 {currentStatus === "open" ? (
                   <p className="text-sm text-[#5f5f5f]">
@@ -443,7 +455,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                   >
                     {role === "selectedFreelancer" ? (
                       <div className="space-y-3">
-                        <WorkProofSubmissionPanel job={job} escrow={escrow} />
                         <OpenDisputeButton
                           job={job}
                           escrow={escrow}
@@ -456,9 +467,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                     {role === "client" ? (
                       <div className="space-y-3">
-                        {escrow && job.selectedFreelancerWallet ? (
-                          <WorkProofSubmissionPanel job={job} escrow={escrow} />
-                        ) : null}
                         <div className="flex flex-wrap gap-2">
                           <CancelWorkButton job={job} escrow={escrow} />
                           {job.selectedFreelancerWallet ? (
@@ -489,7 +497,6 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                           : undefined
                     }
                   >
-                    {escrow ? <WorkProofSubmissionPanel job={job} escrow={escrow} /> : null}
                     {role === "client" ? (
                       <>
                         <div className="flex flex-wrap gap-2">
@@ -621,6 +628,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       </div>
 
       <TransactionStatusBanner error={error} success={success} txExplorerUrl={txExplorerUrl} />
+      {canShowWorkSubmission && escrow ? (
+        <div className="mt-4">
+          <WorkProofSubmissionPanel job={job} escrow={escrow} />
+        </div>
+      ) : null}
     </section>
   );
 }

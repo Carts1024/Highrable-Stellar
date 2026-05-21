@@ -19,9 +19,17 @@ import {
 import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@repo/ui/components/ui/dialog";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
-import { Check, GitPullRequest, RotateCcw, Send } from "lucide-react";
+import { Check, Eye, FileCheck2, GitPullRequest, RotateCcw, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
@@ -65,7 +73,7 @@ function formatRevisionPolicy(input?: {
   return "No revisions allowed";
 }
 
-export function WorkProofSubmissionPanel({
+function WorkProofSubmissionDialogContent({
   job,
   escrow,
   milestone,
@@ -444,7 +452,7 @@ export function WorkProofSubmissionPanel({
       : "Submit Proof";
 
   return (
-    <section className="space-y-4 rounded-lg border border-[#e8e8e8] bg-white p-4">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-[#0a0a0a]">Proof of Work</h3>
@@ -744,6 +752,142 @@ export function WorkProofSubmissionPanel({
           ))}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+function getWorkSubmissionButtonLabel(input: {
+  readonly escrowStatus?: string;
+  readonly jobStatus?: string;
+  readonly isSelectedFreelancer: boolean;
+  readonly isClient: boolean;
+}): string {
+  if (input.escrowStatus === "released" || input.jobStatus === "completed") {
+    return "Final Work";
+  }
+
+  if (input.escrowStatus === "submitted") {
+    return input.isClient ? "Review Work" : "View Submission";
+  }
+
+  if (input.escrowStatus === "funded" && input.isSelectedFreelancer) {
+    return "Submit Work";
+  }
+
+  return "Work Submission";
+}
+
+function getWorkSubmissionSummary(input: {
+  readonly latestSubmission: TConvexDoc<"workSubmissions"> | null | undefined;
+  readonly escrowStatus?: string;
+  readonly jobStatus?: string;
+  readonly canSubmit: boolean;
+}): string {
+  if (input.latestSubmission === undefined) {
+    return "Loading submission status...";
+  }
+
+  if (input.latestSubmission) {
+    if (input.escrowStatus === "released" || input.jobStatus === "completed") {
+      return "Payment released. Final deliverables are available here.";
+    }
+
+    return `Latest status: ${getStatusLabel(input.latestSubmission.status)}.`;
+  }
+
+  if (input.canSubmit) {
+    return "No work submitted yet. Submit notes, links, or files here.";
+  }
+
+  return "No work submitted yet.";
+}
+
+export function WorkProofSubmissionPanel({
+  job,
+  escrow,
+  milestone,
+}: IWorkProofSubmissionPanelProps) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const [isOpen, setIsOpen] = useState(false);
+  const viewerWallet = walletIdentity.walletAddress ?? undefined;
+  const latestSubmission = useQuery(
+    api.work_submissions.getLatestSubmissionForEscrow,
+    escrow?.escrowId && viewerWallet ? { onChainEscrowId: escrow.escrowId, viewerWallet } : "skip",
+  );
+  const agreementStatus = useQuery(api.work_agreements.getAgreementStatusForParent, {
+    jobId: job._id,
+  });
+
+  const isSelectedFreelancer =
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
+  const isClient =
+    walletIdentity.isConnected &&
+    isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet);
+  const agreementAccepted =
+    agreementStatus?.status === "accepted" || agreementStatus?.status === "locked";
+  const canSubmit =
+    Boolean(escrow?.escrowId) &&
+    escrow?.status === "funded" &&
+    agreementAccepted &&
+    isSelectedFreelancer;
+  const buttonLabel = getWorkSubmissionButtonLabel({
+    escrowStatus: escrow?.status,
+    jobStatus: job.status,
+    isSelectedFreelancer,
+    isClient,
+  });
+  const summary = getWorkSubmissionSummary({
+    latestSubmission,
+    escrowStatus: escrow?.status,
+    jobStatus: job.status,
+    canSubmit,
+  });
+  const isReleased = escrow?.status === "released" || job.status === "completed";
+
+  return (
+    <section className="border border-[#e8e8e8] bg-white p-3" aria-label="Work submission">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <FileCheck2 className="h-4 w-4 text-[#FF7003]" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-[#0a0a0a]">
+              {isReleased ? "Final work" : "Work submission"}
+            </h3>
+            {latestSubmission ? (
+              <Badge variant="secondary" className="rounded-none">
+                {getStatusLabel(latestSubmission.status)}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="text-sm text-[#5f5f5f]">{summary}</p>
+        </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <AppButton
+              type="button"
+              variant={isReleased ? "default" : "outline"}
+              disabled={!escrow?.escrowId || !walletIdentity.isConnected}
+              className="shrink-0 rounded-none disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={buttonLabel}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              {buttonLabel}
+            </AppButton>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90svh] overflow-y-auto rounded-none sm:max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>{isReleased ? "Final Work" : "Work Submission"}</DialogTitle>
+              <DialogDescription>
+                Submit, review, revise, and download deliverables for this escrow.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="border-t border-[#e8e8e8] pt-4">
+              <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </section>
   );
 }

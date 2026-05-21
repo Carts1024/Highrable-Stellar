@@ -300,7 +300,7 @@ export async function patchParentJobStatusForMilestoneProject(
   jobId: Id<"jobs">,
 ): Promise<void> {
   const status = await deriveMilestoneProjectJobStatus(ctx, jobId);
-  await ctx.db.patch(jobId, { status });
+  await ctx.db.patch(jobId, { status, updatedAt: Date.now() });
 }
 
 export async function patchMilestoneForEscrowStatus(

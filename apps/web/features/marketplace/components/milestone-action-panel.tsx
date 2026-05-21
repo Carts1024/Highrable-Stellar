@@ -106,6 +106,8 @@ export function MilestoneActionPanel({
   const verifiedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
   const isReleased = milestone.status === "released" || escrow?.status === "released";
   const showPendingVerifiedSync = isReleased && escrow?.status === "released" && !reputationRecord;
+  const canShowReleasedWorkSubmission =
+    isReleased && Boolean(verifiedEscrow) && (role === "client" || role === "selectedFreelancer");
 
   const handleConfirmRelease = async ({
     rating,
@@ -294,6 +296,9 @@ export function MilestoneActionPanel({
       {isReleased && verifiedEscrow ? (
         <div className="space-y-3">
           <p className="text-sm font-medium text-emerald-800">Milestone paid.</p>
+          {canShowReleasedWorkSubmission ? (
+            <WorkProofSubmissionPanel job={job} milestone={milestone} escrow={verifiedEscrow} />
+          ) : null}
           {reputationRecord ? (
             <VerifiedReviewCard
               jobTitle={`${job.title} - ${milestone.title}`}

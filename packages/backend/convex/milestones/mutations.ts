@@ -115,6 +115,7 @@ export const createMilestoneProject = mutation({
       status: "open",
       jobHash: `project_${now}_${Math.random().toString(36).slice(2, 10)}`,
       createdAt: now,
+      updatedAt: now,
     });
 
     for (const [index, milestone] of sanitizedMilestones.entries()) {
@@ -238,6 +239,7 @@ export const addMilestoneToProject = mutation({
       budget: job.budget + amount,
       totalBudget: (job.totalBudget ?? job.budget) + amount,
       milestoneCount: (job.milestoneCount ?? existing.length) + 1,
+      updatedAt: Date.now(),
     });
 
     await ctx.db.insert("deadlineAuditEvents", {
@@ -340,7 +342,7 @@ export const updateMilestone = mutation({
         (total, row) => total + (row._id === args.milestoneId ? patch.amount! : row.amount),
         0,
       );
-      await ctx.db.patch(job._id, { budget: totalBudget, totalBudget });
+      await ctx.db.patch(job._id, { budget: totalBudget, totalBudget, updatedAt: Date.now() });
     }
 
     return await getMilestoneOrThrow(ctx, args.milestoneId);

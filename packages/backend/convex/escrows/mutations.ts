@@ -105,11 +105,13 @@ export const createEscrowRecord = mutation({
           escrowStatus: "funded",
           workStatus: "funded",
         }),
+        updatedAt: Date.now(),
       });
     } else if (job.status === "open" && freelancerWallet !== undefined) {
       await ctx.db.patch(args.jobId, {
         selectedFreelancerWallet: freelancerWallet,
         status: "selected",
+        updatedAt: Date.now(),
       });
     }
 
@@ -172,6 +174,7 @@ export const assignFreelancerToEscrow = mutation({
     await ctx.db.patch(args.jobId, {
       selectedFreelancerWallet: freelancerWallet,
       status: escrow.status === "funded" ? "funded" : "selected",
+      updatedAt: Date.now(),
     });
 
     await upsertDeadlineReminders(
@@ -294,6 +297,7 @@ export const updateEscrowStatus = mutation({
           escrowStatus: args.status,
           workStatus: getJobStatusFromEscrowStatus(args.status),
         }),
+        updatedAt: Date.now(),
         ...(args.status === "released" ? { completedAt, approvedAt: completedAt } : {}),
       });
       await upsertDeadlineReminders(

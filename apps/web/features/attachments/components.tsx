@@ -13,17 +13,28 @@ import {
   ProtectedAttachmentDialog,
 } from "@/features/attachments/protected-viewer";
 import { api } from "@repo/convex-client";
+import {
+  HighrableV2Badge,
+  HighrableV2Bullet,
+  HighrableV2IconNotice,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
+import { NativeSelect } from "@repo/ui/components/ui/native-select";
+import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
+import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
 import {
   File,
   FileArchive,
   FileText,
+  Download,
   Image,
   Link2,
   Loader2,
+  ShieldCheck,
   Trash2,
   Upload,
   Video,
@@ -63,6 +74,54 @@ const ACCEPTED_ATTACHMENT_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ].join(",");
 
+const MAX_EXTERNAL_URL_LENGTH = 2048;
+
+interface IAttachmentFileIconProps {
+  readonly type: TAttachmentType;
+}
+
+interface IAttachmentTypeBadgeProps {
+  readonly type: TAttachmentType;
+}
+
+interface IAttachmentRemoveButtonProps {
+  readonly disabled?: boolean;
+  readonly onRemove: () => void;
+}
+
+interface IAttachmentPreviewCardProps {
+  readonly attachment: TDraftAttachment | TAttachmentWithUrl;
+  readonly readOnly?: boolean;
+  readonly onRemove?: () => void;
+}
+
+interface IAttachmentListProps {
+  readonly attachments: readonly (TDraftAttachment | TAttachmentWithUrl)[];
+  readonly readOnly?: boolean;
+  readonly onRemove?: (attachmentId: string) => void;
+}
+
+interface ILinkAttachmentInputProps {
+  readonly disabled?: boolean;
+  readonly onAdd: (input: {
+    url: string;
+    type: "link" | "video_link";
+    name?: string;
+  }) => Promise<void>;
+}
+
+interface IAttachmentDropzoneProps {
+  readonly disabled?: boolean;
+  readonly onFiles: (files: File[]) => void;
+}
+
+interface IAttachmentUploaderProps {
+  readonly value: TDraftAttachment[];
+  readonly onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
+  readonly disabled?: boolean;
+  readonly ownerRole?: "client" | "freelancer";
+}
+
 function getAttachmentLabel(type: TAttachmentType): string {
   const labels: Record<TAttachmentType, string> = {
     image: "Image",
@@ -78,7 +137,25 @@ function getAttachmentLabel(type: TAttachmentType): string {
   return labels[type];
 }
 
-export function AttachmentFileIcon({ type }: { type: TAttachmentType }) {
+function getNormalizedHttpUrl(value: string): string | null {
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0 || trimmedValue.length > MAX_EXTERNAL_URL_LENGTH) {
+    return null;
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return null;
+    }
+
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
   const className = "h-4 w-4";
 
   if (type === "image") return <Image className={className} />;
@@ -90,21 +167,15 @@ export function AttachmentFileIcon({ type }: { type: TAttachmentType }) {
   return <File className={className} />;
 }
 
-export function AttachmentTypeBadge({ type }: { type: TAttachmentType }) {
+export function AttachmentTypeBadge({ type }: IAttachmentTypeBadgeProps) {
   return (
-    <Badge className="rounded-md border border-[#e8e8e8] bg-white px-2 py-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#5f5f5f] uppercase hover:bg-white">
+    <Badge className="hr-text-secondary rounded-none border-border bg-background px-2 py-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-background">
       {getAttachmentLabel(type)}
     </Badge>
   );
 }
 
-export function AttachmentRemoveButton({
-  disabled,
-  onRemove,
-}: {
-  disabled?: boolean;
-  onRemove: () => void;
-}) {
+export function AttachmentRemoveButton({ disabled, onRemove }: IAttachmentRemoveButtonProps) {
   return (
     <AppButton
       type="button"
@@ -112,7 +183,7 @@ export function AttachmentRemoveButton({
       size="icon"
       disabled={disabled}
       onClick={onRemove}
-      className="h-8 w-8 rounded-lg text-[#5f5f5f] hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className="hr-text-secondary h-8 w-8 rounded-none hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
       aria-label="Remove attachment"
     >
       <Trash2 className="h-4 w-4" />
@@ -124,21 +195,52 @@ export function AttachmentPreviewCard({
   attachment,
   readOnly = false,
   onRemove,
-}: {
-  attachment: TDraftAttachment | TAttachmentWithUrl;
-  readOnly?: boolean;
-  onRemove?: () => void;
-}) {
+}: IAttachmentPreviewCardProps) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const recordDownloadAttempt = useMutation(api.attachments.recordDownloadAttempt);
   const isDraft = "id" in attachment;
   const type = attachment.type as TAttachmentType;
   const href = "externalUrl" in attachment ? attachment.externalUrl : attachment.url;
   const isUploading = isDraft && attachment.status === "uploading";
+  const isFailed = isDraft && attachment.status === "failed";
   const isProtected = !isDraft && attachment.protection?.isProtected;
+  const isDownloadRestricted = !isDraft && attachment.protection?.downloadRestricted;
   const [isProtectedPreviewOpen, setIsProtectedPreviewOpen] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async () => {
+    if (isDraft) {
+      return;
+    }
+
+    if (!walletIdentity.walletAddress) {
+      setDownloadError("Connect the participant wallet to download this attachment.");
+      return;
+    }
+
+    setDownloadError(null);
+    try {
+      const result = await recordDownloadAttempt({
+        attachmentId: attachment._id,
+        viewerWallet: walletIdentity.walletAddress,
+        ...(walletIdentity.walletType ? { viewerWalletType: walletIdentity.walletType } : {}),
+      });
+      if (result.url) {
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      setDownloadError(getReadableAttachmentError(error, "Download is restricted."));
+    }
+  };
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-[#e8e8e8] bg-white p-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e8e8] bg-[#fafafa] text-[#0a0a0a]">
+    <div
+      className={cn(
+        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background py-3 last:border-b-0",
+        isFailed ? "bg-red-50/60 px-3" : undefined,
+      )}
+    >
+      <div className="hr-surface-muted hr-text-primary flex h-10 w-10 shrink-0 items-center justify-center border border-border">
         {isUploading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
@@ -146,12 +248,12 @@ export function AttachmentPreviewCard({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {isProtected ? (
             <button
               type="button"
               onClick={() => setIsProtectedPreviewOpen(true)}
-              className="truncate text-left text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+              className="hr-text-primary hover:hr-text-accent min-w-0 truncate text-left text-sm font-semibold"
             >
               {attachment.name}
             </button>
@@ -160,29 +262,65 @@ export function AttachmentPreviewCard({
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="truncate text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+              className="hr-text-primary hover:hr-text-accent min-w-0 truncate text-sm font-semibold"
             >
               {attachment.name}
             </a>
           ) : (
-            <p className="truncate text-sm font-semibold text-[#0a0a0a]">{attachment.name}</p>
+            <p className="hr-text-primary min-w-0 truncate text-sm font-semibold">
+              {attachment.name}
+            </p>
           )}
+          {isDraft && attachment.error ? (
+            <HighrableV2IconNotice
+              label="Attachment error"
+              tone="danger"
+              message={attachment.error}
+            />
+          ) : null}
+          {!isDraft && attachment.protection?.notice && !attachment.protection.isProtected ? (
+            <HighrableV2IconNotice
+              label="Attachment notice"
+              tone="success"
+              message={attachment.protection.notice}
+            />
+          ) : null}
+          {downloadError ? (
+            <HighrableV2IconNotice
+              label="Attachment download"
+              tone="warning"
+              message={downloadError}
+            />
+          ) : null}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
           <AttachmentTypeBadge type={type} />
           {!isDraft ? <AttachmentProtectionBadge protection={attachment.protection} /> : null}
+          {isUploading ? <HighrableV2Badge>Uploading</HighrableV2Badge> : null}
+          {isFailed ? <HighrableV2Badge tone="solid">Failed</HighrableV2Badge> : null}
+          <span className="hr-text-muted font-mono text-xs">
+            {isUploading ? "Uploading..." : formatAttachmentSize(attachment.size)}
+            {"mimeType" in attachment && attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
+            {!isDraft && attachment.protection?.isProtected
+              ? " · Watermarked and access logged"
+              : ""}
+          </span>
         </div>
-        <p className="mt-1 font-mono text-xs text-[#7f7f7f]">
-          {isUploading ? "Uploading..." : formatAttachmentSize(attachment.size)}
-          {"mimeType" in attachment && attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
-          {!isDraft && attachment.protection?.isProtected ? " · Watermarked and access logged" : ""}
-        </p>
-        {!isDraft && attachment.protection?.notice && !attachment.protection.isProtected ? (
-          <p className="mt-1 text-xs text-emerald-700">{attachment.protection.notice}</p>
-        ) : null}
-        {isDraft && attachment.error ? (
-          <p className="mt-1 text-xs text-red-700">{attachment.error}</p>
-        ) : null}
       </div>
-      {!readOnly && onRemove ? (
+      {readOnly && !isDraft ? (
+        <AppButton
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isDownloadRestricted}
+          onClick={() => void handleDownload()}
+          className="rounded-none border-border px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={`Download ${attachment.name}`}
+        >
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          {isDownloadRestricted ? "Locked" : "Download"}
+        </AppButton>
+      ) : !readOnly && onRemove ? (
         <AttachmentRemoveButton disabled={isUploading} onRemove={onRemove} />
       ) : null}
       {isProtected && !isDraft ? (
@@ -196,25 +334,18 @@ export function AttachmentPreviewCard({
   );
 }
 
-export function AttachmentList({
-  attachments,
-  readOnly = false,
-  onRemove,
-}: {
-  attachments: readonly (TDraftAttachment | TAttachmentWithUrl)[];
-  readOnly?: boolean;
-  onRemove?: (attachmentId: string) => void;
-}) {
+export function AttachmentList({ attachments, readOnly = false, onRemove }: IAttachmentListProps) {
   if (attachments.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
-        No attachments.
-      </p>
+      <div className="hr-text-secondary flex items-center gap-2 border-y border-dashed border-border py-3 text-sm">
+        <HighrableV2Bullet tone="muted" aria-hidden="true" />
+        <span>No attachments added.</span>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="border-y border-border">
       {attachments.map((attachment) => {
         const id = "id" in attachment ? attachment.id : attachment._id;
 
@@ -231,29 +362,23 @@ export function AttachmentList({
   );
 }
 
-export function LinkAttachmentInput({
-  disabled,
-  onAdd,
-}: {
-  disabled?: boolean;
-  onAdd: (input: { url: string; type: "link" | "video_link"; name?: string }) => Promise<void>;
-}) {
+export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputProps) {
   const [url, setUrl] = useState("");
   const [type, setType] = useState<"link" | "video_link">("link");
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
   const handleAdd = async () => {
-    const trimmedUrl = url.trim();
-    if (!isValidHttpUrl(trimmedUrl)) {
-      setError("Enter a valid URL.");
+    const normalizedUrl = getNormalizedHttpUrl(url);
+    if (!normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
+      setError("Enter a valid HTTP or HTTPS URL.");
       return;
     }
 
     setIsAdding(true);
     setError(null);
     try {
-      await onAdd({ url: trimmedUrl, type });
+      await onAdd({ url: normalizedUrl, type });
       setUrl("");
     } catch (error) {
       setError(getReadableAttachmentError(error, "Attachment save failed."));
@@ -264,7 +389,7 @@ export function LinkAttachmentInput({
 
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-2 sm:grid-cols-[1fr_9.5rem_auto]">
         <AppInput
           value={url}
           disabled={disabled || isAdding}
@@ -273,39 +398,40 @@ export function LinkAttachmentInput({
             setError(null);
           }}
           placeholder="https://example.com/reference"
-          className="rounded-lg border-[#d8d8d8] bg-white"
+          className="rounded-none border-border bg-background"
+          aria-label="Attachment URL"
+          maxLength={MAX_EXTERNAL_URL_LENGTH}
         />
-        <select
+        <NativeSelect
           value={type}
           disabled={disabled || isAdding}
           onChange={(event) => setType(event.target.value as "link" | "video_link")}
-          className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a]"
+          className="hr-text-primary h-10 rounded-none border-border bg-background"
           aria-label="Attachment link type"
         >
           <option value="link">Link</option>
           <option value="video_link">Video link</option>
-        </select>
+        </NativeSelect>
         <AppButton
           type="button"
           disabled={disabled || isAdding}
           onClick={() => void handleAdd()}
-          className="rounded-lg bg-[#0a0a0a] px-4 text-sm font-semibold text-white hover:bg-[#FF7003]"
+          className="hr-v2-button-secondary rounded-none px-4 text-sm font-semibold"
         >
           {isAdding ? "Adding..." : "Add link"}
         </AppButton>
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      {error ? (
+        <div className="flex items-center gap-2 text-sm text-red-700">
+          <HighrableV2IconNotice label="Link attachment error" tone="danger" message={error} />
+          <span>Check URL</span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function AttachmentDropzone({
-  disabled,
-  onFiles,
-}: {
-  disabled?: boolean;
-  onFiles: (files: File[]) => void;
-}) {
+export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -340,11 +466,13 @@ export function AttachmentDropzone({
         setIsDragging(false);
         handleFiles(event.dataTransfer.files);
       }}
-      className={`cursor-pointer rounded-lg border border-dashed p-5 text-center transition-colors ${
+      className={cn(
+        "grid cursor-pointer place-items-center border border-dashed p-5 text-center transition-colors",
         isDragging
           ? "border-[#FF7003] bg-orange-50"
-          : "border-[#d8d8d8] bg-[#fafafa] hover:border-[#FF7003]/70"
-      } ${disabled ? "pointer-events-none opacity-60" : ""}`}
+          : "hr-surface-muted border-border hover:border-[#FF7003]/70",
+        disabled ? "pointer-events-none opacity-60" : undefined,
+      )}
     >
       <input
         ref={inputRef}
@@ -356,12 +484,14 @@ export function AttachmentDropzone({
         onChange={(event) => handleFiles(event.target.files)}
       />
       <Upload className="mx-auto h-5 w-5 text-[#FF7003]" />
-      <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
-        Drop files here or click to upload
-      </p>
-      <p className="mt-1 text-xs text-[#5f5f5f]">
-        Images, PDFs, Markdown, documents, or videos up to 25 MB.
-      </p>
+      <p className="hr-text-primary mt-2 text-sm font-semibold">Drop files or browse</p>
+      <div className="mt-1 flex items-center justify-center gap-2">
+        <p className="hr-text-secondary text-xs">Images, docs, PDFs, Markdown, video.</p>
+        <HighrableV2IconNotice
+          label="Attachment limits"
+          message="Images must be 10 MB or smaller. Documents, PDFs, Markdown, and files must be 10 MB or smaller. Videos must be 25 MB or smaller."
+        />
+      </div>
     </div>
   );
 }
@@ -371,12 +501,7 @@ export function AttachmentUploader({
   onChange,
   disabled,
   ownerRole = "client",
-}: {
-  value: TDraftAttachment[];
-  onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
-  disabled?: boolean;
-  ownerRole?: "client" | "freelancer";
-}) {
+}: IAttachmentUploaderProps) {
   const walletIdentity = useHighrableWalletIdentity();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const saveUploadedAttachment = useMutation(api.attachments.saveUploadedAttachment);
@@ -493,13 +618,18 @@ export function AttachmentUploader({
       throw new Error("Missing wallet identity.");
     }
 
+    const normalizedUrl = getNormalizedHttpUrl(input.url);
+    if (!normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
+      throw new Error("Enter a valid HTTP or HTTPS URL.");
+    }
+
     const attachmentId = await createExternalAttachment({
-      externalUrl: input.url,
+      externalUrl: normalizedUrl,
       uploadedByWallet: walletIdentity.walletAddress,
       ...(walletIdentity.walletType ? { uploadedByWalletType: walletIdentity.walletType } : {}),
       ownerRole,
       type: input.type,
-      name: input.url,
+      name: normalizedUrl,
       parentType: "unknown",
       visibility: "private",
       ...(useProtectedPreview
@@ -517,9 +647,9 @@ export function AttachmentUploader({
       ...currentAttachments,
       {
         id: attachmentId,
-        name: input.url,
+        name: normalizedUrl,
         type: input.type,
-        externalUrl: input.url,
+        externalUrl: normalizedUrl,
         status: "ready",
       },
     ]);
@@ -549,41 +679,73 @@ export function AttachmentUploader({
     }
   };
 
+  const readyAttachmentCount = value.filter((attachment) => attachment.status === "ready").length;
+  const uploadingAttachmentCount = value.filter(
+    (attachment) => attachment.status === "uploading",
+  ).length;
+
   return (
-    <div className="space-y-3 rounded-xl border border-[#e8e8e8] bg-white p-4">
-      <div>
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">Attachments</p>
-        <p className="mt-1 text-sm text-[#5f5f5f]">
-          Add reference files or links for the work. Files stay off-chain in Convex storage.
-        </p>
+    <section className="space-y-4 border border-border bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
+        <div className="space-y-2">
+          <SectionLabel>Attachments</SectionLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            <HighrableV2Badge tone={readyAttachmentCount > 0 ? "solid" : "accent"}>
+              {readyAttachmentCount} ready
+            </HighrableV2Badge>
+            {uploadingAttachmentCount > 0 ? (
+              <HighrableV2Badge>{uploadingAttachmentCount} uploading</HighrableV2Badge>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <HighrableV2IconNotice
+            label="Attachment storage notice"
+            message="Attachments are stored off-chain and linked to the job after the post is created."
+          />
+          <HighrableV2IconNotice
+            label="Attachment visibility notice"
+            message="Job attachments become visible on the public job detail page after they are linked."
+          />
+          {!walletIdentity.walletAddress ? (
+            <HighrableV2IconNotice
+              label="Wallet required for attachments"
+              tone="warning"
+              message="Connect a wallet before adding attachments."
+            />
+          ) : null}
+        </div>
       </div>
+
       <AttachmentDropzone
         disabled={disabled || !walletIdentity.walletAddress}
         onFiles={handleFiles}
       />
-      <label
-        htmlFor="attachment-protected-preview"
-        className="flex items-start gap-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3"
-      >
-        <input
-          id="attachment-protected-preview"
-          type="checkbox"
-          aria-label="Enable content protection controls"
-          checked={useProtectedPreview}
-          disabled={disabled}
-          onChange={(event) => setUseProtectedPreview(event.target.checked)}
-          className="mt-1 h-4 w-4 rounded border-[#d8d8d8] accent-[#FF7003]"
-        />
-        <span>
-          <span className="block text-sm font-semibold text-[#0a0a0a]">
-            Enable content protection controls
-          </span>
-          <span className="block text-xs text-[#5f5f5f]">
-            New uploads use protected preview, download restricted, visible watermarking, and access
-            logged.
-          </span>
-        </span>
-      </label>
+
+      <div className="hr-surface-muted flex items-center justify-between gap-3 border border-border p-3">
+        <label
+          htmlFor="attachment-protected-preview"
+          className="hr-text-primary flex min-w-0 items-center gap-2 text-sm font-semibold"
+        >
+          <ShieldCheck className="h-4 w-4 shrink-0 text-[#B94A00]" aria-hidden="true" />
+          Protected preview
+        </label>
+        <div className="flex items-center gap-2">
+          <HighrableV2IconNotice
+            label="Protected preview details"
+            message="New uploads use protected preview, restricted download, visible watermarking, and access logging."
+          />
+          <AppSwitch
+            id="attachment-protected-preview"
+            aria-label="Enable content protection controls"
+            checked={useProtectedPreview}
+            disabled={disabled}
+            onCheckedChange={setUseProtectedPreview}
+            className="data-[state=checked]:bg-[#FF7003]"
+          />
+        </div>
+      </div>
+
       <LinkAttachmentInput
         disabled={disabled || !walletIdentity.walletAddress}
         onAdd={addExternalLink}
@@ -592,7 +754,12 @@ export function AttachmentUploader({
         attachments={value}
         onRemove={(attachmentId) => void removeAttachment(attachmentId)}
       />
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-    </div>
+      {error ? (
+        <div className="flex items-center gap-2 text-sm text-red-700">
+          <HighrableV2IconNotice label="Attachment action error" tone="danger" message={error} />
+          <span>Attachment action failed</span>
+        </div>
+      ) : null}
+    </section>
   );
 }

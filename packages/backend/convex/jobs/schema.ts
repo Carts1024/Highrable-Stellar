@@ -81,6 +81,7 @@ export default defineTable({
   overdueAt: v.optional(v.number()),
   jobHash: v.string(),
   createdAt: v.number(),
+  updatedAt: v.optional(v.number()),
 })
   .index("by_clientWallet", ["clientWallet"])
   .index("by_status", ["status"])

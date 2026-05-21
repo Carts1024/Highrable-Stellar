@@ -822,6 +822,7 @@ export const abandonRejectedAgreement = mutation({
       await ctx.db.patch(job._id, {
         selectedFreelancerWallet: undefined,
         status: "open",
+        updatedAt: now,
       });
     }
 

@@ -257,6 +257,7 @@ export const submitWorkProofMetadata = mutation({
         ...(previewEnabled ? { status: "submitted" } : {}),
         submittedAt: args.submittedAt,
         deadlineStatus,
+        updatedAt: Date.now(),
       });
     } else if (parent.milestoneId !== undefined) {
       await ctx.db.patch(parent.milestoneId, {

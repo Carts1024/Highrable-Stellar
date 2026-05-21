@@ -64,6 +64,7 @@ export const createJob = mutation({
       revisionCount: 0,
       revisionStatus: "none",
       createdAt: now,
+      updatedAt: now,
     });
 
     await ctx.db.insert("deadlineAuditEvents", {
@@ -108,6 +109,7 @@ export const selectFreelancer = mutation({
     await ctx.db.patch(args.jobId, {
       selectedFreelancerWallet: freelancerWallet,
       status: "selected",
+      updatedAt: Date.now(),
     });
 
     await upsertDeadlineReminders(

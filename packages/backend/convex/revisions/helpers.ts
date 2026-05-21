@@ -431,7 +431,7 @@ export async function patchRevisionParent(
   }
 
   if (parent.jobId !== undefined) {
-    await ctx.db.patch(parent.jobId, patch);
+    await ctx.db.patch(parent.jobId, { ...patch, updatedAt: now });
   }
 }
 

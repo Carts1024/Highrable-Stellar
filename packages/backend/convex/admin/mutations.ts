@@ -207,6 +207,7 @@ async function patchEscrowAndParentForResolution(args: {
       escrowStatus: settlement.escrowStatus,
       workStatus: getJobStatusFromEscrowStatus(settlement.escrowStatus),
     }),
+    updatedAt: now,
     ...(settlement.escrowStatus === "released" ? { completedAt: now, approvedAt: now } : {}),
   });
 
