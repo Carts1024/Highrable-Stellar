@@ -2,6 +2,7 @@
 
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
@@ -11,6 +12,7 @@ import type {
   IHighrableDebuggerEscrowOverview,
   IHighrableDebuggerEscrowSyncStatus,
   IHighrableDebuggerState,
+  IHighrableDebuggerWalletState,
   TManagedEscrow,
 } from "./debugger.types";
 
@@ -75,8 +77,30 @@ function buildProductionWarnings(
   return [...new Set([...readiness.blockingIssues, ...readiness.warnings])];
 }
 
+function buildWalletState(
+  walletState: ReturnType<typeof useWallet>["walletState"],
+): IHighrableDebuggerWalletState {
+  return {
+    isConnected: walletState.isConnected,
+    selectedWallet: walletState.selectedWallet,
+    walletAddress: walletState.walletAddress,
+    network: walletState.network,
+    isTestnet: walletState.isTestnet,
+    isFunded: walletState.isFunded,
+    isCheckingFunding: walletState.isCheckingFunding,
+    isFundingWithFriendbot: walletState.isFundingWithFriendbot,
+    friendbotError: walletState.friendbotError,
+    friendbotSuccess: walletState.friendbotSuccess,
+    error: walletState.error,
+    lastTxStatus: walletState.lastTxStatus,
+    canWriteContracts: walletState.canWriteContracts ?? true,
+    writeRestrictionReason: walletState.writeRestrictionReason ?? null,
+  };
+}
+
 /** Aggregates the app's current operational state into a small debugger-friendly model. */
 export function useHighrableDebuggerState(): IHighrableDebuggerState {
+  const { walletState } = useWallet();
   const passkeySmartAccount = usePasskeySmartAccount();
   const activeHighrableIdentity = useHighrableWalletIdentity();
   const escrowsByWallet = useQuery(
@@ -103,6 +127,7 @@ export function useHighrableDebuggerState(): IHighrableDebuggerState {
   const escrowSyncStatus = useMemo(() => buildEscrowSyncStatus(managedEscrows), [managedEscrows]);
 
   return {
+    walletState: buildWalletState(walletState),
     passkeySmartAccountReadiness: {
       ...passkeySmartAccount,
       hasConfig: passkeySmartAccount.hasConfig,

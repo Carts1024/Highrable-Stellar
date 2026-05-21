@@ -1,6 +1,5 @@
 "use client";
 
-import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { JobApplicationDialog } from "@/features/marketplace/components/job-application-dialog";
@@ -177,9 +176,6 @@ export function JobsPage() {
               <AppButton asChild>
                 <Link href="/post-job">Post a Job</Link>
               </AppButton>
-              {!walletIdentity.isConnected ? (
-                <WalletConnectTrigger className="rounded-lg border border-[#e8e8e8] bg-white px-5 py-2.5 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-[#FF7003] hover:text-[#FF7003]" />
-              ) : null}
             </>
           }
         />

@@ -42,9 +42,14 @@ function formatSyncTime(timestamp: number | null): string {
   return timestamp ? new Date(timestamp).toLocaleString() : "Never";
 }
 
+function formatTransactionStatus(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 function buildDebuggerSummary(state: IHighrableDebuggerState): string {
   return [
     "Highrable Debugger",
+    `Wallet diagnostics: ${state.walletState.isConnected ? "Connected" : "Disconnected"}`,
     `Passkey Smart Account Readiness: ${state.passkeySmartAccountReadiness.isPasskeyConnected ? "Connected" : "Not connected"}`,
     `Mainnet Smart Account Readiness: ${state.mainnetSmartAccountReadiness.capabilities.canExecuteMainnetPasskeyEscrow ? "Ready" : "Blocked"}`,
     `Production hardening warnings: ${formatWarnings(state.productionHardeningWarnings)}`,
@@ -179,6 +184,35 @@ export function HighrableDebugger() {
               <DebuggerRow label="Address" value={state.activeHighrableIdentity.walletAddress} />
               <DebuggerRow label="Type" value={state.activeHighrableIdentity.walletType} />
               <DebuggerRow label="Source" value={state.activeHighrableIdentity.source} />
+            </DebuggerSection>
+
+            <DebuggerSection title="Wallet diagnostics">
+              <DebuggerRow label="Connected" value={state.walletState.isConnected} />
+              <DebuggerRow label="Selected wallet" value={state.walletState.selectedWallet} />
+              <DebuggerRow label="Address" value={state.walletState.walletAddress} />
+              <DebuggerRow label="Network" value={state.walletState.network} />
+              <DebuggerRow label="Testnet" value={state.walletState.isTestnet} />
+              <DebuggerRow label="Funded" value={state.walletState.isFunded} />
+              <DebuggerRow label="Checking funding" value={state.walletState.isCheckingFunding} />
+              <DebuggerRow
+                label="Funding with friendbot"
+                value={state.walletState.isFundingWithFriendbot}
+              />
+              <DebuggerRow label="Friendbot success" value={state.walletState.friendbotSuccess} />
+              <DebuggerRow label="Friendbot error" value={state.walletState.friendbotError} />
+              <DebuggerRow label="Wallet error" value={state.walletState.error} />
+              <DebuggerRow
+                label="Last transaction"
+                value={formatTransactionStatus(state.walletState.lastTxStatus)}
+              />
+              <DebuggerRow
+                label="Can write contracts"
+                value={state.walletState.canWriteContracts}
+              />
+              <DebuggerRow
+                label="Write restriction"
+                value={state.walletState.writeRestrictionReason}
+              />
             </DebuggerSection>
 
             <DebuggerSection title="Use Passkey Smart Account">

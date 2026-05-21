@@ -1,15 +1,18 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
-import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
-import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { V2_THEME } from "@/features/common/lib/v2-theme";
+import {
+  V2_BUTTON_PRIMARY_CLASS,
+  V2_BUTTON_SECONDARY_CLASS,
+  V2_PAGE_CONTAINER_CLASS,
+  V2_THEME,
+} from "@/features/common/lib/v2-theme";
+import { cn } from "@repo/ui/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { Award, Briefcase, Menu, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const navigation = [
   { name: "Browse Jobs", href: "/jobs", icon: Briefcase },
@@ -25,66 +28,69 @@ function isActivePath(pathname: string, href: string) {
 export function Header() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const walletIdentity = useHighrableWalletIdentity();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const inactiveNavigationClass =
-    "hr-text-secondary hover:bg-secondary hover:text-[var(--highrable-orange-2)]";
-  const connectedWalletClass =
-    "rounded-lg border border-border bg-background px-4 py-2 font-mono text-xs tracking-[0.06em] text-foreground uppercase transition-colors hover:border-[var(--highrable-orange-2)] hover:text-[var(--highrable-orange-2)]";
+    "hr-text-secondary hover:hr-text-accent font-mono text-xs tracking-[0.06em] uppercase transition-colors";
+  const secondaryActionClass = `${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`;
+  const primaryActionClass = `${V2_BUTTON_PRIMARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`;
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 8);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
-      <nav className="mx-auto max-w-7xl px-6">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <img
-              src="/logo/highrable-icon.jpg"
-              alt="Highrable logo"
-              className="h-8 w-8 rounded-md object-cover"
-            />
-            <span
-              className={`bg-clip-text text-xl font-semibold tracking-tight text-transparent ${V2_THEME.gradients.primaryStrong}`}
+    <header
+      className={cn(
+        "sticky top-0 z-50 bg-white transition-shadow duration-300",
+        isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
+      )}
+    >
+      <nav className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
+        <Link href="/home" className="flex items-center gap-2.5">
+          <img
+            src="/logo/highrable-icon.jpg"
+            alt="Highrable logo"
+            className="h-8 w-8 rounded-md object-cover"
+          />
+          <span className="hr-text-primary font-semibold tracking-tight">{APP_NAME}</span>
+        </Link>
+
+        <div className="hidden items-center gap-8 md:flex">
+          {navigation.map(({ href, icon: Icon, name }) => (
+            <Link
+              key={name}
+              href={href}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
+                isActivePath(pathname, href)
+                  ? "hr-v2-button-primary text-white"
+                  : inactiveNavigationClass
+              }`}
             >
-              {APP_NAME}
-            </span>
+              <Icon className="h-4 w-4" />
+              <span>{name}</span>
+            </Link>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link href="/jobs" className={secondaryActionClass}>
+            Find Work
           </Link>
-
-          <div className="hidden items-center gap-8 md:flex">
-            {navigation.map(({ href, icon: Icon, name }) => (
-              <Link
-                key={name}
-                href={href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors ${
-                  isActivePath(pathname, href)
-                    ? `${V2_THEME.gradients.primaryStrong} text-white`
-                    : inactiveNavigationClass
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{name}</span>
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block">
-              {!walletIdentity.isConnected ? (
-                <WalletConnectTrigger
-                  className={`rounded-lg px-6 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase transition-all hover:brightness-105 ${V2_THEME.gradients.primary}`}
-                />
-              ) : (
-                <WalletAccountButton className={connectedWalletClass} />
-              )}
-            </div>
-
-            <button
-              className="hr-text-secondary rounded-lg p-2 transition-colors hover:bg-secondary hover:text-(--highrable-orange-2) md:hidden"
-              onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
-              aria-label="Toggle navigation menu"
-            >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
+          <Link href="/post-job" className={primaryActionClass}>
+            Post a Job
+          </Link>
+          <button
+            className="hr-text-secondary rounded-lg p-2 transition-colors hover:bg-secondary hover:text-(--highrable-orange-2) md:hidden"
+            onClick={() => setMobileMenuOpen((currentValue) => !currentValue)}
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
         </div>
 
         <AnimatePresence>
@@ -93,7 +99,7 @@ export function Header() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-t border-border bg-background md:hidden"
+              className="border-t border-border bg-white md:hidden"
             >
               <div className="space-y-3 px-4 py-4">
                 {navigation.map(({ href, icon: Icon, name }) => (
@@ -112,13 +118,18 @@ export function Header() {
                   </Link>
                 ))}
                 <div className="border-t border-border pt-3">
-                  {!walletIdentity.isConnected ? (
-                    <WalletConnectTrigger
-                      className={`w-full rounded-lg px-4 py-2 font-mono text-xs tracking-[0.08em] text-white uppercase ${V2_THEME.gradients.primary}`}
-                    />
-                  ) : (
-                    <WalletAccountButton className={`w-full ${connectedWalletClass}`} />
-                  )}
+                  <Link
+                    href="/jobs"
+                    className={`${V2_BUTTON_SECONDARY_CLASS} block w-full px-4 py-2 font-mono text-xs tracking-widest uppercase`}
+                  >
+                    Find Work
+                  </Link>
+                  <Link
+                    href="/post-job"
+                    className={`${V2_BUTTON_PRIMARY_CLASS} mt-3 block w-full px-4 py-2 font-mono text-xs tracking-widest uppercase`}
+                  >
+                    Post a Job
+                  </Link>
                 </div>
               </div>
             </motion.div>

@@ -4,6 +4,7 @@ import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { api } from "@repo/convex-client";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@repo/ui/dialog";
+} from "@repo/ui/components/ui/dialog";
+import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
 import { Wallet } from "lucide-react";
 import { useState } from "react";
@@ -45,9 +47,14 @@ export function WalletConnectTrigger({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <button type="button" disabled={walletState.isConnecting} className={className}>
+        <AppButton
+          type="button"
+          variant="highrableGradient"
+          disabled={walletState.isConnecting}
+          className={cn("rounded-lg font-mono text-xs tracking-[0.08em] uppercase", className)}
+        >
           {walletState.isConnecting ? "Connecting wallet..." : label}
-        </button>
+        </AppButton>
       </DialogTrigger>
       <DialogContent className="max-h-[min(90vh,48rem)] max-w-3xl overflow-hidden border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
         <div className="max-h-[min(90vh,48rem)] overflow-y-auto overscroll-contain p-5 pr-12 sm:p-6 sm:pr-14">
@@ -70,14 +77,15 @@ export function WalletConnectTrigger({
                     Connect Freighter or WalletConnect. This is still required for escrow
                     transaction signing.
                   </p>
-                  <button
+                  <AppButton
                     type="button"
+                    variant="highrableGradient"
                     onClick={() => void handleExternalWalletConnect()}
                     disabled={walletState.isConnecting}
-                    className="mt-4 rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-4"
                   >
                     {walletState.isConnecting ? "Opening wallet..." : "Connect External Wallet"}
-                  </button>
+                  </AppButton>
                 </div>
               </div>
             </section>
