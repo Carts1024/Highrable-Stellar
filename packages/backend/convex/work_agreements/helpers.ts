@@ -32,7 +32,7 @@ const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
 const AGREEMENT_ALLOWED_HEADER_LEVELS = [1, 2] as const;
 const AGREEMENT_ALLOWED_LIST_TYPES = ["ordered", "bullet"] as const;
 const REQUIRED_DISCLAIMER =
-  "This Highrable-generated agreement is provided as a workflow template and is not legal advice. For high-value, regulated, or jurisdiction-specific work, both parties should consult a qualified professional.";
+  "Highrable provides this as a workflow template, not legal advice. For regulated, high-value, or jurisdiction-specific work, get qualified review before acceptance.";
 
 export interface IAgreementParticipant {
   wallet: string;

@@ -1,24 +1,41 @@
+import { formatAssetLabel } from "@/core/stellar/assets";
+import { formatAmount } from "@/features/dashboard/lib/format";
+import {
+  HighrableV2Badge,
+  HighrableV2Metric,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 
 import type { TEscrowProof } from "../types";
 
-import { PROOF_STATUS_LABELS, PROOF_TYPE_LABELS, getProofSummary } from "../lib/proof-status";
+import { formatProofDate } from "../lib/format";
+import {
+  PROOF_STATUS_LABELS,
+  PROOF_TYPE_LABELS,
+  getPaymentStatusLabel,
+  getProofSummary,
+} from "../lib/proof-status";
 
 export function EscrowProofHeader({ proof }: { readonly proof: TEscrowProof }) {
+  const amount = proof.milestone?.amount ?? proof.escrow.amount;
+  const asset = proof.milestone?.asset ?? proof.escrow.asset;
+
   return (
-    <section className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <section className="grid gap-8 border-b border-[#e8e8e8] pb-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+      <div className="space-y-5">
         <div className="space-y-3">
+          <SectionLabel>Proof Receipt</SectionLabel>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]">
+            <Badge className="rounded-none bg-[#0a0a0a] px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.08em] text-white uppercase hover:bg-[#0a0a0a]">
               {PROOF_STATUS_LABELS[proof.proofStatus]}
             </Badge>
-            <Badge variant="outline" className="border-[#FF7003]/30 bg-[#FFF7ED] text-[#9A3412]">
-              {PROOF_TYPE_LABELS[proof.proofType]}
-            </Badge>
+            <HighrableV2Badge>{PROOF_TYPE_LABELS[proof.proofType]}</HighrableV2Badge>
           </div>
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0a0a0a]">Escrow Proof</h1>
+            <h1 className="max-w-3xl text-4xl leading-tight font-medium text-[#0a0a0a] sm:text-5xl">
+              Work receipt for <span className="hr-v2-gradient-text">{proof.job.title}</span>
+            </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5f5f]">
               {getProofSummary(proof.proofStatus, proof.proofType)}
             </p>
@@ -26,11 +43,24 @@ export function EscrowProofHeader({ proof }: { readonly proof: TEscrowProof }) {
         </div>
 
         {proof.proofStatus === "paid" && proof.reputationRecord ? (
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          <div className="w-fit border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
             This work was paid through Stellar escrow and created an escrow-backed reputation
             record.
           </div>
         ) : null}
+      </div>
+
+      <div className="grid gap-5 border-l border-[#e8e8e8] py-2">
+        <HighrableV2Metric
+          label="Payment amount"
+          value={`${formatAmount(amount)} ${formatAssetLabel(asset)}`}
+          className="text-[#B94A00]"
+        />
+        <HighrableV2Metric
+          label="Payment status"
+          value={getPaymentStatusLabel(proof.escrow.status)}
+        />
+        <HighrableV2Metric label="Created" value={formatProofDate(proof.escrow.createdAt)} />
       </div>
     </section>
   );

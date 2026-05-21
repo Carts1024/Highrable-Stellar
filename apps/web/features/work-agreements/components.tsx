@@ -340,10 +340,10 @@ export function AgreementLegalDisclaimer() {
     <div className="flex items-start justify-between gap-3 border border-[#e8e8e8] bg-white p-3 text-sm">
       <div className="min-w-0">
         <p className="font-mono text-[0.65rem] tracking-[0.08em] text-[#B94A00] uppercase">
-          {AGREEMENT_TEMPLATE_NOTICE.title}
+          Agreement note
         </p>
         <p className="mt-1 text-[#5f5f5f]">
-          Use this as a starting point. Review sensitive terms before sending.
+          Template terms are workflow guidance. Review sensitive terms before sending.
         </p>
       </div>
       <HighrableV2IconNotice
@@ -706,15 +706,16 @@ export function AgreementReferenceCard({
 }) {
   if (context === undefined) {
     return (
-      <section className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
+      <section className="border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
         Loading agreement context...
       </section>
     );
   }
   if (!context) {
     return (
-      <section className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
-        {emptyMessage}
+      <section className="border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
+        <SectionLabel>Agreement</SectionLabel>
+        <p className="mt-2">{emptyMessage}</p>
       </section>
     );
   }
@@ -722,29 +723,31 @@ export function AgreementReferenceCard({
   const agreement = context.agreement;
   const version = context.version;
   return (
-    <section className="space-y-3 rounded-lg border border-[#d8d8d8] bg-white p-4">
+    <section className="space-y-4 border border-[#e8e8e8] bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-            Agreement context
+          <SectionLabel>Agreement</SectionLabel>
+          <h3 className="mt-2 text-base font-semibold text-[#0a0a0a]">{context.label}</h3>
+          <p className="mt-1 text-sm leading-relaxed text-[#5f5f5f]">
+            The agreed payment, deadline, and revision terms linked to this receipt.
           </p>
-          <h3 className="mt-1 text-base font-semibold text-[#0a0a0a]">{context.label}</h3>
         </div>
         <div className="flex flex-wrap gap-2">
           <AgreementStatusBadge status={version?.status ?? agreement.status} />
-          <AgreementHashBadge hash={context.agreementHash} />
         </div>
       </div>
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+      <dl className="grid gap-3 border-t border-[#e8e8e8] pt-4 text-sm">
         <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
-          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Payment release</dt>
+          <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">Payment</dt>
           <dd className="mt-1 text-[#0a0a0a]">
             {formatAmount(version?.paymentAmount ?? agreement.paymentAmount)}{" "}
-            {version?.paymentAssetSymbol ?? agreement.paymentAssetSymbol} through escrow review.
+            {version?.paymentAssetSymbol ?? agreement.paymentAssetSymbol}
           </dd>
         </div>
         <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
-          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Revision policy</dt>
+          <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+            Revisions
+          </dt>
           <dd className="mt-1 text-[#0a0a0a]">
             {version?.revisionPolicy ?? agreement.revisionPolicy ?? "Not specified"}
             {version?.revisionLimit !== undefined || agreement.revisionLimit !== undefined
@@ -753,21 +756,24 @@ export function AgreementReferenceCard({
           </dd>
         </div>
         <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
-          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Deadline</dt>
+          <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">Deadline</dt>
           <dd className="mt-1 text-[#0a0a0a]">
             {(version?.deadlineAt ?? agreement.deadlineAt)
               ? new Date(version?.deadlineAt ?? agreement.deadlineAt ?? 0).toLocaleString()
               : "Milestone deadlines apply if configured."}
           </dd>
         </div>
-        <div className="border border-[#e8e8e8] bg-[#fafafa] p-3">
-          <dt className="font-mono text-xs text-[#7f7f7f] uppercase">Content protection</dt>
-          <dd className="mt-1 text-[#0a0a0a]">
-            Download restricted under Agreement v{context.versionNumber} until payment release,
-            unless a platform review outcome explicitly allows access.
-          </dd>
-        </div>
       </dl>
+      <div className="flex flex-wrap items-center gap-2 border-t border-[#e8e8e8] pt-3">
+        <HighrableV2IconNotice
+          label="Agreement access details"
+          message={`Agreement v${context.versionNumber} is the version Highrable uses for payment, revisions, deadlines, and protected delivery access.`}
+          tone="neutral"
+        />
+        <p className="text-xs leading-relaxed text-[#7f7f7f]">
+          Agreement v{context.versionNumber} is linked to this receipt.
+        </p>
+      </div>
       {context.fallback ? <p className="text-sm text-amber-700">{context.fallback}</p> : null}
     </section>
   );
@@ -802,12 +808,10 @@ export function AgreementAmendmentBanner({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border border-[#e8e8e8] bg-[#fafafa] p-4 text-sm">
       <div className="flex items-center gap-2">
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-          Changes after lock
-        </p>
+        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">Locked terms</p>
         <HighrableV2IconNotice
-          label="Changes after lock details"
-          message="Locked terms stay fixed for escrow and dispute review. Future amendment support will require both parties to approve a new version."
+          label="Locked terms details"
+          message="Locked terms stay fixed for escrow and dispute review. Any future term changes will require both parties to approve a new version."
           tone="neutral"
         />
       </div>
@@ -1052,7 +1056,7 @@ export function AgreementExportButton({ agreement }: { readonly agreement: TWork
       `Locked at: ${agreement.lockedAt ? new Date(agreement.lockedAt).toISOString() : "Not locked"}`,
       "",
       "## Disclaimer",
-      "This Highrable-generated agreement is a workflow template and is not legal advice.",
+      "Highrable provides this as a workflow template, not legal advice.",
       "",
     ];
     const exportBody = agreement.contentHtml

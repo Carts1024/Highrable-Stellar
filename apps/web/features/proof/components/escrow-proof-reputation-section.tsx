@@ -1,10 +1,10 @@
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import { V2_PANEL_CLASS, V2_BADGE_ACCENT_CLASS } from "@repo/ui/components/highrable/v2-theme";
-import { Button } from "@repo/ui/components/ui/button";
-import { cn } from "@repo/ui/lib/utils";
-import { ExternalLink, Star, ShieldCheck } from "lucide-react";
+import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
+import { ExternalLink, ShieldCheck, Star } from "lucide-react";
 
 import type { TEscrowProof } from "../types";
+import type { ReactNode } from "react";
 
 export interface IRatingStarsProps {
   readonly rating: number;
@@ -14,7 +14,6 @@ export interface IEscrowProofReputationSectionProps {
   readonly proof: TEscrowProof;
   readonly isSyncing: boolean;
   readonly syncMessage: string | null;
-  readonly onSyncReputation: () => void;
 }
 
 function RatingStars({ rating }: IRatingStarsProps) {
@@ -41,130 +40,142 @@ export function EscrowProofReputationSection({
   proof,
   isSyncing,
   syncMessage,
-  onSyncReputation,
 }: IEscrowProofReputationSectionProps) {
   const reputationRecord = proof.reputationRecord;
 
   if (proof.escrow.status !== "released") {
     return (
-      <section className={cn("p-6", V2_PANEL_CLASS, "bg-white")}>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="hr-text-muted h-5 w-5" />
-          <h2 className="hr-text-primary text-xl font-bold tracking-tight">Trust Verification</h2>
-        </div>
-        <p className="hr-text-secondary mt-3 text-sm leading-relaxed">
-          The trust verification record and on-chain review will be generated automatically once the
-          escrow payment is released.
-        </p>
-      </section>
+      <TrustInfoRow
+        title="Trust badge not ready yet"
+        tone="muted"
+        content={
+          <p>
+            A verified trust badge appears after the client approves the work and payment is
+            released.
+          </p>
+        }
+      />
     );
   }
 
   if (!reputationRecord) {
     return (
-      <section className={cn("space-y-4 p-6", V2_PANEL_CLASS, "border-amber-200 bg-amber-50/30")}>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-amber-600" />
-          <h2 className="text-xl font-bold tracking-tight text-amber-950">Pending Verification</h2>
-        </div>
-        <p className="text-sm leading-relaxed text-amber-900/80">
-          Payment has been released successfully, but the on-chain trust record is not yet
-          synchronized with this view.
-        </p>
-        <div className="pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isSyncing}
-            onClick={onSyncReputation}
-            className="h-9 rounded-lg border-amber-300 bg-white px-4 text-xs font-bold tracking-wide text-amber-700 uppercase transition-all hover:bg-amber-100 disabled:opacity-50"
-          >
-            {isSyncing ? "Syncing Record..." : "Sync Verification Record"}
-          </Button>
-        </div>
-        {syncMessage ? (
-          <p className="font-mono text-[10px] font-medium text-amber-800 uppercase">
-            {syncMessage}
-          </p>
-        ) : null}
-      </section>
+      <TrustInfoRow
+        title={isSyncing ? "Preparing trust badge" : "Trust badge pending"}
+        tone="warning"
+        content={
+          <div className="space-y-2">
+            <p>
+              Payment is complete. Highrable is checking the record and will show the trust badge
+              here when it is ready.
+            </p>
+            {syncMessage ? <p className="text-xs text-amber-800">{syncMessage}</p> : null}
+          </div>
+        }
+      />
     );
   }
 
   return (
-    <section className={cn("p-6", V2_PANEL_CLASS, "bg-white")}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="hr-text-accent h-5 w-5" />
-          <h2 className="hr-text-primary text-xl font-bold tracking-tight">
-            Verified Trust Record
-          </h2>
-        </div>
-        <div
-          className={cn(
-            "px-3 py-1 text-[10px] font-bold tracking-widest uppercase",
-            V2_BADGE_ACCENT_CLASS,
-          )}
-        >
-          On-Chain Verified
-        </div>
-      </div>
+    <TrustInfoRow
+      title="Verified paid work"
+      tone="success"
+      content={
+        <div className="space-y-5">
+          <p>
+            This review is tied to paid work on Highrable, so it is harder to fake than a normal
+            marketplace rating.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Rating
+              </p>
+              <div className="mt-2 text-sm font-medium">
+                <RatingStars rating={reputationRecord.rating} />
+              </div>
+            </div>
 
-      <p className="hr-text-secondary mt-3 text-sm leading-relaxed">
-        This record serves as cryptographic proof of a successful collaboration and payment through
-        the Highrable escrow system.
-      </p>
-
-      <div className="mt-6 space-y-5 rounded-xl border border-gray-100 bg-gray-50/50 p-5">
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-              Performance Rating
-            </p>
-            <div className="mt-2 text-sm font-medium">
-              <RatingStars rating={reputationRecord.rating} />
+            <div>
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Review
+              </p>
+              <p className="hr-text-primary mt-2 text-sm font-semibold">
+                {reputationRecord.reviewText ? "Written feedback included" : "Paid work confirmed"}
+              </p>
             </div>
           </div>
 
-          <div>
-            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-              Review Status
-            </p>
-            <p className="hr-text-primary mt-2 text-sm font-semibold">
-              {reputationRecord.reviewText ? "Written Review Included" : "Verified Completion Only"}
-            </p>
-          </div>
-        </div>
+          {reputationRecord.reviewText ? (
+            <div className="border-t border-gray-100 pt-5">
+              <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                Client feedback
+              </p>
+              <p className="hr-text-primary mt-2 text-sm leading-relaxed italic">
+                "{reputationRecord.reviewText}"
+              </p>
+            </div>
+          ) : null}
 
-        {reputationRecord.reviewText ? (
           <div className="border-t border-gray-100 pt-5">
-            <p className="font-mono text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-              Client Feedback
-            </p>
-            <p className="hr-text-primary mt-2 text-sm leading-relaxed italic">
-              "{reputationRecord.reviewText}"
-            </p>
+            {reputationRecord.txHash ? (
+              <a
+                href={getTxExplorerUrl(reputationRecord.txHash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hr-text-accent inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase transition-colors hover:opacity-80"
+              >
+                View payment receipt
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : (
+              <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                Receipt link not available
+              </p>
+            )}
           </div>
-        ) : null}
-
-        <div className="border-t border-gray-100 pt-5">
-          {reputationRecord.txHash ? (
-            <a
-              href={getTxExplorerUrl(reputationRecord.txHash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hr-text-accent inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase transition-colors hover:opacity-80"
-            >
-              View On-Chain Transaction
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          ) : (
-            <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
-              Transaction hash not recorded
-            </p>
-          )}
         </div>
+      }
+    />
+  );
+}
+
+function TrustInfoRow({
+  title,
+  content,
+  tone,
+}: {
+  readonly title: string;
+  readonly content: ReactNode;
+  readonly tone: "muted" | "warning" | "success";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-[#e8e8e8] bg-white text-[#7f7f7f]";
+
+  return (
+    <section className="flex items-center justify-between gap-4 border-y border-[#e8e8e8] bg-white py-4">
+      <div>
+        <SectionLabel>Trust Badge</SectionLabel>
+        <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">{title}</h2>
       </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label="Open trust badge details"
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border transition-colors hover:bg-[#fff7ed] ${toneClass}`}
+          >
+            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="left" sideOffset={10} className="max-w-md text-sm leading-relaxed">
+          {content}
+        </PopoverContent>
+      </Popover>
     </section>
   );
 }

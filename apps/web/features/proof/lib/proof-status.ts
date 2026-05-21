@@ -1,5 +1,18 @@
 import type { TProofEscrow, TProofStatus, TProofType } from "../types";
 
+export function getPaymentStatusLabel(status: TProofEscrow["status"]): string {
+  const labels: Record<TProofEscrow["status"], string> = {
+    created: "Started",
+    funded: "Funds set aside",
+    submitted: "Work in review",
+    released: "Paid",
+    cancelled: "Cancelled",
+    disputed: "Under review",
+  };
+
+  return labels[status];
+}
+
 export const PROOF_STATUS_LABELS: Record<TProofStatus, string> = {
   escrow_created: "Escrow Created",
   verified_funded: "Verified Funded",
@@ -17,43 +30,43 @@ export const PROOF_TYPE_LABELS: Record<TProofType, string> = {
 export function getProofSummary(status: TProofStatus, proofType: TProofType): string {
   if (status === "paid") {
     return proofType === "milestone"
-      ? "Paid milestone verified through Stellar escrow."
-      : "Paid micro gig verified through Stellar escrow.";
+      ? "This milestone was approved and paid through Highrable."
+      : "This micro gig was approved and paid through Highrable.";
   }
 
   if (status === "verified_funded") {
-    return "This escrow is funded, but payment has not been released yet.";
+    return "Funds are set aside, but payment has not been released yet.";
   }
 
   if (status === "work_submitted") {
-    return "Work was submitted. Funds are still locked until client approval.";
+    return "Work was sent for review. Payment waits for client approval.";
   }
 
   if (status === "escrow_created") {
-    return "Escrow exists, but funds are not locked yet.";
+    return "The payment record exists, but funds are not set aside yet.";
   }
 
   if (status === "cancelled") {
-    return "Escrow cancelled. This page does not prove completed work.";
+    return "This payment was cancelled. It does not prove completed paid work.";
   }
 
-  return "Escrow disputed. Manual review is required.";
+  return "This payment is under review.";
 }
 
 export function getPaymentProofCopy(status: TProofStatus): string {
   switch (status) {
     case "escrow_created":
-      return "Escrow was created, but no payment has been locked yet.";
+      return "A payment record was created, but funds are not set aside yet.";
     case "verified_funded":
-      return "Stablecoin funds are locked in Stellar escrow.";
+      return "Funds are set aside for this work.";
     case "work_submitted":
-      return "Work was submitted. Funds are still locked until client approval.";
+      return "Work was sent for review. Payment waits for client approval.";
     case "paid":
-      return "Payment was released to the freelancer through Stellar escrow.";
+      return "Payment was released to the freelancer.";
     case "cancelled":
-      return "This escrow was cancelled.";
+      return "This payment was cancelled.";
     case "disputed":
-      return "This escrow is disputed and requires manual review.";
+      return "This payment is under review.";
   }
 }
 
