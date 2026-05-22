@@ -9,6 +9,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList, AttachmentUploader } from "@/features/attachments/components";
 import { getReadableAttachmentError } from "@/features/attachments/lib";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { DeadlineBadge } from "@/features/deadlines";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import {
@@ -152,6 +153,11 @@ function WorkProofSubmissionDialogContent({
   const updateEscrowStatus = useMutation(api.escrows.updateEscrowStatus);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
+
+  const setWarning = (message: string) => {
+    setError(message);
+    showWarningToast(message);
+  };
 
   const latestSubmission = submissions?.[0] ?? null;
   const latestSubmittedSubmission =
@@ -304,15 +310,15 @@ function WorkProofSubmissionDialogContent({
   const handleSubmit = async () => {
     setError(null);
     if (!escrow?.escrowId || !escrow.freelancerWallet) {
-      setError("This escrow is not ready for proof submission.");
+      setWarning("This escrow is not ready for proof submission.");
       return;
     }
     if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
-      setError("Missing wallet identity.");
+      setWarning("Missing wallet identity.");
       return;
     }
     if (!canSubmit) {
-      setError(
+      setWarning(
         isRevisionPolicyLoading
           ? "Revision policy is still loading."
           : "Only the assigned freelancer can submit proof for this escrow.",
@@ -320,11 +326,11 @@ function WorkProofSubmissionDialogContent({
       return;
     }
     if (!hasProofBody) {
-      setError("Add notes or at least one attachment before submitting proof.");
+      setWarning("Add notes or at least one attachment before submitting proof.");
       return;
     }
     if (hasUploadingAttachment || attachmentDocs === undefined) {
-      setError("Wait for proof attachments to finish uploading.");
+      setWarning("Wait for proof attachments to finish uploading.");
       return;
     }
 
@@ -378,14 +384,20 @@ function WorkProofSubmissionDialogContent({
       if (activeRevision || isPreviewEnabled) {
         setNotes("");
         setDraftAttachments([]);
+        showSuccessToast(
+          activeRevision ? "Revision preview submitted." : "Work preview submitted.",
+        );
         return;
       }
 
       await anchorSubmission(submission);
       setNotes("");
       setDraftAttachments([]);
+      showSuccessToast("Proof submitted and anchored on Stellar.");
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Proof submission failed."));
+      const nextError = getReadableAttachmentError(error, "Proof submission failed.");
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setPending(false);
     }
@@ -394,7 +406,7 @@ function WorkProofSubmissionDialogContent({
   const handleAcceptPreview = async () => {
     setError(null);
     if (!latestReviewSubmission || !walletIdentity.walletAddress) {
-      setError("No submitted preview is available to accept.");
+      setWarning("No submitted preview is available to accept.");
       return;
     }
 
@@ -404,8 +416,11 @@ function WorkProofSubmissionDialogContent({
         submissionId: latestReviewSubmission._id,
         clientWallet: walletIdentity.walletAddress,
       });
+      showSuccessToast("Preview accepted for final submission.");
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Preview acceptance failed."));
+      const nextError = getReadableAttachmentError(error, "Preview acceptance failed.");
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setAcceptingPreview(false);
     }
@@ -414,15 +429,15 @@ function WorkProofSubmissionDialogContent({
   const handleRequestRevision = async () => {
     setError(null);
     if (!latestReviewSubmission || !walletIdentity.walletAddress || !walletIdentity.walletType) {
-      setError("Client cannot request revision before proof is submitted.");
+      setWarning("Client cannot request revision before proof is submitted.");
       return;
     }
     if (!requestedChanges.trim()) {
-      setError("Add requested changes before sending the revision request.");
+      setWarning("Add requested changes before sending the revision request.");
       return;
     }
     if (revisionAttachments.some((attachment) => attachment.status === "uploading")) {
-      setError("Wait for revision attachments to finish uploading.");
+      setWarning("Wait for revision attachments to finish uploading.");
       return;
     }
 
@@ -441,8 +456,11 @@ function WorkProofSubmissionDialogContent({
       setRevisionReason("");
       setRequestedChanges("");
       setRevisionAttachments([]);
+      showSuccessToast("Revision request sent.");
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Revision request failed."));
+      const nextError = getReadableAttachmentError(error, "Revision request failed.");
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setRequestingRevision(false);
     }
@@ -453,8 +471,11 @@ function WorkProofSubmissionDialogContent({
     setError(null);
     try {
       await anchorSubmission(submission);
+      showSuccessToast("Proof anchoring retry submitted.");
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Proof anchoring retry failed."));
+      const nextError = getReadableAttachmentError(error, "Proof anchoring retry failed.");
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setPending(false);
     }

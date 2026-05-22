@@ -2,7 +2,12 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { sanitizeMultilineInput } from "@/features/common";
+import {
+  sanitizeMultilineInput,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -69,13 +74,17 @@ export function ApplyToJobForm({
     event.preventDefault();
 
     if (!walletIdentity.walletAddress) {
-      setError("Connect wallet to apply.");
+      const nextWarning = "Connect wallet to apply.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
     const parsedProposal = APPLY_PROPOSAL_SCHEMA.safeParse(proposal);
     if (!parsedProposal.success) {
-      setError(parsedProposal.error.issues[0]?.message ?? "Proposal is invalid.");
+      const nextWarning = parsedProposal.error.issues[0]?.message ?? "Proposal is invalid.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -93,6 +102,7 @@ export function ApplyToJobForm({
 
       setProposal("");
       setShowcasedWorkEscrowId(null);
+      showSuccessToast(`Application submitted for "${job.title}".`);
       onApplied();
     } catch (caughtError) {
       const readableError = getReadableErrorMessage(
@@ -100,11 +110,11 @@ export function ApplyToJobForm({
         "Failed to submit application. Please try again.",
       );
 
-      if (readableError.toLowerCase().includes("already applied")) {
-        setError("You already applied to this job.");
-      } else {
-        setError(readableError);
-      }
+      const nextError = readableError.toLowerCase().includes("already applied")
+        ? "You already applied to this job."
+        : readableError;
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setIsSubmitting(false);
     }

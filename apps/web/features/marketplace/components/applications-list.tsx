@@ -5,6 +5,7 @@ import { assignFreelancerOnChain } from "@/core/stellar/escrow-contract";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -150,7 +151,7 @@ export function ApplicationsList({
 
   const handleSelectFreelancer = async (freelancerWallet: string) => {
     if (!walletIdentity.walletAddress) {
-      setSelectionError("Connect your wallet to select a freelancer.");
+      showWarningToast("Connect your wallet to select a freelancer.");
       return;
     }
 
@@ -167,11 +168,15 @@ export function ApplicationsList({
           freelancerWallet,
         });
       }
+      showSuccessToast(`Freelancer ${shortenWalletAddress(freelancerWallet)} selected.`);
       onSelected();
     } catch (error) {
-      setSelectionError(
-        getReadableErrorMessage(error, "Failed to select freelancer. Please try again."),
+      const nextError = getReadableErrorMessage(
+        error,
+        "Failed to select freelancer. Please try again.",
       );
+      setSelectionError(nextError);
+      showErrorToast(nextError);
     } finally {
       setSelectingWallet(null);
     }

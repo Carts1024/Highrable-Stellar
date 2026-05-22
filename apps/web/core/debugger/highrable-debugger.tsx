@@ -1,8 +1,8 @@
 "use client";
 
+import { showErrorToast, showSuccessToast } from "@/features/common";
 import { Button } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
-import { toast } from "@repo/ui/toast";
 import { useMemo, useState } from "react";
 
 import type { IHighrableDebuggerState } from "./debugger.types";
@@ -105,9 +105,9 @@ export function HighrableDebugger() {
   const handleCopySummary = async () => {
     try {
       await navigator.clipboard.writeText(debuggerSummary);
-      toast.success("Debugger summary copied.");
+      showSuccessToast("Debugger summary copied.");
     } catch {
-      toast.error("Could not copy debugger summary.");
+      showErrorToast("Could not copy debugger summary.");
     }
   };
 

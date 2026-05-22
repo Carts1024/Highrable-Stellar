@@ -26,6 +26,7 @@ import {
   RouteCallout,
   RouteEmptyState,
   sanitizeMultilineInput,
+  showWarningToast,
 } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
@@ -593,7 +594,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     );
 
     if (!sanitizedModeratorNote) {
-      setActionError("Write a moderator note before submitting.");
+      const nextWarning = "Write a moderator note before submitting.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -635,7 +638,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
-      setActionError("Missing dispute or wallet context for retry.");
+      const nextWarning = "Missing dispute or wallet context for retry.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -775,7 +780,9 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
 
   const handleResolveOnChain = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
-      setActionError("Missing dispute or wallet context for settlement.");
+      const nextWarning = "Missing dispute or wallet context for settlement.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 

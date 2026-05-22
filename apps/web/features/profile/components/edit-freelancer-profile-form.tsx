@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
 import {
@@ -49,7 +50,7 @@ export function EditFreelancerProfileForm({
   const [skillsInput, setSkillsInput] = useState(profile.coreSkills.join(", "));
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [status, setStatus] = useState<"idle" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -115,7 +116,9 @@ export function EditFreelancerProfileForm({
     });
 
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check your profile details.");
+      const nextWarning = parsed.error.issues[0]?.message ?? "Check your profile details.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -126,10 +129,13 @@ export function EditFreelancerProfileForm({
         walletAddress: profile.walletAddress,
         ...buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
       });
-      setStatus("saved");
+      setStatus("idle");
+      showSuccessToast("Profile updated.");
       onSaved();
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Profile update failed."));
+      const nextError = getReadableErrorMessage(caughtError, "Profile update failed.");
+      setError(nextError);
+      showErrorToast(nextError);
       setStatus("idle");
     }
   };
@@ -157,12 +163,6 @@ export function EditFreelancerProfileForm({
       {error ? (
         <p className="border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
       ) : null}
-      {status === "saved" ? (
-        <p className="border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          Profile updated.
-        </p>
-      ) : null}
-
       <div className="flex flex-wrap justify-end gap-2 border-t border-[#e8e8e8] pt-5">
         <AppButton type="button" variant="ghost" onClick={onCancel}>
           Cancel

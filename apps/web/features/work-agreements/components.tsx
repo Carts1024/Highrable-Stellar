@@ -7,6 +7,7 @@ import {
   normalizeAttachmentType,
   validateAttachmentFile,
 } from "@/features/attachments/lib";
+import { showWarningToast } from "@/features/common";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -439,13 +440,18 @@ function ClientUploadedAgreementPicker({
 
   const upload = async (file: File) => {
     if (!walletIdentity.walletAddress) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     const validationError = validateAttachmentFile(file);
     const type = normalizeAttachmentType(file);
     if (!["pdf", "document", "markdown", "file"].includes(type)) {
-      setError("Select a supported agreement file, such as PDF, DOCX, Markdown, or text.");
+      const nextWarning =
+        "Select a supported agreement file, such as PDF, DOCX, Markdown, or text.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setSelectedFile({
@@ -459,6 +465,7 @@ function ClientUploadedAgreementPicker({
     });
     if (validationError) {
       setError(validationError);
+      showWarningToast(validationError);
       return;
     }
 
@@ -1240,11 +1247,15 @@ function AgreementFreelancerResponsePanel({
 
   const run = async (action: "accept" | "reject") => {
     if (!walletAddress || !walletType) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     if (action === "accept" && !accepted) {
-      setError("Review and accept the agreement terms before continuing.");
+      const nextWarning = "Review and accept the agreement terms before continuing.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setIsSubmitting(true);
@@ -1496,7 +1507,9 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
   const createAgreement = async () => {
     if (!walletAddress || !walletType) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setIsSubmitting(true);
@@ -1533,7 +1546,9 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
   const runAgreementAction = async (action: () => Promise<unknown>, fallback: string) => {
     if (!walletAddress || !walletType || !agreement) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setIsSubmitting(true);
@@ -1563,11 +1578,15 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
   const saveAgreementContent = async () => {
     if (!walletAddress || !walletType || !agreement || !isClientViewer) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     if (!agreementContentDraft) {
-      setError("Agreement content cannot be empty.");
+      const nextWarning = "Agreement content cannot be empty.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 

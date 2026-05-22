@@ -20,7 +20,10 @@ const FOOTER_SECTIONS = [
     title: "Resources",
     links: [
       { label: "Documentation", href: "#" },
-      { label: "Whitepaper", href: "#" },
+      {
+        label: "Whitepaper",
+        href: "https://highrable-or-a-web-3-stellar-int.gitbook.io/highrable-docs",
+      },
       { label: "Security", href: "#" },
       { label: "FAQ", href: "#" },
     ],

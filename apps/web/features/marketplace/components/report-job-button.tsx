@@ -1,6 +1,7 @@
 "use client";
 
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { showSuccessToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -20,28 +21,18 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
   const { address } = useWallet();
   const reportCount = useQuery(api.reports.getJobReportCount, { jobId });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   return (
     <div className="space-y-2">
       <AppButton
         type="button"
         variant="secondary"
-        onClick={() => {
-          setSuccessMessage(null);
-          setIsDialogOpen(true);
-        }}
+        onClick={() => setIsDialogOpen(true)}
         className="h-9 px-3 text-xs"
       >
         <Flag className="h-3.5 w-3.5" />
         Report suspicious job
       </AppButton>
-
-      {successMessage ? (
-        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800" role="status">
-          <AlertDescription>{successMessage}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {(reportCount ?? 0) >= 3 ? (
         <Alert className="border-amber-200 bg-amber-50 text-amber-900" role="note">
@@ -54,7 +45,7 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
         jobId={jobId}
         reporterWallet={address ?? undefined}
         onOpenChange={setIsDialogOpen}
-        onReported={() => setSuccessMessage("Thanks. This job has been reported for review.")}
+        onReported={() => showSuccessToast("Thanks. This job has been reported for review.")}
       />
     </div>
   );

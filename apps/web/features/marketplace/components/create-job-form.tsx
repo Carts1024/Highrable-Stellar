@@ -25,7 +25,13 @@ import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-tr
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
-import { sanitizeMultilineInput, sanitizeSingleLineInput } from "@/features/common";
+import {
+  sanitizeMultilineInput,
+  sanitizeSingleLineInput,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import {
   getLocalTimezoneLabel,
   parseDatetimeLocalValue,
@@ -461,18 +467,35 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     }));
   };
 
+  const getFirstFormError = (formErrors: TCreateJobFormErrors): string | null => {
+    return (
+      Object.values(formErrors).find(
+        (formError): formError is string =>
+          typeof formError === "string" && formError.trim().length > 0,
+      ) ?? null
+    );
+  };
+
+  const setFormWarning = (formErrors: TCreateJobFormErrors) => {
+    setErrors(formErrors);
+    const firstError = getFirstFormError(formErrors);
+    if (firstError) {
+      showWarningToast(firstError);
+    }
+  };
+
   const parseMilestones = (): TParsedMilestonePayload[] | null => {
     const parsedMilestones: TParsedMilestonePayload[] = [];
 
     if (formState.milestones.length < 1) {
-      setErrors({ milestones: "At least one milestone is required." });
+      setFormWarning({ milestones: "At least one milestone is required." });
       return null;
     }
 
     for (const [index, milestone] of formState.milestones.entries()) {
       const parsed = CREATE_MILESTONE_SCHEMA.safeParse(milestone);
       if (!parsed.success) {
-        setErrors({
+        setFormWarning({
           milestones: `Milestone ${index + 1}: ${parsed.error.issues[0]?.message ?? "Invalid milestone."}`,
         });
         return null;
@@ -480,7 +503,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       const deadlineAt = parseDatetimeLocalValue(parsed.data.deadlineAt);
       const deadlineError = validateDeadlineTimestamp(deadlineAt);
       if (deadlineError) {
-        setErrors({ milestones: `Milestone ${index + 1}: ${deadlineError}` });
+        setFormWarning({ milestones: `Milestone ${index + 1}: ${deadlineError}` });
         return null;
       }
       const previousMilestone = parsedMilestones[index - 1];
@@ -488,7 +511,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         ? parseDatetimeLocalValue(previousMilestone.deadlineAt)
         : null;
       if (previousDeadlineAt !== null && deadlineAt !== null && deadlineAt < previousDeadlineAt) {
-        setErrors({
+        setFormWarning({
           milestones: `Milestone ${index + 1} cannot be due before Milestone ${index}.`,
         });
         return null;
@@ -499,7 +522,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           revisionLimit: milestone.revisionLimit,
         });
       } catch (error) {
-        setErrors({
+        setFormWarning({
           milestones: `Milestone ${index + 1}: ${
             error instanceof Error ? error.message : "Invalid revision policy."
           }`,
@@ -515,7 +538,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
     const totalBudget = parsedMilestones.reduce((total, milestone) => total + milestone.amount, 0);
     if (totalBudget <= 0) {
-      setErrors({ milestones: "Total project budget must be greater than zero." });
+      setFormWarning({ milestones: "Total project budget must be greater than zero." });
       return null;
     }
 
@@ -549,12 +572,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       await attachDraftAttachmentsToJob(jobId);
       return true;
     } catch (error) {
+      const nextError = `Job was created, but attachments could not be linked. ${getReadableErrorMessage(
+        error,
+        "Please try attaching them again.",
+      )}`;
       setErrors({
-        submit: `Job was created, but attachments could not be linked. ${getReadableErrorMessage(
-          error,
-          "Please try attaching them again.",
-        )}`,
+        submit: nextError,
       });
+      showErrorToast(nextError);
       onCreated(jobId);
       return false;
     }
@@ -564,12 +589,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     event.preventDefault();
 
     if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
-      setErrors({ submit: "Connect wallet to create a job." });
+      setFormWarning({ submit: "Connect wallet to create a job." });
       return;
     }
 
     if (!isStablecoinConfigured && !formState.asset.trim()) {
-      setErrors({
+      setFormWarning({
         asset:
           stablecoinValidation.message ??
           "Payment asset is required until stablecoin configuration is set.",
@@ -585,18 +610,18 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         })
       : buildCreateJobErrors(formState);
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+      setFormWarning(validationErrors);
       return;
     }
 
     if (draftAttachments.some((attachment) => attachment.status === "uploading")) {
-      setErrors({ submit: "Wait for attachment uploads to finish before creating the job." });
+      setFormWarning({ submit: "Wait for attachment uploads to finish before creating the job." });
       return;
     }
 
     const failedAttachment = draftAttachments.find((attachment) => attachment.status === "failed");
     if (failedAttachment) {
-      setErrors({
+      setFormWarning({
         submit: failedAttachment.error ?? "Remove failed attachments before creating the job.",
       });
       return;
@@ -611,7 +636,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
       });
       if (!parsed.success) {
-        setErrors(
+        setFormWarning(
           buildCreateJobErrors({
             ...formState,
             budget: isMilestoneProject ? String(parsedMilestoneTotal) : formState.budget,
@@ -628,7 +653,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       });
 
       if (parsedScamAnalysis.isBlocked) {
-        setErrors({ submit: DISALLOWED_JOB_POST_MESSAGE });
+        setFormWarning({ submit: DISALLOWED_JOB_POST_MESSAGE });
         setIsSubmitting(false);
         return;
       }
@@ -676,6 +701,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           milestones: [createDraftMilestone()],
         });
         setDraftAttachments([]);
+        showSuccessToast(`Job "${payload.title}" created.`);
         onCreated(createdJobId);
         return;
       }
@@ -683,7 +709,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       const deadlineAt = parseDatetimeLocalValue(payload.deadlineAt ?? "");
       const deadlineError = validateDeadlineTimestamp(deadlineAt);
       if (deadlineError || deadlineAt === null) {
-        setErrors({ deadlineAt: deadlineError ?? "Deadline is required." });
+        setFormWarning({ deadlineAt: deadlineError ?? "Deadline is required." });
         setIsSubmitting(false);
         return;
       }
@@ -694,7 +720,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       if (formState.fundEscrowNow) {
         if (walletIdentity.walletType === "passkey_smart_account") {
-          setErrors({
+          setFormWarning({
             submit:
               "Create the job with your passkey smart account, then create and fund escrow from the escrow action panel.",
           });
@@ -703,7 +729,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         }
 
         if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
-          setErrors({
+          setFormWarning({
             submit: "Connect a Stellar wallet before funding escrow.",
           });
           setIsSubmitting(false);
@@ -711,13 +737,15 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         }
 
         if (!walletState.isTestnet) {
-          setErrors({ submit: "Switch your wallet to Stellar Testnet before funding escrow." });
+          setFormWarning({
+            submit: "Switch your wallet to Stellar Testnet before funding escrow.",
+          });
           setIsSubmitting(false);
           return;
         }
 
         if (walletState.isFunded === false) {
-          setErrors({
+          setFormWarning({
             submit: "Fund your Stellar testnet account with Friendbot before funding escrow.",
           });
           setIsSubmitting(false);
@@ -725,7 +753,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         }
 
         if (walletState.canWriteContracts === false) {
-          setErrors({
+          setFormWarning({
             submit: "This wallet can view jobs but cannot sign escrow contract actions right now.",
           });
           setIsSubmitting(false);
@@ -744,7 +772,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         });
 
         if (escrowTokenBalance < requiredBalance) {
-          setErrors({
+          setFormWarning({
             submit: `You do not have enough ${selectedEscrowAsset.symbol} to pre-fund this escrow.`,
           });
           setIsSubmitting(false);
@@ -835,11 +863,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             errorMessage,
           });
 
-          setErrors({
-            submit: confirmedEscrowId
-              ? `Job was posted and escrow #${confirmedEscrowId} was funded on Stellar, but the local escrow record could not be saved. Transaction: ${confirmedTxHash}. ${errorMessage}`
-              : `Job was posted, but escrow funding failed. ${errorMessage}`,
-          });
+          const nextError = confirmedEscrowId
+            ? `Job was posted and escrow #${confirmedEscrowId} was funded on Stellar, but the local escrow record could not be saved. Transaction: ${confirmedTxHash}. ${errorMessage}`
+            : `Job was posted, but escrow funding failed. ${errorMessage}`;
+          setErrors({ submit: nextError });
+          showErrorToast(nextError);
           onCreated(createdJobId);
           return;
         }
@@ -858,11 +886,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         milestones: [createDraftMilestone()],
       });
       setDraftAttachments([]);
+      showSuccessToast(`Job "${payload.title}" created.`);
       onCreated(createdJobId);
     } catch (error) {
-      setErrors({
-        submit: getReadableErrorMessage(error, "Failed to create job. Please try again."),
-      });
+      const nextError = getReadableErrorMessage(error, "Failed to create job. Please try again.");
+      setErrors({ submit: nextError });
+      showErrorToast(nextError);
     } finally {
       setIsSubmitting(false);
     }
