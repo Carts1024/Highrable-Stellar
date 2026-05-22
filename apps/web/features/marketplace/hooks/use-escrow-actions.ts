@@ -109,6 +109,36 @@ function getTransactionFeeMetadata(
   };
 }
 
+async function assertSufficientEscrowAssetBalance(input: {
+  readonly activeWalletAddress: string;
+  readonly activeWalletType: "external_wallet" | "passkey_smart_account";
+  readonly config: ReturnType<typeof getRequiredEscrowActionConfig>;
+  readonly escrowAsset: TEscrowPaymentAsset;
+  readonly amount: number | string;
+}): Promise<void> {
+  const requiredBalance = parseEscrowAssetAmount(input.escrowAsset, input.amount);
+  const escrowTokenBalance = await getTokenBalanceOnChain({
+    rpcUrl: input.config.rpcUrl,
+    networkPassphrase: input.config.networkPassphrase,
+    tokenContractId: input.escrowAsset.tokenContractId,
+    sourceAddress:
+      input.activeWalletType === "passkey_smart_account"
+        ? getSmartAccountKit().deployerPublicKey
+        : input.activeWalletAddress,
+    walletAddress: input.activeWalletAddress,
+  });
+
+  if (escrowTokenBalance >= requiredBalance) {
+    return;
+  }
+
+  throw new Error(
+    input.activeWalletType === "passkey_smart_account"
+      ? `Your passkey smart account does not have enough ${input.escrowAsset.symbol}.`
+      : `You need more ${input.escrowAsset.symbol} before creating or funding this escrow.`,
+  );
+}
+
 export function useEscrowActions({
   job,
   escrow,
@@ -343,6 +373,13 @@ export function useEscrowActions({
       if (job.status !== "selected" || escrow) {
         throw new Error("Escrow can only be created after a freelancer is selected.");
       }
+      await assertSufficientEscrowAssetBalance({
+        activeWalletAddress: activeWalletAddress!,
+        activeWalletType,
+        config,
+        escrowAsset,
+        amount: job.budget,
+      });
 
       const jobHash = await toBytesN32Hash(job.jobHash);
       const result = await createEscrowOnChain({
@@ -392,25 +429,13 @@ export function useEscrowActions({
         throw new Error("Escrow must be created before it can be funded.");
       }
 
-      const requiredBalance = parseEscrowAssetAmount(escrowAsset, job.budget);
-      const escrowTokenBalance = await getTokenBalanceOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        tokenContractId: escrowAsset.tokenContractId,
-        sourceAddress:
-          activeWalletType === "passkey_smart_account"
-            ? getSmartAccountKit().deployerPublicKey
-            : activeWalletAddress!,
-        walletAddress: activeWalletAddress!,
+      await assertSufficientEscrowAssetBalance({
+        activeWalletAddress: activeWalletAddress!,
+        activeWalletType,
+        config,
+        escrowAsset,
+        amount: job.budget,
       });
-
-      if (escrowTokenBalance < requiredBalance) {
-        throw new Error(
-          activeWalletType === "passkey_smart_account"
-            ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
-            : `You do not have enough ${escrowAsset.symbol} to fund this escrow.`,
-        );
-      }
 
       const result = await fundEscrowOnChain({
         rpcUrl: config.rpcUrl,
