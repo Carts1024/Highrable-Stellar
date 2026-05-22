@@ -22,6 +22,7 @@ import {
 } from "@/core/stellar/stablecoin-config";
 import { normalizeStellarError } from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
@@ -736,9 +737,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           return;
         }
 
-        if (!walletState.isTestnet) {
+        if (!isWalletOnConfiguredNetwork(walletState)) {
           setFormWarning({
-            submit: "Switch your wallet to Stellar Testnet before funding escrow.",
+            submit: getWalletNetworkMismatchMessage("funding escrow"),
           });
           setIsSubmitting(false);
           return;

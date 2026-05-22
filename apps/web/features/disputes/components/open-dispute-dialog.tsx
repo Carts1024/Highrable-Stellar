@@ -5,6 +5,7 @@ import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
@@ -172,8 +173,8 @@ export function OpenDisputeDialog({
       if (!address || !walletState.isConnected) {
         throw new Error("Connect a Stellar wallet before opening a dispute.");
       }
-      if (!walletState.isTestnet) {
-        throw new Error("Switch your wallet to Stellar Testnet before opening a dispute.");
+      if (!isWalletOnConfiguredNetwork(walletState)) {
+        throw new Error(getWalletNetworkMismatchMessage("opening a dispute"));
       }
       if (walletState.canWriteContracts === false) {
         throw new Error("This wallet cannot sign escrow contract actions right now.");

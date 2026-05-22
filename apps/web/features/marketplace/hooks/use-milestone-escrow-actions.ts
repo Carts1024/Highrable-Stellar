@@ -20,6 +20,7 @@ import {
 } from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
@@ -169,8 +170,8 @@ export function useMilestoneEscrowActions({
           throw new Error("Connect a Stellar wallet before using escrow actions.");
         }
 
-        if (!walletState.isTestnet) {
-          throw new Error("Switch your wallet to Stellar Testnet before using escrow actions.");
+        if (!isWalletOnConfiguredNetwork(walletState)) {
+          throw new Error(getWalletNetworkMismatchMessage("using escrow actions"));
         }
 
         if (walletState.isFunded === false) {

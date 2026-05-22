@@ -20,6 +20,7 @@ import {
 } from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
@@ -164,8 +165,8 @@ export function useEscrowActions({
           throw new Error("Connect a Stellar wallet before using escrow actions.");
         }
 
-        if (!walletState.isTestnet) {
-          throw new Error("Switch your wallet to Stellar Testnet before using escrow actions.");
+        if (!isWalletOnConfiguredNetwork(walletState)) {
+          throw new Error(getWalletNetworkMismatchMessage("using escrow actions"));
         }
 
         if (walletState.isFunded === false) {
@@ -200,8 +201,10 @@ export function useEscrowActions({
         escrow,
         wallet: {
           isConnected: walletIdentity.isConnected,
-          isTestnet:
-            walletIdentity.walletType === "passkey_smart_account" ? true : walletState.isTestnet,
+          isOnConfiguredNetwork:
+            walletIdentity.walletType === "passkey_smart_account"
+              ? true
+              : isWalletOnConfiguredNetwork(walletState),
           isFunded:
             walletIdentity.walletType === "passkey_smart_account" ? null : walletState.isFunded,
           canWriteContracts:

@@ -13,6 +13,7 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { CancelWorkButton } from "@/features/cancellations";
@@ -107,10 +108,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== currentStatusMeta.label;
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
+  const isExternalWalletOnConfiguredNetwork = isWalletOnConfiguredNetwork(walletState);
   const walletGuardContext = useMemo(
     () => ({
       isConnected: walletIdentity.isConnected,
-      isTestnet: isPasskeyMode ? true : walletState.isTestnet,
+      isOnConfiguredNetwork: isPasskeyMode ? true : isExternalWalletOnConfiguredNetwork,
       isFunded: isPasskeyMode ? null : walletState.isFunded,
       canWriteContracts: isPasskeyMode
         ? walletIdentity.canSignEscrowTransactions
@@ -123,9 +125,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       walletIdentity.canSignEscrowTransactions,
       walletIdentity.isConnected,
       walletIdentity.walletType,
+      isExternalWalletOnConfiguredNetwork,
       walletState.canWriteContracts,
       walletState.isFunded,
-      walletState.isTestnet,
     ],
   );
   const actionGuards = useMemo(
@@ -171,7 +173,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       role === "client" &&
       walletIdentity.canSignEscrowTransactions &&
       walletIdentity.isConnected &&
-      (isPasskeyMode || walletState.isTestnet),
+      (isPasskeyMode || isExternalWalletOnConfiguredNetwork),
   });
   const isFundEscrowDisabled =
     isPending ||

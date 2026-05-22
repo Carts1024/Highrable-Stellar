@@ -2,233 +2,119 @@
 
 ![Highrable Logo](apps/web/public/logo/highrable-icon.jpg)
 
-Highrable is a Stellar-native freelance marketplace that combines Soroban smart-contract escrow with wallet-first user flows and verifiable on-chain reputation.
+Highrable is a Stellar-native freelance marketplace that replaces trust-by-platform with trust-by-contract. Client funds are locked in Soroban escrow, releases write immutable on-chain reputation, and Convex mirrors product state for a fast app experience.
 
-Instead of trust-by-platform, Highrable uses trust-by-contract:
+## Problem
 
-- Client and freelancer terms are represented in an escrow lifecycle on-chain.
-- Funds are locked in escrow before work approval.
-- Completion and rating are recorded as verifiable reputation data.
-- Convex keeps a fast app state mirror and transaction history for a responsive UX.
+Traditional freelance platforms still have the same structural issues:
 
----
+- Clients and freelancers rely on platform promises instead of verifiable settlement rules.
+- Funds are often held in opaque internal systems rather than transparent escrow logic.
+- Reputation is platform-owned, hard to verify, and not portable across marketplaces.
+- Cross-border payouts remain slow, expensive, and uneven for global talent.
+- Disputes, cancellations, and work proof often live in fragmented off-platform workflows.
 
-## Table of Contents
+## Vision
 
-- [Architecture Overview](#architecture-overview)
-- [Key Features](#key-features)
-- [Project Structure](#project-structure)
-- [Smart Contracts Reference](#smart-contracts-reference)
-- [Frontend Architecture](#frontend-architecture)
-- [Backend (Convex) Architecture](#backend-convex-architecture)
-- [Project Setup Guide (Local Development)](#project-setup-guide-local-development)
-- [Deployment and Verification (Testnet)](#deployment-and-verification-testnet)
-- [Visuals](#visuals)
-- [Implemented Features](#implemented-features)
+Build a global freelance marketplace where agreements, payments, and reputation are verifiable by default. Highrable uses Stellar and Soroban so remote work can be coordinated with low-friction payments, transparent settlement, and portable proof of completed work.
 
----
+## Purpose
 
-## Architecture Overview
+This repository implements the core product infrastructure behind that model:
 
-Highrable is built as a monorepo with three primary runtime layers:
+- Soroban smart contracts enforce escrow lifecycle and reputation recording.
+- Convex stores the operational mirror of jobs, applications, escrows, disputes, attachments, chat, and transaction history.
+- A Next.js web app delivers wallet-native UX, passkey smart-account support, public profiles, dashboard views, and admin tooling.
 
-1. **Soroban Smart Contracts (Rust):**
-   - `highrable-escrow`: escrow lifecycle and stablecoin transfer enforcement.
-   - `highrable-reputation`: immutable completion and rating records.
-2. **Backend State Layer (Convex):**
-   - Stores jobs, applications, escrows, transactions, and reputation records.
-   - Exposes query/mutation/action APIs to the frontend.
-   - Sync actions read on-chain state from Stellar RPC and reconcile Convex records.
-3. **Frontend (Next.js 16 / React 19):**
-   - Wallet-first UX with Stellar Wallets Kit.
-   - Passkey smart accounts for WebAuthn-controlled Stellar contract accounts.
-   - Marketplace, job application, escrow action panel, and freelancer dashboard.
-   - Wallet auth challenge/verify routes for sign-in flows.
+## Target Users
 
----
+- Freelancers who need fast, lower-cost, cross-border payouts and verifiable work history.
+- Clients who want stronger payment assurance, transparent milestone handling, and better hiring trust signals.
+- Platform operators who need moderation, dispute management, and contract-backed marketplace workflows.
 
-## Key Features
+## Features
 
-### 1. Smart-Contract Escrow for Freelance Work
+- Smart-contract escrow lifecycle for create, fund, submit, release, cancel, and dispute flows.
+- On-chain reputation recording tied to real escrow completions rather than editable platform reviews.
+- Wallet-native authentication plus passkey smart-account support for contract interactions.
+- Marketplace workflows for job posting, applications, freelancer selection, and escrow actions.
+- Dashboard, profile, and proof surfaces for earnings, trust history, and shareable completion records.
+- Product workflows beyond payment, including attachments, work agreements, submissions, chat, deadlines, cancellations, and admin dispute operations.
 
-- Client creates escrow for a selected freelancer.
-- Client funds escrow with USDC token contract asset.
-- Freelancer submits work on-chain.
-- Client either releases payment with rating or cancels/disputes based on status.
+## Tech Stack
 
-Escrow status flow:
+- Frontend: Next.js 16, React 19, TypeScript, TanStack Query, Framer Motion, Stellar Wallets Kit.
+- Backend: Convex, TypeScript, shared typed client bindings.
+- Blockchain: Stellar, Soroban smart contracts in Rust, Stellar SDK, Stellar RPC/Horizon, smart-account-kit.
+- Tooling: pnpm workspaces, Turborepo, oxlint, oxfmt, Husky.
 
-`created -> funded -> submitted -> released`
+## Architecture Snapshot
 
-Alternative terminal paths:
+Highrable is organized as a three-layer monorepo:
 
-`created/funded -> cancelled`, `funded/submitted -> disputed`
+1. Frontend in `apps/web`
+  Handles wallet UX, auth challenge/verify flows, job and dashboard pages, escrow interaction flows, passkey smart-account flows, admin surfaces, and marketing pages.
+2. Smart contracts in `contracts/escrow` and `contracts/reputation`
+  Enforce escrow state transitions, fund custody, release logic, and immutable completion records.
+3. Backend state layer in `packages/backend/convex`
+  Mirrors marketplace state for fast reads, stores operational records, and runs sync logic against on-chain data.
 
-### 2. On-Chain Reputation Recording
+## Current Codebase Status
 
-- Escrow release invokes the reputation contract.
-- Completion record includes escrow ID, client, freelancer, asset, amount, rating, and review hash.
-- Freelancer aggregate stats can be queried on-chain (`completed_jobs_count`, `total_earned`, `average_rating`).
+Implemented today:
 
-### 3. Wallet-Native Authentication and Signing
+- Escrow and reputation contracts with test coverage.
+- Convex data model for jobs, milestones, applications, escrows, transactions, disputes, cancellations, attachments, chat, notifications, agreements, and submissions.
+- Frontend flows for marketplace browsing, job posting, dashboards, profiles, proof pages, wallet auth, and passkey smart accounts.
+- Admin surfaces for dispute review, moderation notes, and settlement recording.
 
-- Challenge endpoint: `/api/auth/stellar/challenge`
-- Verify endpoint: `/api/auth/stellar/verify`
-- Signature verification uses Ed25519 public key derived from Stellar address.
-- Session cookie is HMAC-signed and time-limited.
+Still partial or clearly placeholder:
 
-Passkey smart-account mode is also supported for escrow writes. In this mode the active wallet identity is a Soroban smart account contract address (`C...`) and the user approves smart-account authorization through WebAuthn. See `docs/passkey-smart-accounts.md`.
-
-### 4. Convex-Powered Product Data and Sync
-
-- Convex tables model jobs, applications, escrows, users, transactions, and reputation records.
-- `syncEscrowStatus` checks on-chain escrow status and safely advances local status.
-- `syncReputationRecord` pulls released completion data from the reputation contract into Convex.
-
-### 5. Freelancer Dashboard and UX Flows
-
-- Dashboard includes total earned, pending escrow, completed jobs, active jobs, and recent payouts.
-- Marketplace supports posting jobs, applying, selecting freelancers, and executing escrow actions.
-- USDC trustline onboarding card guides testnet users through funding + trustline setup.
-
----
+- Talent directory is present as a surface but not yet a full live directory experience.
+- Some marketing content references AI-assisted hiring features that are not yet represented as implemented backend or product workflows in this repository.
 
 ## Project Structure
 
 ```text
 Highrable-Stellar/
 |-- apps/
-|   `-- web/                     # Next.js web app (wallet UX + marketplace + dashboard)
+|   `-- web/                     # Next.js web app
 |-- contracts/
 |   |-- escrow/                  # Soroban escrow contract
 |   `-- reputation/              # Soroban reputation contract
 |-- packages/
-|   |-- backend/                 # Convex backend functions and schema
-|   |-- convex-client/           # Shared Convex API bindings for web app
+|   |-- backend/                 # Convex backend
+|   |-- convex-client/           # Shared typed client bindings
 |   |-- typescript-config/
-|   `-- ui/
-|-- deployments/
-|   `-- testnet.json             # Generated deployment artifact with contract IDs
-|-- docs/
-|   `-- deployment.md            # Deployment and verification guide
-`-- scripts/
-    |-- deploy-testnet.sh
-    `-- verify-testnet.sh
+|   `-- ui/                      # Shared UI components/providers
+|-- deployments/                 # Generated deployment artifacts
+|-- docs/                        # Product, ops, deployment, and implementation docs
+`-- scripts/                     # Deployment and verification helpers
 ```
 
----
+## How to Run Locally
 
-## Smart Contracts Reference
+### Prerequisites
 
-### Escrow Contract (`highrable-escrow`)
-
-Main responsibilities:
-
-- One-time initialization with linked reputation contract and platform admin.
-- Escrow creation (`create_escrow`) with client, freelancer, asset, amount, and job hash.
-- Lifecycle methods:
-  - `fund_escrow`
-  - `submit_work`
-  - `approve_and_release` (also invokes reputation contract)
-  - `cancel_escrow`
-  - `mark_disputed`
-- Allowlist controls for accepted assets:
-  - `add_allowed_asset`, `remove_allowed_asset`, `is_allowed_asset`
-- Getters:
-  - `get_escrow`, `get_next_escrow_id`, `get_reputation_contract`, `get_platform_admin`
-
-### Reputation Contract (`highrable-reputation`)
-
-Main responsibilities:
-
-- One-time initialization with authorized escrow contract.
-- `record_completion` callable only by authorized escrow contract.
-- Stores immutable completion records keyed by `escrow_id`.
-- Maintains freelancer aggregate stats (`completed_jobs_count`, `total_earned`, `total_rating`).
-- Getters:
-  - `get_completion`, `has_completion`, `get_freelancer_stats`, `get_authorized_escrow_contract`
-
----
-
-## Frontend Architecture
-
-The frontend lives in `apps/web` and uses Next.js App Router with feature slices:
-
-- `features/landing`: landing experience.
-- `features/marketplace`: job feed, detail views, apply flow, escrow action panel.
-- `features/jobs`: public job browsing.
-- `features/dashboard`: freelancer income dashboard and recent payouts.
-
-Core integrations:
-
-- `core/wallet/*`: wallet provider, hooks, challenge/verify auth service.
-- `core/stellar/*`: transaction building/signing/invocation helpers, passkey smart-account execution, trustline checks, explorer links.
-- `@repo/convex-client`: typed Convex function access from UI.
-
----
-
-## Backend (Convex) Architecture
-
-The backend lives in `packages/backend/convex`.
-
-### Data model tables
-
-- `users`
-- `jobs`
-- `applications`
-- `escrows`
-- `reputationRecords`
-- `transactions`
-
-### Notable function groups
-
-- `jobs/*`: create/list/select freelancer.
-- `applications/*`: apply and query applications.
-- `escrows/*`: create escrow records and update status with tx hashes.
-- `reputation/*` and `reputation_records/*`: verified review and reputation record handling.
-- `dashboard/*`: freelancer income summary aggregation.
-- `sync.ts` and `syncMutations.ts`: on-chain -> Convex reconciliation with safe status progression.
-
----
-
-## Project Setup Guide (Local Development)
-
-### 1. Prerequisites
-
-- Node.js 18+
-- pnpm 8.6+
+- Node.js 20.9+
+- pnpm 11+
 - Rust toolchain
 - Stellar CLI
-- Convex account/project configured for backend deployment
+- Convex account/project for backend development
 
-Install pnpm if needed:
-
-```bash
-npm install -g pnpm@8.6.0
-```
-
-### 2. Install dependencies (monorepo)
+### Install dependencies
 
 ```bash
 pnpm install
 ```
 
-### 3. Build/test smart contracts
-
-```bash
-pnpm contracts:build
-cd contracts && cargo test
-```
-
-### 4. Configure backend environment
-
-Create backend env from template:
+### Configure backend environment
 
 ```bash
 cp packages/backend/.env.example packages/backend/.env.local
 ```
 
-Set required values:
+Minimum backend variables:
 
 - `STELLAR_NETWORK`
 - `STELLAR_RPC_URL`
@@ -236,110 +122,91 @@ Set required values:
 - `REPUTATION_CONTRACT_ID`
 - `ESCROW_CONTRACT_ID`
 - `STELLAR_READ_SOURCE_ACCOUNT`
+- `HIGHRABLE_ADMIN_WALLET_ADDRESS`
+- `HIGHRABLE_ADMIN_CONVEX_SECRET`
 
-Run backend:
-
-```bash
-cd packages/backend
-pnpm dev
-```
-
-### 5. Configure frontend environment
-
-Create frontend env from template:
+### Configure frontend environment
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-Set required values:
+Common frontend variables:
 
 - `NEXT_PUBLIC_CONVEX_URL`
 - `NEXT_PUBLIC_STELLAR_NETWORK`
+- `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE`
 - `NEXT_PUBLIC_STELLAR_RPC_URL`
 - `NEXT_PUBLIC_STELLAR_HORIZON_URL`
-- `NEXT_PUBLIC_STABLECOIN_SYMBOL`
-- `NEXT_PUBLIC_STABLECOIN_DECIMALS`
-- `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
+- `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
-- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
 - `NEXT_PUBLIC_APP_DOMAIN`
-- `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH`
-- `NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID`
 - `NEXT_PUBLIC_PASSKEY_RP_NAME`
-- `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL` (optional)
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
 
-Payment readiness notes for demos and testnet setup: `docs/stablecoin-payments.md`
+Passkey and relayer configuration is also supported through the same env template when those flows are enabled.
 
-Passkey smart-account docs:
+### Run the app
 
-- Product and operations guide: `docs/passkey-smart-accounts.md`
-- Full implementation internals: `docs/passkey-smart-account-implementation.md`
-- Historical debug report: `docs/passkey-escrow-debug-progress.md`
-
-Run frontend:
-
-```bash
-cd apps/web
-pnpm dev
-```
-
-Or run monorepo dev tasks together from root:
+Run the monorepo dev tasks:
 
 ```bash
 pnpm dev
 ```
 
----
+Or run individual surfaces:
 
-## Deployment and Verification (Testnet)
+```bash
+cd packages/backend && pnpm dev
+cd apps/web && pnpm dev
+```
 
-Deploy contracts and generate artifact (`deployments/testnet.json`):
+### Build and test contracts
+
+```bash
+pnpm contracts:build
+cd contracts && cargo test
+```
+
+## Deployment
+
+### Testnet
+
+Deploy contracts and write deployment metadata:
 
 ```bash
 DEPLOYER=<stellar_identity> PLATFORM_ADMIN=<stellar_public_key> pnpm contracts:deploy:testnet
 ```
 
-Verify an existing deployment:
+Verify an existing testnet deployment:
 
 ```bash
 DEPLOYER=<stellar_identity> pnpm contracts:verify:testnet
 ```
 
-Reference guide: `docs/deployment.md`
+Related artifacts and docs:
 
-Current artifact fields include:
+- `deployments/testnet.json`
+- `docs/deployments.md`
+- `docs/stablecoin-payments.md`
+- `docs/passkey-smart-account-implementation.md`
+- `docs/mainnet-smart-account-readiness.md`
 
-- Network and RPC/Horizon URLs
-- Reputation contract ID
-- Escrow contract ID
-- Platform admin
-- Deployer identity/address
-- Deployment timestamp
+### Mainnet
 
----
+Mainnet deployment helpers exist in the repository, but operational readiness should be reviewed alongside the deployment and smart-account readiness docs before publishing a production environment.
 
-## Visuals
+## Demo
 
-### Logos
+- Live app: [Highrable](www.highrable.work)
+- Demo video: [Demo Video](https://drive.google.com/drive/folders/1SNSxRG1NNy0hip1uO_nbwKSQipTo3hV4?usp=drive_link)
+- Screenshots: UI assets exist in the app, but a dedicated README screenshot set has not been versioned yet.
 
-- Highrable icon: `apps/web/public/logo/highrable-icon.jpg`
-- Stellar symbol: `apps/web/public/logo/stellar/Stellar_Symbol.png`
+## Team
 
-### Demo and screenshots
+Contributor roles and public profile links are not currently documented in this repository. Add them here before external submission or launch.
 
-UI screenshots are not yet versioned in this repository. Add them under `apps/web/public/` and reference them here for product walkthroughs.
+## License
 
----
-
-## Implemented Features
-
-- End-to-end escrow workflow on Soroban: create, fund, submit, release, cancel, dispute.
-- Cross-contract completion recording from escrow contract into reputation contract.
-- Wallet-based auth challenge and signature verification routes.
-- Passkey smart account onboarding and escrow execution across create/fund/submit/release/dispute flows. See `docs/passkey-smart-accounts.md` and `docs/passkey-smart-account-implementation.md`.
-- Convex data model and APIs for jobs, applications, escrows, transactions, and reputation.
-- Sync actions that reconcile Convex records with on-chain escrow/reputation state.
-- Freelancer dashboard with earnings aggregation and recent payouts.
-- Testnet deployment + verification scripts with generated deployment artifact.
+This repository does not currently include a root license file. Add an explicit license before distributing the code outside its current intended scope.

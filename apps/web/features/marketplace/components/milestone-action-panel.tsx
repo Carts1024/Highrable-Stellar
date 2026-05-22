@@ -13,6 +13,7 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { CancelWorkButton } from "@/features/cancellations";
@@ -80,6 +81,7 @@ export function MilestoneActionPanel({
   const milestoneEscrowAsset = getEscrowAssetByContractId(milestone.asset);
   const isMilestoneAssetSupported = isSupportedEscrowAsset(milestone.asset);
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
+  const isExternalWalletOnConfiguredNetwork = isWalletOnConfiguredNetwork(walletState);
   const stablecoinReadiness = useStablecoinReadiness({
     walletAddress: walletIdentity.walletAddress,
     requiredAmount: milestone.amount,
@@ -90,7 +92,7 @@ export function MilestoneActionPanel({
       role === "client" &&
       walletIdentity.canSignEscrowTransactions &&
       walletIdentity.isConnected &&
-      (isPasskeyMode || walletState.isTestnet),
+      (isPasskeyMode || isExternalWalletOnConfiguredNetwork),
   });
   const isFundEscrowDisabled =
     isPending ||
