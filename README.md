@@ -30,6 +30,7 @@
 - [Environment Variables](#environment-variables)
 - [Common Commands](#common-commands)
 - [Deployment](#deployment)
+- [Deployment Screenshots](#deployment-screenshots)
 - [Current Status](#current-status)
 - [Team](#team)
 
@@ -70,7 +71,7 @@ Traditional freelance platforms often rely on private ledgers, locked-in profile
 | Escrow payments | Soroban escrow creation, create-and-fund flow, asset allowlist, funding, work submission, payment release, cancellation, dispute marking, dispute resolution payout splitting. |
 | Stablecoin support | USDC-style asset configuration, Stellar Asset Contract support, stablecoin balance panels, trustline readiness, optional XLM escrow support, XLM-to-USDC top-up flow. |
 | Wallets | Stellar Wallets Kit integration, wallet persistence, Stellar challenge/verify auth, wallet session cookies, wallet-required route guards. |
-| Passkey smart accounts | Passkey account creation and restore flows, smart-account readiness checks, WebAuthn verifier config, relayer/channel config, smart-account escrow execution paths. |
+| Passkey smart accounts | Passkey account creation and restore flows powered by [`kalepail/smart-account-kit`](https://github.com/kalepail/smart-account-kit), smart-account readiness checks, WebAuthn verifier config, relayer/channel config, smart-account escrow execution paths. |
 | Profiles | Freelancer public profiles, client trust profiles, identity/profile editing, avatar display, reputation sections, client reliability badges, recent jobs/payments/escrows. |
 | Dashboards | Freelancer mode, client mode, income metrics, pending balance, recent payouts, applied jobs, ongoing jobs, posted jobs, deadline notifications, admin auto-routing for admin wallets. |
 | Work delivery | Work agreements, agreement versions, review route, work submissions, proof hashes, revision requests, deadline reminders, notifications. |
@@ -109,6 +110,10 @@ Users can open disputes, attach evidence, view timeline events, respond inside t
 ### Reputation workflow
 
 When an escrow is approved and released, the escrow contract calls the reputation contract. The reputation contract stores one completion per escrow and updates freelancer aggregate stats. The app mirrors reputation records in Convex for fast display on profiles and proof pages.
+
+### Passkey smart-account workflow
+
+Highrable uses [`kalepail/smart-account-kit`](https://github.com/kalepail/smart-account-kit) for Stellar/Soroban smart-account wallet flows secured by WebAuthn passkeys. In this codebase, that powers passkey wallet creation, stored-session restoration, smart-account contract discovery, and smart-account mediated escrow transactions. The app also exposes readiness checks for the required account WASM hash, WebAuthn verifier contract, relying-party settings, and optional relayer configuration.
 
 ## Smart Contracts
 
@@ -225,7 +230,7 @@ API routes include Stellar wallet authentication and admin dispute/metrics endpo
 | Styling/UI | Shared `@repo/ui`, Tailwind-style globals, lucide-react, Heroicons, Framer Motion |
 | Data/backend | Convex 1.38, typed generated API, shared `@repo/convex-client` |
 | Blockchain | Stellar, Soroban, Stellar RPC, Horizon, `@stellar/stellar-sdk` |
-| Wallets | Stellar Wallets Kit, wallet auth challenge/verify, passkey smart-account support |
+| Wallets | Stellar Wallets Kit, wallet auth challenge/verify, [`smart-account-kit`](https://github.com/kalepail/smart-account-kit), passkey smart-account support |
 | Smart contracts | Rust, `soroban-sdk`, Stellar CLI |
 | Tooling | pnpm workspaces, Turborepo, TypeScript 5.9, oxlint, oxfmt, Husky |
 
@@ -411,6 +416,20 @@ Current mainnet contract artifact:
 
 Artifact file: `deployments/mainnet.json`
 
+## Deployment Screenshots
+
+### Testnet
+
+| Escrow contract | Reputation contract |
+| --- | --- |
+| ![Highrable testnet escrow contract on Stellar Expert](screenshots/testnet-escrow-contract.png) | ![Highrable testnet reputation contract on Stellar Expert](screenshots/testnet-reputation-contract.png) |
+
+### Mainnet
+
+| Escrow contract | Reputation contract |
+| --- | --- |
+| ![Highrable mainnet escrow contract on Stellar Expert](screenshots/mainnet-escrow-contract.png) | ![Highrable mainnet reputation contract on Stellar Expert](screenshots/mainnet-reputation-contract.png) |
+
 ## Current Status
 
 Implemented:
@@ -429,13 +448,13 @@ Partial or planned:
 
 ## Team
 
-| Name | Role |
-| --- | --- |
-| Bette Anjanelle Cabarles | Frontend Developer |
-| Carl Aldrey Bergado | Smart Contract and Fullstack Developer |
-| Christelle Anne Dacapias | Social Media Manager |
-| Crystalyn Danga | Business Analyst, Researcher, Project Manager |
-| Sherwin Limosnero | Public Relations, Pitcher |
+| Name | Role | Handle |
+| --- | --- | --- |
+| Bette Anjanelle Cabarles | Frontend Developer | [@anjobette](https://github.com/anjobette) |
+| Carl Aldrey Bergado | Smart Contract and Fullstack Developer | [@Carts1024](https://github.com/Carts1024) |
+| Christelle Anne Dacapias | Social Media Manager | [@chrissstellee](https://github.com/chrissstellee) |
+| Crystalyn Danga | Business Analyst, Researcher, Project Manager | [@tal_zz](https://github.com/tal_zz) |
+| Sherwin Limosnero | Public Relations, Pitcher | [@owenlim225](https://github.com/owenlim225) |
 
 ## License
 
