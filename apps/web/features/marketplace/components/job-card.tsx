@@ -24,12 +24,16 @@ export function JobCard({
   connectedWallet,
   onApply,
   isApplying,
+  hasApplied,
+  isCheckingApplicationStatus,
 }: {
   job: TConvexDoc<"jobs">;
   escrow?: TConvexDoc<"escrows"> | null;
   connectedWallet: string | null;
   onApply: (jobId: string) => void;
   isApplying: boolean;
+  hasApplied: boolean;
+  isCheckingApplicationStatus: boolean;
 }) {
   const jobType = job.jobType ?? "micro_gig";
   const isMilestoneProject = jobType === "milestone_project";
@@ -37,6 +41,8 @@ export function JobCard({
   const canApply =
     !isMilestoneProject &&
     !!connectedWallet &&
+    !hasApplied &&
+    !isCheckingApplicationStatus &&
     !isSameWallet(connectedWallet, job.clientWallet) &&
     (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
   const safetyStatus = getJobSafetyStatus({ job, escrow });

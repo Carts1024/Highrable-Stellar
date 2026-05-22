@@ -37,9 +37,13 @@ const APPLY_PROPOSAL_SCHEMA = z
 
 export function ApplyToJobForm({
   job,
+  hasApplied,
+  isCheckingApplicationStatus,
   onApplied,
 }: {
   job: TConvexDoc<"jobs">;
+  hasApplied: boolean;
+  isCheckingApplicationStatus: boolean;
   onApplied: () => void;
 }) {
   const walletIdentity = useHighrableWalletIdentity();
@@ -68,6 +72,14 @@ export function ApplyToJobForm({
 
   if (isClient) {
     return <p className="text-sm text-gray-600">Client cannot apply to their own job.</p>;
+  }
+
+  if (isCheckingApplicationStatus) {
+    return <p className="text-sm text-gray-600">Checking application status...</p>;
+  }
+
+  if (hasApplied) {
+    return <p className="text-sm text-emerald-700">You already applied to this job.</p>;
   }
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
