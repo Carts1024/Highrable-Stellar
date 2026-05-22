@@ -67,10 +67,6 @@ const TStellarPublicKeySchema = z
   .trim()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar public key format");
 
-const TStellarContractOrPublicKeySchema = z
-  .string()
-  .trim()
-  .regex(/^[CG][A-Z2-7]{55}$/, "Invalid Stellar contract ID or public key format");
 const Hash64Schema = z
   .string()
   .trim()
@@ -151,7 +147,7 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_APP_DOMAIN: z.string().trim().min(1),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
-  NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TStellarContractOrPublicKeySchema.optional(),
+  NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().trim().optional(),
   NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: Hash64Schema.optional(),

@@ -14,6 +14,8 @@ export interface IStablecoinConfigValidationResult {
 
 const DEFAULT_STABLECOIN_SYMBOL = "Mock USDC";
 const DEFAULT_STABLECOIN_DECIMALS = 7;
+const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
+const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 
 function normalizeStablecoinDecimals(rawValue: number | undefined): number {
   if (rawValue === undefined) {
@@ -42,6 +44,21 @@ export function validateStablecoinConfig(
       isValid: false,
       message:
         "Stablecoin token contract ID is missing. Set NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID.",
+    };
+  }
+
+  if (CLASSIC_ACCOUNT_PATTERN.test(config.tokenContractId)) {
+    return {
+      isValid: false,
+      message:
+        "Stablecoin token contract is configured with a Stellar asset issuer. Set NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID to the Soroban Stellar Asset Contract ID and keep the issuer in NEXT_PUBLIC_USDC_ASSET_ISSUER or NEXT_PUBLIC_STABLECOIN_ISSUER.",
+    };
+  }
+
+  if (!CONTRACT_ACCOUNT_PATTERN.test(config.tokenContractId)) {
+    return {
+      isValid: false,
+      message: "Stablecoin token contract ID must be a Soroban contract address beginning with C.",
     };
   }
 
