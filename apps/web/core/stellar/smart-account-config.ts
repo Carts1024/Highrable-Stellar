@@ -64,6 +64,33 @@ function normalizeRpId(value: string): string {
   }
 }
 
+function normalizeHostname(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function matchesRpIdForHostname(rpId: string, hostname: string): boolean {
+  const normalizedRpId = normalizeHostname(rpId);
+  const normalizedHostname = normalizeHostname(hostname);
+
+  return normalizedHostname === normalizedRpId || normalizedHostname.endsWith(`.${normalizedRpId}`);
+}
+
+function assertRpIdMatchesCurrentHostname(config: Pick<ISmartAccountConfig, "rpId">): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const currentHostname = window.location.hostname;
+
+  if (!currentHostname || matchesRpIdForHostname(config.rpId, currentHostname)) {
+    return;
+  }
+
+  throw new PasskeyConfigError(
+    `NEXT_PUBLIC_APP_DOMAIN resolves to RP ID "${config.rpId}", but this app is running on "${currentHostname}". Update NEXT_PUBLIC_APP_DOMAIN to your production HTTPS domain, redeploy, clear the old local passkey session, and create or reconnect a passkey on that domain.`,
+  );
+}
+
 export function hasSmartAccountConfig(): boolean {
   return (
     readOptionalValue(env.NEXT_PUBLIC_STELLAR_RPC_URL) !== null &&
@@ -100,6 +127,8 @@ export function getSmartAccountConfigOrThrow(): ISmartAccountConfig {
   if (!config) {
     throw new PasskeyConfigError();
   }
+
+  assertRpIdMatchesCurrentHostname(config);
 
   return config;
 }

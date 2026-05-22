@@ -9,6 +9,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
 import { getReadableAttachmentError } from "@/features/attachments/lib";
+import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
@@ -266,16 +267,21 @@ export function OpenDisputeDialog({
   };
 
   const handleSubmit = async () => {
+    const setWarning = (message: string) => {
+      setError(message);
+      showWarningToast(message);
+    };
+
     if (!activeWalletAddress || !walletIdentity.walletType) {
-      setError("Missing wallet identity.");
+      setWarning("Missing wallet identity.");
       return;
     }
     if (!description.trim()) {
-      setError("Add a reason and description before opening a dispute.");
+      setWarning("Add a reason and description before opening a dispute.");
       return;
     }
     if (hasUploadingAttachment) {
-      setError("Wait for evidence uploads to finish.");
+      setWarning("Wait for evidence uploads to finish.");
       return;
     }
 

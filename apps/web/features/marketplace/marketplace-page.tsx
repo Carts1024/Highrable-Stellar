@@ -1,7 +1,12 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { ProductPageHero } from "@/features/common";
+import {
+  ProductPageHero,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   compareJobsBySafetyThenNewest,
@@ -116,7 +121,7 @@ export function MarketplacePage() {
     }
 
     if (isSameWallet(selectedJob.clientWallet, walletIdentity.walletAddress)) {
-      setApplyError("Client cannot apply to their own job.");
+      showWarningToast("Client cannot apply to their own job.");
       return;
     }
 
@@ -140,17 +145,18 @@ export function MarketplacePage() {
         ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal,
       });
+      showSuccessToast(`Application submitted for "${selectedJobForApply.title}".`);
       setSelectedJobForApplyId(null);
     } catch (error) {
       const readableError = getReadableErrorMessage(
         error,
         "Failed to apply to this job. Please try again.",
       );
-      if (readableError.toLowerCase().includes("already applied")) {
-        setApplyError("You already applied to this job.");
-      } else {
-        setApplyError(readableError);
-      }
+      const nextError = readableError.toLowerCase().includes("already applied")
+        ? "You already applied to this job."
+        : readableError;
+      setApplyError(nextError);
+      showErrorToast(nextError);
     } finally {
       setApplyingJobId(null);
     }

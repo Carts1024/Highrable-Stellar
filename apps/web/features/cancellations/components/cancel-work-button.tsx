@@ -2,6 +2,7 @@
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showWarningToast } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { Button } from "@repo/ui/components/ui/button";
@@ -163,7 +164,9 @@ export function CancelWorkButton({ job, milestone, escrow, className }: ICancelW
 
   const handleCreateRequest = async () => {
     if (!walletIdentity.walletAddress) {
-      setSubmitError("Connect a wallet before requesting cancellation.");
+      const nextWarning = "Connect a wallet before requesting cancellation.";
+      setSubmitError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setIsSubmitting(true);
