@@ -3,12 +3,15 @@
 import { getRequiredEscrowActionConfig, STELLAR_NETWORK } from "@/core/config/stellar-contracts";
 import { parseHumanAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
+import { XlmToUsdcTopUpPanel } from "@/core/stellar/components/xlm-to-usdc-top-up-panel";
 import {
   createAndFundOpenEscrowOnChain,
   getTokenBalanceOnChain,
 } from "@/core/stellar/escrow-contract";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
+import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
 import {
+  getEscrowAssetByContractId,
   getPrimaryEscrowAsset,
   getSupportedEscrowAssets,
   isSupportedEscrowAsset,
@@ -188,6 +191,15 @@ function parseRevisionPolicy(input: { revisionPolicy: TRevisionPolicy; revisionL
   return { revisionPolicy: "fixed", revisionLimit: limit };
 }
 
+function hasPositiveBudget(value: string): boolean {
+  try {
+    const amount = Number(parseHumanAmount(value || "0"));
+    return Number.isFinite(amount) && amount > 0;
+  } catch {
+    return false;
+  }
+}
+
 function RevisionPolicyControls({
   idPrefix,
   revisionPolicy,
@@ -334,6 +346,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     ],
   });
   const isSelectedEscrowAssetSupported = isSupportedEscrowAsset(formState.asset);
+  const selectedEscrowAssetMeta = useMemo(
+    () => getEscrowAssetByContractId(formState.asset),
+    [formState.asset],
+  );
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
   const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -368,6 +384,21 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const budgetHelperText = isMilestoneProject
     ? "Project budget is calculated from milestone amounts."
     : "This amount will be locked in Stellar escrow after the client funds the contract.";
+  const shouldShowStablecoinFundingReadiness =
+    !isMilestoneProject &&
+    hasPositiveBudget(formState.budget) &&
+    selectedEscrowAssetMeta?.kind === "stablecoin" &&
+    walletIdentity.isConnected &&
+    walletIdentity.canSignEscrowTransactions &&
+    (walletIdentity.walletType === "passkey_smart_account" ||
+      isWalletOnConfiguredNetwork(walletState));
+  const preFundReadiness = useStablecoinReadiness({
+    walletAddress: walletIdentity.walletAddress,
+    requiredAmount: formState.budget,
+    tokenContractId: formState.asset || stablecoinConfig.tokenContractId,
+    asset: selectedEscrowAssetMeta ?? undefined,
+    enabled: shouldShowStablecoinFundingReadiness,
+  });
 
   const updateField = (
     field: "title" | "description" | "budget" | "asset" | "deadlineAt",
@@ -1183,6 +1214,19 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             {errors.asset ? <p className="mt-1 text-xs text-red-600">{errors.asset}</p> : null}
           </div>
         </div>
+
+        {!isMilestoneProject &&
+        selectedEscrowAssetMeta?.kind === "stablecoin" &&
+        preFundReadiness.hasSufficientBalance === false ? (
+          <XlmToUsdcTopUpPanel
+            walletAddress={walletIdentity.walletAddress}
+            walletType={walletIdentity.walletType}
+            missingUsdcAmount={preFundReadiness.deficitDisplay}
+            usdcBalance={preFundReadiness.balanceDisplay}
+            jobAssetContractId={formState.asset || stablecoinConfig.tokenContractId}
+            onRefreshBalance={preFundReadiness.refresh}
+          />
+        ) : null}
 
         {!isMilestoneProject ? (
           <RevisionPolicyControls

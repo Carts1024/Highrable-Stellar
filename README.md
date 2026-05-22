@@ -34,12 +34,12 @@ This repository implements the core product infrastructure behind that model:
 
 ## Features
 
-- Smart-contract escrow lifecycle for create, fund, submit, release, cancel, and dispute flows.
-- On-chain reputation recording tied to real escrow completions rather than editable platform reviews.
-- Wallet-native authentication plus passkey smart-account support for contract interactions.
-- Marketplace workflows for job posting, applications, freelancer selection, and escrow actions.
-- Dashboard, profile, and proof surfaces for earnings, trust history, and shareable completion records.
-- Product workflows beyond payment, including attachments, work agreements, submissions, chat, deadlines, cancellations, and admin dispute operations.
+- **Trustless escrow payments**: Highrable uses Soroban smart contracts to manage the full escrow lifecycle from job agreement to payout. Clients can create and fund escrows, freelancers can submit work against funded escrows, and releases, cancellations, and disputes follow explicit on-chain state transitions instead of hidden platform logic.
+- **Verifiable on-chain reputation**: Every successful payout can write an immutable completion record to the reputation contract. That gives freelancers portable proof of completed work, earned value, and ratings that are tied to a real escrow release instead of editable marketplace reviews.
+- **Wallet-first and passkey-ready UX**: Users can authenticate with Stellar wallet flows today, while passkey smart-account support lowers the barrier for users who do not want to manage seed phrases directly. This lets Highrable support both crypto-native and more mainstream onboarding paths.
+- **Operational marketplace workflows**: The product already covers job posting, applications, freelancer selection, escrow actions, dashboards, public profiles, escrow proof pages, and transaction history. It is not just a contract demo; it is structured as a working marketplace stack.
+- **Collaboration and delivery tooling**: Beyond simple payments, the platform includes work agreements, submissions, attachments, chat, deadline reminders, cancellation handling, and dispute evidence flows. These features support the full job lifecycle, not only the settlement step.
+- **Admin and trust-and-safety controls**: Highrable includes admin dispute review surfaces, moderation notes, and settlement tracking so operators can manage edge cases while still keeping the payment and reputation core anchored in contracts.
 
 ## Tech Stack
 
@@ -140,7 +140,7 @@ Common frontend variables:
 - `NEXT_PUBLIC_STELLAR_HORIZON_URL`
 - `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
 - `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
-- `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
+- `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID` (SAC contract `C...` or classic asset issuer `G...`)
 - `NEXT_PUBLIC_APP_DOMAIN`
 - `NEXT_PUBLIC_PASSKEY_RP_NAME`
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
@@ -195,18 +195,43 @@ Related artifacts and docs:
 
 ### Mainnet
 
-Mainnet deployment helpers exist in the repository, but operational readiness should be reviewed alongside the deployment and smart-account readiness docs before publishing a production environment.
+Deploy contracts to Stellar mainnet with the guarded confirmation token:
+
+```bash
+MAINNET_DEPLOY_CONFIRM=deploy-highrable-mainnet \
+DEPLOYER=<stellar_cli_identity> \
+PLATFORM_ADMIN=<G...> \
+STELLAR_RPC_URL=<https mainnet rpc url> \
+pnpm contracts:deploy:mainnet
+```
+
+Notes:
+
+- `MAINNET_DEPLOY_CONFIRM=deploy-highrable-mainnet` is required by the deploy script as a safety check.
+- `STELLAR_RPC_URL` must be an HTTPS mainnet RPC endpoint.
+- `STELLAR_HORIZON_URL` is optional in this command flow and defaults to `https://horizon.stellar.org` if not supplied.
+- Review `docs/mainnet-smart-account-readiness.md` before running a production deployment.
+
+Current mainnet deployment artifact:
+
+- Reputation contract: `CBHF3FE2EVSU6MAPJIR3PQES3QKOUXMWYERNYTC4YOU2E6G3INAE22VQ`
+- Escrow contract: `CBUFSKNQ7PRNP27KKQ3BDDQHP5HYOU36O73P3JGHWUWOZLD37TFCNALL`
+- Deployment record: `deployments/mainnet.json`
 
 ## Demo
 
-- Live app: [Highrable](www.highrable.work)
+- Live app: [Highrable](https://www.highrable.work)
 - Demo video: [Demo Video](https://drive.google.com/drive/folders/1SNSxRG1NNy0hip1uO_nbwKSQipTo3hV4?usp=drive_link)
 - Screenshots: UI assets exist in the app, but a dedicated README screenshot set has not been versioned yet.
 
 ## Team
 
-Contributor roles and public profile links are not currently documented in this repository. Add them here before external submission or launch.
+Bette Anjanelle Cabarles - Frontend Developer
+Carl AldreyBergado - Smart Contract & Fullstack Developer
+Christelle Anne Dacapias - Social Media Manager
+Crystalyn Danga - Business Analyst/Researcher/ Project Manager
+Sherwin Limosnero - Public Relations/Pitcher
 
 ## License
 
-This repository does not currently include a root license file. Add an explicit license before distributing the code outside its current intended scope.
+MIT

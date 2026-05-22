@@ -115,7 +115,8 @@ export const FREELANCER_STEPS: readonly TWorkflowStep[] = [
   {
     step: 1,
     title: "Discover Opportunity",
-    description: "Coming soon: AI-matched job recommendations tailored to your skills and expertise",
+    description:
+      "Coming soon: AI-matched job recommendations tailored to your skills and expertise",
     comingSoon: true,
   },
   {
