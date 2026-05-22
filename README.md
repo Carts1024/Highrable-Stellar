@@ -53,11 +53,11 @@ This repository implements the core product infrastructure behind that model:
 Highrable is organized as a three-layer monorepo:
 
 1. Frontend in `apps/web`
-  Handles wallet UX, auth challenge/verify flows, job and dashboard pages, escrow interaction flows, passkey smart-account flows, admin surfaces, and marketing pages.
+   Handles wallet UX, auth challenge/verify flows, job and dashboard pages, escrow interaction flows, passkey smart-account flows, admin surfaces, and marketing pages.
 2. Smart contracts in `contracts/escrow` and `contracts/reputation`
-  Enforce escrow state transitions, fund custody, release logic, and immutable completion records.
+   Enforce escrow state transitions, fund custody, release logic, and immutable completion records.
 3. Backend state layer in `packages/backend/convex`
-  Mirrors marketplace state for fast reads, stores operational records, and runs sync logic against on-chain data.
+   Mirrors marketplace state for fast reads, stores operational records, and runs sync logic against on-chain data.
 
 ## Current Codebase Status
 

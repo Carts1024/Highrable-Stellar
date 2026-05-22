@@ -84,8 +84,9 @@ export const FEATURES: readonly TFeatureItem[] = [
     id: "ai-matching",
     title: "AI Matching + Interview",
     description:
-      "AI recommends top candidates, parses resumes, and runs automated skill assessments - reducing time-to-hire by up to 40%.",
-    businessValue: "Faster, data-driven hiring with minimal manual screening effort.",
+      "Coming soon: AI candidate recommendations, resume parsing, and automated skill assessments for faster shortlisting.",
+    businessValue: "Planned to support faster, data-driven hiring with less manual screening.",
+    comingSoon: true,
   },
   {
     id: "wallet",
@@ -114,7 +115,8 @@ export const FREELANCER_STEPS: readonly TWorkflowStep[] = [
   {
     step: 1,
     title: "Discover Opportunity",
-    description: "Browse AI-matched jobs tailored to your skills and expertise",
+    description: "Coming soon: AI-matched job recommendations tailored to your skills and expertise",
+    comingSoon: true,
   },
   {
     step: 2,
@@ -153,12 +155,14 @@ export const CLIENT_STEPS: readonly TWorkflowStep[] = [
   {
     step: 2,
     title: "Review AI Matches",
-    description: "AI-screened applicants ranked by fit, skill, and verified history",
+    description: "Coming soon: AI-screened applicants ranked by fit, skill, and verified history",
+    comingSoon: true,
   },
   {
     step: 3,
     title: "Run AI Interview",
-    description: "Automated skill assessments for shortlisted candidates - no manual screening",
+    description: "Coming soon: automated skill assessments for shortlisted candidates",
+    comingSoon: true,
   },
   {
     step: 4,
@@ -191,7 +195,7 @@ export const PRICING_CATEGORIES: readonly TPricingCategory[] = [
           { label: "Standard profile", included: true },
           { label: "Limited monthly proposals", included: true },
           { label: "Access to all job listings", included: true },
-          { label: "AI Resume Enhancements", included: false },
+          { label: "AI Resume Enhancements", included: false, comingSoon: true },
           { label: "Profile boosts", included: false },
           { label: "Priority support", included: false },
         ],
@@ -206,7 +210,7 @@ export const PRICING_CATEGORIES: readonly TPricingCategory[] = [
         description: "For active freelancers growing their client base",
         features: [
           { label: "Unlimited proposals", included: true },
-          { label: "5 AI Resume Enhancements/month", included: true },
+          { label: "5 AI Resume Enhancements/month", included: false, comingSoon: true },
           { label: "2 profile boosts/month", included: true },
           { label: "Priority support", included: true },
           { label: "Advanced market analytics", included: false },
@@ -223,7 +227,7 @@ export const PRICING_CATEGORIES: readonly TPricingCategory[] = [
         description: "Maximum visibility and tools for top earners",
         features: [
           { label: "Unlimited proposals", included: true },
-          { label: "10 AI Resume Enhancements/month", included: true },
+          { label: "10 AI Resume Enhancements/month", included: false, comingSoon: true },
           { label: "Unlimited profile boosts", included: true },
           { label: "Priority support", included: true },
           { label: "Advanced market analytics", included: true },
@@ -242,12 +246,12 @@ export const PRICING_CATEGORIES: readonly TPricingCategory[] = [
         name: "Basic",
         price: "Free",
         period: "",
-        description: "Post jobs and access AI-matched candidates",
+        description: "Post jobs now; AI-matched candidates are coming soon",
         features: [
           { label: "Up to 3 job posts/month", included: true },
-          { label: "Standard AI matching", included: true },
+          { label: "Standard AI matching", included: false, comingSoon: true },
           { label: "5% escrow fee applies", included: true },
-          { label: "AI interview credits", included: false },
+          { label: "AI interview credits", included: false, comingSoon: true },
           { label: "Advanced candidate analytics", included: false },
           { label: "Job post boosting", included: false },
         ],
@@ -259,10 +263,10 @@ export const PRICING_CATEGORIES: readonly TPricingCategory[] = [
         name: "Business",
         price: "$25",
         period: "/month",
-        description: "Scale your team with AI-powered hiring",
+        description: "Scale your team now; AI-powered hiring is coming soon",
         features: [
           { label: "Unlimited job posts", included: true },
-          { label: "10 AI interview credits/month", included: true },
+          { label: "10 AI interview credits/month", included: false, comingSoon: true },
           { label: "2.5% escrow fee (50% off)", included: true },
           { label: "Advanced candidate analytics", included: true },
           { label: "Job post boosting", included: true },
@@ -291,10 +295,11 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "02",
     title: "AI Hiring + Blockchain Verification",
     points: [
-      "AI Matching and AI Interview for faster, smarter talent selection",
+      "Coming soon: AI Matching and AI Interview for faster, smarter talent selection",
       "Blockchain escrow and on-chain reviews for verified execution",
       "Complete journey: match -> verify work -> release payment -> build reputation",
     ],
+    comingSoon: true,
   },
   {
     id: "borderless",
@@ -362,7 +367,7 @@ export const TARGET_SEGMENTS: readonly TTargetSegment[] = [
     description:
       "SMEs, startups, and NGOs that want reliable remote talent but view hiring as a gamble due to fake reviews and scope disputes.",
     needs: [
-      "AI-screened and verified talent pool",
+      "Coming soon: AI-screened and verified talent pool",
       "Smart contract payment protection",
       "Reduced 20-44 day time-to-hire",
       "Transparent milestone accountability",
