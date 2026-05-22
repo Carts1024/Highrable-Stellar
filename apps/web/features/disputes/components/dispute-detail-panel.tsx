@@ -8,6 +8,7 @@ import { normalizeStellarError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
+import { showWarningToast } from "@/features/common";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -72,13 +73,18 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   const [retryError, setRetryError] = useState<string | null>(null);
 
   const handleRetryMarkDisputed = async () => {
+    const setRetryWarning = (message: string) => {
+      setRetryError(message);
+      showWarningToast(message);
+    };
+
     if (!dispute || !walletIdentity.walletAddress || !walletIdentity.walletType) {
-      setRetryError("Missing wallet identity for retry.");
+      setRetryWarning("Missing wallet identity for retry.");
       return;
     }
 
     if (!dispute.onChainEscrowId) {
-      setRetryError("This dispute does not have an on-chain escrow id.");
+      setRetryWarning("This dispute does not have an on-chain escrow id.");
       return;
     }
 
@@ -87,22 +93,22 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
     if (walletIdentity.walletType === "passkey_smart_account") {
       const readiness = await getPasskeyEscrowExecutionReadiness();
       if (!readiness.canExecute) {
-        setRetryError(
+        setRetryWarning(
           readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
         );
         return;
       }
     } else {
       if (!address || !walletState.isConnected) {
-        setRetryError("Connect a Stellar wallet before retrying.");
+        setRetryWarning("Connect a Stellar wallet before retrying.");
         return;
       }
       if (!walletState.isTestnet) {
-        setRetryError("Switch wallet to Stellar Testnet before retrying.");
+        setRetryWarning("Switch wallet to Stellar Testnet before retrying.");
         return;
       }
       if (walletState.canWriteContracts === false) {
-        setRetryError("Current wallet cannot sign escrow contract actions right now.");
+        setRetryWarning("Current wallet cannot sign escrow contract actions right now.");
         return;
       }
     }

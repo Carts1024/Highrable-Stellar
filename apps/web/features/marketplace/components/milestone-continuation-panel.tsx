@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showErrorToast, showSuccessToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -49,8 +50,14 @@ export function MilestoneContinuationPanel({
 
     try {
       await callback();
+      showSuccessToast("Milestone continuation updated.");
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Failed to update milestone continuation."));
+      const nextError = getReadableErrorMessage(
+        caughtError,
+        "Failed to update milestone continuation.",
+      );
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setPendingAction(null);
     }

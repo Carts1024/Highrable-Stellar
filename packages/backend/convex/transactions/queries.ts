@@ -18,6 +18,24 @@ export const listTransactionsByWallet = query({
   },
 });
 
+export const listWalletTransfersByWallet = query({
+  args: {
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = sanitizeTransactionWallet(args.walletAddress);
+    const transactions = await ctx.db
+      .query("transactions")
+      .withIndex("by_walletAddress", (q) => q.eq("walletAddress", walletAddress))
+      .order("desc")
+      .take(100);
+
+    return transactions
+      .filter((transaction) => transaction.type === "wallet_transfer")
+      .slice(0, 12);
+  },
+});
+
 export const getTransactionByHash = query({
   args: {
     txHash: v.string(),

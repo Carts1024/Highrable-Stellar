@@ -12,6 +12,7 @@ import {
   AttachmentProtectionBadge,
   ProtectedAttachmentDialog,
 } from "@/features/attachments/protected-viewer";
+import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import {
   HighrableV2Badge,
@@ -371,7 +372,9 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
   const handleAdd = async () => {
     const normalizedUrl = getNormalizedHttpUrl(url);
     if (!normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
-      setError("Enter a valid HTTP or HTTPS URL.");
+      const nextWarning = "Enter a valid HTTP or HTTPS URL.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -523,7 +526,9 @@ export function AttachmentUploader({
 
   const uploadFile = async (file: File) => {
     if (!walletIdentity.walletAddress) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 

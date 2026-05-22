@@ -3,6 +3,7 @@
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AttachmentUploader } from "@/features/attachments/components";
 import { getReadableAttachmentError } from "@/features/attachments/lib";
+import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
@@ -41,7 +42,9 @@ export function DisputeResponseComposer({ dispute }: { readonly dispute: TConvex
 
   const handleSubmit = async () => {
     if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     setIsSubmitting(true);

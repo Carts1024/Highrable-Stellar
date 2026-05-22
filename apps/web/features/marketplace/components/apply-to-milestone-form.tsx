@@ -2,7 +2,12 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { sanitizeMultilineInput } from "@/features/common";
+import {
+  sanitizeMultilineInput,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -72,13 +77,17 @@ export function ApplyToMilestoneForm({
     event.preventDefault();
 
     if (!walletIdentity.walletAddress) {
-      setError("Connect wallet to apply.");
+      const nextWarning = "Connect wallet to apply.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
     const parsedProposal = APPLY_PROPOSAL_SCHEMA.safeParse(proposal);
     if (!parsedProposal.success) {
-      setError(parsedProposal.error.issues[0]?.message ?? "Proposal is invalid.");
+      const nextWarning = parsedProposal.error.issues[0]?.message ?? "Proposal is invalid.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -96,8 +105,14 @@ export function ApplyToMilestoneForm({
       });
       setProposal("");
       setShowcasedWorkEscrowId(null);
+      showSuccessToast(`Application submitted for "${milestone.title}".`);
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Failed to submit milestone application."));
+      const nextError = getReadableErrorMessage(
+        caughtError,
+        "Failed to submit milestone application.",
+      );
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setIsSubmitting(false);
     }
