@@ -96,11 +96,26 @@ function normalizeOptionalBooleanEnv(value: unknown): unknown {
 
 const OptionalBooleanEnvSchema = z.preprocess(normalizeOptionalBooleanEnv, z.boolean().optional());
 
+function shouldRequireProductionAppDomain(): boolean {
+  const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim().toLowerCase();
+  return process.env.NODE_ENV === "production" || network === "mainnet" || network === "public";
+}
+
+function normalizeAppDomainEnvValue(value: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed.match(/^https?:\/\//iu)) {
+    return trimmed;
+  }
+
+  return shouldRequireProductionAppDomain() ? `https://${trimmed}` : trimmed;
+}
+
 function resolveAppDomainEnvValue(): string | undefined {
   const configuredValue = process.env.NEXT_PUBLIC_APP_DOMAIN?.trim();
 
   if (configuredValue && configuredValue.length > 0) {
-    return configuredValue;
+    return normalizeAppDomainEnvValue(configuredValue);
   }
 
   const vercelDomain = [
@@ -112,7 +127,7 @@ function resolveAppDomainEnvValue(): string | undefined {
     .find((value): value is string => Boolean(value && value.length > 0));
 
   if (vercelDomain && vercelDomain.length > 0) {
-    return vercelDomain;
+    return normalizeAppDomainEnvValue(vercelDomain);
   }
 
   return process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000";
