@@ -201,7 +201,7 @@ export function PasskeySmartAccountCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
           <KeyRound className="h-5 w-5" aria-hidden="true" />
@@ -241,18 +241,18 @@ export function PasskeySmartAccountCard() {
                   </div>
                 </div>
 
-                <div className="grid divide-y divide-[#e8e8e8] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                  <div className="p-4">
+                <div className="grid min-w-0 divide-y divide-[#e8e8e8] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">XLM balance</p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatNativeBalance(nativeBalance)}
                     </p>
                   </div>
-                  <div className="p-4">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">
                       {stablecoinConfig.symbol} balance
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatSmartBalance(
                         stablecoinBalance,
                         stablecoinConfig.symbol,
@@ -260,9 +260,9 @@ export function PasskeySmartAccountCard() {
                       )}
                     </p>
                   </div>
-                  <div className="p-4">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">Fee readiness</p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatFeePath(feeReadiness)}
                     </p>
                   </div>
@@ -350,7 +350,9 @@ export function PasskeySmartAccountCard() {
                       : "border-[#FF7003] bg-[#fff7ed] text-[#7a2f00]"
                   }`}
                 >
-                  <p>{getReadinessCopy(feeReadiness)}</p>
+                  <p className="[overflow-wrap:anywhere] break-words">
+                    {getReadinessCopy(feeReadiness)}
+                  </p>
                   {feeReadiness?.network === "mainnet" && feeReadiness.feePath === "missing" ? (
                     <p className="mt-1">
                       Friendbot is not available on mainnet. Make sure the classic source account
@@ -368,7 +370,7 @@ export function PasskeySmartAccountCard() {
               {feeReadiness && !feeReadiness.canExecute ? (
                 <div className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   <p className="font-semibold">Sending is blocked</p>
-                  <p className="mt-1">{feeReadiness.reason}</p>
+                  <p className="mt-1 [overflow-wrap:anywhere] break-words">{feeReadiness.reason}</p>
                 </div>
               ) : null}
 
