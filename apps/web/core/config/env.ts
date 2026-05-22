@@ -91,6 +91,16 @@ function normalizeOptionalBooleanEnv(value: unknown): unknown {
 
 const OptionalBooleanEnvSchema = z.preprocess(normalizeOptionalBooleanEnv, z.boolean().optional());
 
+function resolveAppDomainEnvValue(): string | undefined {
+  const configuredValue = process.env.NEXT_PUBLIC_APP_DOMAIN?.trim();
+
+  if (configuredValue && configuredValue.length > 0) {
+    return configuredValue;
+  }
+
+  return process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000";
+}
+
 const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_NETWORK: z.enum(["local", "testnet", "mainnet", "public"]).default("testnet"),
   NEXT_PUBLIC_STELLAR_RPC_URL: z.string().url().default("https://soroban-testnet.stellar.org"),
@@ -106,7 +116,7 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_USDC_ASSET_ISSUER: TStellarPublicKeySchema.optional(),
   NEXT_PUBLIC_STABLECOIN_SYMBOL: z.string().trim().min(1).optional(),
   NEXT_PUBLIC_STABLECOIN_DECIMALS: z.coerce.number().int().min(0).max(18).optional(),
-  NEXT_PUBLIC_APP_DOMAIN: z.string().min(1).default("localhost"),
+  NEXT_PUBLIC_APP_DOMAIN: z.string().trim().min(1),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
@@ -162,7 +172,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_USDC_ASSET_ISSUER: process.env.NEXT_PUBLIC_USDC_ASSET_ISSUER,
     NEXT_PUBLIC_STABLECOIN_SYMBOL: process.env.NEXT_PUBLIC_STABLECOIN_SYMBOL,
     NEXT_PUBLIC_STABLECOIN_DECIMALS: process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS,
-    NEXT_PUBLIC_APP_DOMAIN: process.env.NEXT_PUBLIC_APP_DOMAIN,
+    NEXT_PUBLIC_APP_DOMAIN: resolveAppDomainEnvValue(),
     NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID,
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
     NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,

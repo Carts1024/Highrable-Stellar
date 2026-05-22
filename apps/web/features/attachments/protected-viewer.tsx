@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showWarningToast } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -402,7 +403,9 @@ export function ProtectedAttachmentDialog({
 
   const handleDownloadAttempt = async () => {
     if (!walletIdentity.walletAddress) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 

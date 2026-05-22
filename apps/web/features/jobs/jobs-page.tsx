@@ -1,7 +1,12 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { ProductPageHero } from "@/features/common";
+import {
+  ProductPageHero,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import { JobApplicationDialog } from "@/features/marketplace/components/job-application-dialog";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
@@ -77,7 +82,6 @@ export function JobsPage() {
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [selectedJobForApply, setSelectedJobForApply] = useState<TMarketplaceJobRow | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [applySuccess, setApplySuccess] = useState<string | null>(null);
   const searchInputId = "jobs-search-input";
   const sortSelectId = "jobs-sort-select";
 
@@ -118,14 +122,12 @@ export function JobsPage() {
   const openApplyDialog = (row: TMarketplaceJobRow) => {
     const { job } = row;
     if (!walletIdentity.walletAddress || !walletIdentity.isConnected) {
-      setApplyError("Connect your wallet to apply for jobs.");
-      setApplySuccess(null);
+      showWarningToast("Connect your wallet to apply for jobs.");
       return;
     }
 
     if (isSameWallet(job.clientWallet, walletIdentity.walletAddress)) {
-      setApplyError("Client cannot apply to their own job.");
-      setApplySuccess(null);
+      showWarningToast("Client cannot apply to their own job.");
       return;
     }
 
@@ -140,7 +142,6 @@ export function JobsPage() {
 
     setApplyingJobId(selectedJobForApply.job._id);
     setApplyError(null);
-    setApplySuccess(null);
 
     try {
       await applyToJob({
@@ -150,18 +151,18 @@ export function JobsPage() {
         ...(showcasedWorkEscrowId ? { showcasedWorkEscrowId } : {}),
         proposal,
       });
-      setApplySuccess(`Application submitted for "${selectedJobForApply.job.title}".`);
+      showSuccessToast(`Application submitted for "${selectedJobForApply.job.title}".`);
       setSelectedJobForApply(null);
     } catch (error) {
       const readableError = getReadableErrorMessage(
         error,
         "Failed to apply to this job. Please try again.",
       );
-      setApplyError(
-        readableError.toLowerCase().includes("already applied")
-          ? "You already applied to this job."
-          : readableError,
-      );
+      const nextError = readableError.toLowerCase().includes("already applied")
+        ? "You already applied to this job."
+        : readableError;
+      setApplyError(nextError);
+      showErrorToast(nextError);
     } finally {
       setApplyingJobId(null);
     }
@@ -247,17 +248,6 @@ export function JobsPage() {
           </button>
         </div>
       </section>
-
-      {applyError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {applyError}
-        </p>
-      ) : null}
-      {applySuccess ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {applySuccess}
-        </p>
-      ) : null}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">

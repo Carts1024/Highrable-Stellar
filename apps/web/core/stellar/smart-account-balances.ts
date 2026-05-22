@@ -1,6 +1,7 @@
 import { STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "@/core/config/stellar-contracts";
 import { STELLAR_HORIZON_URL } from "@/core/config/web3";
 import { getTokenBalanceOnChain } from "@/core/stellar/escrow-contract";
+import { getEscrowAssetBySymbol } from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
@@ -64,7 +65,16 @@ export async function getSmartAccountNativeBalance(
   const sanitizedAddress = sanitizeSmartAccountAddress(address);
 
   if (!canReadSmartAccountBalance(sanitizedAddress)) {
-    return toLimitedResult();
+    const nativeXlmAsset = getEscrowAssetBySymbol("XLM");
+    if (!nativeXlmAsset?.isConfigured || !nativeXlmAsset.tokenContractId) {
+      return toLimitedResult();
+    }
+
+    return await getSmartAccountEscrowTokenBalance(
+      sanitizedAddress,
+      nativeXlmAsset.tokenContractId,
+      nativeXlmAsset.readinessMessage ?? "Native XLM token contract is not configured.",
+    );
   }
 
   const response = await fetch(

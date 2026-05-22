@@ -8,6 +8,7 @@ import {
 } from "@/features/attachments/components";
 import { formatAttachmentSize } from "@/features/attachments/lib";
 import { getReadableChatError } from "@/features/chat/lib/errors";
+import { showWarningToast } from "@/features/common";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -353,11 +354,15 @@ function MessageComposer({
 
   const handleSend = async () => {
     if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
-      setError("Missing wallet identity.");
+      const nextWarning = "Missing wallet identity.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
     if (!canSend) {
-      setError("Write a message or attach a file before sending.");
+      const nextWarning = "Write a message or attach a file before sending.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 

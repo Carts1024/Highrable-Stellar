@@ -2,6 +2,7 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { TOnboardingFormSchema, type TOnboardingFormValues } from "@/features/onboarding/types";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
@@ -114,7 +115,9 @@ export function OnboardingPage() {
     setError(null);
 
     if (!walletIdentity.walletAddress) {
-      setError("Connect a wallet or passkey account before onboarding.");
+      const nextWarning = "Connect a wallet or passkey account before onboarding.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -124,7 +127,9 @@ export function OnboardingPage() {
     });
 
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check your onboarding details.");
+      const nextWarning = parsed.error.issues[0]?.message ?? "Check your onboarding details.";
+      setError(nextWarning);
+      showWarningToast(nextWarning);
       return;
     }
 
@@ -136,9 +141,12 @@ export function OnboardingPage() {
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         ...buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
       });
+      showSuccessToast("Onboarding completed.");
       router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard");
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Could not complete onboarding."));
+      const nextError = getReadableErrorMessage(caughtError, "Could not complete onboarding.");
+      setError(nextError);
+      showErrorToast(nextError);
       setStatus("idle");
     }
   };

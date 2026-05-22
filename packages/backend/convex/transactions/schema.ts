@@ -12,6 +12,7 @@ const transactionTypeEnum = createStringEnum([
   "record_reputation",
   "cancel_escrow",
   "mark_disputed",
+  "wallet_transfer",
 ] as const);
 
 const transactionStatusEnum = createStringEnum(["pending", "success", "failed"] as const);
@@ -39,6 +40,10 @@ export default defineTable({
   milestoneId: v.optional(v.id("milestones")),
   onChainEscrowId: v.optional(v.string()),
   proofHash: v.optional(v.string()),
+  recipientAddress: v.optional(v.string()),
+  recipientType: v.optional(v.union(v.literal("classic_account"), v.literal("contract_account"))),
+  asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
+  amount: v.optional(v.string()),
   confirmedAt: v.optional(v.number()),
   status: transactionStatusValidator,
   errorMessage: v.optional(v.string()),

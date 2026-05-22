@@ -1,6 +1,7 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
@@ -39,7 +40,7 @@ export function MilestoneApplicationsList({
 
   const handleAssign = async (freelancerWallet: string) => {
     if (!walletIdentity.walletAddress) {
-      setSelectionError("Connect your wallet to assign a freelancer.");
+      showWarningToast("Connect your wallet to assign a freelancer.");
       return;
     }
 
@@ -52,8 +53,11 @@ export function MilestoneApplicationsList({
         clientWallet: walletIdentity.walletAddress,
         freelancerWallet,
       });
+      showSuccessToast(`Freelancer ${shortenWalletAddress(freelancerWallet)} assigned.`);
     } catch (error) {
-      setSelectionError(getReadableErrorMessage(error, "Failed to assign freelancer."));
+      const nextError = getReadableErrorMessage(error, "Failed to assign freelancer.");
+      setSelectionError(nextError);
+      showErrorToast(nextError);
     } finally {
       setSelectingWallet(null);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -39,7 +40,7 @@ export function EditClientProfileForm({
   const [bio, setBio] = useState(profile.bio ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(profile.websiteUrl ?? "");
   const [location, setLocation] = useState(profile.location ?? "");
-  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [status, setStatus] = useState<"idle" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -55,6 +56,7 @@ export function EditClientProfileForm({
 
     if (typeof validationError === "string") {
       setError(validationError);
+      showWarningToast(validationError);
       return;
     }
 
@@ -68,10 +70,13 @@ export function EditClientProfileForm({
         websiteUrl,
         location,
       });
-      setStatus("saved");
+      setStatus("idle");
+      showSuccessToast("Profile updated.");
       onSaved();
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Profile update failed."));
+      const nextError = getReadableErrorMessage(caughtError, "Profile update failed.");
+      setError(nextError);
+      showErrorToast(nextError);
       setStatus("idle");
     }
   };
@@ -139,12 +144,6 @@ export function EditClientProfileForm({
           {error}
         </p>
       ) : null}
-      {status === "saved" ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          Profile updated.
-        </p>
-      ) : null}
-
       <div className="flex flex-wrap justify-end gap-2">
         <AppButton type="button" variant="ghost" onClick={onCancel}>
           Cancel

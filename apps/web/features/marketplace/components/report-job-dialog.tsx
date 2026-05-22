@@ -1,6 +1,6 @@
 "use client";
 
-import { sanitizeMultilineInput } from "@/features/common";
+import { sanitizeMultilineInput, showErrorToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { api } from "@repo/convex-client";
 import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
@@ -93,7 +93,9 @@ export function ReportJobDialog({
       onReported();
       onOpenChange(false);
     } catch (caughtError) {
-      setError(getReadableErrorMessage(caughtError, "Failed to report this job."));
+      const nextError = getReadableErrorMessage(caughtError, "Failed to report this job.");
+      setError(nextError);
+      showErrorToast(nextError);
     } finally {
       setIsSubmitting(false);
     }
