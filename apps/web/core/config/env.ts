@@ -96,11 +96,26 @@ function normalizeOptionalBooleanEnv(value: unknown): unknown {
 
 const OptionalBooleanEnvSchema = z.preprocess(normalizeOptionalBooleanEnv, z.boolean().optional());
 
+function shouldRequireProductionAppDomain(): boolean {
+  const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim().toLowerCase();
+  return process.env.NODE_ENV === "production" || network === "mainnet" || network === "public";
+}
+
+function normalizeAppDomainEnvValue(value: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed.match(/^https?:\/\//iu)) {
+    return trimmed;
+  }
+
+  return shouldRequireProductionAppDomain() ? `https://${trimmed}` : trimmed;
+}
+
 function resolveAppDomainEnvValue(): string | undefined {
   const configuredValue = process.env.NEXT_PUBLIC_APP_DOMAIN?.trim();
 
   if (configuredValue && configuredValue.length > 0) {
-    return configuredValue;
+    return normalizeAppDomainEnvValue(configuredValue);
   }
 
   const vercelDomain = [
@@ -112,7 +127,7 @@ function resolveAppDomainEnvValue(): string | undefined {
     .find((value): value is string => Boolean(value && value.length > 0));
 
   if (vercelDomain && vercelDomain.length > 0) {
-    return vercelDomain;
+    return normalizeAppDomainEnvValue(vercelDomain);
   }
 
   return process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000";
@@ -148,7 +163,10 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256: Hash64Schema.optional(),
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
-  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().url().optional(),
+  ),
   NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: z
     .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
     .optional(),

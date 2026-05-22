@@ -1,6 +1,6 @@
 "use client";
 
-import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
+import { getRequiredEscrowActionConfig, STELLAR_NETWORK } from "@/core/config/stellar-contracts";
 import { parseHumanAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import {
@@ -809,6 +809,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         await createTransaction({
           walletAddress: address!,
           type: "create_escrow",
+          walletType: "external_wallet",
+          network: STELLAR_NETWORK,
+          feePath: "external_wallet",
           clientRequestId,
           jobId: createdJobId,
           status: "pending",
@@ -844,6 +847,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           await updateTransactionStatus({
             clientRequestId,
             txHash: result.txHash,
+            transactionHash: result.txHash,
             status: "success",
           });
         } catch (error) {
@@ -859,6 +863,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           await updateTransactionStatus({
             clientRequestId,
             ...(failedTxHash ? { txHash: failedTxHash } : {}),
+            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
             status: "failed",
             errorMessage,
           });

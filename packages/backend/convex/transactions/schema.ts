@@ -17,6 +17,11 @@ const transactionTypeEnum = createStringEnum([
 
 const transactionStatusEnum = createStringEnum(["pending", "success", "failed"] as const);
 const walletTypeEnum = createStringEnum(["external_wallet", "passkey_smart_account"] as const);
+const feePathEnum = createStringEnum([
+  "relayer",
+  "classic_source_account",
+  "external_wallet",
+] as const);
 
 export const TRANSACTION_TYPES = transactionTypeEnum.map;
 export const TRANSACTION_STATUSES = transactionStatusEnum.map;
@@ -24,14 +29,17 @@ export const TRANSACTION_STATUSES = transactionStatusEnum.map;
 export const transactionTypeValidator = transactionTypeEnum.validator;
 export const transactionStatusValidator = transactionStatusEnum.validator;
 export const walletTypeValidator = walletTypeEnum.validator;
+export const feePathValidator = feePathEnum.validator;
 
 export type TTransactionType = Infer<typeof transactionTypeValidator>;
 export type TTransactionStatus = Infer<typeof transactionStatusValidator>;
 export type TWalletType = Infer<typeof walletTypeValidator>;
+export type TFeePath = Infer<typeof feePathValidator>;
 
 export default defineTable({
   walletAddress: v.string(),
   walletType: v.optional(walletTypeValidator),
+  transactionHash: v.optional(v.string()),
   type: transactionTypeValidator,
   txHash: v.optional(v.string()),
   clientRequestId: v.optional(v.string()),
@@ -44,6 +52,9 @@ export default defineTable({
   recipientType: v.optional(v.union(v.literal("classic_account"), v.literal("contract_account"))),
   asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
   amount: v.optional(v.string()),
+  network: v.optional(v.string()),
+  feePath: v.optional(feePathValidator),
+  sourceAccount: v.optional(v.string()),
   confirmedAt: v.optional(v.number()),
   status: transactionStatusValidator,
   errorMessage: v.optional(v.string()),
