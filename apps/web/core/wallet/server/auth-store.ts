@@ -86,6 +86,11 @@ function buildChallengeMessage(input: {
   issuedAt: number;
   expiresAt: number;
 }): string {
+  const stellarNetwork =
+    env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" || env.NEXT_PUBLIC_STELLAR_NETWORK === "public"
+      ? "stellar:pubnet"
+      : "stellar:testnet";
+
   return [
     "Highrable Sign-In Request",
     `Domain: ${env.NEXT_PUBLIC_APP_DOMAIN}`,
@@ -93,7 +98,7 @@ function buildChallengeMessage(input: {
     `Nonce: ${input.nonce}`,
     `Issued At: ${new Date(input.issuedAt).toISOString()}`,
     `Expiration Time: ${new Date(input.expiresAt).toISOString()}`,
-    "Network: stellar:testnet",
+    `Network: ${stellarNetwork}`,
   ].join("\n");
 }
 

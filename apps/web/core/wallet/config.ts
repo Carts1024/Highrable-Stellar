@@ -27,9 +27,19 @@ export const STELLAR_TESTNET_NETWORK_PASSPHRASE = "Test SDF Network ; September 
 export const STELLAR_TESTNET_RPC_URL = "https://soroban-testnet.stellar.org";
 export const STELLAR_TESTNET_HORIZON_URL = "https://horizon-testnet.stellar.org";
 export const STELLAR_TESTNET_NETWORK_LABEL = "Stellar Testnet";
+export const STELLAR_MAINNET_NETWORK_PASSPHRASE =
+  "Public Global Stellar Network ; September 2015";
+export const STELLAR_MAINNET_NETWORK_LABEL = "Stellar Mainnet";
 
 export const WALLET_NETWORK: TWalletNetwork =
   NETWORK === "local" || NETWORK === "mainnet" ? NETWORK : "testnet";
+export const WALLET_NETWORK_PASSPHRASE = env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE;
+export const WALLET_NETWORK_LABEL =
+  WALLET_NETWORK === "mainnet"
+    ? STELLAR_MAINNET_NETWORK_LABEL
+    : WALLET_NETWORK === "local"
+      ? "Local Stellar Network"
+      : STELLAR_TESTNET_NETWORK_LABEL;
 export const WALLETCONNECT_PROJECT_ID = HAS_WALLETCONNECT_PROJECT_ID
   ? RAW_WALLETCONNECT_PROJECT_ID
   : undefined;
