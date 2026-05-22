@@ -17,3 +17,4 @@ dist
 .env.production.local
 .vscode/mcp.json
 contracts/target
+apps/web/.env.production
