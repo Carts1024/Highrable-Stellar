@@ -56,8 +56,19 @@ export interface IPasskeySmartAccountExecutionParams {
   readonly networkPassphrase: string;
 }
 
+export type TPasskeyFeePath = "relayer" | "classic_source_account" | "missing";
+
 export interface IPasskeyEscrowExecutionReadiness {
   readonly canExecute: boolean;
+  readonly network: "testnet" | "mainnet" | string;
+  readonly hasRelayer: boolean;
+  readonly relayerUrl?: string;
+  readonly hasClassicSourceAccount: boolean;
+  readonly classicSourceAddress?: string;
+  readonly classicSourceIsFunded: boolean;
+  readonly feePath: TPasskeyFeePath;
+  readonly missingReasons: string[];
+  readonly warnings: string[];
   readonly reason: string | null;
   readonly usesRelayer: boolean;
   readonly feeSourceAddress: string | null;
@@ -67,10 +78,6 @@ const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 const DEFAULT_CONTEXT_RULE_ID = 0;
 export const SMART_ACCOUNT_COMPATIBILITY_ERROR_MESSAGE = `Connected passkey smart account is not compatible with smart-account-kit ${SMART_ACCOUNT_KIT_VERSION}. Use NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH=${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app, clear the old local passkey session, then create a new passkey smart account.`;
-const SMART_ACCOUNT_METHOD_MISSING_MESSAGE =
-  "The connected passkey account is missing a method required by smart-account-kit. This usually means the browser selected an older passkey smart account. Clear local passkey storage, create a new passkey smart account with the current config, and select that new passkey when approving escrow.";
-const SMART_ACCOUNT_AUTH_PAYLOAD_MISMATCH_MESSAGE =
-  "The connected passkey smart account rejected the current authorization payload during on-chain verification. Clear the local passkey session, create a new passkey smart account with the current config, reconnect it, then retry the escrow action.";
 type TCallContractContextRuleType = Extract<ContextRuleType, { tag: "CallContract" }>;
 type TCreateContractContextRuleType = Extract<ContextRuleType, { tag: "CreateContract" }>;
 
@@ -140,6 +147,17 @@ function sanitizeClassicAccount(accountId: string, label: string): string {
   return sanitized;
 }
 
+function createPasskeyExecutionReadiness(
+  input: Omit<IPasskeyEscrowExecutionReadiness, "reason" | "usesRelayer" | "feeSourceAddress">,
+): IPasskeyEscrowExecutionReadiness {
+  return {
+    ...input,
+    reason: input.missingReasons[0] ?? null,
+    usesRelayer: input.feePath === "relayer",
+    feeSourceAddress: input.classicSourceAddress ?? null,
+  };
+}
+
 function toReadablePasskeyError(error: unknown): string {
   const message =
     error instanceof Error
@@ -151,11 +169,11 @@ function toReadablePasskeyError(error: unknown): string {
   const normalizedMessage = message.toLowerCase();
 
   if (isSmartAccountAbiMismatch(message)) {
-    return `${SMART_ACCOUNT_METHOD_MISSING_MESSAGE} Raw SDK error: ${message}`;
+    return "Connected passkey smart account is not compatible with the configured smart account artifact.";
   }
 
   if (isSmartAccountAuthPayloadMismatch(message)) {
-    return `${SMART_ACCOUNT_AUTH_PAYLOAD_MISMATCH_MESSAGE} Raw SDK error: ${message}`;
+    return "Clear the local passkey session, reconnect, and try again.";
   }
 
   if (
@@ -175,14 +193,27 @@ function toReadablePasskeyError(error: unknown): string {
 
   if (
     normalizedMessage.includes("relayer is not configured") ||
+    normalizedMessage.includes("smart account transaction fees are not configured") ||
     normalizedMessage.includes("deployer account to exist") ||
     normalizedMessage.includes("account not found")
   ) {
     return "Smart account transaction fees are not configured.";
   }
 
+  if (normalizedMessage.includes("classic source account is not funded")) {
+    return "Classic source account is not funded on mainnet.";
+  }
+
+  if (
+    normalizedMessage.includes("not linked to this smart account") ||
+    normalizedMessage.includes("not an active signer") ||
+    normalizedMessage.includes("selected passkey is not linked")
+  ) {
+    return "The selected passkey is not linked to this smart account.";
+  }
+
   if (normalizedMessage.includes("unauthorized") || normalizedMessage.includes("auth")) {
-    return `The smart account is not authorized for this escrow action. Raw SDK error: ${message}`;
+    return "This smart account is not authorized for the escrow action.";
   }
 
   if (normalizedMessage.includes("invalidstatus") || normalizedMessage.includes("invalid status")) {
@@ -190,7 +221,7 @@ function toReadablePasskeyError(error: unknown): string {
   }
 
   if (normalizedMessage.includes("timeout") || normalizedMessage.includes("timed out")) {
-    return "Stellar RPC timed out. Try syncing the escrow status.";
+    return "The network is taking longer than expected. Check the transaction status and retry if needed.";
   }
 
   if (
@@ -844,10 +875,15 @@ async function signAndSubmitWithAuthPayload(
   );
 
   let sourceAccount: Account;
-  try {
-    sourceAccount = await kit.rpc.getAccount(kit.deployerKeypair.publicKey());
-  } catch {
+  const sourcePublicKey = kit.deployerKeypair.publicKey();
+  if (!CLASSIC_ACCOUNT_PATTERN.test(sourcePublicKey)) {
     throw new Error("Smart account transaction fees are not configured.");
+  }
+
+  try {
+    sourceAccount = await kit.rpc.getAccount(sourcePublicKey);
+  } catch {
+    throw new Error("Classic source account is not funded on mainnet.");
   }
 
   const invokeOp = operation as Operation.InvokeHostFunction;
@@ -1199,33 +1235,48 @@ export async function assertSmartAccountKitCompatibility(
 export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscrowExecutionReadiness> {
   const config = getSmartAccountConfig();
   if (!config) {
-    return {
+    return createPasskeyExecutionReadiness({
       canExecute: false,
-      reason: "Passkey smart account execution is not configured.",
-      usesRelayer: false,
-      feeSourceAddress: null,
-    };
+      network: "unknown",
+      hasRelayer: false,
+      hasClassicSourceAccount: false,
+      classicSourceIsFunded: false,
+      feePath: "missing",
+      missingReasons: ["Passkey smart account configuration is incomplete."],
+      warnings: [],
+    });
   }
 
   const configuredWasmHash = normalizeWasmHash(config.accountWasmHash);
+  const staticReadiness = evaluateSmartAccountMainnetReadiness();
+  const network = staticReadiness.network;
   if (
     config.networkPassphrase === "Test SDF Network ; September 2015" &&
     KNOWN_INCOMPATIBLE_SMART_ACCOUNT_WASM_HASHES.has(configuredWasmHash)
   ) {
-    return {
+    return createPasskeyExecutionReadiness({
       canExecute: false,
-      reason:
+      network,
+      hasRelayer: Boolean(config.relayerUrl),
+      ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
+      hasClassicSourceAccount: false,
+      classicSourceIsFunded: false,
+      feePath: "missing",
+      missingReasons: [
         `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH is a known incompatible smart account artifact for smart-account-kit ${SMART_ACCOUNT_KIT_VERSION}. ` +
-        `Use ${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app so the new environment is loaded, clear the old passkey session, then create a new passkey smart account.`,
-      usesRelayer: false,
-      feeSourceAddress: null,
-    };
+          `Use ${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app so the new environment is loaded, clear the old passkey session, then create a new passkey smart account.`,
+      ],
+      warnings: [],
+    });
   }
 
   const kit = getSmartAccountKit();
-  const usesRelayer = kit.relayer !== null;
-  const feeSourceAddress = kit.deployerPublicKey;
-  let sourceAccountFunded: boolean | null = null;
+  const hasRelayer = Boolean(config.relayerUrl) || kit.relayer !== null;
+  const classicSourceAddress = CLASSIC_ACCOUNT_PATTERN.test(kit.deployerPublicKey)
+    ? kit.deployerPublicKey
+    : undefined;
+  const missingReasons: string[] = [];
+  const warnings: string[] = [];
   let connectedAccountWasmHash: string | undefined;
 
   if (kit.isConnected) {
@@ -1238,81 +1289,132 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
         }).catch(() => undefined);
       }
     } catch (error) {
-      return {
+      return createPasskeyExecutionReadiness({
         canExecute: false,
-        reason:
+        network,
+        hasRelayer,
+        ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
+        hasClassicSourceAccount: Boolean(classicSourceAddress),
+        ...(classicSourceAddress ? { classicSourceAddress } : {}),
+        classicSourceIsFunded: false,
+        feePath: "missing",
+        missingReasons: [
           error instanceof Error
             ? error.message
-            : "Passkey smart account execution is not configured.",
-        usesRelayer,
-        feeSourceAddress,
-      };
+            : "Passkey smart account configuration is incomplete.",
+        ],
+        warnings,
+      });
     }
+  } else {
+    missingReasons.push("Reconnect your passkey smart account to continue.");
   }
 
-  if (usesRelayer) {
+  if (hasRelayer) {
     const readiness = evaluateSmartAccountMainnetReadiness({
       connectedAccountAddress: kit.contractId,
       connectedAccountWasmHash,
-      sourceAccount: feeSourceAddress,
+      sourceAccount: classicSourceAddress,
       sourceAccountFunded: null,
     });
     const canExecute = readiness.isMainnet
       ? readiness.capabilities.canExecuteMainnetPasskeyEscrow
       : true;
-    return {
-      canExecute,
-      reason: canExecute
-        ? null
-        : (readiness.blockingIssues[0] ??
-          "Mainnet passkey escrow is blocked until readiness issues are resolved."),
-      usesRelayer,
-      feeSourceAddress,
-    };
+    const relayerMissingReasons = canExecute
+      ? missingReasons
+      : [
+          ...missingReasons,
+          readiness.blockingIssues[0] ??
+            "Mainnet passkey escrow is blocked until readiness issues are resolved.",
+        ];
+
+    return createPasskeyExecutionReadiness({
+      canExecute: canExecute && relayerMissingReasons.length === 0,
+      network: readiness.network,
+      hasRelayer: true,
+      ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
+      hasClassicSourceAccount: Boolean(classicSourceAddress),
+      ...(classicSourceAddress ? { classicSourceAddress } : {}),
+      classicSourceIsFunded: false,
+      feePath: "relayer",
+      missingReasons: relayerMissingReasons,
+      warnings: readiness.warnings,
+    });
+  }
+
+  if (!classicSourceAddress) {
+    return createPasskeyExecutionReadiness({
+      canExecute: false,
+      network,
+      hasRelayer: false,
+      hasClassicSourceAccount: false,
+      classicSourceIsFunded: false,
+      feePath: "missing",
+      missingReasons: [
+        ...missingReasons,
+        "Smart account transaction fees are not configured.",
+        "No relayer URL is configured and no classic source account is available.",
+      ],
+      warnings,
+    });
   }
 
   try {
-    await createRpcServer(config.rpcUrl).getAccount(feeSourceAddress);
-    sourceAccountFunded = true;
+    await createRpcServer(config.rpcUrl).getAccount(classicSourceAddress);
     const readiness = evaluateSmartAccountMainnetReadiness({
       connectedAccountAddress: kit.contractId,
       connectedAccountWasmHash,
-      sourceAccount: feeSourceAddress,
-      sourceAccountFunded,
+      sourceAccount: classicSourceAddress,
+      sourceAccountFunded: true,
     });
-    if (readiness.isMainnet && !readiness.capabilities.canExecuteMainnetPasskeyEscrow) {
-      return {
-        canExecute: false,
-        reason:
-          readiness.blockingIssues[0] ??
-          "Mainnet passkey escrow is blocked until readiness issues are resolved.",
-        usesRelayer,
-        feeSourceAddress,
-      };
-    }
-    return {
-      canExecute: true,
-      reason: null,
-      usesRelayer,
-      feeSourceAddress,
-    };
+    const readinessMissingReasons =
+      readiness.isMainnet && !readiness.capabilities.canExecuteMainnetPasskeyEscrow
+        ? [
+            ...missingReasons,
+            readiness.blockingIssues[0] ??
+              "Mainnet passkey escrow is blocked until readiness issues are resolved.",
+          ]
+        : missingReasons;
+
+    return createPasskeyExecutionReadiness({
+      canExecute: readinessMissingReasons.length === 0,
+      network: readiness.network,
+      hasRelayer: false,
+      hasClassicSourceAccount: true,
+      classicSourceAddress,
+      classicSourceIsFunded: true,
+      feePath: readinessMissingReasons.length === 0 ? "classic_source_account" : "missing",
+      missingReasons: readinessMissingReasons,
+      warnings: readiness.warnings,
+    });
   } catch {
-    sourceAccountFunded = false;
     const readiness = evaluateSmartAccountMainnetReadiness({
       connectedAccountAddress: kit.contractId,
       connectedAccountWasmHash,
-      sourceAccount: feeSourceAddress,
-      sourceAccountFunded,
+      sourceAccount: classicSourceAddress,
+      sourceAccountFunded: false,
     });
-    return {
+    const unfundedMessage =
+      readiness.isMainnet || network === "mainnet"
+        ? "Classic source account is not funded on mainnet."
+        : "Smart account transaction fees are not configured.";
+
+    return createPasskeyExecutionReadiness({
       canExecute: false,
-      reason: readiness.isMainnet
-        ? (readiness.blockingIssues[0] ??
-          "No fee path is available for passkey smart-account execution. Configure OpenZeppelin Channels, a custom relayer, or a funded source account.")
-        : "Passkey escrow transactions require smart account fee funding or relayer support. Configure this before using passkey escrow execution.",
-      usesRelayer,
-      feeSourceAddress,
-    };
+      network: readiness.network,
+      hasRelayer: false,
+      hasClassicSourceAccount: true,
+      classicSourceAddress,
+      classicSourceIsFunded: false,
+      feePath: "missing",
+      missingReasons: [
+        ...missingReasons,
+        unfundedMessage,
+        readiness.blockingIssues[0] ??
+          "No relayer URL is configured and no classic source account is available.",
+      ],
+      warnings: readiness.warnings,
+    });
   }
 }
 
@@ -1336,10 +1438,6 @@ export async function executeWithPasskeySmartAccount(
     }
   }
 
-  if (!CLASSIC_ACCOUNT_PATTERN.test(kit.deployerPublicKey)) {
-    throw new Error("Smart account transaction fees are not configured.");
-  }
-
   try {
     await assertSmartAccountKitCompatibility(kit);
     const readiness = await getPasskeyEscrowExecutionReadiness();
@@ -1349,13 +1447,17 @@ export async function executeWithPasskeySmartAccount(
           "Mainnet passkey escrow is blocked until the issues below are resolved.",
       );
     }
+    const sourceAccount = sanitizeClassicAccount(
+      readiness.classicSourceAddress ?? kit.deployerPublicKey,
+      "Classic source account",
+    );
 
     const assembledTransaction = await buildSmartAccountExecuteTransaction({
       smartAccountAddress,
       contractId,
       method: params.method,
       args: params.args,
-      sourceAccount: kit.deployerPublicKey,
+      sourceAccount,
       rpcUrl: params.rpcUrl,
       networkPassphrase: params.networkPassphrase,
     });

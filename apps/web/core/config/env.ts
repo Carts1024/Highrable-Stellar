@@ -163,7 +163,10 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256: Hash64Schema.optional(),
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
-  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().url().optional(),
+  ),
   NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: z
     .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
     .optional(),

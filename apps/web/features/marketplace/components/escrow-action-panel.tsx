@@ -8,7 +8,6 @@ import {
   getUnsupportedEscrowAssetMessage,
   isSupportedEscrowAsset,
 } from "@/core/stellar/payment-assets";
-import { getStaticSmartAccountReadiness } from "@/core/stellar/smart-account-mainnet-checks";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
@@ -108,27 +107,19 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== currentStatusMeta.label;
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
-  const passkeyReadiness = useMemo(() => getStaticSmartAccountReadiness(), []);
-  const passkeyMainnetBlocked =
-    isPasskeyMode &&
-    passkeyReadiness.isMainnet &&
-    !passkeyReadiness.capabilities.canExecuteMainnetPasskeyEscrow;
   const walletGuardContext = useMemo(
     () => ({
       isConnected: walletIdentity.isConnected,
       isTestnet: isPasskeyMode ? true : walletState.isTestnet,
       isFunded: isPasskeyMode ? null : walletState.isFunded,
       canWriteContracts: isPasskeyMode
-        ? !passkeyMainnetBlocked
+        ? walletIdentity.canSignEscrowTransactions
         : walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-      writeRestrictionReason: passkeyMainnetBlocked
-        ? "Mainnet passkey escrow is blocked until the issues below are resolved."
-        : null,
+      writeRestrictionReason: null,
       walletType: walletIdentity.walletType,
     }),
     [
       isPasskeyMode,
-      passkeyMainnetBlocked,
       walletIdentity.canSignEscrowTransactions,
       walletIdentity.isConnected,
       walletIdentity.walletType,

@@ -21,11 +21,15 @@ This phase does not make Highrable fully production-audited. It does not replace
 - `NEXT_PUBLIC_ESCROW_CONTRACT_ID`
 - `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
-- `NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID` if XLM escrow is enabled
 - `NEXT_PUBLIC_USDC_ASSET_CODE`
 - `NEXT_PUBLIC_USDC_ASSET_ISSUER`
+
+Optional public fee-path config:
+
 - `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND`
 - `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL` when using `custom` or `openzeppelin_channels`
+
+`NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL` may be empty. With no relayer URL, passkey escrow execution uses the classic SDK/deployer/source account exposed by `smart-account-kit`; that account must be a funded Stellar G-address on the selected network.
 
 Optional public metadata:
 
@@ -55,9 +59,9 @@ Never prefix private relayer credentials with `NEXT_PUBLIC_`. The browser must n
 - Fill `deployments/smart-accounts/mainnet.json`.
 - Configure the production HTTPS app domain.
 - Confirm the RP ID derives from the production domain.
-- Configure the fee path: OpenZeppelin Channels, a hardened custom relayer, or a funded source account fallback.
+- Configure the fee path: OpenZeppelin Channels, a hardened custom relayer, or a funded classic SDK/source account fallback.
 - Configure allowed target contracts, including the Highrable escrow contract.
-- Configure supported escrow assets.
+- Configure supported escrow assets, including the Soroban stablecoin token contract and native XLM SAC when XLM escrow is enabled.
 - Verify the classic USDC issuer for Path Payment top-up.
 - Run `scripts/verify-smart-account-mainnet.ts`.
 - Test with tiny amounts.
@@ -83,7 +87,23 @@ Launchtube is legacy and must not be used for new Highrable work. Use OpenZeppel
 - Smart contracts do not emit events yet.
 - Contracts are not audited unless separately completed.
 - Path Payment top-up depends on liquidity and trustline readiness.
-- XLM escrow exposes users to volatility.
+- A dedicated production relayer is still a future hardening step.
+
+## No-Relayer Passkey Escrow Manual Verification
+
+1. Configure mainnet env with empty `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL`.
+2. Ensure the classic SDK/deployer/source account has XLM on mainnet.
+3. Create or reconnect a passkey smart account.
+4. Confirm Wallet Details shows `Using funded classic source account`.
+5. Create a job using passkey identity.
+6. Confirm the job `clientWallet` is the passkey smart account C-address.
+7. Fund the passkey smart account with the configured stablecoin.
+8. Create/fund escrow through passkey approval.
+9. Confirm the WebAuthn prompt appears.
+10. Confirm the transaction submits successfully.
+11. Confirm the transaction record stores `walletType = passkey_smart_account` and `feePath = classic_source_account`.
+12. Confirm external wallet mode still works.
+13. Remove/empty source account funding and confirm UI blocks passkey escrow writes with a clear message.
 
 ## Required Warning
 
