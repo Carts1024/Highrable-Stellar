@@ -1,7 +1,19 @@
 "use client";
 
+import { STELLAR_NETWORK } from "@/core/config/stellar-contracts";
+import { fromTokenUnits } from "@/core/stellar/amounts";
+import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
+import {
+  getSmartAccountNativeBalance,
+  getSmartAccountStablecoinBalance,
+  type ISmartAccountBalanceResult,
+} from "@/core/stellar/smart-account-balances";
+import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { PasskeySendTokenPanel } from "@/features/wallet/components/passkey-send-token-panel";
+import { WalletTransferActivity } from "@/features/wallet/components/wallet-transfer-activity";
+import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Dialog,
@@ -11,8 +23,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
-import { Check, Copy, KeyRound, LogOut, RefreshCw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, KeyRound, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+
+type TPasskeyFeeReadiness = {
+  readonly canExecute: boolean;
+  readonly reason: string | null;
+  readonly usesRelayer: boolean;
+  readonly feeSourceAddress: string | null;
+};
+
+const EMPTY_BALANCE_RESULT: ISmartAccountBalanceResult = {
+  status: "limited",
+  balance: null,
+  message: "Balance has not been checked yet.",
+};
+
+function formatSmartBalance(
+  result: ISmartAccountBalanceResult,
+  symbol: string,
+  decimals: number,
+): string {
+  if (result.balance === null) {
+    return result.message ?? "Unreadable";
+  }
+
+  return `${fromTokenUnits(result.balance, decimals)} ${symbol}`;
+}
+
+function formatNativeBalance(result: ISmartAccountBalanceResult): string {
+  if (result.balance === null) {
+    return result.message ?? "Unreadable";
+  }
+
+  return `${fromTokenUnits(result.balance, 7)} XLM`;
+}
+
+function formatFeePath(readiness: TPasskeyFeeReadiness | null): string {
+  if (!readiness) {
+    return "Checking";
+  }
+
+  if (!readiness.canExecute) {
+    return readiness.reason ?? "Smart account transaction fees are not configured.";
+  }
+
+  return readiness.usesRelayer ? "Relayer ready" : "Source account ready";
+}
 
 export function PasskeySmartAccountCard() {
   const {
@@ -35,6 +92,13 @@ export function PasskeySmartAccountCard() {
     clearPasskeyError,
   } = usePasskeySmartAccount();
   const [copied, setCopied] = useState(false);
+  const [showSendPanel, setShowSendPanel] = useState(false);
+  const [nativeBalance, setNativeBalance] =
+    useState<ISmartAccountBalanceResult>(EMPTY_BALANCE_RESULT);
+  const [stablecoinBalance, setStablecoinBalance] =
+    useState<ISmartAccountBalanceResult>(EMPTY_BALANCE_RESULT);
+  const [feeReadiness, setFeeReadiness] = useState<TPasskeyFeeReadiness | null>(null);
+  const [isRefreshingWalletDetails, setIsRefreshingWalletDetails] = useState(false);
 
   const runPasskeyUiAction = async (action: () => Promise<unknown>): Promise<void> => {
     try {
@@ -58,6 +122,37 @@ export function PasskeySmartAccountCard() {
       setCopied(false);
     }
   };
+
+  const refreshWalletDetails = useCallback(async () => {
+    if (!isPasskeyConnected || !smartAccountAddress) {
+      setNativeBalance(EMPTY_BALANCE_RESULT);
+      setStablecoinBalance(EMPTY_BALANCE_RESULT);
+      setFeeReadiness(null);
+      return;
+    }
+
+    setIsRefreshingWalletDetails(true);
+    try {
+      const [nextNativeBalance, nextStablecoinBalance, nextFeeReadiness] = await Promise.all([
+        getSmartAccountNativeBalance(smartAccountAddress),
+        getSmartAccountStablecoinBalance(
+          smartAccountAddress,
+          stablecoinConfig.tokenContractId ?? "",
+        ),
+        getPasskeyEscrowExecutionReadiness(),
+      ]);
+
+      setNativeBalance(nextNativeBalance);
+      setStablecoinBalance(nextStablecoinBalance);
+      setFeeReadiness(nextFeeReadiness);
+    } finally {
+      setIsRefreshingWalletDetails(false);
+    }
+  }, [isPasskeyConnected, smartAccountAddress]);
+
+  useEffect(() => {
+    void refreshWalletDetails();
+  }, [refreshWalletDetails]);
 
   if (!isSupported) {
     return (
@@ -91,26 +186,91 @@ export function PasskeySmartAccountCard() {
           <p className="text-sm font-semibold text-gray-900">Passkey account</p>
 
           {isPasskeyConnected && smartAccountAddress ? (
-            <div className="mt-3 space-y-3">
-              <p className="text-sm font-medium text-emerald-700">Passkey account connected</p>
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <p className="text-xs font-medium text-gray-500">Account address</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <p className="min-w-0 flex-1 font-mono text-sm break-all text-gray-900">
-                    {shortenWalletAddress(smartAccountAddress)}
+            <div className="mt-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="rounded-none border-[#0a0a0a] bg-[#0a0a0a] font-mono text-white">
+                  Passkey Smart Account
+                </Badge>
+                <Badge variant="outline" className="rounded-none font-mono">
+                  {STELLAR_NETWORK}
+                </Badge>
+              </div>
+
+              <div className="border border-[#d8d8d8] bg-white">
+                <div className="border-b border-[#e8e8e8] px-4 py-3">
+                  <p className="font-mono text-[11px] text-[#777] uppercase">
+                    Smart account address
                   </p>
-                  <AppButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void handleCopy()}
-                    aria-label="Copy passkey account address"
-                  >
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </AppButton>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="min-w-0 flex-1 font-mono text-sm break-all text-[#0a0a0a]">
+                      {smartAccountAddress}
+                    </p>
+                    <AppButton
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => void handleCopy()}
+                      aria-label="Copy passkey account address"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </AppButton>
+                  </div>
+                </div>
+
+                <div className="grid divide-y divide-[#e8e8e8] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                  <div className="p-4">
+                    <p className="font-mono text-[11px] text-[#777] uppercase">XLM balance</p>
+                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                      {formatNativeBalance(nativeBalance)}
+                    </p>
+                  </div>
+                  <div className="p-4">
+                    <p className="font-mono text-[11px] text-[#777] uppercase">
+                      {stablecoinConfig.symbol} balance
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                      {formatSmartBalance(
+                        stablecoinBalance,
+                        stablecoinConfig.symbol,
+                        stablecoinConfig.decimals,
+                      )}
+                    </p>
+                  </div>
+                  <div className="p-4">
+                    <p className="font-mono text-[11px] text-[#777] uppercase">Fee readiness</p>
+                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                      {formatFeePath(feeReadiness)}
+                    </p>
+                  </div>
                 </div>
               </div>
+
+              {feeReadiness && !feeReadiness.canExecute ? (
+                <div className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-semibold">Sending is blocked</p>
+                  <p className="mt-1">{feeReadiness.reason}</p>
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap gap-2">
+                <AppButton
+                  type="button"
+                  className="bg-linear-to-r from-[#FF7003] to-[#FF8801] text-white hover:from-[#E85D00] hover:to-[#E87A00]"
+                  onClick={() => setShowSendPanel((currentValue) => !currentValue)}
+                  disabled={Boolean(feeReadiness && !feeReadiness.canExecute)}
+                >
+                  <Send className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Send
+                </AppButton>
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => void refreshWalletDetails()}
+                  disabled={isRefreshingWalletDetails}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {isRefreshingWalletDetails ? "Refreshing..." : "Refresh balances"}
+                </AppButton>
                 <AppButton
                   type="button"
                   variant="outline"
@@ -137,6 +297,19 @@ export function PasskeySmartAccountCard() {
                   Clear local session
                 </AppButton>
               </div>
+
+              {showSendPanel ? (
+                <PasskeySendTokenPanel
+                  smartAccountAddress={smartAccountAddress}
+                  isPasskeyConnected={isPasskeyConnected}
+                  stablecoinBalanceAtomic={stablecoinBalance.balance}
+                  xlmBalanceAtomic={nativeBalance.balance}
+                  onTransferSettled={refreshWalletDetails}
+                  onClose={() => setShowSendPanel(false)}
+                />
+              ) : null}
+
+              <WalletTransferActivity walletAddress={smartAccountAddress} />
             </div>
           ) : (
             <div className="mt-3 space-y-3">
@@ -229,12 +402,12 @@ export function PasskeySmartAccountCard() {
               >
                 <p className="font-mono text-sm text-gray-900">{contract.contract_id}</p>
                 <p className="mt-2 text-xs text-gray-600">
-                  {contract.context_rule_count} rule{contract.context_rule_count === 1 ? "" : "s"} ·{" "}
+                  {contract.context_rule_count} rule{contract.context_rule_count === 1 ? "" : "s"} /{" "}
                   {contract.external_signer_count + contract.delegated_signer_count} signer
                   {contract.external_signer_count + contract.delegated_signer_count === 1
                     ? ""
                     : "s"}{" "}
-                  · last seen ledger {contract.last_seen_ledger}
+                  / last seen ledger {contract.last_seen_ledger}
                 </p>
               </button>
             ))}

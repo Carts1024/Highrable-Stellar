@@ -25,6 +25,10 @@ export const createTransaction = mutation({
     milestoneId: v.optional(v.id("milestones")),
     onChainEscrowId: v.optional(v.string()),
     proofHash: v.optional(v.string()),
+    recipientAddress: v.optional(v.string()),
+    recipientType: v.optional(v.union(v.literal("classic_account"), v.literal("contract_account"))),
+    asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
+    amount: v.optional(v.string()),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
   },
@@ -35,6 +39,11 @@ export const createTransaction = mutation({
     const escrowId = sanitizeOptionalTransactionRef(args.escrowId, "escrowId");
     const onChainEscrowId = sanitizeOptionalTransactionRef(args.onChainEscrowId, "onChainEscrowId");
     const proofHash = sanitizeOptionalTransactionRef(args.proofHash, "proofHash");
+    const recipientAddress = sanitizeOptionalTransactionRef(
+      args.recipientAddress,
+      "recipientAddress",
+    );
+    const amount = sanitizeOptionalTransactionRef(args.amount, "amount");
     const errorMessage = sanitizeOptionalTransactionRef(args.errorMessage, "errorMessage");
 
     assertTransactionLookupKey(txHash, clientRequestId);
@@ -52,6 +61,10 @@ export const createTransaction = mutation({
       ...(escrowId !== undefined ? { escrowId } : {}),
       ...(onChainEscrowId !== undefined ? { onChainEscrowId } : {}),
       ...(proofHash !== undefined ? { proofHash } : {}),
+      ...(recipientAddress !== undefined ? { recipientAddress } : {}),
+      ...(args.recipientType !== undefined ? { recipientType: args.recipientType } : {}),
+      ...(args.asset !== undefined ? { asset: args.asset } : {}),
+      ...(amount !== undefined ? { amount } : {}),
       ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
       ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),

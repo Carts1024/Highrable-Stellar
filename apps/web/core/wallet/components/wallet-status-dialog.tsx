@@ -3,6 +3,7 @@
 import { ExternalWalletDetailsCardContainer } from "@/core/wallet/components/external-wallet-details-card";
 import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-account-card";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,10 @@ interface IWalletStatusDialogProps {
 
 export function WalletStatusDialog({ trigger }: IWalletStatusDialogProps) {
   const { walletState } = useWallet();
+  const { activeWalletMode } = usePasskeySmartAccount();
   const hasExternalWalletConnection = walletState.isConnected && Boolean(walletState.walletAddress);
+  const showPasskeyWalletDetails =
+    activeWalletMode === "passkey_smart_account" || !hasExternalWalletConnection;
 
   return (
     <Dialog>
@@ -33,7 +37,7 @@ export function WalletStatusDialog({ trigger }: IWalletStatusDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[min(90vh,42rem)] overflow-y-auto overscroll-contain p-5 sm:p-6">
-          {hasExternalWalletConnection ? (
+          {!showPasskeyWalletDetails && hasExternalWalletConnection ? (
             <ExternalWalletDetailsCardContainer />
           ) : (
             <PasskeySmartAccountCard />
