@@ -11,7 +11,6 @@ import type {
 export const NAV_LINKS: readonly TNavLink[] = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
   { label: "Why Highrable", href: "#why-highrable" },
 ];
 

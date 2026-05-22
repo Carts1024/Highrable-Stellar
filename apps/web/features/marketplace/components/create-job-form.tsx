@@ -399,6 +399,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     asset: selectedEscrowAssetMeta ?? undefined,
     enabled: shouldShowStablecoinFundingReadiness,
   });
+  const shouldShowXlmToUsdcTopUp =
+    !isMilestoneProject &&
+    selectedEscrowAssetMeta?.kind === "stablecoin" &&
+    shouldShowStablecoinFundingReadiness &&
+    (preFundReadiness.hasSufficientBalance === false || preFundReadiness.error !== null);
+  const xlmToUsdcMissingAmount = preFundReadiness.deficitDisplay ?? formState.budget;
 
   const updateField = (
     field: "title" | "description" | "budget" | "asset" | "deadlineAt",
@@ -1215,13 +1221,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           </div>
         </div>
 
-        {!isMilestoneProject &&
-        selectedEscrowAssetMeta?.kind === "stablecoin" &&
-        preFundReadiness.hasSufficientBalance === false ? (
+        {shouldShowXlmToUsdcTopUp ? (
           <XlmToUsdcTopUpPanel
             walletAddress={walletIdentity.walletAddress}
             walletType={walletIdentity.walletType}
-            missingUsdcAmount={preFundReadiness.deficitDisplay}
+            missingUsdcAmount={xlmToUsdcMissingAmount}
             usdcBalance={preFundReadiness.balanceDisplay}
             jobAssetContractId={formState.asset || stablecoinConfig.tokenContractId}
             onRefreshBalance={preFundReadiness.refresh}
