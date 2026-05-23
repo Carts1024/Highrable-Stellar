@@ -105,8 +105,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const marketplaceStatus = mergedEscrow?.status ?? job.status;
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
-  const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow);
-  const chatParent = mergedEscrow
+  const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow?.freelancerWallet);
+  const chatParent = mergedEscrow?.freelancerWallet
     ? ({
         parentType: "escrow" as const,
         parentId: mergedEscrow._id,
