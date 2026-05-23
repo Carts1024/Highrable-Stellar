@@ -8,14 +8,15 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export function useRequireOnboarding(): {
-  readonly isCheckingOnboarding: boolean;
-  readonly isOnboardingComplete: boolean;
-} {
+export function OnboardingRouteGuard({ children }: { readonly children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const onboardingState = useOnboardingState();
   const isExemptRoute = isOnboardingExemptRoute(pathname);
+  const shouldBlockRoute =
+    onboardingState.isConnected &&
+    !isExemptRoute &&
+    (onboardingState.isLoading || !onboardingState.isComplete);
 
   useEffect(() => {
     if (
@@ -38,11 +39,13 @@ export function useRequireOnboarding(): {
     router,
   ]);
 
-  return {
-    isCheckingOnboarding:
-      onboardingState.isConnected &&
-      !isExemptRoute &&
-      (onboardingState.isLoading || !onboardingState.isComplete),
-    isOnboardingComplete: onboardingState.isComplete,
-  };
+  if (shouldBlockRoute) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-6 text-sm text-[#5f5f5f]">
+        Checking onboarding...
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
