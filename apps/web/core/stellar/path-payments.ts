@@ -22,6 +22,7 @@ const TX_TIMEOUT_SECONDS = 60;
 const DEFAULT_SLIPPAGE_BPS = 100;
 const MAX_SLIPPAGE_BPS = 500;
 const STROOPS_PER_XLM = 10_000_000n;
+const BASE_RESERVE_XLM = "0.5";
 const MIN_XLM_FEE_RESERVE = "0.1";
 
 export type TPathPaymentConfig = {
@@ -98,13 +99,18 @@ export class PathPaymentError extends Error {
 type THorizonAccountBalance = {
   readonly asset_type: string;
   readonly balance: string;
+  readonly selling_liabilities?: string;
   readonly asset_code?: string;
   readonly asset_issuer?: string;
 };
 
 type THorizonAccountLike = {
   readonly balances?: readonly THorizonAccountBalance[];
+  readonly subentry_count?: number | string;
+  readonly num_sponsoring?: number | string;
+  readonly num_sponsored?: number | string;
 };
+type THorizonLoadedAccount = Awaited<ReturnType<Horizon.Server["loadAccount"]>>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -134,6 +140,18 @@ function stroopsToDecimal(stroops: bigint): string {
   const trimmedFraction = fractionalPart.toString().padStart(7, "0").replace(/0+$/, "");
 
   return trimmedFraction ? `${wholePart.toString()}.${trimmedFraction}` : wholePart.toString();
+}
+
+function parseHorizonCount(value: number | string | undefined): bigint {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return BigInt(Math.max(0, Math.trunc(value)));
+  }
+
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return BigInt(value.trim());
+  }
+
+  return 0n;
 }
 
 function addSlippage(amount: string, slippageBps: number): string {
@@ -322,20 +340,75 @@ export async function getClassicXlmBalance(
   return nativeBalance?.balance ?? null;
 }
 
+export function getClassicXlmMinimumBalance(account: THorizonAccountLike): string {
+  const reserveStroops = decimalToStroops(BASE_RESERVE_XLM);
+  const subentryCount = parseHorizonCount(account.subentry_count);
+  const numSponsoring = parseHorizonCount(account.num_sponsoring);
+  const numSponsored = parseHorizonCount(account.num_sponsored);
+  const reserveEntryCount = 2n + subentryCount + numSponsoring - numSponsored;
+  const minimumBalanceStroops = (reserveEntryCount > 0n ? reserveEntryCount : 0n) * reserveStroops;
+  const nativeBalance = account.balances?.find((balance) => balance.asset_type === "native");
+  const sellingLiabilitiesStroops = nativeBalance?.selling_liabilities
+    ? decimalToStroops(nativeBalance.selling_liabilities)
+    : 0n;
+
+  return stroopsToDecimal(minimumBalanceStroops + sellingLiabilitiesStroops);
+}
+
+export function getSpendableClassicXlmBalance(account: THorizonAccountLike): string | null {
+  const nativeBalance = account.balances?.find((balance) => balance.asset_type === "native");
+  if (!nativeBalance) {
+    return null;
+  }
+
+  const spendableStroops =
+    decimalToStroops(nativeBalance.balance) -
+    decimalToStroops(getClassicXlmMinimumBalance(account));
+
+  return stroopsToDecimal(spendableStroops > 0n ? spendableStroops : 0n);
+}
+
 export function hasEnoughXlmForPathPayment({
   xlmBalance,
   sendMax,
   feeReserve = MIN_XLM_FEE_RESERVE,
+  account,
 }: {
   readonly xlmBalance: string | null | undefined;
   readonly sendMax: string;
   readonly feeReserve?: string;
+  readonly account?: THorizonAccountLike;
 }): boolean {
-  if (!xlmBalance) {
+  const availableXlm = account ? getSpendableClassicXlmBalance(account) : xlmBalance;
+
+  if (!availableXlm) {
     return false;
   }
 
-  return decimalToStroops(xlmBalance) >= decimalToStroops(sendMax) + decimalToStroops(feeReserve);
+  return decimalToStroops(availableXlm) >= decimalToStroops(sendMax) + decimalToStroops(feeReserve);
+}
+
+async function assertEnoughXlmForPathPayment({
+  sourceAccount,
+  sendMax,
+  server,
+}: {
+  readonly sourceAccount: string;
+  readonly sendMax: string;
+  readonly server: Horizon.Server;
+}): Promise<THorizonLoadedAccount> {
+  const account = await server.loadAccount(sourceAccount);
+  const accountLike = account as unknown as THorizonAccountLike;
+  const xlmBalance = account.balances?.find((balance) => balance.asset_type === "native")?.balance;
+
+  if (!hasEnoughXlmForPathPayment({ xlmBalance, sendMax, account: accountLike })) {
+    throw new PathPaymentError(
+      "You do not have enough spendable XLM for this conversion after Stellar account reserves and network fees.",
+      "INSUFFICIENT_XLM",
+    );
+  }
+
+  return account;
 }
 
 export async function quoteXlmToUsdcStrictReceive(
@@ -392,16 +465,12 @@ export async function quoteXlmToUsdcStrictReceive(
 
   const estimatedSendAmount = sanitizeAmount(bestRoute.source_amount, "Estimated XLM amount");
   const sendMax = addSlippage(estimatedSendAmount, slippageBps);
-  const sourceXlmBalance = await getClassicXlmBalance(sourceAccount, server).catch(() => null);
-
-  if (
-    sourceXlmBalance !== null &&
-    !hasEnoughXlmForPathPayment({ xlmBalance: sourceXlmBalance, sendMax })
-  ) {
-    throw new PathPaymentError(
-      "You do not have enough XLM for this conversion and network fees.",
-      "INSUFFICIENT_XLM",
-    );
+  try {
+    await assertEnoughXlmForPathPayment({ sourceAccount, sendMax, server });
+  } catch (error) {
+    if (error instanceof PathPaymentError) {
+      throw error;
+    }
   }
 
   return {
@@ -425,7 +494,7 @@ export async function buildPathPaymentStrictReceiveTransactionXdr(
   const destAmount = sanitizeAmount(request.destAmount, "Destination amount");
   const sendMax = sanitizeAmount(request.sendMax, "Maximum XLM spend");
   const server = createHorizonServer(config);
-  const account = await server.loadAccount(sourceAccount);
+  const account = await assertEnoughXlmForPathPayment({ sourceAccount, sendMax, server });
   const memoText = (request.memo ?? "Highrable USDC top-up").trim().slice(0, 28);
   const transaction = new TransactionBuilder(account, {
     fee: BASE_FEE,
