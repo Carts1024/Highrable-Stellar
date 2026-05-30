@@ -348,7 +348,7 @@ export const sendAgreementForAcceptance = mutation({
     walletType: walletTypeValidator,
   },
   handler: async (ctx, args) => {
-    const { agreement, walletAddress, freelancerWallet, freelancerWalletType } =
+    const { agreement, walletAddress, freelancerWallet, freelancerWalletType, milestoneId } =
       await assertCanSendAgreement(ctx, args);
     const now = Date.now();
     const shouldRefreshGeneratedAgreement =
@@ -382,6 +382,7 @@ export const sendAgreementForAcceptance = mutation({
       sentToFreelancerAt: now,
       freelancerWallet,
       freelancerWalletType,
+      ...(milestoneId ? { milestoneId } : {}),
       ...(refreshedSnapshot ? { generatedFromSnapshot: refreshedSnapshot } : {}),
       ...(refreshedContentMarkdown ? { contentMarkdown: refreshedContentMarkdown } : {}),
       ...(refreshedRichTextContent ? refreshedRichTextContent : {}),
@@ -393,6 +394,7 @@ export const sendAgreementForAcceptance = mutation({
       sentToFreelancerAt: now,
       freelancerWallet,
       freelancerWalletType,
+      ...(milestoneId ? { milestoneId } : {}),
       ...(refreshedSnapshot ? { generatedFromSnapshot: refreshedSnapshot } : {}),
       ...(refreshedContentMarkdown ? { contentMarkdown: refreshedContentMarkdown } : {}),
       ...(refreshedRichTextContent ? refreshedRichTextContent : {}),
@@ -401,6 +403,7 @@ export const sendAgreementForAcceptance = mutation({
     await insertWorkAgreementEvent(ctx, {
       agreementId: args.agreementId,
       jobId: agreement.jobId,
+      ...(milestoneId ? { milestoneId } : {}),
       ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
       type: "agreement_sent",
       actorWallet: walletAddress,
@@ -422,7 +425,7 @@ export const sendAgreementForAcceptance = mutation({
       title: "Work agreement ready for review",
       body: "The client sent a work agreement for your review.",
       jobId: agreement.jobId,
-      ...(agreement.milestoneId ? { milestoneId: agreement.milestoneId } : {}),
+      ...(milestoneId ? { milestoneId } : {}),
       ...(agreement.escrowId ? { escrowId: agreement.escrowId } : {}),
       agreementId: args.agreementId,
     });

@@ -1508,10 +1508,39 @@ export async function assertCanSendAgreement(
   if (!job) {
     throw new NotFoundError("Job not found.");
   }
-  if (!job.selectedFreelancerWallet) {
+  let freelancerWallet = job.selectedFreelancerWallet
+    ? normalizeWalletAddress(job.selectedFreelancerWallet)
+    : undefined;
+  let milestoneId = agreement.milestoneId;
+  if (!freelancerWallet && (job.jobType ?? "micro_gig") === "milestone_project") {
+    const assignedMilestones = agreement.milestoneId
+      ? [await ctx.db.get(agreement.milestoneId)]
+      : await ctx.db
+          .query("milestones")
+          .withIndex("by_jobId_order", (q) => q.eq("jobId", job._id))
+          .order("asc")
+          .take(500);
+    const assigned = assignedMilestones.filter(
+      (milestone): milestone is Doc<"milestones"> => Boolean(milestone?.assignedFreelancerWallet),
+    );
+    const assignedWallets = new Set(
+      assigned.map((milestone) => normalizeWalletAddress(milestone.assignedFreelancerWallet!)),
+    );
+    if (assignedWallets.size === 1) {
+      freelancerWallet = [...assignedWallets][0];
+      const onlyAssignedMilestone = assigned[0];
+      if (!milestoneId && assigned.length === 1 && onlyAssignedMilestone) {
+        milestoneId = onlyAssignedMilestone._id;
+      }
+    } else if (assignedWallets.size > 1) {
+      throw new BadRequestError(
+        "Create a milestone-specific agreement before sending agreements to different freelancers.",
+      );
+    }
+  }
+  if (!freelancerWallet) {
     throw new BadRequestError("Select a freelancer before sending the agreement.");
   }
-  const freelancerWallet = normalizeWalletAddress(job.selectedFreelancerWallet);
   if (agreement.freelancerWallet && !isSameWallet(agreement.freelancerWallet, freelancerWallet)) {
     throw new BadRequestError(
       "This agreement is assigned to a different freelancer. Create a new agreement for the selected freelancer.",
@@ -1537,7 +1566,7 @@ export async function assertCanSendAgreement(
   if (agreement.agreementType === "client_uploaded" && !agreement.sourceAttachmentId) {
     throw new BadRequestError("Agreement must be previewed before sending.");
   }
-  return { agreement, job, walletAddress, freelancerWallet, freelancerWalletType };
+  return { agreement, job, walletAddress, freelancerWallet, freelancerWalletType, milestoneId };
 }
 
 export async function assertCanAcceptAgreement(
@@ -1642,8 +1671,12 @@ export async function createAgreementSystemMessage(
     agreementHash?: string;
   },
 ) {
-  const parentType = input.agreement.escrowId ? "escrow" : "job";
-  const parentId = input.agreement.escrowId ?? input.agreement.jobId;
+  const parentType = input.agreement.escrowId
+    ? "escrow"
+    : input.agreement.milestoneId
+      ? "milestone"
+      : "job";
+  const parentId = input.agreement.escrowId ?? input.agreement.milestoneId ?? input.agreement.jobId;
   const existing = await ctx.db
     .query("messages")
     .withIndex("by_event", (q) => q.eq("eventType", input.eventType))
