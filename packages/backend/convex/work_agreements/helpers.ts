@@ -12,6 +12,7 @@ import type {
 } from "./schema";
 
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
+import { resolveStablecoinEscrowAssetId } from "../_shared/escrowAssets";
 import {
   normalizeWalletAddress,
   optionalNonEmptyString,
@@ -462,7 +463,9 @@ function resolvePaymentAsset(assetContractId: string): {
   decimals: number;
   warning?: string;
 } {
-  const stablecoinContractId = process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID?.trim();
+  const stablecoinContractId = resolveStablecoinEscrowAssetId(
+    process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
+  );
   const nativeXlmTokenContractId = process.env.NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID?.trim();
 
   if (stablecoinContractId && stablecoinContractId === assetContractId) {

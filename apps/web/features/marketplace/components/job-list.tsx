@@ -8,9 +8,16 @@ interface IJobListProps {
   readonly connectedWallet: string | null;
   readonly onApply: (jobId: string) => void;
   readonly applyingJobId: string | null;
+  readonly appliedJobIds: ReadonlySet<string> | undefined;
 }
 
-export function JobList({ jobs, connectedWallet, onApply, applyingJobId }: IJobListProps) {
+export function JobList({
+  jobs,
+  connectedWallet,
+  onApply,
+  applyingJobId,
+  appliedJobIds,
+}: IJobListProps) {
   if (jobs === undefined) {
     return (
       <div className="grid gap-4">
@@ -40,6 +47,8 @@ export function JobList({ jobs, connectedWallet, onApply, applyingJobId }: IJobL
             connectedWallet={connectedWallet}
             onApply={onApply}
             isApplying={applyingJobId === job.job._id}
+            hasApplied={appliedJobIds?.has(job.job._id) ?? false}
+            isCheckingApplicationStatus={!!connectedWallet && appliedJobIds === undefined}
           />
         ) : (
           <JobCard
@@ -48,6 +57,8 @@ export function JobList({ jobs, connectedWallet, onApply, applyingJobId }: IJobL
             connectedWallet={connectedWallet}
             onApply={onApply}
             isApplying={applyingJobId === job._id}
+            hasApplied={appliedJobIds?.has(job._id) ?? false}
+            isCheckingApplicationStatus={!!connectedWallet && appliedJobIds === undefined}
           />
         ),
       )}

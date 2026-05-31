@@ -969,8 +969,22 @@ export function buildCancellationNumber(now = Date.now()): string {
   return `CAN-${new Date(now).toISOString().slice(0, 10).replace(/-/g, "")}-${now.toString(36).toUpperCase()}`;
 }
 
+function getStellarExpertNetworkPath(): "public" | "testnet" {
+  const network = (
+    process.env.STELLAR_NETWORK ??
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK ??
+    "testnet"
+  )
+    .trim()
+    .toLowerCase();
+
+  return network === "mainnet" || network === "public" || network === "pubnet"
+    ? "public"
+    : "testnet";
+}
+
 export function getStellarExpertUrl(txHash: string): string {
-  return `https://stellar.expert/explorer/testnet/tx/${encodeURIComponent(txHash)}`;
+  return `https://stellar.expert/explorer/${getStellarExpertNetworkPath()}/tx/${encodeURIComponent(txHash)}`;
 }
 
 export function getCancellationExpiresAt(now = Date.now()): number {

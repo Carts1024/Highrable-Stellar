@@ -63,7 +63,9 @@ export const createEscrowRecord = mutation({
       clientWallet,
       freelancerWallet,
     });
-    if (status === "funded") {
+    const hasAssignedFreelancer =
+      freelancerWallet !== undefined || job.selectedFreelancerWallet !== undefined;
+    if (status === "funded" && hasAssignedFreelancer) {
       await assertAgreementAcceptedForWorkStart(ctx, {
         job,
         actorWallet: clientWallet,
@@ -203,7 +205,9 @@ export const updateEscrowStatus = mutation({
 
     const escrow = await getEscrowByEscrowIdOrThrow(ctx, escrowId);
     const existingJob = await ctx.db.get(escrow.jobId);
-    if (args.status === "funded" && existingJob) {
+    const hasAssignedFreelancer =
+      escrow.freelancerWallet !== undefined || existingJob?.selectedFreelancerWallet !== undefined;
+    if (args.status === "funded" && existingJob && hasAssignedFreelancer) {
       await assertAgreementAcceptedForWorkStart(ctx, {
         job: existingJob,
         escrowId: escrow._id,

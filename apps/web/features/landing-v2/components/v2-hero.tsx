@@ -25,7 +25,7 @@ function AnnouncementBadge() {
     >
       <span className="inline-block h-1 w-1 bg-current" aria-hidden="true" />
       <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">
-        Built on Stellar | Powered by AI
+        Built on Stellar | AI Features Coming Soon
       </span>
     </div>
   );
@@ -42,9 +42,9 @@ function HeroHeadline() {
 function HeroSubtitle() {
   return (
     <p className="hr-text-secondary mx-auto mb-10 max-w-2xl text-lg leading-relaxed">
-      Highrable is the next-generation freelance marketplace at the intersection of Agentic AI and
-      Stellar. Smart contract escrow, on-chain reputation, and AI-driven hiring - all in one
-      trustless, zero-border ecosystem.
+      Highrable is a next-generation freelance marketplace built on Stellar. Smart contract escrow
+      and on-chain reputation are core to the platform today, with AI-driven hiring features coming
+      soon.
     </p>
   );
 }

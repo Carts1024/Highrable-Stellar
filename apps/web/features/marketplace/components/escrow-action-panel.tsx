@@ -8,15 +8,15 @@ import {
   getUnsupportedEscrowAssetMessage,
   isSupportedEscrowAsset,
 } from "@/core/stellar/payment-assets";
-import { getStaticSmartAccountReadiness } from "@/core/stellar/smart-account-mainnet-checks";
 import {
   hasStablecoinConfig,
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
+import { isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { CancelWorkButton } from "@/features/cancellations";
+import { CancellationEligibilityNotice, CancelWorkButton } from "@/features/cancellations";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
 import { useEscrowActions } from "@/features/marketplace/hooks/use-escrow-actions";
@@ -64,6 +64,15 @@ function getActionButtonLabel(label: string, isPending: boolean, pendingLabel: s
   return isPending ? pendingLabel : label;
 }
 
+function getInsufficientBalanceMessage(input: {
+  readonly symbol: string;
+  readonly deficitDisplay: string | null;
+  readonly actionLabel: string;
+}): string {
+  const missingAmount = input.deficitDisplay ? ` Add at least ${input.deficitDisplay}.` : "";
+  return `Buy or add more ${input.symbol} before you can ${input.actionLabel}.${missingAmount}`;
+}
+
 export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPanelProps) {
   const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
   const [isPaymentFlowOpen, setIsPaymentFlowOpen] = useState(false);
@@ -101,6 +110,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const stablecoinConfigValidation = validateStablecoinConfig();
   const jobEscrowAsset = getEscrowAssetByContractId(job.asset);
   const isJobAssetSupported = isSupportedEscrowAsset(job.asset);
+  const escrowAssetSymbol = jobEscrowAsset?.symbol ?? stablecoinConfig.symbol;
 
   const currentStatus = getMarketplaceStatus(job.status, escrow?.status);
   const currentStatusMeta = getMarketplaceStatusMeta(currentStatus);
@@ -108,33 +118,42 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== currentStatusMeta.label;
   const isPasskeyMode = walletIdentity.walletType === "passkey_smart_account";
-  const passkeyReadiness = useMemo(() => getStaticSmartAccountReadiness(), []);
-  const passkeyMainnetBlocked =
-    isPasskeyMode &&
-    passkeyReadiness.isMainnet &&
-    !passkeyReadiness.capabilities.canExecuteMainnetPasskeyEscrow;
+  const isExternalWalletOnConfiguredNetwork = isWalletOnConfiguredNetwork(walletState);
+  const cancellationParent = useMemo(
+    () =>
+      escrow
+        ? ({ parentType: "escrow", parentId: escrow._id } as const)
+        : ({ parentType: "micro_gig", parentId: job._id } as const),
+    [escrow, job._id],
+  );
+  const cancellationEligibility = useQuery(
+    api.cancellations.getCancellationEligibility,
+    walletIdentity.walletAddress && (role === "client" || role === "selectedFreelancer")
+      ? {
+          ...cancellationParent,
+          viewerWallet: walletIdentity.walletAddress,
+        }
+      : "skip",
+  );
   const walletGuardContext = useMemo(
     () => ({
       isConnected: walletIdentity.isConnected,
-      isTestnet: isPasskeyMode ? true : walletState.isTestnet,
+      isOnConfiguredNetwork: isPasskeyMode ? true : isExternalWalletOnConfiguredNetwork,
       isFunded: isPasskeyMode ? null : walletState.isFunded,
       canWriteContracts: isPasskeyMode
-        ? !passkeyMainnetBlocked
+        ? walletIdentity.canSignEscrowTransactions
         : walletIdentity.canSignEscrowTransactions && walletState.canWriteContracts,
-      writeRestrictionReason: passkeyMainnetBlocked
-        ? "Mainnet passkey escrow is blocked until the issues below are resolved."
-        : null,
+      writeRestrictionReason: null,
       walletType: walletIdentity.walletType,
     }),
     [
       isPasskeyMode,
-      passkeyMainnetBlocked,
       walletIdentity.canSignEscrowTransactions,
       walletIdentity.isConnected,
       walletIdentity.walletType,
+      isExternalWalletOnConfiguredNetwork,
       walletState.canWriteContracts,
       walletState.isFunded,
-      walletState.isTestnet,
     ],
   );
   const actionGuards = useMemo(
@@ -176,20 +195,43 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     tokenContractId: job.asset || stablecoinConfig.tokenContractId,
     asset: jobEscrowAsset ?? undefined,
     enabled:
-      currentStatus === "created" &&
+      (currentStatus === "selected" || currentStatus === "created") &&
       role === "client" &&
       walletIdentity.canSignEscrowTransactions &&
       walletIdentity.isConnected &&
-      (isPasskeyMode || walletState.isTestnet),
+      (isPasskeyMode || isExternalWalletOnConfiguredNetwork),
   });
-  const isFundEscrowDisabled =
-    isPending ||
-    !actionGuards.fundEscrow.canAct ||
-    !isJobAssetSupported ||
+  const isEscrowBalanceReadinessBlocking =
     stablecoinReadiness.isLoading ||
     stablecoinReadiness.requiredAmountAtomic === null ||
     stablecoinReadiness.error !== null ||
     stablecoinReadiness.hasSufficientBalance === false;
+  const isCreateEscrowDisabled =
+    isPending ||
+    !actionGuards.createEscrow.canAct ||
+    !isJobAssetSupported ||
+    isEscrowBalanceReadinessBlocking;
+  const isFundEscrowDisabled =
+    isPending ||
+    !actionGuards.fundEscrow.canAct ||
+    !isJobAssetSupported ||
+    isEscrowBalanceReadinessBlocking;
+  const createEscrowBalanceWarning =
+    stablecoinReadiness.hasSufficientBalance === false
+      ? getInsufficientBalanceMessage({
+          symbol: escrowAssetSymbol,
+          deficitDisplay: stablecoinReadiness.deficitDisplay,
+          actionLabel: "create this escrow",
+        })
+      : stablecoinReadiness.error;
+  const fundEscrowBalanceWarning =
+    stablecoinReadiness.hasSufficientBalance === false
+      ? getInsufficientBalanceMessage({
+          symbol: escrowAssetSymbol,
+          deficitDisplay: stablecoinReadiness.deficitDisplay,
+          actionLabel: "fund this escrow",
+        })
+      : stablecoinReadiness.error;
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
   const showPendingVerifiedSync =
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
@@ -256,6 +298,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     ) : null}
                   </div>
                   <SafetyInfoDisclosure>
+                    {cancellationEligibility ? (
+                      <CancellationEligibilityNotice eligibility={cancellationEligibility} />
+                    ) : null}
                     {safetyStatus.status === "unfunded" ? (
                       <TrustSafetyNotice
                         type={role === "selectedFreelancer" ? "selected_unfunded" : "unfunded"}
@@ -334,9 +379,13 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     warningText={
                       role === "selectedFreelancer"
                         ? "Waiting for client to create and fund escrow. Do not start work until payment is confirmed."
-                        : role === "client" && !actionGuards.createEscrow.canAct
-                          ? actionGuards.createEscrow.reason
-                          : undefined
+                        : role === "client" && !isJobAssetSupported
+                          ? (jobEscrowAsset?.readinessMessage ?? getUnsupportedEscrowAssetMessage())
+                          : role === "client" && createEscrowBalanceWarning
+                            ? createEscrowBalanceWarning
+                            : role === "client" && !actionGuards.createEscrow.canAct
+                              ? actionGuards.createEscrow.reason
+                              : undefined
                     }
                     infoText={
                       role !== "client" && role !== "selectedFreelancer"
@@ -345,19 +394,63 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     }
                   >
                     {role === "client" ? (
-                      <AppButton
-                        type="button"
-                        disabled={isPending || !actionGuards.createEscrow.canAct}
-                        onClick={() => void createEscrow()}
-                        className="disabled:cursor-not-allowed disabled:opacity-60"
-                        aria-label="Create escrow for selected freelancer"
-                      >
-                        {getActionButtonLabel(
-                          "Create Escrow",
-                          pendingAction === "create_escrow",
-                          "Creating Escrow...",
-                        )}
-                      </AppButton>
+                      <div className="space-y-3">
+                        <StablecoinBalancePanel
+                          walletAddress={walletIdentity.walletAddress}
+                          requiredAmount={job.budget}
+                          tokenContractId={job.asset || stablecoinConfig.tokenContractId}
+                          asset={jobEscrowAsset ?? undefined}
+                          enabled={currentStatus === "selected" && role === "client"}
+                          readinessState={stablecoinReadiness}
+                          isRefreshDisabled={isPending}
+                        />
+
+                        {jobEscrowAsset?.kind === "stablecoin" &&
+                        stablecoinReadiness.hasSufficientBalance === false ? (
+                          <XlmToUsdcTopUpPanel
+                            walletAddress={walletIdentity.walletAddress}
+                            walletType={walletIdentity.walletType}
+                            missingUsdcAmount={stablecoinReadiness.deficitDisplay}
+                            usdcBalance={stablecoinReadiness.balanceDisplay}
+                            jobAssetContractId={job.asset || stablecoinConfig.tokenContractId}
+                            onRefreshBalance={stablecoinReadiness.refresh}
+                            canFundEscrow={false}
+                            isFundEscrowPending={pendingAction === "fund_escrow"}
+                          />
+                        ) : null}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <AppButton
+                            type="button"
+                            disabled={isCreateEscrowDisabled}
+                            onClick={() => void createEscrow()}
+                            className="disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Create escrow for selected freelancer"
+                          >
+                            {getActionButtonLabel(
+                              "Create Escrow",
+                              pendingAction === "create_escrow",
+                              "Creating Escrow...",
+                            )}
+                          </AppButton>
+                          {createEscrowBalanceWarning ? (
+                            <SafetyInfoDisclosure label="View escrow balance requirement">
+                              <TrustWarning message={createEscrowBalanceWarning} />
+                              {jobEscrowAsset?.kind === "stablecoin" ? (
+                                <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+                                  Use the Stellar path payment panel in this section to convert XLM
+                                  into {escrowAssetSymbol}, then refresh the balance.
+                                </p>
+                              ) : (
+                                <p className="border border-[#e8e8e8] bg-[#fafafa] px-3 py-2 text-sm text-[#3f3f3f]">
+                                  Buy or receive more {escrowAssetSymbol}, then refresh your escrow
+                                  balance.
+                                </p>
+                              )}
+                            </SafetyInfoDisclosure>
+                          ) : null}
+                        </div>
+                      </div>
                     ) : null}
                   </EscrowSection>
                 ) : null}
@@ -384,9 +477,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                               getUnsupportedEscrowAssetMessage())
                             : role === "client" &&
                                 stablecoinReadiness.hasSufficientBalance === false
-                              ? `Insufficient ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol} balance. Add at least ${stablecoinReadiness.deficitDisplay ?? "0"} ${jobEscrowAsset?.symbol ?? stablecoinConfig.symbol}.`
-                              : role === "client" && stablecoinReadiness.error
-                                ? stablecoinReadiness.error
+                              ? fundEscrowBalanceWarning
+                              : role === "client" && fundEscrowBalanceWarning
+                                ? fundEscrowBalanceWarning
                                 : role === "client" && !actionGuards.fundEscrow.canAct
                                   ? actionGuards.fundEscrow.reason
                                   : undefined
@@ -436,7 +529,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                               "Funding Escrow...",
                             )}
                           </AppButton>
-                          <CancelWorkButton job={job} escrow={escrow} />
+                          <CancelWorkButton
+                            job={job}
+                            escrow={escrow}
+                            showEligibilityDisclosure={false}
+                          />
                         </div>
                       </div>
                     ) : null}
@@ -473,7 +570,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                     {role === "client" ? (
                       <div className="space-y-3">
                         <div className="flex flex-wrap gap-2">
-                          <CancelWorkButton job={job} escrow={escrow} />
+                          <CancelWorkButton
+                            job={job}
+                            escrow={escrow}
+                            showEligibilityDisclosure={false}
+                          />
                           {job.selectedFreelancerWallet ? (
                             <OpenDisputeButton
                               job={job}

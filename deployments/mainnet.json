@@ -1,0 +1,12 @@
+{
+  "network": "mainnet",
+  "networkPassphrase": "Public Global Stellar Network ; September 2015",
+  "rpcUrl": "https://rpc.lightsail.network",
+  "horizonUrl": "https://horizon.stellar.org",
+  "reputationContractId": "CBHF3FE2EVSU6MAPJIR3PQES3QKOUXMWYERNYTC4YOU2E6G3INAE22VQ",
+  "escrowContractId": "CBUFSKNQ7PRNP27KKQ3BDDQHP5HYOU36O73P3JGHWUWOZLD37TFCNALL",
+  "platformAdmin": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployerIdentity": "burner-key",
+  "deployerAddress": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployedAt": "2026-05-22T02:43:25Z"
+}

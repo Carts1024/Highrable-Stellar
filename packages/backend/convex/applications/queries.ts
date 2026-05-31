@@ -46,6 +46,42 @@ export const listApplicationsByFreelancer = query({
   },
 });
 
+export const listAppliedJobIdsByFreelancer = query({
+  args: {
+    freelancerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const freelancerWallet = sanitizeApplicationWallet(args.freelancerWallet);
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_freelancerWallet", (q) => q.eq("freelancerWallet", freelancerWallet))
+      .order("desc")
+      .take(1000);
+
+    return applications
+      .filter((application) => application.milestoneId === undefined)
+      .map((application) => application.jobId);
+  },
+});
+
+export const hasAppliedToJob = query({
+  args: {
+    jobId: v.id("jobs"),
+    freelancerWallet: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const freelancerWallet = sanitizeApplicationWallet(args.freelancerWallet);
+    const application = await ctx.db
+      .query("applications")
+      .withIndex("by_jobId_and_freelancerWallet", (q) =>
+        q.eq("jobId", args.jobId).eq("freelancerWallet", freelancerWallet),
+      )
+      .first();
+
+    return application !== null && application.milestoneId === undefined;
+  },
+});
+
 export const listShowcaseableCompletedWorksByFreelancer = query({
   args: {
     freelancerWallet: v.string(),

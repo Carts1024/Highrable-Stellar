@@ -79,7 +79,7 @@ function PricingCard({ tier, index }: IPricingCardProps) {
 
       <ul className="my-6 space-y-3">
         {tier.features.map((feature) => (
-          <li key={feature.label} className="flex items-center gap-2.5 text-sm">
+          <li key={feature.label} className="flex flex-wrap items-center gap-2.5 text-sm">
             {feature.included ? (
               <span
                 className="hr-text-accent inline-block h-1 w-1 shrink-0 bg-current"
@@ -97,6 +97,11 @@ function PricingCard({ tier, index }: IPricingCardProps) {
             >
               {feature.label}
             </span>
+            {feature.comingSoon && (
+              <span className="hr-v2-badge-accent px-2 py-0.5 font-mono text-[0.55rem] tracking-[0.08em] uppercase">
+                Coming Soon
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -164,7 +169,8 @@ export function V2PricingSection() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="hr-text-muted mt-8 font-mono text-xs tracking-[0.06em] uppercase"
         >
-          Pay-per-use | AI Interview Credits $5/5-pack | Job Boost $10/week | Profile Boost $5/week
+          Pay-per-use | AI Interview Credits coming soon | Job Boost $10/week | Profile Boost
+          $5/week
         </motion.p>
       </div>
     </section>

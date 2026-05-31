@@ -63,6 +63,10 @@ export function MarketplacePage() {
   const router = useRouter();
   const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
+  const appliedJobIds = useQuery(
+    api.applications.listAppliedJobIdsByFreelancer,
+    walletIdentity.walletAddress ? { freelancerWallet: walletIdentity.walletAddress } : "skip",
+  );
   const applyToJob = useMutation(api.applications.applyToJob);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [selectedJobForApplyId, setSelectedJobForApplyId] = useState<string | null>(null);
@@ -106,6 +110,14 @@ export function MarketplacePage() {
     return visibleRows.reduce((total, row) => total + (row.job.totalBudget ?? row.job.budget), 0);
   }, [visibleRows]);
 
+  const appliedJobIdSet = useMemo(() => {
+    if (!walletIdentity.walletAddress) {
+      return new Set<string>();
+    }
+
+    return appliedJobIds ? new Set<string>(appliedJobIds) : undefined;
+  }, [appliedJobIds, walletIdentity.walletAddress]);
+
   const selectedRowForApply =
     marketplaceRows?.find((row) => row.job._id === selectedJobForApplyId) ?? null;
   const selectedJobForApply = selectedRowForApply?.job ?? null;
@@ -122,6 +134,11 @@ export function MarketplacePage() {
 
     if (isSameWallet(selectedJob.clientWallet, walletIdentity.walletAddress)) {
       showWarningToast("Client cannot apply to their own job.");
+      return;
+    }
+
+    if (appliedJobIdSet?.has(jobId)) {
+      showWarningToast("You already applied to this job.");
       return;
     }
 
@@ -288,6 +305,7 @@ export function MarketplacePage() {
           connectedWallet={walletIdentity.walletAddress}
           onApply={openApplyDialogFromList}
           applyingJobId={applyingJobId}
+          appliedJobIds={appliedJobIdSet}
         />
       </section>
 

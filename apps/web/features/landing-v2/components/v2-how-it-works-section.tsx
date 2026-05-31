@@ -40,7 +40,14 @@ function WorkflowStepRow({ step, index, baseDelay }: IWorkflowStepRowProps) {
         <span className="font-mono text-xs font-bold">{String(step.step).padStart(2, "0")}</span>
       </div>
       <div className="pt-0.5">
-        <h4 className="hr-text-primary font-semibold">{step.title}</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="hr-text-primary font-semibold">{step.title}</h4>
+          {step.comingSoon && (
+            <span className="hr-v2-badge-accent px-2 py-0.5 font-mono text-[0.55rem] tracking-[0.08em] uppercase">
+              Coming Soon
+            </span>
+          )}
+        </div>
         <p className="hr-text-secondary mt-0.5 text-sm leading-relaxed">{step.description}</p>
       </div>
     </motion.div>

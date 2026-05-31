@@ -1,3 +1,5 @@
+import { getWalletNetworkMismatchMessage } from "@/core/wallet/config";
+
 import type { TActorRole } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
@@ -17,7 +19,7 @@ export type TEscrowActionGuardResult = {
 
 type TWalletActionContext = {
   isConnected: boolean;
-  isTestnet: boolean;
+  isOnConfiguredNetwork: boolean;
   isFunded: boolean | null;
   canWriteContracts?: boolean;
   writeRestrictionReason?: string | null;
@@ -66,8 +68,8 @@ function getWalletGuardResult(input: TEscrowActionGuardInput): TEscrowActionGuar
     );
   }
 
-  if (!input.wallet.isTestnet) {
-    return blocked("Switch your wallet to Stellar Testnet to continue.");
+  if (!input.wallet.isOnConfiguredNetwork) {
+    return blocked(getWalletNetworkMismatchMessage("continuing"));
   }
 
   if (input.wallet.isFunded === false) {

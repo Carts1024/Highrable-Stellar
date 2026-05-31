@@ -1,4 +1,5 @@
 import { env } from "@/core/config/env";
+import { resolveStablecoinTokenContractId } from "@/core/stellar/stablecoin-config";
 
 export type TStellarDeploymentNetwork = "local" | "testnet" | "mainnet" | "unknown";
 export type TRelayerKind =
@@ -95,7 +96,13 @@ export function getTestnetPassphrase(): string {
 }
 
 export function getSmartAccountDeploymentConfig(): ISmartAccountDeploymentConfig {
-  const relayerKind = normalizeRelayerKind(env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND);
+  const relayerUrl = normalizeOptionalString(env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL);
+  const rawRelayerKind = normalizeOptionalString(env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND);
+  const relayerKind = rawRelayerKind
+    ? normalizeRelayerKind(rawRelayerKind)
+    : relayerUrl
+      ? "custom"
+      : "sdk_source_account";
 
   return {
     network: normalizeConfiguredNetwork(env.NEXT_PUBLIC_STELLAR_NETWORK),
@@ -114,15 +121,21 @@ export function getSmartAccountDeploymentConfig(): ISmartAccountDeploymentConfig
     appDomain: normalizeOptionalString(env.NEXT_PUBLIC_APP_DOMAIN),
     rpName: normalizeOptionalString(env.NEXT_PUBLIC_PASSKEY_RP_NAME),
     relayerKind,
-    rawRelayerKind: normalizeOptionalString(env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND),
-    relayerUrl: normalizeOptionalString(env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL),
-    stablecoinTokenContractId: normalizeContractId(env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID),
+    rawRelayerKind,
+    relayerUrl,
+    stablecoinTokenContractId: normalizeContractId(
+      resolveStablecoinTokenContractId(env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID),
+    ),
     nativeXlmTokenContractId: normalizeContractId(env.NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID),
     usdcAssetCode: normalizeOptionalString(
       env.NEXT_PUBLIC_USDC_ASSET_CODE ?? env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE,
     ),
     usdcAssetIssuer: normalizeOptionalString(
-      env.NEXT_PUBLIC_USDC_ASSET_ISSUER ?? env.NEXT_PUBLIC_STABLECOIN_ISSUER,
+      env.NEXT_PUBLIC_USDC_ASSET_ISSUER ??
+        env.NEXT_PUBLIC_STABLECOIN_ISSUER ??
+        (env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID?.startsWith("G")
+          ? env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID
+          : undefined),
     )?.toUpperCase(),
     escrowContractId: normalizeContractId(env.NEXT_PUBLIC_ESCROW_CONTRACT_ID),
     reputationContractId: normalizeContractId(env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID),

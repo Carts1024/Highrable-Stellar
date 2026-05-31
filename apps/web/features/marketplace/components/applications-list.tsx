@@ -3,6 +3,7 @@
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { assignFreelancerOnChain } from "@/core/stellar/escrow-contract";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
@@ -73,8 +74,8 @@ export function ApplicationsList({
       );
     }
 
-    if (!walletState.isTestnet) {
-      throw new Error("Switch your wallet to Stellar Testnet before assigning a freelancer.");
+    if (!isWalletOnConfiguredNetwork(walletState)) {
+      throw new Error(getWalletNetworkMismatchMessage("assigning a freelancer"));
     }
 
     if (walletState.isFunded === false) {

@@ -5,6 +5,7 @@ import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
 import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
+import { findUserByWallet, resolveAvatarUrl } from "../users/helpers";
 import {
   assertParticipant,
   getConversationByParent as findConversationByParent,
@@ -16,6 +17,7 @@ async function withMessageAttachments(
   ctx: QueryCtx,
   message: Awaited<ReturnType<typeof ctx.db.get<"messages">>>,
   viewerWallet: string,
+  senderProfile: TConversationSenderProfile | null,
 ) {
   if (!message) {
     return null;
@@ -31,7 +33,56 @@ async function withMessageAttachments(
     attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
   }
 
-  return { ...message, attachments };
+  return { ...message, attachments, senderProfile };
+}
+
+type TConversationSenderProfile = {
+  walletAddress: string;
+  displayName: string;
+  avatarUrl?: string;
+};
+
+function getUserDisplayName(user: Awaited<ReturnType<typeof findUserByWallet>>): string | null {
+  if (!user) {
+    return null;
+  }
+
+  const firstLastName = [user.firstName, user.lastName]
+    .map((namePart) => namePart?.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return firstLastName || user.name?.trim() || user.companyName?.trim() || null;
+}
+
+async function getSenderProfiles(
+  ctx: QueryCtx,
+  walletAddresses: readonly string[],
+): Promise<Map<string, TConversationSenderProfile>> {
+  const uniqueWalletAddresses = Array.from(
+    new Set(walletAddresses.filter((walletAddress) => walletAddress !== "system")),
+  );
+  const profiles = new Map<string, TConversationSenderProfile>();
+
+  await Promise.all(
+    uniqueWalletAddresses.map(async (walletAddress) => {
+      const user = await findUserByWallet(ctx, walletAddress);
+      const displayName = getUserDisplayName(user);
+      if (!displayName) {
+        return;
+      }
+
+      profiles.set(walletAddress, {
+        walletAddress,
+        displayName,
+        ...(await resolveAvatarUrl(ctx, user).then((avatarUrl) =>
+          avatarUrl ? { avatarUrl } : {},
+        )),
+      });
+    }),
+  );
+
+  return profiles;
 }
 
 export const getConversation = query({
@@ -112,8 +163,19 @@ export const getMessagesForConversation = query({
       .take(limit);
 
     const visibleMessages = messages.filter((message) => message.status !== "hidden");
+    const senderProfiles = await getSenderProfiles(
+      ctx,
+      visibleMessages.map((message) => message.senderWallet),
+    );
     const withAttachments = await Promise.all(
-      visibleMessages.map((message) => withMessageAttachments(ctx, message, viewerWallet)),
+      visibleMessages.map((message) =>
+        withMessageAttachments(
+          ctx,
+          message,
+          viewerWallet,
+          senderProfiles.get(message.senderWallet) ?? null,
+        ),
+      ),
     );
 
     return withAttachments.filter((message) => message !== null);

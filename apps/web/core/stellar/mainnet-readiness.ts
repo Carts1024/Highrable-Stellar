@@ -1,4 +1,5 @@
 import { getRelayerReadiness, type IRelayerHealthResponse } from "@/core/stellar/relayer-readiness";
+import { SMART_ACCOUNT_KIT_TESTNET_DEFAULTS } from "@/core/stellar/smart-account-config";
 import {
   getMainnetPassphrase,
   getSmartAccountDeploymentConfig,
@@ -366,14 +367,21 @@ export function evaluateSmartAccountMainnetReadiness(
   }
   if (!config.stablecoinTokenContractId) {
     blockingIssues.push("Missing stablecoin token contract ID.");
+  } else if (!CONTRACT_ACCOUNT_PATTERN.test(config.stablecoinTokenContractId)) {
+    blockingIssues.push("Stablecoin token contract ID must be a C... contract address.");
   }
   if (!config.escrowContractId) {
     blockingIssues.push("Missing escrow contract ID.");
+  } else if (!CONTRACT_ACCOUNT_PATTERN.test(config.escrowContractId)) {
+    blockingIssues.push("Escrow contract ID must be a C... contract address.");
   }
 
   if (isMainnet) {
     if (config.networkPassphrase !== getMainnetPassphrase()) {
       blockingIssues.push("Network passphrase is not Stellar mainnet.");
+    }
+    if (!config.horizonUrl) {
+      blockingIssues.push("Stellar Horizon URL is missing.");
     }
     if (networkStatus.rpcLooksLikeTestnet) {
       blockingIssues.push("RPC URL points to testnet or futurenet while mainnet is selected.");
@@ -405,6 +413,19 @@ export function evaluateSmartAccountMainnetReadiness(
     if (config.usdcAssetIssuer && TESTNET_ISSUERS.has(config.usdcAssetIssuer)) {
       blockingIssues.push(
         "A testnet USDC issuer appears to be configured while mainnet is selected.",
+      );
+    }
+    if (config.accountWasmHash === SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash) {
+      warnings.push(
+        "Configured smart account WASM hash matches the known testnet default. Verify this artifact is intended for mainnet.",
+      );
+    }
+    if (
+      config.webauthnVerifierContractId ===
+      SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.webauthnVerifierAddress
+    ) {
+      warnings.push(
+        "Configured WebAuthn verifier matches the known testnet default. Verify this contract is intended for mainnet.",
       );
     }
     if (relayerReadiness.blockingIssues.length > 0) {

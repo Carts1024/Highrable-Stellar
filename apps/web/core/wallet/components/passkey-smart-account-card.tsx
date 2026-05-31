@@ -2,13 +2,17 @@
 
 import { STELLAR_NETWORK } from "@/core/config/stellar-contracts";
 import { fromTokenUnits } from "@/core/stellar/amounts";
-import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
+import {
+  getPasskeyEscrowExecutionReadiness,
+  type IPasskeyEscrowExecutionReadiness,
+} from "@/core/stellar/passkeySmartAccountExecutor";
 import {
   getSmartAccountNativeBalance,
   getSmartAccountStablecoinBalance,
   type ISmartAccountBalanceResult,
 } from "@/core/stellar/smart-account-balances";
 import { stablecoinConfig } from "@/core/stellar/stablecoin-config";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { PasskeySendTokenPanel } from "@/features/wallet/components/passkey-send-token-panel";
@@ -25,13 +29,6 @@ import {
 } from "@repo/ui/components/ui/dialog";
 import { Check, Copy, KeyRound, LogOut, RefreshCw, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-
-type TPasskeyFeeReadiness = {
-  readonly canExecute: boolean;
-  readonly reason: string | null;
-  readonly usesRelayer: boolean;
-  readonly feeSourceAddress: string | null;
-};
 
 const EMPTY_BALANCE_RESULT: ISmartAccountBalanceResult = {
   status: "limited",
@@ -59,16 +56,40 @@ function formatNativeBalance(result: ISmartAccountBalanceResult): string {
   return `${fromTokenUnits(result.balance, 7)} XLM`;
 }
 
-function formatFeePath(readiness: TPasskeyFeeReadiness | null): string {
+function formatFeePath(readiness: IPasskeyEscrowExecutionReadiness | null): string {
   if (!readiness) {
     return "Checking";
   }
 
-  if (!readiness.canExecute) {
-    return readiness.reason ?? "Smart account transaction fees are not configured.";
+  if (readiness.feePath === "relayer") {
+    return "Relayer configured";
   }
 
-  return readiness.usesRelayer ? "Relayer ready" : "Source account ready";
+  if (readiness.feePath === "classic_source_account") {
+    return "Using funded classic source account";
+  }
+
+  return "Missing fee path";
+}
+
+function getReadinessCopy(readiness: IPasskeyEscrowExecutionReadiness | null): string {
+  if (!readiness) {
+    return "Checking passkey escrow execution readiness.";
+  }
+
+  if (readiness.canExecute && readiness.feePath === "classic_source_account") {
+    return "Passkey escrow is ready. Network fees will be paid by the configured classic source account.";
+  }
+
+  if (readiness.canExecute && readiness.feePath === "relayer") {
+    return "Passkey escrow is ready. Network fees will be paid by the configured relayer.";
+  }
+
+  if (readiness.missingReasons.length > 0) {
+    return readiness.missingReasons[0]!;
+  }
+
+  return "Smart account transaction fees are not configured. Add a relayer URL or fund the classic SDK source account on mainnet.";
 }
 
 export function PasskeySmartAccountCard() {
@@ -90,14 +111,17 @@ export function PasskeySmartAccountCard() {
     disconnectPasskeyAccount,
     clearLocalPasskeySession,
     clearPasskeyError,
+    activeWalletMode,
+    setActiveWalletMode,
   } = usePasskeySmartAccount();
+  const { walletState } = useWallet();
   const [copied, setCopied] = useState(false);
   const [showSendPanel, setShowSendPanel] = useState(false);
   const [nativeBalance, setNativeBalance] =
     useState<ISmartAccountBalanceResult>(EMPTY_BALANCE_RESULT);
   const [stablecoinBalance, setStablecoinBalance] =
     useState<ISmartAccountBalanceResult>(EMPTY_BALANCE_RESULT);
-  const [feeReadiness, setFeeReadiness] = useState<TPasskeyFeeReadiness | null>(null);
+  const [feeReadiness, setFeeReadiness] = useState<IPasskeyEscrowExecutionReadiness | null>(null);
   const [isRefreshingWalletDetails, setIsRefreshingWalletDetails] = useState(false);
 
   const runPasskeyUiAction = async (action: () => Promise<unknown>): Promise<void> => {
@@ -177,7 +201,7 @@ export function PasskeySmartAccountCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
           <KeyRound className="h-5 w-5" aria-hidden="true" />
@@ -217,18 +241,18 @@ export function PasskeySmartAccountCard() {
                   </div>
                 </div>
 
-                <div className="grid divide-y divide-[#e8e8e8] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                  <div className="p-4">
+                <div className="grid min-w-0 divide-y divide-[#e8e8e8] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">XLM balance</p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatNativeBalance(nativeBalance)}
                     </p>
                   </div>
-                  <div className="p-4">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">
                       {stablecoinConfig.symbol} balance
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatSmartBalance(
                         stablecoinBalance,
                         stablecoinConfig.symbol,
@@ -236,19 +260,117 @@ export function PasskeySmartAccountCard() {
                       )}
                     </p>
                   </div>
-                  <div className="p-4">
+                  <div className="min-w-0 p-4">
                     <p className="font-mono text-[11px] text-[#777] uppercase">Fee readiness</p>
-                    <p className="mt-2 text-sm font-semibold text-[#0a0a0a]">
+                    <p className="mt-2 text-sm font-semibold [overflow-wrap:anywhere] break-words text-[#0a0a0a]">
                       {formatFeePath(feeReadiness)}
                     </p>
                   </div>
                 </div>
               </div>
 
+              <div className="border border-[#0a0a0a] bg-white">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#0a0a0a] px-4 py-3">
+                  <div>
+                    <p className="font-mono text-[11px] tracking-[0.08em] text-[#5f5f5f] uppercase">
+                      Passkey execution status
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#0a0a0a]">
+                      Escrow write readiness: {feeReadiness?.canExecute ? "Ready" : "Not Ready"}
+                    </p>
+                  </div>
+                  <span
+                    className={`h-3 w-3 border border-[#0a0a0a] ${
+                      feeReadiness?.canExecute ? "bg-[#0a0a0a]" : "bg-[#FF7003]"
+                    }`}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="grid gap-0 divide-y divide-[#e8e8e8] text-sm md:grid-cols-2 md:divide-x md:divide-y-0">
+                  <div className="space-y-3 p-4">
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">
+                        Active wallet mode
+                      </p>
+                      <p className="mt-1 font-semibold text-[#0a0a0a]">{activeWalletMode}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">Wallet type</p>
+                      <p className="mt-1 font-semibold text-[#0a0a0a]">Passkey Smart Account</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">Network</p>
+                      <p className="mt-1 font-semibold text-[#0a0a0a]">
+                        {feeReadiness?.network ?? STELLAR_NETWORK}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">Fee path</p>
+                      <p className="mt-1 font-semibold text-[#0a0a0a]">
+                        {formatFeePath(feeReadiness)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 p-4">
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">
+                        Classic source account
+                      </p>
+                      <p className="mt-1 font-mono text-xs break-all text-[#0a0a0a]">
+                        {feeReadiness?.classicSourceAddress ?? "Not available"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">
+                        Classic source funded
+                      </p>
+                      <p className="mt-1 font-semibold text-[#0a0a0a]">
+                        {feeReadiness?.classicSourceIsFunded ? "Funded" : "Not funded"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] text-[#777] uppercase">
+                        Stablecoin readiness
+                      </p>
+                      <p className="mt-1 text-[#0a0a0a]">
+                        {stablecoinBalance.balance === null
+                          ? "Balance unreadable. Funding actions will check balance when possible."
+                          : `${fromTokenUnits(
+                              stablecoinBalance.balance,
+                              stablecoinConfig.decimals,
+                            )} ${stablecoinConfig.symbol}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`border-t px-4 py-3 text-sm ${
+                    feeReadiness?.canExecute
+                      ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+                      : "border-[#FF7003] bg-[#fff7ed] text-[#7a2f00]"
+                  }`}
+                >
+                  <p className="[overflow-wrap:anywhere] break-words">
+                    {getReadinessCopy(feeReadiness)}
+                  </p>
+                  {feeReadiness?.network === "mainnet" && feeReadiness.feePath === "missing" ? (
+                    <p className="mt-1">
+                      Friendbot is not available on mainnet. Make sure the classic source account
+                      has XLM for fees.
+                    </p>
+                  ) : null}
+                  {feeReadiness?.missingReasons.slice(1).map((reason) => (
+                    <p key={reason} className="mt-1">
+                      {reason}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
               {feeReadiness && !feeReadiness.canExecute ? (
                 <div className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   <p className="font-semibold">Sending is blocked</p>
-                  <p className="mt-1">{feeReadiness.reason}</p>
+                  <p className="mt-1 [overflow-wrap:anywhere] break-words">{feeReadiness.reason}</p>
                 </div>
               ) : null}
 
@@ -296,6 +418,15 @@ export function PasskeySmartAccountCard() {
                   <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                   Clear local session
                 </AppButton>
+                {walletState.isConnected && walletState.walletAddress ? (
+                  <AppButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActiveWalletMode("external_wallet")}
+                  >
+                    Use external wallet
+                  </AppButton>
+                ) : null}
               </div>
 
               {showSendPanel ? (

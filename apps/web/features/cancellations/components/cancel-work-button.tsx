@@ -2,9 +2,10 @@
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { showWarningToast } from "@/features/common";
+import { sanitizeMultilineInput, showWarningToast } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
+import { SafetyInfoDisclosure } from "@repo/ui/components/highrable/safety-info-disclosure";
 import { Button } from "@repo/ui/components/ui/button";
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
 import {
@@ -57,6 +58,7 @@ interface ICancelWorkButtonProps {
   readonly milestone?: TConvexDoc<"milestones">;
   readonly escrow: TConvexDoc<"escrows"> | null | undefined;
   readonly className?: string;
+  readonly showEligibilityDisclosure?: boolean;
 }
 
 const REASON_OPTIONS: Array<{ value: TCancellationReasonCategory; label: string }> = [
@@ -101,7 +103,13 @@ function getButtonLabel(eligibility: {
   return "Cancel work";
 }
 
-export function CancelWorkButton({ job, milestone, escrow, className }: ICancelWorkButtonProps) {
+export function CancelWorkButton({
+  job,
+  milestone,
+  escrow,
+  className,
+  showEligibilityDisclosure = true,
+}: ICancelWorkButtonProps) {
   const walletIdentity = useHighrableWalletIdentity();
   const createCancellationRequest = useMutation(api.cancellations.createCancellationRequest);
   const { executeCancellation, isPending, error, success, txExplorerUrl } =
@@ -169,6 +177,13 @@ export function CancelWorkButton({ job, milestone, escrow, className }: ICancelW
       showWarningToast(nextWarning);
       return;
     }
+    const sanitizedReasonText = sanitizeMultilineInput(reasonText).slice(0, 4000);
+    if (!sanitizedReasonText) {
+      const nextWarning = "Add cancellation details before submitting.";
+      setSubmitError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -182,7 +197,7 @@ export function CancelWorkButton({ job, milestone, escrow, className }: ICancelW
           ? { freelancerWalletType: "external_wallet" as const }
           : {}),
         reasonCategory,
-        reasonText,
+        reasonText: sanitizedReasonText,
         clientWarningAccepted,
         proofWarningAccepted,
         escrowContractId: config.escrowContractId,
@@ -213,7 +228,13 @@ export function CancelWorkButton({ job, milestone, escrow, className }: ICancelW
 
   return (
     <div className={`space-y-3 ${className ?? ""}`}>
-      {eligibility ? <CancellationEligibilityNotice eligibility={eligibility} /> : null}
+      {showEligibilityDisclosure && eligibility ? (
+        <div className="flex justify-end">
+          <SafetyInfoDisclosure label="View cancellation eligibility details">
+            <CancellationEligibilityNotice eligibility={eligibility} />
+          </SafetyInfoDisclosure>
+        </div>
+      ) : null}
       {displayedRequest ? (
         <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
