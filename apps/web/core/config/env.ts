@@ -66,6 +66,9 @@ const TStellarPublicKeySchema = z
   .string()
   .trim()
   .regex(/^G[A-Z2-7]{55}$/, "Invalid Stellar public key format");
+
+const TStellarAssetContractConfigSchema = z.union([TContractIdSchema, TStellarPublicKeySchema]);
+
 const Hash64Schema = z
   .string()
   .trim()
@@ -91,11 +94,38 @@ function normalizeOptionalBooleanEnv(value: unknown): unknown {
 
 const OptionalBooleanEnvSchema = z.preprocess(normalizeOptionalBooleanEnv, z.boolean().optional());
 
+function shouldRequireProductionAppDomain(): boolean {
+  const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK?.trim().toLowerCase();
+  return process.env.NODE_ENV === "production" || network === "mainnet" || network === "public";
+}
+
+function normalizeAppDomainEnvValue(value: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed.match(/^https?:\/\//iu)) {
+    return trimmed;
+  }
+
+  return shouldRequireProductionAppDomain() ? `https://${trimmed}` : trimmed;
+}
+
 function resolveAppDomainEnvValue(): string | undefined {
   const configuredValue = process.env.NEXT_PUBLIC_APP_DOMAIN?.trim();
 
   if (configuredValue && configuredValue.length > 0) {
-    return configuredValue;
+    return normalizeAppDomainEnvValue(configuredValue);
+  }
+
+  const vercelDomain = [
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_URL,
+  ]
+    .map((value) => value?.trim())
+    .find((value): value is string => Boolean(value && value.length > 0));
+
+  if (vercelDomain && vercelDomain.length > 0) {
+    return normalizeAppDomainEnvValue(vercelDomain);
   }
 
   return process.env.NODE_ENV === "production" ? undefined : "http://localhost:3000";
@@ -119,7 +149,7 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_APP_DOMAIN: z.string().trim().min(1),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
-  NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
+  NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TStellarAssetContractConfigSchema.optional(),
   NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().trim().optional(),
   NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH: Hash64Schema.optional(),
@@ -131,7 +161,10 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256: Hash64Schema.optional(),
   NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_PASSKEY_RP_NAME: z.string().trim().min(1).optional(),
-  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().url().optional(),
+  ),
   NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: z
     .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
     .optional(),

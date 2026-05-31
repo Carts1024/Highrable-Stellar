@@ -1,8 +1,13 @@
 "use client";
 
 import {
+  STELLAR_MAINNET_NETWORK_LABEL,
+  STELLAR_MAINNET_NETWORK_PASSPHRASE,
   STELLAR_TESTNET_NETWORK_LABEL,
   STELLAR_TESTNET_NETWORK_PASSPHRASE,
+  WALLET_NETWORK,
+  WALLET_NETWORK_LABEL,
+  WALLET_NETWORK_PASSPHRASE,
   WALLETCONNECT_PROJECT_ID,
 } from "@/core/wallet/config";
 import {
@@ -158,8 +163,8 @@ function normalizeWalletNetwork(network: string | null | undefined): {
 
   if (!normalizedNetwork) {
     return {
-      network: STELLAR_TESTNET_NETWORK_LABEL,
-      isTestnet: true,
+      network: WALLET_NETWORK_LABEL,
+      isTestnet: WALLET_NETWORK !== "mainnet",
     };
   }
 
@@ -170,6 +175,18 @@ function normalizeWalletNetwork(network: string | null | undefined): {
     return {
       network: STELLAR_TESTNET_NETWORK_LABEL,
       isTestnet: true,
+    };
+  }
+
+  if (
+    normalizedNetwork === STELLAR_MAINNET_NETWORK_PASSPHRASE ||
+    normalizedNetwork.toLowerCase().includes("mainnet") ||
+    normalizedNetwork.toLowerCase().includes("pubnet") ||
+    normalizedNetwork.toLowerCase().includes("public")
+  ) {
+    return {
+      network: STELLAR_MAINNET_NETWORK_LABEL,
+      isTestnet: false,
     };
   }
 
@@ -226,11 +243,15 @@ function createWalletModules(includeWalletConnect: boolean): ModuleInterface[] {
       projectId: WALLETCONNECT_PROJECT_ID,
       metadata: {
         name: "Highrable",
-        description: "Stellar-native freelancing marketplace on testnet.",
+        description: "Stellar-native freelancing marketplace.",
         url: appOrigin,
         icons: [`${appOrigin}/logo/stellar/Stellar_Symbol.png`],
       },
-      allowedChains: [WalletConnectTargetChain.TESTNET],
+      allowedChains: [
+        WALLET_NETWORK === "mainnet"
+          ? WalletConnectTargetChain.PUBLIC
+          : WalletConnectTargetChain.TESTNET,
+      ],
     }),
   );
 
@@ -244,7 +265,7 @@ function ensureKitInitialized(options: TWalletKitInitOptions): void {
 
   StellarWalletsKit.init({
     modules: createWalletModules(options.includeWalletConnect),
-    network: Networks.TESTNET,
+    network: WALLET_NETWORK === "mainnet" ? Networks.PUBLIC : Networks.TESTNET,
     theme: {
       background: "#ffffff",
       "background-secondary": "#fff7ed",
@@ -348,8 +369,8 @@ export class StellarWalletKitClient implements IWalletClient {
       : await StellarWalletsKit.getAddress();
     const address = TStellarPublicKeySchema.parse(addressResponse.address);
     const networkResponse = await StellarWalletsKit.getNetwork().catch(() => ({
-      network: STELLAR_TESTNET_NETWORK_LABEL,
-      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+      network: WALLET_NETWORK_LABEL,
+      networkPassphrase: WALLET_NETWORK_PASSPHRASE,
     }));
     return this.buildWalletAccount(
       address,
@@ -399,8 +420,8 @@ export class StellarWalletKitClient implements IWalletClient {
   public async getNetwork(): Promise<{ network: string | null; isTestnet: boolean }> {
     ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const networkResponse = await StellarWalletsKit.getNetwork().catch(() => ({
-      network: STELLAR_TESTNET_NETWORK_LABEL,
-      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+      network: WALLET_NETWORK_LABEL,
+      networkPassphrase: WALLET_NETWORK_PASSPHRASE,
     }));
     return normalizeWalletNetwork(networkResponse.networkPassphrase || networkResponse.network);
   }
@@ -432,7 +453,7 @@ export class StellarWalletKitClient implements IWalletClient {
         return this.buildWalletAccount(
           storedAddressResult.data,
           selectedModule,
-          STELLAR_TESTNET_NETWORK_LABEL,
+          WALLET_NETWORK_LABEL,
         );
       } catch (error) {
         if (isStaleWalletConnectSessionError(error)) {
@@ -471,7 +492,7 @@ export class StellarWalletKitClient implements IWalletClient {
     const sanitizedMessage = TMessageSchema.parse(message);
     ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const messageResult = await StellarWalletsKit.signMessage(sanitizedMessage, {
-      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+      networkPassphrase: WALLET_NETWORK_PASSPHRASE,
     });
     return messageResult.signedMessage;
   }
@@ -482,7 +503,7 @@ export class StellarWalletKitClient implements IWalletClient {
     ensureKitInitialized({ includeWalletConnect: walletKitIncludesWalletConnect });
     const transactionResult = await StellarWalletsKit.signTransaction(sanitizedXdr, {
       address: sanitizedAddress,
-      networkPassphrase: STELLAR_TESTNET_NETWORK_PASSPHRASE,
+      networkPassphrase: WALLET_NETWORK_PASSPHRASE,
     });
     return transactionResult.signedTxXdr;
   }

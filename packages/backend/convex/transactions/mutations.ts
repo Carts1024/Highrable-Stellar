@@ -8,6 +8,7 @@ import {
   sanitizeTransactionWallet,
 } from "./helpers";
 import {
+  feePathValidator,
   transactionStatusValidator,
   transactionTypeValidator,
   walletTypeValidator,
@@ -17,6 +18,7 @@ export const createTransaction = mutation({
   args: {
     walletAddress: v.string(),
     walletType: v.optional(walletTypeValidator),
+    transactionHash: v.optional(v.string()),
     type: transactionTypeValidator,
     txHash: v.optional(v.string()),
     clientRequestId: v.optional(v.string()),
@@ -29,12 +31,16 @@ export const createTransaction = mutation({
     recipientType: v.optional(v.union(v.literal("classic_account"), v.literal("contract_account"))),
     asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
     amount: v.optional(v.string()),
+    network: v.optional(v.string()),
+    feePath: v.optional(feePathValidator),
+    sourceAccount: v.optional(v.string()),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const walletAddress = sanitizeTransactionWallet(args.walletAddress);
     const txHash = sanitizeOptionalTransactionRef(args.txHash, "txHash");
+    const transactionHash = sanitizeOptionalTransactionRef(args.transactionHash, "transactionHash");
     const clientRequestId = sanitizeOptionalTransactionRef(args.clientRequestId, "clientRequestId");
     const escrowId = sanitizeOptionalTransactionRef(args.escrowId, "escrowId");
     const onChainEscrowId = sanitizeOptionalTransactionRef(args.onChainEscrowId, "onChainEscrowId");
@@ -44,6 +50,8 @@ export const createTransaction = mutation({
       "recipientAddress",
     );
     const amount = sanitizeOptionalTransactionRef(args.amount, "amount");
+    const network = sanitizeOptionalTransactionRef(args.network, "network");
+    const sourceAccount = sanitizeOptionalTransactionRef(args.sourceAccount, "sourceAccount");
     const errorMessage = sanitizeOptionalTransactionRef(args.errorMessage, "errorMessage");
 
     assertTransactionLookupKey(txHash, clientRequestId);
@@ -57,6 +65,7 @@ export const createTransaction = mutation({
       createdAt: now,
       updatedAt: now,
       ...(txHash !== undefined ? { txHash } : {}),
+      ...(transactionHash !== undefined ? { transactionHash } : {}),
       ...(clientRequestId !== undefined ? { clientRequestId } : {}),
       ...(escrowId !== undefined ? { escrowId } : {}),
       ...(onChainEscrowId !== undefined ? { onChainEscrowId } : {}),
@@ -65,6 +74,9 @@ export const createTransaction = mutation({
       ...(args.recipientType !== undefined ? { recipientType: args.recipientType } : {}),
       ...(args.asset !== undefined ? { asset: args.asset } : {}),
       ...(amount !== undefined ? { amount } : {}),
+      ...(network !== undefined ? { network } : {}),
+      ...(args.feePath !== undefined ? { feePath: args.feePath } : {}),
+      ...(sourceAccount !== undefined ? { sourceAccount } : {}),
       ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
       ...(args.milestoneId !== undefined ? { milestoneId: args.milestoneId } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
@@ -75,6 +87,7 @@ export const createTransaction = mutation({
 export const updateTransactionStatus = mutation({
   args: {
     txHash: v.optional(v.string()),
+    transactionHash: v.optional(v.string()),
     clientRequestId: v.optional(v.string()),
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
@@ -82,6 +95,7 @@ export const updateTransactionStatus = mutation({
   },
   handler: async (ctx, args) => {
     const txHash = sanitizeOptionalTransactionRef(args.txHash, "txHash");
+    const transactionHash = sanitizeOptionalTransactionRef(args.transactionHash, "transactionHash");
     const clientRequestId = sanitizeOptionalTransactionRef(args.clientRequestId, "clientRequestId");
     const errorMessage = sanitizeOptionalTransactionRef(args.errorMessage, "errorMessage");
 
@@ -98,6 +112,7 @@ export const updateTransactionStatus = mutation({
       updatedAt: Date.now(),
       ...(args.confirmedAt !== undefined ? { confirmedAt: args.confirmedAt } : {}),
       ...(txHash !== undefined ? { txHash } : {}),
+      ...(transactionHash !== undefined ? { transactionHash } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
     });
 

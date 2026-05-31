@@ -1,6 +1,7 @@
 "use client";
 
 import { HighrableDebugger } from "@/core/debugger/highrable-debugger";
+import { OnboardingRouteGuard } from "@/features/onboarding/components/onboarding-route-guard";
 import { getConvexClient } from "@repo/convex-client";
 import UiProviders from "@repo/ui/ui-providers";
 import { ConvexProvider } from "convex/react";
@@ -20,7 +21,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ConvexProvider client={convexClient}>
       <WalletProvider>
         <UiProviders>
-          {children}
+          <OnboardingRouteGuard>{children}</OnboardingRouteGuard>
           <HighrableDebugger />
         </UiProviders>
       </WalletProvider>

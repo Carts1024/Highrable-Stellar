@@ -17,17 +17,20 @@ export type TFeatureItem = {
   readonly title: string;
   readonly description: string;
   readonly businessValue: string;
+  readonly comingSoon?: boolean;
 };
 
 export type TWorkflowStep = {
   readonly step: number;
   readonly title: string;
   readonly description: string;
+  readonly comingSoon?: boolean;
 };
 
 export type TPricingFeature = {
   readonly label: string;
   readonly included: boolean;
+  readonly comingSoon?: boolean;
 };
 
 export type TPricingTier = {
@@ -51,6 +54,7 @@ export type TUniquePoint = {
   readonly number: string;
   readonly title: string;
   readonly points: readonly string[];
+  readonly comingSoon?: boolean;
 };
 
 export type TTargetSegment = {

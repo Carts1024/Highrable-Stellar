@@ -34,6 +34,11 @@ function UniquePointCard({ point, index }: IUniquePointCardProps) {
           <span className="font-mono text-[0.6rem] font-bold text-white">{point.number}</span>
         </div>
         <h3 className="hr-text-primary leading-tight font-semibold">{point.title}</h3>
+        {point.comingSoon && (
+          <span className="hr-v2-badge-accent ml-auto px-2 py-0.5 font-mono text-[0.55rem] tracking-[0.08em] uppercase">
+            Coming Soon
+          </span>
+        )}
       </div>
       <ul className="space-y-2.5">
         {point.points.map((bullet) => (
@@ -67,9 +72,8 @@ export function V2UniqueSection() {
             Not just a blockchain layer on top
           </h2>
           <p className="hr-text-secondary mt-4 text-base leading-relaxed">
-            Highrable integrates AI hiring, smart contract escrow, portable on-chain reputation, and
-            borderless stablecoin payments into one end-to-end platform - no competitor does all
-            five.
+            Highrable combines smart contract escrow, portable on-chain reputation, and borderless
+            stablecoin payments today, with AI hiring marked as coming soon.
           </p>
         </motion.div>
 

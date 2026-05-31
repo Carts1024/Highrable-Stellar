@@ -35,6 +35,11 @@ function FeatureCard({ feature, number, index }: IFeatureCardProps) {
           <HighrableV2NumberBadge className="h-9 w-9">
             <span className="font-mono text-[0.6rem] font-bold text-white">{number}</span>
           </HighrableV2NumberBadge>
+          {feature.comingSoon && (
+            <span className="hr-v2-badge-accent px-2.5 py-1 font-mono text-[0.6rem] tracking-[0.08em] uppercase">
+              Coming Soon
+            </span>
+          )}
         </div>
         <h3 className="hr-text-primary mb-2 font-semibold">{feature.title}</h3>
         <p className="hr-text-secondary mb-4 text-sm leading-relaxed">{feature.description}</p>
@@ -66,8 +71,8 @@ export function V2FeaturesSection() {
             Everything you need in one trusted platform
           </h2>
           <p className="hr-text-secondary mt-4 text-base leading-relaxed">
-            Highrable integrates AI hiring, blockchain escrow, and portable reputation into a single
-            seamless workflow - for both freelancers and clients.
+            Highrable integrates blockchain escrow and portable reputation today, with AI hiring
+            features clearly marked as coming soon.
           </p>
         </motion.div>
 

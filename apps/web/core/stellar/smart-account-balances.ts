@@ -138,6 +138,23 @@ export async function getSmartAccountEscrowTokenBalance(
     };
   }
 
+  if (CLASSIC_ACCOUNT_PATTERN.test(sanitizedTokenContractId)) {
+    return {
+      status: "limited",
+      balance: null,
+      message:
+        "Configured USDC value is a Stellar asset issuer, not a Soroban token contract. Use the USDC Stellar Asset Contract ID for smart account balances.",
+    };
+  }
+
+  if (!CONTRACT_ACCOUNT_PATTERN.test(sanitizedTokenContractId)) {
+    return {
+      status: "limited",
+      balance: null,
+      message: "Configured token contract ID must be a Soroban contract address beginning with C.",
+    };
+  }
+
   try {
     const sourceAddress = CONTRACT_ACCOUNT_PATTERN.test(sanitizedAddress)
       ? getSmartAccountKit().deployerPublicKey

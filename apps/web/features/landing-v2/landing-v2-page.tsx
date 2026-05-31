@@ -5,7 +5,6 @@ import { V2FeaturesSection } from "./components/v2-features-section";
 import { V2Hero } from "./components/v2-hero";
 import { V2HowItWorksSection } from "./components/v2-how-it-works-section";
 import { V2Navbar } from "./components/v2-navbar";
-import { V2PricingSection } from "./components/v2-pricing-section";
 import { V2ProblemsSection } from "./components/v2-problems-section";
 import { V2TargetMarketSection } from "./components/v2-target-market-section";
 import { V2UniqueSection } from "./components/v2-unique-section";
@@ -21,7 +20,6 @@ export function LandingPageV2() {
         <V2FeaturesSection />
         <V2HowItWorksSection />
         <V2TargetMarketSection />
-        <V2PricingSection />
         <V2UniqueSection />
         <V2CtaSection />
       </main>

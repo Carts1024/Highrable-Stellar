@@ -75,6 +75,10 @@ function formatBudget(budget: number) {
 export function JobsPage() {
   const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
+  const appliedJobIds = useQuery(
+    api.applications.listAppliedJobIdsByFreelancer,
+    walletIdentity.walletAddress ? { freelancerWallet: walletIdentity.walletAddress } : "skip",
+  );
   const applyToJob = useMutation(api.applications.applyToJob);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<TJobSortOption>("safest");
@@ -119,6 +123,14 @@ export function JobsPage() {
     return visibleJobs.reduce((total, row) => total + row.job.budget, 0);
   }, [visibleJobs]);
 
+  const appliedJobIdSet = useMemo(() => {
+    if (!walletIdentity.walletAddress) {
+      return new Set<string>();
+    }
+
+    return appliedJobIds ? new Set<string>(appliedJobIds) : undefined;
+  }, [appliedJobIds, walletIdentity.walletAddress]);
+
   const openApplyDialog = (row: TMarketplaceJobRow) => {
     const { job } = row;
     if (!walletIdentity.walletAddress || !walletIdentity.isConnected) {
@@ -128,6 +140,11 @@ export function JobsPage() {
 
     if (isSameWallet(job.clientWallet, walletIdentity.walletAddress)) {
       showWarningToast("Client cannot apply to their own job.");
+      return;
+    }
+
+    if (appliedJobIdSet?.has(job._id)) {
+      showWarningToast("You already applied to this job.");
       return;
     }
 
@@ -285,9 +302,14 @@ export function JobsPage() {
             {visibleJobs.map((row) => {
               const { job, escrow } = row;
               const isMilestoneProject = (job.jobType ?? "micro_gig") === "milestone_project";
+              const isCheckingApplicationStatus =
+                !!walletIdentity.walletAddress && appliedJobIdSet === undefined;
+              const hasApplied = appliedJobIdSet?.has(job._id) ?? false;
               const canApply =
                 !isMilestoneProject &&
                 !!walletIdentity.walletAddress &&
+                !hasApplied &&
+                !isCheckingApplicationStatus &&
                 !isSameWallet(walletIdentity.walletAddress, job.clientWallet) &&
                 (job.status === "open" ||
                   (job.status === "funded" && !job.selectedFreelancerWallet));

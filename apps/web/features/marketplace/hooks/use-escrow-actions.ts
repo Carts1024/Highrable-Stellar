@@ -1,6 +1,6 @@
 "use client";
 
-import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
+import { getRequiredEscrowActionConfig, STELLAR_NETWORK } from "@/core/config/stellar-contracts";
 import {
   approveAndReleaseOnChain,
   cancelEscrowOnChain,
@@ -20,6 +20,7 @@ import {
 } from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
@@ -31,6 +32,7 @@ import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import { useCallback, useMemo, useState } from "react";
 
+import type { IPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import type { TActorRole } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
@@ -90,6 +92,53 @@ function requireRating(rating: number): void {
   }
 }
 
+function getTransactionFeeMetadata(
+  walletType: "external_wallet" | "passkey_smart_account",
+  readiness: IPasskeyEscrowExecutionReadiness | null,
+): {
+  feePath: "external_wallet" | "relayer" | "classic_source_account";
+  sourceAccount?: string;
+} {
+  if (walletType === "external_wallet") {
+    return { feePath: "external_wallet" };
+  }
+
+  return {
+    feePath: readiness?.feePath === "relayer" ? "relayer" : "classic_source_account",
+    ...(readiness?.classicSourceAddress ? { sourceAccount: readiness.classicSourceAddress } : {}),
+  };
+}
+
+async function assertSufficientEscrowAssetBalance(input: {
+  readonly activeWalletAddress: string;
+  readonly activeWalletType: "external_wallet" | "passkey_smart_account";
+  readonly config: ReturnType<typeof getRequiredEscrowActionConfig>;
+  readonly escrowAsset: TEscrowPaymentAsset;
+  readonly amount: number | string;
+}): Promise<void> {
+  const requiredBalance = parseEscrowAssetAmount(input.escrowAsset, input.amount);
+  const escrowTokenBalance = await getTokenBalanceOnChain({
+    rpcUrl: input.config.rpcUrl,
+    networkPassphrase: input.config.networkPassphrase,
+    tokenContractId: input.escrowAsset.tokenContractId,
+    sourceAddress:
+      input.activeWalletType === "passkey_smart_account"
+        ? getSmartAccountKit().deployerPublicKey
+        : input.activeWalletAddress,
+    walletAddress: input.activeWalletAddress,
+  });
+
+  if (escrowTokenBalance >= requiredBalance) {
+    return;
+  }
+
+  throw new Error(
+    input.activeWalletType === "passkey_smart_account"
+      ? `Your passkey smart account does not have enough ${input.escrowAsset.symbol}.`
+      : `You need more ${input.escrowAsset.symbol} before creating or funding this escrow.`,
+  );
+}
+
 export function useEscrowActions({
   job,
   escrow,
@@ -125,6 +174,7 @@ export function useEscrowActions({
   const validateBaseAction = useCallback(
     async (action: TEscrowAction) => {
       const config = getRequiredEscrowActionConfig();
+      let passkeyReadiness: IPasskeyEscrowExecutionReadiness | null = null;
 
       if (!activeWalletAddress || !walletIdentity.isConnected) {
         throw new Error(
@@ -133,10 +183,11 @@ export function useEscrowActions({
       }
 
       if (walletIdentity.walletType === "passkey_smart_account") {
-        const readiness = await getPasskeyEscrowExecutionReadiness();
-        if (!readiness.canExecute) {
+        passkeyReadiness = await getPasskeyEscrowExecutionReadiness();
+        if (!passkeyReadiness.canExecute) {
           throw new Error(
-            readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
+            passkeyReadiness.reason ??
+              "Smart account fee funding or relayer configuration is missing.",
           );
         }
       } else {
@@ -144,8 +195,8 @@ export function useEscrowActions({
           throw new Error("Connect a Stellar wallet before using escrow actions.");
         }
 
-        if (!walletState.isTestnet) {
-          throw new Error("Switch your wallet to Stellar Testnet before using escrow actions.");
+        if (!isWalletOnConfiguredNetwork(walletState)) {
+          throw new Error(getWalletNetworkMismatchMessage("using escrow actions"));
         }
 
         if (walletState.isFunded === false) {
@@ -180,8 +231,10 @@ export function useEscrowActions({
         escrow,
         wallet: {
           isConnected: walletIdentity.isConnected,
-          isTestnet:
-            walletIdentity.walletType === "passkey_smart_account" ? true : walletState.isTestnet,
+          isOnConfiguredNetwork:
+            walletIdentity.walletType === "passkey_smart_account"
+              ? true
+              : isWalletOnConfiguredNetwork(walletState),
           isFunded:
             walletIdentity.walletType === "passkey_smart_account" ? null : walletState.isFunded,
           canWriteContracts:
@@ -197,7 +250,7 @@ export function useEscrowActions({
         throw new Error(guardResult.reason ?? "This escrow action is not currently available.");
       }
 
-      return { config, escrowAsset };
+      return { config, escrowAsset, passkeyReadiness };
     },
     [
       address,
@@ -221,6 +274,7 @@ export function useEscrowActions({
         clientRequestId: string;
         config: ReturnType<typeof getRequiredEscrowActionConfig>;
         escrowAsset: TEscrowPaymentAsset;
+        passkeyReadiness: IPasskeyEscrowExecutionReadiness | null;
       }) => Promise<{ txHash: string; success: string }>,
     ): Promise<boolean> => {
       if (state.pendingAction) {
@@ -236,24 +290,28 @@ export function useEscrowActions({
       });
 
       try {
-        const { config, escrowAsset } = await validateBaseAction(action);
+        const { config, escrowAsset, passkeyReadiness } = await validateBaseAction(action);
         const escrowId = escrow?.escrowId;
+        const feeMetadata = getTransactionFeeMetadata(activeWalletType, passkeyReadiness);
 
         await createTransaction({
           walletAddress: activeWalletAddress!,
           type: action,
           walletType: activeWalletType,
+          network: STELLAR_NETWORK,
+          ...feeMetadata,
           clientRequestId,
           ...(escrowId ? { escrowId } : {}),
           jobId: job._id,
           status: "pending",
         });
 
-        const result = await callback({ clientRequestId, config, escrowAsset });
+        const result = await callback({ clientRequestId, config, escrowAsset, passkeyReadiness });
 
         await updateTransactionStatus({
           clientRequestId,
           txHash: result.txHash,
+          transactionHash: result.txHash,
           status: "success",
         });
 
@@ -279,6 +337,7 @@ export function useEscrowActions({
           await updateTransactionStatus({
             clientRequestId,
             ...(failedTxHash ? { txHash: failedTxHash } : {}),
+            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
             status: "failed",
             errorMessage,
           });
@@ -314,6 +373,13 @@ export function useEscrowActions({
       if (job.status !== "selected" || escrow) {
         throw new Error("Escrow can only be created after a freelancer is selected.");
       }
+      await assertSufficientEscrowAssetBalance({
+        activeWalletAddress: activeWalletAddress!,
+        activeWalletType,
+        config,
+        escrowAsset,
+        amount: job.budget,
+      });
 
       const jobHash = await toBytesN32Hash(job.jobHash);
       const result = await createEscrowOnChain({
@@ -363,25 +429,13 @@ export function useEscrowActions({
         throw new Error("Escrow must be created before it can be funded.");
       }
 
-      const requiredBalance = parseEscrowAssetAmount(escrowAsset, job.budget);
-      const escrowTokenBalance = await getTokenBalanceOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        tokenContractId: escrowAsset.tokenContractId,
-        sourceAddress:
-          activeWalletType === "passkey_smart_account"
-            ? getSmartAccountKit().deployerPublicKey
-            : activeWalletAddress!,
-        walletAddress: activeWalletAddress!,
+      await assertSufficientEscrowAssetBalance({
+        activeWalletAddress: activeWalletAddress!,
+        activeWalletType,
+        config,
+        escrowAsset,
+        amount: job.budget,
       });
-
-      if (escrowTokenBalance < requiredBalance) {
-        throw new Error(
-          activeWalletType === "passkey_smart_account"
-            ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
-            : `You do not have enough ${escrowAsset.symbol} to fund this escrow.`,
-        );
-      }
 
       const result = await fundEscrowOnChain({
         rpcUrl: config.rpcUrl,
