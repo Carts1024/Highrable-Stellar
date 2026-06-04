@@ -83,10 +83,10 @@ function HeroStats() {
 /** Full-width hero section with headline, CTAs, and key stats. */
 export function V2Hero() {
   return (
-    <section className="pt-32 pb-24 relative overflow-hidden bg-background dark:bg-background">
+    <section className="relative overflow-hidden bg-background pt-32 pb-24 dark:bg-background">
       {/* Subtle background gradient */}
       <div
-        className="inset-0 pointer-events-none absolute z-0"
+        className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
             "radial-gradient(ellipse 100% 100% at 50% -20%, rgba(255,112,3,0.12) 0%, transparent 75%)",
@@ -96,7 +96,7 @@ export function V2Hero() {
       <motion.div
         {...FADE_UP}
         transition={{ duration: 0.7 }}
-        className={`${V2_PAGE_CONTAINER_CLASS} text-center relative z-10`}
+        className={`${V2_PAGE_CONTAINER_CLASS} relative z-10 text-center`}
       >
         <motion.div {...FADE_UP} transition={{ duration: 0.6 }}>
           <AnnouncementBadge />

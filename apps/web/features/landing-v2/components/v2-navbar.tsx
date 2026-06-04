@@ -16,7 +16,11 @@ import { NAV_LINKS } from "../constants/landing-v2.constants";
 function Logo() {
   return (
     <Link href="/home" className="flex items-center gap-2.5">
-      <motion.div whileHover={{ scale: 1.03 }} transition={{ type: "spring", stiffness: 300 }} className="flex items-center gap-2.5">
+      <motion.div
+        whileHover={{ scale: 1.03 }}
+        transition={{ type: "spring", stiffness: 300 }}
+        className="flex items-center gap-2.5"
+      >
         <img
           src="/logo/highrable-icon.jpg"
           alt="Highrable logo"
