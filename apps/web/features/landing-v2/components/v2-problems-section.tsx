@@ -25,7 +25,7 @@ function ProblemCard({ problem, index }: IProblemCardProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.08 }}
-      className={`${V2_PANEL_INTERACTIVE_CLASS} p-6`}
+      className={`${V2_PANEL_INTERACTIVE_CLASS} p-6 hover:border-ring/30`}
     >
       <span className="hr-text-muted font-mono text-xs">{problem.number}</span>
       <h3 className="hr-text-primary mt-3 mb-2 text-base font-semibold">{problem.title}</h3>

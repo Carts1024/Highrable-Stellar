@@ -25,7 +25,7 @@ function UniquePointCard({ point, index }: IUniquePointCardProps) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.08 }}
-      className={`${V2_PANEL_INTERACTIVE_CLASS} p-7`}
+      className={`${V2_PANEL_INTERACTIVE_CLASS} p-7 hover:border-ring/30`}
     >
       <div className="mb-5 flex items-center gap-3">
         <div
