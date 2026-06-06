@@ -29,7 +29,7 @@
   --chart-3: #6b6cf0;
   --chart-4: #d6f067;
   --chart-5: #f6e65a;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #0a0a0a;
   --sidebar-primary: #0a0a0a;
@@ -214,7 +214,7 @@
   .hr-panel {
     background-color: var(--card);
     border: 1px solid var(--highrable-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius);
   }
   .hr-v2-gradient-text {
     background-image: var(--highrable-gradient-primary);
@@ -243,7 +243,7 @@
   .hr-v2-button-primary {
     background-image: var(--highrable-gradient-primary);
     color: var(--primary-foreground);
-    border-radius: 0.5rem;
+    border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       filter 0.2s ease,
@@ -257,6 +257,7 @@
     background-color: var(--card);
     border: 1px solid var(--highrable-text-primary);
     color: var(--highrable-text-primary);
+    border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
       color 0.2s ease,
@@ -269,6 +270,7 @@
   .hr-v2-button-light {
     background-color: var(--card);
     color: var(--highrable-orange-3);
+    border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       transform 0.2s ease;
@@ -280,6 +282,7 @@
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.88);
     color: var(--primary-foreground);
+    border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
       color 0.2s ease,

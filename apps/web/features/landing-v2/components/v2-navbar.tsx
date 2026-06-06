@@ -26,7 +26,7 @@ function Logo() {
           alt="Highrable logo"
           className="h-8 w-8 rounded-md object-cover"
         />
-        <span className="hr-text-primary font-semibold tracking-tight">{APP_NAME}</span>
+        <span className="hr-text-primary font-semibold tracking-tight text-lg">{APP_NAME}</span>
       </motion.div>
     </Link>
   );
