@@ -1,5 +1,6 @@
 "use client";
 
+import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   V2_PAGE_CONTAINER_CLASS,
@@ -11,7 +12,6 @@ import { motion } from "framer-motion";
 import type { TProblemItem } from "../types/landing-v2.types";
 
 import { PROBLEMS } from "../constants/landing-v2.constants";
-import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 
 interface IProblemCardProps {
   readonly problem: TProblemItem;

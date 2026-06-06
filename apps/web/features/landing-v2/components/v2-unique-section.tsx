@@ -1,5 +1,6 @@
 "use client";
 
+import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   V2_NUMBER_BADGE_CLASS,
@@ -11,7 +12,6 @@ import { motion } from "framer-motion";
 import type { TUniquePoint } from "../types/landing-v2.types";
 
 import { UNIQUE_POINTS } from "../constants/landing-v2.constants";
-import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 
 interface IUniquePointCardProps {
   readonly point: TUniquePoint;

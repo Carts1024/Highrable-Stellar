@@ -1,5 +1,6 @@
 "use client";
 
+import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import {
   V2_BADGE_ACCENT_CLASS,
@@ -12,7 +13,6 @@ import { motion } from "framer-motion";
 import type { TTargetSegment } from "../types/landing-v2.types";
 
 import { TARGET_SEGMENTS } from "../constants/landing-v2.constants";
-import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 
 interface ISegmentCardProps {
   readonly segment: TTargetSegment;

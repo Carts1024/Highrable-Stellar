@@ -110,7 +110,7 @@ export function V2HowItWorksSection() {
           {/* Right Panel: Vertical Animated Timeline */}
           <div className="relative pl-4 text-left lg:col-span-8 lg:pl-10">
             {/* Connecting Vertical Track Line */}
-            <div className="absolute top-4 bottom-4 left-4 sm:left-9 w-0.5 border-l-2 border-dashed border-border lg:left-[59px] dark:border-neutral-800" />
+            <div className="absolute top-4 bottom-4 left-4 w-0.5 border-l-2 border-dashed border-border sm:left-9 lg:left-[59px] dark:border-neutral-800" />
 
             <div className="relative space-y-8">
               <AnimatePresence mode="wait">

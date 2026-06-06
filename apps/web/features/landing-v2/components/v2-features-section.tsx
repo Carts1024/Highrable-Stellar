@@ -1,5 +1,6 @@
 "use client";
 
+import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 import {
   HighrableV2PageContainer,
   HighrableV2Section,
@@ -20,7 +21,6 @@ import {
 import type { TFeatureItem } from "../types/landing-v2.types";
 
 import { FEATURES } from "../constants/landing-v2.constants";
-import { SpotlightCard } from "@repo/ui/components/highrable/spotlight-card";
 
 // --- Micro-UI Visualizations for the Bento Grid ---
 

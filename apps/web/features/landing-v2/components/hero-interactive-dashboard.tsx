@@ -137,7 +137,7 @@ export function HeroInteractiveDashboard() {
                 JD
               </div>
               {/* Position badge slightly outside the avatar so it's not clipped */}
-              <span className="absolute right-0 bottom-0 block h-3 w-3 rounded-full border border-white bg-green-500 dark:border-neutral-900 ring-2 ring-white/80 dark:ring-neutral-900/60" />
+              <span className="absolute right-0 bottom-0 block h-3 w-3 rounded-full border border-white bg-green-500 ring-2 ring-white/80 dark:border-neutral-900 dark:ring-neutral-900/60" />
             </div>
 
             {/* Profile Info */}

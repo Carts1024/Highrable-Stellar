@@ -1,5 +1,6 @@
 "use client";
 
+import { Particles } from "@repo/ui/components/highrable/particles";
 import {
   V2_BADGE_ACCENT_CLASS,
   V2_BUTTON_PRIMARY_CLASS,
@@ -10,7 +11,6 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 
-import { Particles } from "@repo/ui/components/highrable/particles";
 import { HeroInteractiveDashboard } from "./hero-interactive-dashboard";
 
 const FADE_UP = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
@@ -74,7 +74,7 @@ function HeroSubtitle() {
 
 function HeroCTAs() {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row justify-center md:justify-start">
+    <div className="flex flex-col justify-center gap-4 sm:flex-row md:justify-start">
       <Link
         href="/jobs"
         className={`${V2_BUTTON_PRIMARY_CLASS} px-8 py-3.5 text-center text-sm font-semibold shadow-lg hover:shadow-orange-500/20`}
@@ -93,7 +93,7 @@ function HeroCTAs() {
 
 function HeroStats() {
   return (
-    <div className="mt-12 flex flex-wrap items-center justify-center md:justify-start gap-6 border-t border-border pt-8 sm:gap-12">
+    <div className="mt-12 flex flex-wrap items-center justify-center gap-6 border-t border-border pt-8 sm:gap-12 md:justify-start">
       {STATS.map(({ value, label }) => (
         <div key={label} className="text-center md:text-left">
           <p className="hr-text-primary text-xl font-bold md:text-2xl">{value}</p>
@@ -151,12 +151,11 @@ export function V2Hero() {
           </motion.div>
 
           {/* Right Column: Interactive Trust Dashboard Mockup */}
-          {/* Right Column: Interactive Trust Dashboard Mockup - hidden on small screens */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.1, type: "spring", stiffness: 100 }}
-            className="flex w-full justify-center lg:col-span-5 hidden sm:block"
+            className="flex hidden w-full justify-center sm:block lg:col-span-5"
           >
             <HeroInteractiveDashboard />
           </motion.div>
@@ -165,9 +164,11 @@ export function V2Hero() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.1, type: "spring", stiffness: 100 }}
-            className="flex w-full justify-center lg:col-span-5 block sm:hidden"
+            className="block flex w-full justify-center sm:hidden lg:col-span-5"
           >
-            <div className="text-center text-sm text-muted-foreground">Dashboard preview unavailable on small screens</div>
+            <div className="text-center text-sm text-muted-foreground">
+              Dashboard preview unavailable on small screens
+            </div>
           </motion.div>
         </div>
       </div>
