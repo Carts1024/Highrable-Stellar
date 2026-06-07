@@ -1,11 +1,7 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import {
-  V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
-  V2_PAGE_CONTAINER_CLASS,
-} from "@repo/ui/components/highrable/v2-theme";
+import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -51,7 +47,8 @@ function NavLinks() {
 function NavActions() {
   return (
     <div className="flex items-center gap-3">
-      <Link
+      {/* TODO: Re-enable when platform launches */}
+      {/* <Link
         href="/jobs"
         className={`${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`}
       >
@@ -62,7 +59,7 @@ function NavActions() {
         className={`${V2_BUTTON_PRIMARY_CLASS} px-4 py-2 font-mono text-xs tracking-widest uppercase`}
       >
         Post a Job
-      </Link>
+      </Link> */}
     </div>
   );
 }

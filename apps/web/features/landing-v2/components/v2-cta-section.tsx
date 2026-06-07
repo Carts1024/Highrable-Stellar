@@ -1,14 +1,11 @@
 "use client";
 
 import {
-  V2_BUTTON_INVERSE_CLASS,
-  V2_BUTTON_LIGHT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
   V2_SECTION_SPACING_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { Sparkles } from "lucide-react";
 
 /** Full-width final CTA styled inside a glassmorphic dark container with animated background glow blobs. */
 export function V2CtaSection() {
@@ -45,7 +42,7 @@ export function V2CtaSection() {
           />
 
           {/* Thin glowing beam border line */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-orange-500/50 to-transparent" />
 
           {/* Content Wrapper */}
           <motion.div
@@ -68,12 +65,13 @@ export function V2CtaSection() {
               work is guaranteed.
             </h2>
 
-            <p className="mx-auto mb-10 max-w-lg text-sm leading-relaxed text-neutral-400 sm:text-base">
+            <p className="mx-auto max-w-lg text-sm leading-relaxed text-neutral-400 sm:text-base">
               Join Highrable today. Secure your milestones with smart contracts, receive
               near-instant payouts, and own your verified reputation.
             </p>
 
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            {/* TODO: Re-enable when platform launches */}
+            {/* <div className="flex flex-col mt-10 items-center justify-center gap-4 sm:flex-row">
               <Link
                 href="/jobs"
                 className={`${V2_BUTTON_LIGHT_CLASS} flex items-center justify-center gap-2 px-8 py-3.5 font-mono text-xs font-bold tracking-widest uppercase shadow-lg shadow-white/5`}
@@ -87,7 +85,7 @@ export function V2CtaSection() {
               >
                 Post a Job
               </Link>
-            </div>
+            </div> */}
           </motion.div>
         </div>
       </div>

@@ -3,173 +3,313 @@
 import { Particles } from "@repo/ui/components/highrable/particles";
 import {
   V2_BADGE_ACCENT_CLASS,
-  V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
   V2_GRADIENT_TEXT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
-import Link from "next/link";
+import { ArrowUpRight, CheckCircle2, Lock, ShieldCheck, Star, Zap } from "lucide-react";
 
-import { HeroInteractiveDashboard } from "./hero-interactive-dashboard";
+import { V2WaitlistForm } from "./v2-waitlist-form";
 
-const FADE_UP = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
-
-const STATS = [
-  { value: "5%", label: "Flat Escrow Fee" },
-  { value: "Instant", label: "Stablecoin Payouts" },
-  { value: "On-Chain", label: "Verified Reviews" },
-] as const;
-
-import { useEffect, useState } from "react";
-
-function TypingHeadline({ text, speed = 100 }: { text: string; speed?: number }) {
-  const [displayed, setDisplayed] = useState("");
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i + 1));
-      i++;
-      if (i === text.length) clearInterval(interval);
-    }, speed);
-    return () => clearInterval(interval);
-  }, [text, speed]);
-  return <span className="inline-block">{displayed}</span>;
-}
+const FADE_UP = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 } };
 
 function AnnouncementBadge() {
   return (
-    <div
+    <motion.div
+      {...FADE_UP}
+      transition={{ duration: 0.5 }}
       className={`mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 ${V2_BADGE_ACCENT_CLASS}`}
     >
-      <span className="inline-block h-1 w-1 bg-current" aria-hidden="true" />
+      <motion.span
+        animate={{ opacity: [1, 0.3, 1] }}
+        transition={{ repeat: Infinity, duration: 1.8 }}
+        className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500"
+        aria-hidden="true"
+      />
       <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">
-        Built on Stellar • Smart Contract Escrow Live
+        Built on Stellar · Smart Contract Escrow Live
       </span>
-    </div>
+    </motion.div>
   );
 }
 
-function HeroHeadline() {
+/** Floating browser-chrome mockup showcasing the Highrable platform UI */
+function HeroAppMockup() {
   return (
-    <h1 className="hr-text-primary mb-6 text-4xl leading-[1.1] font-bold tracking-tight sm:text-5xl md:text-[3.75rem] lg:leading-[1.05]">
-      Freelancing Built on
-      <br />
-      <span className={V2_GRADIENT_TEXT_CLASS}>
-        <TypingHeadline text="Guaranteed Trust" />
-      </span>
-    </h1>
-  );
-}
+    <div className="relative w-full">
+      {/* Layered ambient glow */}
+      <div className="pointer-events-none absolute -inset-8 z-0">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1], opacity: [0.35, 0.55, 0.35] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 right-0 h-72 w-72 rounded-full bg-orange-500/25 blur-[80px]"
+        />
+        <motion.div
+          animate={{ scale: [1.06, 1, 1.06], opacity: [0.2, 0.4, 0.2] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+          className="absolute bottom-0 left-0 h-56 w-56 rounded-full bg-amber-400/20 blur-[70px]"
+        />
+      </div>
 
-function HeroSubtitle() {
-  return (
-    <p className="hr-text-secondary mb-8 text-base leading-relaxed sm:text-lg">
-      Highrable is a next-generation freelance marketplace built on Stellar. Client payments are
-      locked in smart-contract escrows and reputation is permanently recorded on-chain, eliminating
-      withholding fees and payment risks.
-    </p>
-  );
-}
-
-function HeroCTAs() {
-  return (
-    <div className="flex flex-col justify-center gap-4 sm:flex-row md:justify-start">
-      <Link
-        href="/jobs"
-        className={`${V2_BUTTON_PRIMARY_CLASS} px-8 py-3.5 text-center text-sm font-semibold shadow-lg hover:shadow-orange-500/20`}
+      {/* Browser window chrome */}
+      <motion.div
+        initial={{ opacity: 0, y: 30, rotateX: 4 }}
+        animate={{ opacity: 1, y: 0, rotateX: 0 }}
+        transition={{ duration: 0.9, delay: 0.2, type: "spring", stiffness: 80 }}
+        style={{ perspective: 1000 }}
+        className="relative z-10"
       >
-        Find Work - It's Free
-      </Link>
-      <Link
-        href="/post-job"
-        className={`${V2_BUTTON_SECONDARY_CLASS} px-8 py-3.5 text-center font-mono text-xs tracking-widest uppercase transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800`}
-      >
-        Post a Job
-      </Link>
-    </div>
-  );
-}
+        <div className="overflow-hidden rounded-2xl border border-neutral-200/60 bg-white/80 shadow-2xl shadow-black/20 backdrop-blur-xl dark:border-neutral-800/80 dark:bg-neutral-900/90">
+          {/* Browser top bar */}
+          <div className="flex items-center gap-2 border-b border-neutral-200/50 bg-neutral-50/80 px-4 py-3 dark:border-neutral-800/50 dark:bg-neutral-950/60">
+            <div className="flex gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            </div>
+            <div className="mx-auto flex items-center gap-2 rounded-md bg-neutral-200/60 px-3 py-1 dark:bg-neutral-800/60">
+              <Lock className="h-2.5 w-2.5 text-neutral-400" />
+              <span className="font-mono text-[0.6rem] text-neutral-500">highrable.work</span>
+            </div>
+          </div>
 
-function HeroStats() {
-  return (
-    <div className="mt-12 flex flex-wrap items-center justify-center gap-6 border-t border-border pt-8 sm:gap-12 md:justify-start">
-      {STATS.map(({ value, label }) => (
-        <div key={label} className="text-center md:text-left">
-          <p className="hr-text-primary text-xl font-bold md:text-2xl">{value}</p>
-          <p className="hr-text-muted mt-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase">
-            {label}
-          </p>
+          {/* App content */}
+          <div className="space-y-4 p-5">
+            {/* Freelancer card */}
+            <motion.div
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-800/40"
+            >
+              <div className="relative shrink-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-linear-to-br from-orange-400 to-amber-500 text-sm font-bold text-white shadow">
+                  KL
+                </div>
+                <span className="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-neutral-900" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">
+                    Kai Larsson
+                  </span>
+                  <span className="flex items-center gap-0.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[0.55rem] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <ShieldCheck className="h-2.5 w-2.5" /> Verified
+                  </span>
+                </div>
+                <p className="font-mono text-[0.6rem] text-neutral-400">
+                  Soroban · Rust · TypeScript
+                </p>
+                <div className="mt-1 flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                  ))}
+                  <span className="ml-0.5 text-[0.55rem] text-neutral-400">5.0 (38)</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Active Escrow */}
+            <motion.div
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.55, duration: 0.5 }}
+              className="rounded-xl border border-orange-200/60 bg-orange-50/50 p-3 dark:border-orange-900/40 dark:bg-orange-950/20"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-[0.58rem] font-semibold tracking-wider text-orange-600 uppercase dark:text-orange-400">
+                  Active Escrow · #HR-4892
+                </span>
+                <span className="flex items-center gap-1 font-mono text-[0.55rem] text-neutral-400">
+                  <motion.span
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.2 }}
+                    className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  />
+                  Live
+                </span>
+              </div>
+              <div className="flex items-end justify-between">
+                <span className="text-xl font-black tracking-tight text-neutral-900 dark:text-neutral-50">
+                  3,200 USDC
+                </span>
+                <span className="font-mono text-[0.6rem] text-neutral-400">2 of 3 milestones</span>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: "66%" }}
+                  transition={{ delay: 0.8, duration: 0.9, ease: "easeOut" }}
+                  className="h-full rounded-full bg-linear-to-r from-orange-500 to-amber-400"
+                />
+              </div>
+            </motion.div>
+
+            {/* Recent settlements row */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
+              className="space-y-2"
+            >
+              <p className="font-mono text-[0.58rem] tracking-wider text-neutral-400 uppercase">
+                Recent Settlements
+              </p>
+              {[
+                {
+                  amount: "+1,200 USDC",
+                  label: "Milestone 1 released",
+                  icon: CheckCircle2,
+                  color: "text-emerald-500",
+                  delay: 0.75,
+                },
+                {
+                  amount: "+850 USDC",
+                  label: "Milestone 2 released",
+                  icon: Zap,
+                  color: "text-orange-500",
+                  delay: 0.85,
+                },
+              ].map(({ amount, label, icon: Icon, color, delay }) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay, duration: 0.4 }}
+                  className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/60 px-3 py-2 dark:border-neutral-800/60 dark:bg-neutral-800/30"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-3.5 w-3.5 ${color}`} />
+                    <span className="text-[0.65rem] text-neutral-600 dark:text-neutral-400">
+                      {label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[0.65rem] font-bold text-emerald-600 dark:text-emerald-400">
+                    {amount}
+                    <ArrowUpRight className="h-3 w-3" />
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
         </div>
-      ))}
+      </motion.div>
+
+      {/* Floating stat badges */}
+      <motion.div
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute -bottom-4 -left-6 z-20 flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white/90 px-3.5 py-2.5 shadow-xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/90"
+      >
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+          <CheckCircle2 className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-[0.65rem] leading-tight font-bold text-neutral-800 dark:text-neutral-100">
+            0 Disputes
+          </p>
+          <p className="font-mono text-[0.55rem] text-neutral-400">On-chain verified</p>
+        </div>
+      </motion.div>
+
+      <motion.div
+        animate={{ y: [0, 7, 0] }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+        className="absolute -top-4 -right-4 z-20 flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white/90 px-3.5 py-2.5 shadow-xl backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/90"
+      >
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/10 text-orange-500">
+          <Zap className="h-4 w-4 fill-current" />
+        </div>
+        <div>
+          <p className="text-[0.65rem] leading-tight font-bold text-neutral-800 dark:text-neutral-100">
+            2.3s Settlement
+          </p>
+          <p className="font-mono text-[0.55rem] text-neutral-400">Stellar network</p>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
-/** Full-width hero section with split-screen layout showcasing copy and live widgets. */
+/** Full-width hero section with split-screen waitlist layout. */
 export function V2Hero() {
   return (
-    <section className="relative overflow-hidden bg-background pt-28 pb-20 lg:pt-36 lg:pb-28">
-      {/* Dynamic Network background canvas */}
-      <Particles className="pointer-events-none absolute inset-0 z-0 opacity-70" />
+    <section className="relative overflow-hidden bg-background pt-28 pb-24 lg:pt-36 lg:pb-32">
+      <Particles className="pointer-events-none absolute inset-0 z-0 opacity-60" />
 
-      {/* Subtle light aura gradient */}
+      {/* Top orange radial aura */}
       <div
-        className="pointer-events-none absolute inset-0 z-0 opacity-40 dark:opacity-20"
+        className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
-            "radial-gradient(ellipse 60% 60% at 50% -10%, rgba(255,112,3,0.15) 0%, transparent 80%)",
+            "radial-gradient(ellipse 70% 55% at 55% -5%, rgba(255,112,3,0.13) 0%, transparent 75%)",
         }}
       />
 
       <div className={`${V2_PAGE_CONTAINER_CLASS} relative z-10`}>
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
-          {/* Left Column: Heading and Text */}
+        <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2 lg:gap-12">
+          {/* Left column */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7 }}
-            className="text-center md:text-left lg:col-span-7"
+            className="flex flex-col items-start"
           >
-            <motion.div {...FADE_UP} transition={{ duration: 0.6 }}>
-              <AnnouncementBadge />
+            <AnnouncementBadge />
+
+            <motion.h1
+              {...FADE_UP}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="hr-text-primary mb-6 text-4xl leading-[1.08] font-bold tracking-tight sm:text-5xl md:text-[3.85rem]"
+            >
+              The Next Era of
+              <br />
+              <span className={V2_GRADIENT_TEXT_CLASS}>Freelance Work.</span>
+            </motion.h1>
+
+            <motion.p
+              {...FADE_UP}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="hr-text-secondary mb-8 max-w-lg text-base leading-relaxed sm:text-lg"
+            >
+              Highrable secures payments in Soroban smart-contract escrows and archives verified
+              developer reputation permanently on-chain.{" "}
+              <span className="hr-text-primary font-semibold">Zero payment risk.</span>
+            </motion.p>
+
+            <motion.div
+              {...FADE_UP}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="w-full max-w-md"
+            >
+              <V2WaitlistForm />
             </motion.div>
 
-            <HeroHeadline />
-
-            <motion.div {...FADE_UP} transition={{ duration: 0.7, delay: 0.15 }}>
-              <HeroSubtitle />
-            </motion.div>
-
-            <motion.div {...FADE_UP} transition={{ duration: 0.7, delay: 0.25 }}>
-              <HeroCTAs />
-            </motion.div>
-
-            <motion.div {...FADE_UP} transition={{ duration: 0.7, delay: 0.35 }}>
-              <HeroStats />
+            {/* Trust indicators */}
+            <motion.div
+              {...FADE_UP}
+              transition={{ duration: 0.6, delay: 0.45 }}
+              className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2"
+            >
+              {["Smart-contract escrow", "On-chain reputation", "Instant USDC payouts"].map(
+                (label) => (
+                  <span
+                    key={label}
+                    className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    {label}
+                  </span>
+                ),
+              )}
             </motion.div>
           </motion.div>
 
-          {/* Right Column: Interactive Trust Dashboard Mockup */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.1, type: "spring", stiffness: 100 }}
-            className="flex hidden w-full justify-center sm:block lg:col-span-5"
-          >
-            <HeroInteractiveDashboard />
-          </motion.div>
-          {/* Placeholder for very small screens */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.1, type: "spring", stiffness: 100 }}
-            className="block flex w-full justify-center sm:hidden lg:col-span-5"
-          >
-            <div className="text-center text-sm text-muted-foreground">
-              Dashboard preview unavailable on small screens
-            </div>
-          </motion.div>
+          {/* Right column */}
+          <div className="hidden lg:block">
+            <HeroAppMockup />
+          </div>
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface IParticlesProps {
   readonly className?: string;
@@ -98,7 +98,8 @@ export function Particles({
     const y = Math.random() * canvasSize.current.h;
     const translateX = 0;
     const translateY = 0;
-    const size = Math.random() * 2 + 1;
+    // Increase base size so particles are more visible in the hero section
+    const size = Math.random() * 3 + 2; // range: ~2 - 5
     const alpha = 0;
     const targetAlpha = Math.random() * 0.4 + 0.1;
     const dx = (Math.random() - 0.5) * 0.15;
