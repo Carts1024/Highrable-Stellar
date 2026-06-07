@@ -92,7 +92,7 @@ function AiMatchingVisual() {
         </div>
       </div>
       <div className="h-1.5 w-full rounded-full bg-neutral-200 dark:bg-neutral-800">
-        <div className="h-full w-[98%] rounded-full bg-gradient-to-r from-orange-500 to-amber-400" />
+        <div className="h-full w-[98%] rounded-full bg-linear-to-r from-orange-500 to-amber-400" />
       </div>
     </div>
   );
@@ -114,7 +114,7 @@ function WalletVisual() {
         {[20, 35, 25, 45, 60, 50, 75].map((h, i) => (
           <div
             key={i}
-            className="w-2.5 rounded-t bg-gradient-to-t from-orange-300 to-orange-500"
+            className="w-2.5 rounded-t bg-linear-to-t from-orange-300 to-orange-500"
             style={{ height: `${h}%` }}
           />
         ))}

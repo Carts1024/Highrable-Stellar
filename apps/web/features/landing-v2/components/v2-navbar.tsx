@@ -81,7 +81,7 @@ export function V2Navbar() {
       transition={{ duration: 0.35 }}
       className={cn(
         "fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-300",
-        isScrolled ? "shadow-[0_1px_0_theme(colors.border)]" : "",
+        isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
       )}
     >
       <div className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
