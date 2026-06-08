@@ -31,8 +31,12 @@ export function ProductPageHero({
         className="max-w-3xl space-y-4"
       >
         <SectionLabel>{label}</SectionLabel>
-        <h1 className="hr-text-primary text-4xl leading-tight font-medium sm:text-5xl">{title}</h1>
-        <p className="hr-text-secondary text-base leading-relaxed sm:text-lg">{description}</p>
+        <h1 className="hr-text-primary font-sans text-4xl leading-tight font-bold sm:text-5xl">
+          {title}
+        </h1>
+        <p className="hr-text-secondary max-w-xl text-sm leading-relaxed sm:text-base">
+          {description}
+        </p>
         {actions ? <div className="flex flex-wrap items-center gap-3 pt-2">{actions}</div> : null}
       </motion.div>
     </section>
