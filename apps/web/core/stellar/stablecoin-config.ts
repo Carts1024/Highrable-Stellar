@@ -1,4 +1,5 @@
 import { env } from "@/core/config/env";
+import { Asset } from "@stellar/stellar-sdk";
 
 export interface IStablecoinConfig {
   readonly tokenContractId?: string;
@@ -17,6 +18,11 @@ const DEFAULT_STABLECOIN_DECIMALS = 7;
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 
+function normalizeStablecoinConfigValue(value: string | undefined): string | undefined {
+  const sanitized = value?.trim().toUpperCase();
+  return sanitized && sanitized.length > 0 ? sanitized : undefined;
+}
+
 function normalizeStablecoinDecimals(rawValue: number | undefined): number {
   if (rawValue === undefined) {
     return DEFAULT_STABLECOIN_DECIMALS;
@@ -30,11 +36,32 @@ function normalizeStablecoinDecimals(rawValue: number | undefined): number {
 }
 
 export const stablecoinConfig: IStablecoinConfig = {
-  tokenContractId: env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
+  tokenContractId: resolveStablecoinTokenContractId(env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID),
   symbol: env.NEXT_PUBLIC_STABLECOIN_SYMBOL ?? DEFAULT_STABLECOIN_SYMBOL,
   decimals: normalizeStablecoinDecimals(env.NEXT_PUBLIC_STABLECOIN_DECIMALS),
   network: env.NEXT_PUBLIC_STELLAR_NETWORK,
 };
+
+export function resolveStablecoinTokenContractId(value: string | undefined): string | undefined {
+  const sanitizedValue = normalizeStablecoinConfigValue(value);
+  if (!sanitizedValue) {
+    return undefined;
+  }
+
+  if (CONTRACT_ACCOUNT_PATTERN.test(sanitizedValue)) {
+    return sanitizedValue;
+  }
+
+  if (CLASSIC_ACCOUNT_PATTERN.test(sanitizedValue)) {
+    const assetCode =
+      env.NEXT_PUBLIC_USDC_ASSET_CODE ?? env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE ?? "USDC";
+    return new Asset(assetCode, sanitizedValue).contractId(
+      env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE,
+    );
+  }
+
+  return sanitizedValue;
+}
 
 export function validateStablecoinConfig(
   config: IStablecoinConfig = stablecoinConfig,
@@ -47,18 +74,11 @@ export function validateStablecoinConfig(
     };
   }
 
-  if (CLASSIC_ACCOUNT_PATTERN.test(config.tokenContractId)) {
-    return {
-      isValid: false,
-      message:
-        "Stablecoin token contract is configured with a Stellar asset issuer. Set NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID to the Soroban Stellar Asset Contract ID and keep the issuer in NEXT_PUBLIC_USDC_ASSET_ISSUER or NEXT_PUBLIC_STABLECOIN_ISSUER.",
-    };
-  }
-
   if (!CONTRACT_ACCOUNT_PATTERN.test(config.tokenContractId)) {
     return {
       isValid: false,
-      message: "Stablecoin token contract ID must be a Soroban contract address beginning with C.",
+      message:
+        "Stablecoin token config must be a Soroban contract address beginning with C or a Stellar asset issuer beginning with G.",
     };
   }
 

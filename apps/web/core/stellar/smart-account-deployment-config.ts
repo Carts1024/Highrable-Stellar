@@ -1,4 +1,5 @@
 import { env } from "@/core/config/env";
+import { resolveStablecoinTokenContractId } from "@/core/stellar/stablecoin-config";
 
 export type TStellarDeploymentNetwork = "local" | "testnet" | "mainnet" | "unknown";
 export type TRelayerKind =
@@ -122,13 +123,19 @@ export function getSmartAccountDeploymentConfig(): ISmartAccountDeploymentConfig
     relayerKind,
     rawRelayerKind,
     relayerUrl,
-    stablecoinTokenContractId: normalizeContractId(env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID),
+    stablecoinTokenContractId: normalizeContractId(
+      resolveStablecoinTokenContractId(env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID),
+    ),
     nativeXlmTokenContractId: normalizeContractId(env.NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID),
     usdcAssetCode: normalizeOptionalString(
       env.NEXT_PUBLIC_USDC_ASSET_CODE ?? env.NEXT_PUBLIC_STABLECOIN_ASSET_CODE,
     ),
     usdcAssetIssuer: normalizeOptionalString(
-      env.NEXT_PUBLIC_USDC_ASSET_ISSUER ?? env.NEXT_PUBLIC_STABLECOIN_ISSUER,
+      env.NEXT_PUBLIC_USDC_ASSET_ISSUER ??
+        env.NEXT_PUBLIC_STABLECOIN_ISSUER ??
+        (env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID?.startsWith("G")
+          ? env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID
+          : undefined),
     )?.toUpperCase(),
     escrowContractId: normalizeContractId(env.NEXT_PUBLIC_ESCROW_CONTRACT_ID),
     reputationContractId: normalizeContractId(env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID),

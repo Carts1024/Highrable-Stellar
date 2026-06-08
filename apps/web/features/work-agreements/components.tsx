@@ -32,6 +32,7 @@ import {
   DialogTrigger,
 } from "@repo/ui/components/ui/dialog";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -40,6 +41,7 @@ import {
   Download,
   FileText,
   GitBranch,
+  Info,
   Loader2,
   Lock,
   RefreshCw,
@@ -388,30 +390,66 @@ function AgreementTypeSelector({
           label: "Use Highrable Work Agreement",
           description: "Generate a workflow template from the job, escrow, and milestone data.",
         },
-      ].map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(option.value)}
-          className={`border p-4 text-left transition-colors ${
-            value === option.value
-              ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
-              : "border-[#d8d8d8] bg-white text-[#0a0a0a] hover:border-[#FF7003]"
-          } disabled:cursor-not-allowed disabled:opacity-60`}
-        >
-          <span className="block font-mono text-xs tracking-[0.08em] uppercase">
-            {option.label}
-          </span>
-          <span
-            className={`mt-2 block text-sm ${
-              value === option.value ? "text-white/75" : "text-[#5f5f5f]"
-            }`}
+      ].map((option) => {
+        const isSelected = value === option.value;
+
+        return (
+          <div
+            key={option.value}
+            className={`border p-4 transition-colors ${
+              isSelected
+                ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+                : "border-[#d8d8d8] bg-white text-[#0a0a0a] hover:border-[#FF7003]"
+            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
           >
-            {option.description}
-          </span>
-        </button>
-      ))}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onChange(option.value)}
+                className="min-w-0 text-left font-mono text-xs tracking-[0.08em] uppercase disabled:cursor-not-allowed"
+              >
+                {option.label}
+              </button>
+              {option.value === "highrable_generated" ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      aria-label={AGREEMENT_TEMPLATE_NOTICE.title}
+                      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center bg-transparent transition-colors disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "text-amber-300 hover:text-amber-200"
+                          : "text-[#FF7003] hover:text-[#B94A00]"
+                      }`}
+                    >
+                      <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    sideOffset={8}
+                    className="max-w-xs text-sm leading-relaxed"
+                  >
+                    {AGREEMENT_TEMPLATE_NOTICE.body}
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(option.value)}
+              className={`mt-2 block w-full text-left text-sm disabled:cursor-not-allowed ${
+                isSelected ? "text-white/75" : "text-[#5f5f5f]"
+              }`}
+            >
+              {option.description}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1968,9 +2006,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
               disabled={isSubmitting}
               onUploaded={setUploadedAttachmentId}
             />
-          ) : (
-            <AgreementLegalDisclaimer />
-          )}
+          ) : null}
           <AppButton
             type="button"
             disabled={!canSubmit || isSubmitting}

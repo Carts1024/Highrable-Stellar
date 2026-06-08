@@ -1,6 +1,10 @@
 "use client";
 
 import { useOnboardingState } from "@/features/onboarding/hooks/use-onboarding-state";
+import {
+  buildOnboardingRedirectPath,
+  isOnboardingExemptRoute,
+} from "@/features/onboarding/lib/onboarding-routes";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -11,19 +15,22 @@ export function useRequireOnboarding(): {
   const router = useRouter();
   const pathname = usePathname();
   const onboardingState = useOnboardingState();
+  const isExemptRoute = isOnboardingExemptRoute(pathname);
 
   useEffect(() => {
     if (
       !onboardingState.isConnected ||
       onboardingState.isLoading ||
       onboardingState.isComplete ||
-      pathname === "/onboarding"
+      isExemptRoute
     ) {
       return;
     }
 
-    router.replace(`/onboarding?next=${encodeURIComponent(pathname)}`);
+    const search = typeof window === "undefined" ? "" : window.location.search.slice(1);
+    router.replace(buildOnboardingRedirectPath(pathname, search));
   }, [
+    isExemptRoute,
     onboardingState.isComplete,
     onboardingState.isConnected,
     onboardingState.isLoading,
@@ -33,7 +40,9 @@ export function useRequireOnboarding(): {
 
   return {
     isCheckingOnboarding:
-      onboardingState.isConnected && (onboardingState.isLoading || !onboardingState.isComplete),
+      onboardingState.isConnected &&
+      !isExemptRoute &&
+      (onboardingState.isLoading || !onboardingState.isComplete),
     isOnboardingComplete: onboardingState.isComplete,
   };
 }

@@ -6,6 +6,7 @@ import {
 } from "@/core/wallet/server/auth-store";
 import { TChallengeRequestSchema } from "@/core/wallet/validation";
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,18 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
-    return NextResponse.json({ error: "Invalid challenge request payload." }, { status: 400 });
+  } catch (error) {
+    if (error instanceof ZodError || error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid challenge request payload." }, { status: 400 });
+    }
+
+    console.error("Failed to create Stellar auth challenge.", error);
+
+    const message =
+      error instanceof Error && error.message.includes("WALLET_SESSION_SECRET")
+        ? "Authentication session secret is not configured."
+        : "Failed to create Stellar auth challenge.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

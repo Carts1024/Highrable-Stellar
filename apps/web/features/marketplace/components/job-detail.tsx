@@ -45,6 +45,12 @@ export function JobDetail({ jobId }: { jobId: string }) {
     api.applications.listApplicationsByJob,
     hasJobId ? { jobId: convexJobId } : "skip",
   );
+  const hasAppliedToJob = useQuery(
+    api.applications.hasAppliedToJob,
+    hasJobId && walletIdentity.walletAddress
+      ? { jobId: convexJobId, freelancerWallet: walletIdentity.walletAddress }
+      : "skip",
+  );
   const escrow = useQuery(api.escrows.getEscrowByJobId, hasJobId ? { jobId: convexJobId } : "skip");
   const milestoneSummary = useQuery(
     api.milestones.getMilestoneProjectSummary,
@@ -99,8 +105,8 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const marketplaceStatus = mergedEscrow?.status ?? job.status;
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
-  const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow);
-  const chatParent = mergedEscrow
+  const canShowWorkChat = Boolean(job.selectedFreelancerWallet || mergedEscrow?.freelancerWallet);
+  const chatParent = mergedEscrow?.freelancerWallet
     ? ({
         parentType: "escrow" as const,
         parentId: mergedEscrow._id,
@@ -409,7 +415,14 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {!isMilestoneProject ? (
         <>
-          <ApplyToJobForm job={job} onApplied={() => {}} />
+          <ApplyToJobForm
+            job={job}
+            hasApplied={hasAppliedToJob ?? false}
+            isCheckingApplicationStatus={
+              !!walletIdentity.walletAddress && hasAppliedToJob === undefined
+            }
+            onApplied={() => {}}
+          />
 
           <ApplicationsList
             job={job}

@@ -1,4 +1,3 @@
-docs/*
 !docs/deployment.md
 !docs/passkey-smart-accounts.md
 !docs/mainnet-smart-account-readiness.md
@@ -18,3 +17,11 @@ dist
 .vscode/mcp.json
 contracts/target
 apps/web/.env.production
+docs/DESIGN Inspi for higrable.md
+docs/HIGHRABLE_30_MIN_DISCUSSION_GUIDE.md
+docs/HIGHRABLE_30_MIN_DISCUSSION_GUIDE_.md
+docs/May20_Consultation.pdf
+docs/PLAN.md
+docs/README-keyless.md
+docs/passkey-escrow-debug-progress.md
+docs/passkey.md

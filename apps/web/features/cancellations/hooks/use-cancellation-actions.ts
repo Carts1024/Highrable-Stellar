@@ -5,6 +5,7 @@ import { cancelEscrowOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import { normalizeStellarError } from "@/core/stellar/transaction";
+import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { api } from "@repo/convex-client";
@@ -66,8 +67,8 @@ export function useCancellationActions() {
     if (!address || !walletState.isConnected) {
       throw new Error("Connect a Stellar wallet before cancelling escrow.");
     }
-    if (!walletState.isTestnet) {
-      throw new Error("Switch your wallet to Stellar Testnet before cancelling escrow.");
+    if (!isWalletOnConfiguredNetwork(walletState)) {
+      throw new Error(getWalletNetworkMismatchMessage("cancelling escrow"));
     }
     if (walletState.isFunded === false) {
       throw new Error("Fund your Stellar testnet account with Friendbot before cancelling escrow.");
