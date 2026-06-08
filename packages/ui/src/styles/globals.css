@@ -156,6 +156,10 @@
   --color-highrable-surface-muted: var(--highrable-surface-muted);
   --color-highrable-surface-accent: var(--highrable-surface-accent);
   --color-highrable-border: var(--highrable-border);
+  --color-highrable-orange-1: var(--highrable-orange-1);
+  --color-highrable-orange-2: var(--highrable-orange-2);
+  --color-highrable-orange-3: var(--highrable-orange-3);
+  --color-highrable-orange-4: var(--highrable-orange-4);
 }
 
 @layer base {
