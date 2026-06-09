@@ -208,7 +208,7 @@ export function HighrableV2Footer({
           </div>
 
           {/* Links columns */}
-          <div className="grid grid-cols-2 gap-10 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-10 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
             {sections.map((section) => (
               <FooterSection key={section.title} section={section} renderLink={renderLink} />
             ))}

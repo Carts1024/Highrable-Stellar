@@ -9,15 +9,6 @@ import Link from "next/link";
 
 const FOOTER_SECTIONS = [
   {
-    title: "Platform",
-    links: [
-      { label: "Find Jobs", href: "/jobs" },
-      { label: "Post a Job", href: "/post-job" },
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "How It Works", href: "/home#how-it-works" },
-    ],
-  },
-  {
     title: "Resources",
     links: [
       { label: "Documentation", href: "#" },
