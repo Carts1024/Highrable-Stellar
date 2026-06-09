@@ -78,7 +78,7 @@ export function HighrableV2SectionLabel({
   return (
     <div className={cn("inline-flex items-center gap-2", className)} {...props}>
       <HighrableV2Bullet aria-hidden="true" />
-      <span className="hr-text-accent font-mono text-[0.7rem] font-medium tracking-[0.08em] uppercase">
+      <span className="hr-text-accent font-mono text-[0.7rem] font-medium tracking-widest uppercase">
         {children}
       </span>
     </div>

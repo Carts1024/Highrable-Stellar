@@ -1,12 +1,9 @@
 "use client";
 
 import { APP_NAME } from "@/core/constants";
-import {
-  V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
-  V2_PAGE_CONTAINER_CLASS,
-} from "@repo/ui/components/highrable/v2-theme";
+import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -15,12 +12,18 @@ import { NAV_LINKS } from "../constants/landing-v2.constants";
 function Logo() {
   return (
     <Link href="/home" className="flex items-center gap-2.5">
-      <img
-        src="/logo/highrable-icon.jpg"
-        alt="Highrable logo"
-        className="h-8 w-8 rounded-md object-cover"
-      />
-      <span className="hr-text-primary font-semibold tracking-tight">{APP_NAME}</span>
+      <motion.div
+        whileHover={{ scale: 1.03 }}
+        transition={{ type: "spring", stiffness: 300 }}
+        className="flex items-center gap-2.5"
+      >
+        <img
+          src="/logo/highrable-icon.jpg"
+          alt="Highrable logo"
+          className="h-8 w-8 rounded-md object-cover"
+        />
+        <span className="hr-text-primary text-lg font-semibold tracking-tight">{APP_NAME}</span>
+      </motion.div>
     </Link>
   );
 }
@@ -44,7 +47,8 @@ function NavLinks() {
 function NavActions() {
   return (
     <div className="flex items-center gap-3">
-      <Link
+      {/* TODO: Re-enable when platform launches */}
+      {/* <Link
         href="/jobs"
         className={`${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`}
       >
@@ -55,7 +59,7 @@ function NavActions() {
         className={`${V2_BUTTON_PRIMARY_CLASS} px-4 py-2 font-mono text-xs tracking-widest uppercase`}
       >
         Post a Job
-      </Link>
+      </Link> */}
     </div>
   );
 }
@@ -71,10 +75,13 @@ export function V2Navbar() {
   }, []);
 
   return (
-    <header
+    <motion.header
+      initial={{ y: -8, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.35 }}
       className={cn(
         "fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-300",
-        isScrolled ? "shadow-[0_1px_0_theme(colors.border)]" : "",
+        isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
       )}
     >
       <div className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
@@ -82,6 +89,6 @@ export function V2Navbar() {
         <NavLinks />
         <NavActions />
       </div>
-    </header>
+    </motion.header>
   );
 }
