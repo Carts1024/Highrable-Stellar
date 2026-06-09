@@ -200,13 +200,10 @@ export function HighrableV2Footer({
       <div className={cn(V2_PAGE_CONTAINER_CLASS, "relative py-16 md:py-20")}>
         {/* Main grid: brand col + links col */}
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-
           {/* Brand column */}
           <div className="flex flex-col">
             <BrandMark brand={brand} />
-            <p className="mt-5 max-w-xs text-sm leading-7 text-white/52">
-              {brand.description}
-            </p>
+            <p className="mt-5 max-w-xs text-sm leading-7 text-white/52">{brand.description}</p>
             <SocialLinks items={brand.socialLinks} />
           </div>
 

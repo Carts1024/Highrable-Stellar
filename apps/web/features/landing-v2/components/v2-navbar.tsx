@@ -13,10 +13,8 @@ import { NAV_LINKS } from "../constants/landing-v2.constants";
 // Shared nav link styles — keep in sync with header.tsx
 const NAV_LINK_BASE =
   "flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors";
-const NAV_LINK_INACTIVE =
-  "text-[#6b6b6b] hover:text-[#FF7003]";
-const NAV_LINK_ACTIVE =
-  "hr-v2-button-primary text-white";
+const NAV_LINK_INACTIVE = "text-[#6b6b6b] hover:text-[#FF7003]";
+const NAV_LINK_ACTIVE = "hr-v2-button-primary text-white";
 
 function Logo() {
   return (
@@ -31,7 +29,7 @@ function Logo() {
           alt="Highrable logo"
           className="h-8 w-8 rounded-md object-cover"
         />
-        <span className="text-[#0a0a0a] text-lg font-semibold tracking-tight">{APP_NAME}</span>
+        <span className="text-lg font-semibold tracking-tight text-[#0a0a0a]">{APP_NAME}</span>
       </motion.div>
     </Link>
   );
