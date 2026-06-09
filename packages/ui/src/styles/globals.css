@@ -24,12 +24,12 @@
   --border: #e8e8e8;
   --input: #e8e8e8;
   --ring: #ff7003;
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.75rem;
+  --chart-1: #f29a47;
+  --chart-2: #3cc6d1;
+  --chart-3: #6b6cf0;
+  --chart-4: #d6f067;
+  --chart-5: #f6e65a;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #0a0a0a;
   --sidebar-primary: #0a0a0a;
@@ -85,11 +85,11 @@
   --border: #3a3a3a;
   --input: #3a3a3a;
   --ring: #ff8801;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --chart-1: #8a7bff;
+  --chart-2: #33c9b7;
+  --chart-3: #f6e65a;
+  --chart-4: #c07cff;
+  --chart-5: #ff7b2f;
   --sidebar: #1f1f1f;
   --sidebar-foreground: #fafafa;
   --sidebar-primary: #fafafa;
@@ -156,6 +156,10 @@
   --color-highrable-surface-muted: var(--highrable-surface-muted);
   --color-highrable-surface-accent: var(--highrable-surface-accent);
   --color-highrable-border: var(--highrable-border);
+  --color-highrable-orange-1: var(--highrable-orange-1);
+  --color-highrable-orange-2: var(--highrable-orange-2);
+  --color-highrable-orange-3: var(--highrable-orange-3);
+  --color-highrable-orange-4: var(--highrable-orange-4);
 }
 
 @layer base {
@@ -214,7 +218,7 @@
   .hr-panel {
     background-color: var(--card);
     border: 1px solid var(--highrable-border);
-    border-radius: 0.75rem;
+    border-radius: var(--radius);
   }
   .hr-v2-gradient-text {
     background-image: var(--highrable-gradient-primary);
@@ -243,7 +247,7 @@
   .hr-v2-button-primary {
     background-image: var(--highrable-gradient-primary);
     color: var(--primary-foreground);
-    border-radius: 0.5rem;
+    border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       filter 0.2s ease,
@@ -257,6 +261,7 @@
     background-color: var(--card);
     border: 1px solid var(--highrable-text-primary);
     color: var(--highrable-text-primary);
+    border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
       color 0.2s ease,
@@ -269,6 +274,7 @@
   .hr-v2-button-light {
     background-color: var(--card);
     color: var(--highrable-orange-3);
+    border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       transform 0.2s ease;
@@ -280,6 +286,7 @@
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.88);
     color: var(--primary-foreground);
+    border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
       color 0.2s ease,
@@ -398,6 +405,24 @@ input:-webkit-autofill:active {
 .issue-rich-text > * {
   min-width: 0;
   max-width: 100%;
+}
+
+/* Floating accent animation used on landing highlights */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.hr-floating {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
 }
 
 .issue-rich-text a {
