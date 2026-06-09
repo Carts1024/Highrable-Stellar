@@ -7,11 +7,48 @@ import {
   V2_SECTION_SPACING_CLASS,
   V2_SURFACE_MUTED_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useInView } from "framer-motion";
+import { useEffect, useRef } from "react";
 
 import type { TProblemItem } from "../types/landing-v2.types";
 
 import { PROBLEMS } from "../constants/landing-v2.constants";
+
+/** Animated counter that counts up when it enters the viewport */
+function AnimatedStat({ stat }: { stat: string }) {
+  // Extract numeric portion and suffix (%, days, etc.)
+  const match = stat.match(/^([\d.]+)(.*)$/);
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const count = useMotionValue(0);
+
+  useEffect(() => {
+    if (!isInView || !match) return;
+    const target = parseFloat(match[1]!);
+    const controls = animate(count, target, {
+      duration: 1.6,
+      ease: "easeOut",
+    });
+    return controls.stop;
+  }, [isInView, count, match]);
+
+  if (!match) {
+    return <span ref={ref}>{stat}</span>;
+  }
+
+  const suffix = match[2];
+  const isDecimal = match[1]!.includes(".");
+
+  return (
+    <span ref={ref} className="tabular-nums">
+      <motion.span>
+        {useTransform(count, (v) => (isDecimal ? v.toFixed(2) : Math.round(v).toString()))}
+      </motion.span>
+      {suffix}
+    </span>
+  );
+}
 
 interface IProblemCardProps {
   readonly problem: TProblemItem;
@@ -36,7 +73,9 @@ function ProblemCard({ problem, index }: IProblemCardProps) {
         <h3 className="hr-text-primary mt-3 mb-2 text-base font-semibold">{problem.title}</h3>
         <p className="hr-text-secondary mb-4 text-sm leading-relaxed">{problem.description}</p>
         <div className="border-t border-border/70 pt-4 dark:border-neutral-800">
-          <p className="hr-text-accent text-2xl font-bold tracking-tight">{problem.stat}</p>
+          <p className="hr-text-accent text-2xl font-bold tracking-tight">
+            <AnimatedStat stat={problem.stat} />
+          </p>
           <p className="hr-text-muted mt-0.5 text-xs leading-relaxed">{problem.statSource}</p>
         </div>
       </SpotlightCard>
@@ -60,11 +99,11 @@ export function V2ProblemsSection() {
         >
           <SectionLabel className="mb-4">The Problem</SectionLabel>
           <h2 className="hr-text-primary text-3xl leading-[1.15] font-medium md:text-4xl">
-            The broken mechanics of freelancing
+            Freelancing is broken — for both sides
           </h2>
           <p className="hr-text-secondary mt-4 text-base leading-relaxed">
-            Traditional platforms have failed both sides of the marketplace. These are the systemic
-            problems Highrable is built to fix.
+            Traditional platforms profit from the problem instead of solving it. Here's what
+            freelancers and clients deal with every day.
           </p>
         </motion.div>
 

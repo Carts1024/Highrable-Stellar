@@ -30,7 +30,7 @@ function EscrowVisual() {
       <div className="flex items-center gap-6">
         <div className="rounded-lg border border-border bg-white px-3 py-1.5 text-center font-mono text-[0.65rem] shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <p className="font-bold text-neutral-800 dark:text-neutral-200">Client</p>
-          <p className="text-neutral-400">Funds Locked</p>
+          <p className="text-neutral-400">Funds locked</p>
         </div>
         <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-950/40">
           <motion.div
@@ -42,7 +42,7 @@ function EscrowVisual() {
         </div>
         <div className="rounded-lg border border-border bg-white px-3 py-1.5 text-center font-mono text-[0.65rem] shadow-sm dark:border-border/30 dark:bg-neutral-900">
           <p className="font-bold text-neutral-800 dark:text-neutral-200">Freelancer</p>
-          <p className="text-neutral-400">Milestone release</p>
+          <p className="text-neutral-400">Gets paid on approval</p>
         </div>
       </div>
     </div>
@@ -63,7 +63,7 @@ function ReviewsVisual() {
       </p>
       <div className="mt-2 flex items-center gap-1 font-mono text-[0.65rem] text-neutral-400">
         <ShieldCheck className="h-3 w-3 text-emerald-500" />
-        <span>Verified Ledger Hash: 0x8a92...ef3a</span>
+        <span>Permanently recorded · Cannot be edited or removed</span>
       </div>
     </div>
   );
@@ -83,12 +83,12 @@ function AiMatchingVisual() {
       </div>
       <div className="space-y-1 font-mono text-[0.65rem] text-neutral-500">
         <div className="flex justify-between">
-          <span>Stellar Dev Skills:</span>
+          <span>Relevant Skills:</span>
           <span className="text-neutral-800 dark:text-neutral-200">Excellent (5/5)</span>
         </div>
         <div className="flex justify-between">
           <span>Trust Score:</span>
-          <span className="text-emerald-500">Perfect (On-Chain)</span>
+          <span className="text-emerald-500">Verified (38 completed jobs)</span>
         </div>
       </div>
       <div className="h-1.5 w-full rounded-full bg-neutral-200 dark:bg-neutral-800">
@@ -102,11 +102,11 @@ function WalletVisual() {
   return (
     <div className="mt-4 flex h-32 w-full items-center justify-between gap-4 rounded-lg bg-neutral-50/50 p-4 text-left dark:bg-neutral-950/40">
       <div className="space-y-1">
-        <p className="font-mono text-[0.65rem] text-neutral-400">Stellar Wallet (USDC)</p>
+        <p className="font-mono text-[0.65rem] text-neutral-400">Wallet balance (USDC)</p>
         <p className="text-xl font-bold text-neutral-800 dark:text-neutral-100">$1,480.00</p>
         <span className="inline-flex items-center gap-0.5 font-mono text-[0.6rem] text-emerald-600 dark:text-emerald-400">
           <TrendingUp className="h-3 w-3" />
-          Near-Zero Fee Payout
+          Near-zero transfer fee
         </span>
       </div>
       {/* Mini Chart Mockup */}
@@ -132,9 +132,11 @@ function ReputationVisual() {
         </div>
         <div>
           <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-            Portable Reputation ID
+            Verified Work History
           </p>
-          <p className="font-mono text-[0.6rem] text-neutral-400">did:stellar:freelancer:402</p>
+          <p className="font-mono text-[0.6rem] text-neutral-400">
+            Owned by you · Not the platform
+          </p>
         </div>
       </div>
       <div className="mt-3 flex gap-3 text-center">
@@ -144,7 +146,7 @@ function ReputationVisual() {
         </div>
         <div className="rounded border border-border bg-white px-2.5 py-1 dark:border-neutral-800 dark:bg-neutral-900">
           <p className="text-xs font-bold text-orange-500">100%</p>
-          <p className="font-mono text-[0.55rem] text-neutral-400 uppercase">Release Rate</p>
+          <p className="font-mono text-[0.55rem] text-neutral-400 uppercase">Paid On Time</p>
         </div>
       </div>
     </div>
@@ -261,8 +263,8 @@ export function V2FeaturesSection() {
             Everything you need in one trusted platform
           </h2>
           <p className="hr-text-secondary mt-4 text-base leading-relaxed">
-            Highrable integrates blockchain escrow and portable reputation today, with AI hiring
-            features clearly marked as coming soon.
+            Highrable protects your money, your reputation, and your time — today, with AI-powered
+            hiring coming soon.
           </p>
         </motion.div>
 

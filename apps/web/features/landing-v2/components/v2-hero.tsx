@@ -27,7 +27,7 @@ function AnnouncementBadge() {
         aria-hidden="true"
       />
       <span className="font-mono text-[0.6rem] tracking-[0.08em] uppercase sm:text-[0.65rem]">
-        Built on Stellar · Smart Contract Escrow Live
+        Secure payment holds · Zero payment risk
       </span>
     </motion.div>
   );
@@ -104,14 +104,14 @@ function HeroAppMockup() {
                 </div>
 
                 <p className="font-mono text-[0.6rem] text-neutral-400">
-                  Soroban · Rust · TypeScript
+                  Web Dev · Design · TypeScript
                 </p>
 
                 <div className="mt-1 flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
                   ))}
-                  <span className="ml-0.5 text-[0.55rem] text-neutral-400">5.0 (38)</span>
+                  <span className="ml-0.5 text-[0.55rem] text-neutral-400">5.0 (38 jobs)</span>
                 </div>
               </div>
             </motion.div>
@@ -125,12 +125,12 @@ function HeroAppMockup() {
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="font-mono text-[0.58rem] font-semibold tracking-wider text-orange-600 uppercase dark:text-orange-400">
-                  Active Escrow · #HR-4892
+                  Payment hold · #HR-4892
                 </span>
 
                 <span className="flex items-center gap-1 font-mono text-[0.55rem] text-neutral-400">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                  Live
+                  Active
                 </span>
               </div>
 
@@ -159,19 +159,19 @@ function HeroAppMockup() {
               className="space-y-2"
             >
               <p className="font-mono text-[0.58rem] tracking-wider text-neutral-400 uppercase">
-                Recent Settlements
+                Recent Payments
               </p>
               {[
                 {
                   amount: "+1,200 USDC",
-                  label: "Milestone 1 released",
+                  label: "Milestone 1 approved",
                   icon: CheckCircle2,
                   color: "text-emerald-500",
                   delay: 0.75,
                 },
                 {
                   amount: "+850 USDC",
-                  label: "Milestone 2 released",
+                  label: "Milestone 2 approved",
                   icon: Zap,
                   color: "text-orange-500",
                   delay: 0.85,
@@ -212,7 +212,7 @@ function HeroAppMockup() {
           <p className="text-[0.65rem] font-bold text-neutral-800 dark:text-neutral-100">
             0 Disputes
           </p>
-          <p className="text-[0.55rem] text-neutral-400">On-chain verified</p>
+          <p className="text-[0.55rem] text-neutral-400">Verified record</p>
         </div>
       </motion.div>
 
@@ -224,9 +224,9 @@ function HeroAppMockup() {
         <Zap className="h-4 w-4 text-orange-500" />
         <div>
           <p className="text-[0.65rem] font-bold text-neutral-800 dark:text-neutral-100">
-            2.3s Settlement
+            2.3s Payout
           </p>
-          <p className="text-[0.55rem] text-neutral-400">Stellar network</p>
+          <p className="text-[0.55rem] text-neutral-400">Near-instant transfer</p>
         </div>
       </motion.div>
     </div>
@@ -239,12 +239,25 @@ export function V2Hero() {
     <section className="relative overflow-hidden bg-background pt-20 pb-16 sm:pt-24 sm:pb-20 lg:pt-36 lg:pb-32">
       <Particles className="pointer-events-none absolute inset-0 z-0 opacity-60" />
 
-      {/* Top orange radial aura */}
+      {/* Richer dual-blob background — orange top-right + amber bottom-left */}
       <div
         className="pointer-events-none absolute inset-0 z-0"
         style={{
-          background:
-            "radial-gradient(ellipse 70% 55% at 55% -5%, rgba(255,112,3,0.13) 0%, transparent 75%)",
+          background: `
+            radial-gradient(ellipse 55% 45% at 70% -10%, rgba(255,112,3,0.15) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 35% at 10% 90%, rgba(251,191,36,0.10) 0%, transparent 65%)
+          `,
+        }}
+      />
+
+      {/* Subtle grid overlay for depth */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.025]"
+        style={{
+          backgroundImage: `
+            repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 48px),
+            repeating-linear-gradient(90deg, #000 0px, #000 1px, transparent 1px, transparent 48px)
+          `,
         }}
       />
 
@@ -255,10 +268,7 @@ export function V2Hero() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7 }}
-            className="
-              flex flex-col items-center text-center
-              lg:items-start lg:text-left
-            "
+            className="flex flex-col items-center text-center lg:items-start lg:text-left"
           >
             <AnnouncementBadge />
 
@@ -277,9 +287,11 @@ export function V2Hero() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="hr-text-secondary mb-8 max-w-lg text-sm leading-relaxed sm:text-base lg:text-lg"
             >
-              Highrable secures payments in Soroban smart-contract escrows and archives verified
-              developer reputation permanently on-chain.{" "}
-              <span className="hr-text-primary font-semibold">Zero payment risk.</span>
+              Highrable holds payment securely until your work is approved — like an escrow account
+              that runs automatically.{" "}
+              <span className="hr-text-primary font-semibold">
+                No chasing invoices. No payment risk.
+              </span>
             </motion.p>
 
             <motion.div
@@ -294,22 +306,21 @@ export function V2Hero() {
             <motion.div
               {...FADE_UP}
               transition={{ duration: 0.6, delay: 0.45 }}
-              className="
-                mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2
-                lg:justify-start
-              "
+              className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 lg:justify-start"
             >
-              {["Smart-contract escrow", "On-chain reputation", "Instant USDC payouts"].map(
-                (label) => (
-                  <span
-                    key={label}
-                    className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                    {label}
-                  </span>
-                ),
-              )}
+              {[
+                "Payment held until work is done",
+                "Permanent, unfakeable reviews",
+                "Paid in seconds, not days",
+              ].map((label) => (
+                <span
+                  key={label}
+                  className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  {label}
+                </span>
+              ))}
             </motion.div>
           </motion.div>
 
