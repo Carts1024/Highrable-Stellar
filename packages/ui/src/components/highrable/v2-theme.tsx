@@ -22,7 +22,8 @@ export const V2_PAGE_CONTAINER_CLASS = "mx-auto max-w-7xl px-6";
 export const V2_SECTION_SPACING_CLASS = "py-16 md:py-20";
 export const V2_PANEL_CLASS = "hr-panel";
 export const V2_SURFACE_MUTED_CLASS = "hr-surface-muted";
-export const V2_PANEL_INTERACTIVE_CLASS = "hr-panel transition-shadow hover:hr-hard-shadow";
+export const V2_PANEL_INTERACTIVE_CLASS =
+  "hr-panel transform transition duration-200 hover:-translate-y-1 hover:hr-hard-shadow-strong cursor-pointer";
 export const V2_BADGE_ACCENT_CLASS = "hr-v2-badge-accent";
 export const V2_BADGE_SOLID_CLASS = "hr-v2-badge-solid";
 export const V2_GRADIENT_TEXT_CLASS = "hr-v2-gradient-text";

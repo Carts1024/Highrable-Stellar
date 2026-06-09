@@ -85,15 +85,40 @@ async function sendDueReminder(ctx: MutationCtx, reminderId: Id<"deadlineReminde
     return { status: reminder.status };
   }
 
-  const parent = await resolveDeadlineParent(ctx, {
-    parentType: reminder.parentType,
-    parentId: reminder.parentId,
-  });
+  let parent;
+  try {
+    parent = await resolveDeadlineParent(ctx, {
+      parentType: reminder.parentType,
+      parentId: reminder.parentId,
+    });
+  } catch (error) {
+    if (!(error instanceof NotFoundError)) {
+      throw error;
+    }
+
+    await ctx.db.patch(reminderId, {
+      status: "skipped",
+      updatedAt: Date.now(),
+      metadata: {
+        ...(typeof reminder.metadata === "object" && reminder.metadata !== null
+          ? reminder.metadata
+          : {}),
+        skippedReason: "parent_not_found",
+      },
+    });
+    return { status: "skipped" };
+  }
+
   if (!shouldSendReminder(parent)) {
     await ctx.db.patch(reminderId, {
       status: "skipped",
       updatedAt: Date.now(),
-      metadata: { ...(reminder.metadata ?? {}), skippedReason: "work_not_active" },
+      metadata: {
+        ...(typeof reminder.metadata === "object" && reminder.metadata !== null
+          ? reminder.metadata
+          : {}),
+        skippedReason: "work_not_active",
+      },
     });
     return { status: "skipped" };
   }
