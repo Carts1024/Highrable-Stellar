@@ -5,6 +5,7 @@ import type {
   IPasswordChangedEmailProps,
   IPasswordResetEmailProps,
   ISignInEmailProps,
+  IWaitlistConfirmationEmailProps,
   IWorkspaceAdminAssignedEmailProps,
   IWorkspaceInviteEmailProps,
 } from "./types";
@@ -275,6 +276,32 @@ export function getNotificationEmail(props: INotificationEmailProps): string {
   return buildEmailLayout({
     title: `${notificationLabel} — TaskFlow`,
     previewText: props.message,
+    content,
+  });
+}
+
+export function getWaitlistConfirmationEmail(props: IWaitlistConfirmationEmailProps): string {
+  const escapedEmail = escapeEmailHtml(props.email);
+
+  const content = [
+    buildSectionHeading("You're on the Highrable waitlist"),
+    buildBodyText(
+      `We saved <strong style="color: ${EMAIL_COLORS.text.primary};">${escapedEmail}</strong> for early access to Highrable.`,
+    ),
+    buildBodyText(
+      "We'll send you product updates and invite details as access opens for freelancers and clients.",
+    ),
+    buildInfoCard([
+      { label: "Platform", value: "Highrable" },
+      { label: "Network", value: "Stellar smart contracts" },
+    ]),
+    buildPrimaryButton("Visit Highrable", props.siteUrl),
+    buildDisclaimerText("If you didn't join the waitlist, you can safely ignore this email."),
+  ].join("");
+
+  return buildEmailLayout({
+    title: "You're on the Highrable waitlist",
+    previewText: "You're on the Highrable waitlist. We'll reach out when access opens.",
     content,
   });
 }

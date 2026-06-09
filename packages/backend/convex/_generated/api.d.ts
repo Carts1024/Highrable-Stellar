@@ -86,6 +86,9 @@ import type * as users_helpers from "../users/helpers.js";
 import type * as users_mutations from "../users/mutations.js";
 import type * as users_queries from "../users/queries.js";
 import type * as users_types from "../users/types.js";
+import type * as waitlist from "../waitlist.js";
+import type * as waitlist_helpers from "../waitlist/helpers.js";
+import type * as waitlist_mutations from "../waitlist/mutations.js";
 import type * as work_agreements from "../work_agreements.js";
 import type * as work_agreements_helpers from "../work_agreements/helpers.js";
 import type * as work_agreements_mutations from "../work_agreements/mutations.js";
@@ -94,7 +97,12 @@ import type * as work_submissions from "../work_submissions.js";
 import type * as work_submissions_helpers from "../work_submissions/helpers.js";
 import type * as work_submissions_mutations from "../work_submissions/mutations.js";
 import type * as work_submissions_queries from "../work_submissions/queries.js";
-import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   "_shared/adminAuth": typeof _shared_adminAuth;
@@ -175,6 +183,9 @@ declare const fullApi: ApiFromModules<{
   "users/mutations": typeof users_mutations;
   "users/queries": typeof users_queries;
   "users/types": typeof users_types;
+  waitlist: typeof waitlist;
+  "waitlist/helpers": typeof waitlist_helpers;
+  "waitlist/mutations": typeof waitlist_mutations;
   work_agreements: typeof work_agreements;
   "work_agreements/helpers": typeof work_agreements_helpers;
   "work_agreements/mutations": typeof work_agreements_mutations;
@@ -193,7 +204,10 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -203,6 +217,11 @@ export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "publ
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
 
-export declare const components: {};
+export declare const components: {
+  resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;
+};

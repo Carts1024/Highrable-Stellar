@@ -46,6 +46,11 @@ export interface INotificationEmailProps {
   readonly issueTitle?: string;
 }
 
+export interface IWaitlistConfirmationEmailProps {
+  readonly email: string;
+  readonly siteUrl: string;
+}
+
 export interface IEmailLayoutInput {
   readonly title: string;
   readonly previewText: string;

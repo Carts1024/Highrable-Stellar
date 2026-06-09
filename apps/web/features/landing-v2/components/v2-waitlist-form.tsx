@@ -1,13 +1,52 @@
 "use client";
 
+import { api } from "@repo/convex-client";
 import { V2_BUTTON_PRIMARY_CLASS } from "@repo/ui/components/highrable/v2-theme";
+import { useMutation } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 
+import type { FormEvent } from "react";
+
+type TWaitlistFormStatus = "idle" | "submitting" | "success" | "error";
+
+type TConvexErrorData = {
+  readonly message?: string;
+};
+
+type TConvexLikeError = {
+  readonly data?: TConvexErrorData;
+  readonly message?: string;
+};
+
+function readWaitlistErrorMessage(error: unknown): string {
+  const fallbackMessage = "Unable to join the waitlist right now. Please try again.";
+
+  if (!(error instanceof Error)) {
+    return fallbackMessage;
+  }
+
+  const convexError = error as TConvexLikeError;
+  const dataMessage = convexError.data?.message?.trim();
+
+  if (dataMessage) {
+    return dataMessage;
+  }
+
+  const message = convexError.message?.trim();
+
+  if (!message) {
+    return fallbackMessage;
+  }
+
+  return message.length > 160 ? fallbackMessage : message;
+}
+
 export function V2WaitlistForm({ id = "waitlist-input" }: { id?: string }) {
+  const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [status, setStatus] = useState<TWaitlistFormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -18,7 +57,7 @@ export function V2WaitlistForm({ id = "waitlist-input" }: { id?: string }) {
     return "";
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErrorMessage("");
 
@@ -30,8 +69,13 @@ export function V2WaitlistForm({ id = "waitlist-input" }: { id?: string }) {
     }
 
     setStatus("submitting");
-    await new Promise((r) => setTimeout(r, 1000));
-    setStatus("success");
+    try {
+      await joinWaitlist({ email });
+      setStatus("success");
+    } catch (error) {
+      setErrorMessage(readWaitlistErrorMessage(error));
+      setStatus("error");
+    }
   };
 
   const handleCopy = async () => {
@@ -159,7 +203,7 @@ export function V2WaitlistForm({ id = "waitlist-input" }: { id?: string }) {
                   You're in!
                 </p>
                 <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                  We'll reach out when access opens. Spread the word!
+                  Check your inbox for confirmation. Spread the word!
                 </p>
               </motion.div>
             </div>
