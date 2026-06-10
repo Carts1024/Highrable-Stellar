@@ -31,7 +31,7 @@ export function ProductPageHero({
         className="max-w-3xl space-y-4"
       >
         <SectionLabel>{label}</SectionLabel>
-        <h1 className="hr-text-primary font-sans text-4xl leading-tight font-bold sm:text-5xl">
+        <h1 className="hr-text-primary font-sans text-3xl leading-tight font-bold sm:text-4xl">
           {title}
         </h1>
         <p className="hr-text-secondary max-w-xl text-sm leading-relaxed sm:text-base">

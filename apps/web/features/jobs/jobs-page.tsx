@@ -194,7 +194,7 @@ export function JobsPage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="grid gap-6 border-b border-border/60 pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <div className="space-y-5">
           <ProductPageHero
             label="Open Opportunities"
@@ -226,7 +226,7 @@ export function JobsPage() {
             },
           ].map(({ label, value, accent }) => (
             <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground/80 uppercase">
+              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
                 {label}
               </span>
               <span
@@ -305,16 +305,16 @@ export function JobsPage() {
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <p className="font-mono text-[10px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
               Marketplace Feed
             </p>
-            <h2 className="hr-text-primary text-lg font-semibold">
+            <h2 className="hr-text-primary font-sans text-lg font-semibold">
               {visibleJobs.length} jobs found
             </h2>
           </div>
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.06em] text-highrable-orange-3 uppercase hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-[11px] tracking-[0.06em] text-highrable-orange-3 uppercase hover:underline"
           >
             Manage marketplace flow
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -333,7 +333,7 @@ export function JobsPage() {
           </div>
         ) : visibleJobs.length === 0 ? (
           <RouteEmptyState
-            icon={<Briefcase className="h-10 w-10 text-muted-foreground" />}
+            icon={<Briefcase className="h-10 w-10" />}
             title="No matching jobs"
             description="Try a broader search or check back after new clients post opportunities."
           />

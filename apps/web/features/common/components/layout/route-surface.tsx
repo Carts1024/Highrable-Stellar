@@ -115,12 +115,12 @@ export function RouteEmptyState({
       {...props}
     >
       {icon ? (
-        <span className="hr-text-muted flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background">
+        <span className="hr-text-muted flex items-center justify-center rounded-full border border-border bg-background p-3">
           {icon}
         </span>
       ) : null}
-      {title ? <p className="hr-text-primary text-sm font-semibold">{title}</p> : null}
-      <p className="hr-text-secondary max-w-xl text-sm leading-relaxed">{description}</p>
+      {title ? <p className="hr-text-primary font-sans text-sm font-semibold">{title}</p> : null}
+      <p className="hr-text-secondary max-w-xl font-sans text-sm leading-relaxed">{description}</p>
       {action ? <div className="pt-1">{action}</div> : null}
     </div>
   );
