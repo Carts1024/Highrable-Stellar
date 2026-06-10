@@ -61,17 +61,20 @@ function CopyableWalletAddressField({ walletAddress }: ICopyableWalletAddressFie
 
   return (
     <div className="space-y-2">
-      <label htmlFor="external-wallet-address" className="text-sm font-medium text-gray-700">
-        Wallet address
+      <label
+        htmlFor="external-wallet-address"
+        className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+      >
+        Wallet Address
       </label>
-      <div className="flex gap-2">
+      <div className="mt-2 flex gap-2">
         <Input
           id="external-wallet-address"
           type="text"
           value={walletAddress}
           readOnly
           spellCheck={false}
-          className="h-10 font-mono text-xs tracking-wide text-gray-900"
+          className="font-mono text-xs tracking-wide text-foreground"
           aria-label="Connected external wallet address"
         />
         <AppButton
@@ -80,6 +83,7 @@ function CopyableWalletAddressField({ walletAddress }: ICopyableWalletAddressFie
           size="icon"
           onClick={() => void handleCopyWalletAddress()}
           aria-label="Copy external wallet address"
+          className="shrink-0"
         >
           {copied ? (
             <Check className="h-4 w-4" aria-hidden="true" />
@@ -98,14 +102,23 @@ function ExternalWalletDetailsCard({
   onDisconnect,
 }: IExternalWalletDetailsCardProps) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="w-full overflow-hidden rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
       <div className="space-y-5">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-gray-700">Wallet type</p>
-          <p className="text-sm font-semibold text-gray-900">{walletProviderName}</p>
+          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+            Wallet Type
+          </p>
+          <p className="mt-2 font-sans text-sm font-semibold text-foreground">
+            {walletProviderName}
+          </p>
         </div>
         <CopyableWalletAddressField walletAddress={walletAddress} />
-        <AppButton type="button" variant="outline" onClick={() => void onDisconnect()}>
+        <AppButton
+          type="button"
+          variant="outline"
+          className="mt-4 border-red-600 font-medium text-red-600 hover:bg-red-50 hover:text-red-600"
+          onClick={() => void onDisconnect()}
+        >
           <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
           Disconnect
         </AppButton>
@@ -132,16 +145,16 @@ export function ExternalWalletDetailsCardContainer() {
 
   if (!sanitizedAddressResult.isValid) {
     return (
-      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-        <p className="text-sm font-semibold text-amber-900">Wallet address unavailable</p>
-        <p className="mt-2 text-sm text-amber-800">
+      <section className="w-full rounded-2xl border border-amber-300 bg-amber-50 p-6 shadow-md">
+        <p className="font-sans font-semibold text-amber-900">Wallet address unavailable</p>
+        <p className="mt-2 font-sans text-sm leading-relaxed text-amber-800">
           The connected wallet returned an invalid Stellar public key. Disconnect and reconnect your
           wallet.
         </p>
         <AppButton
           type="button"
           variant="outline"
-          className="mt-4 border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+          className="mt-4 border-amber-300 bg-white font-medium text-amber-900 hover:bg-amber-100"
           onClick={() => void disconnectWallet()}
         >
           <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
+import { Wallet } from "lucide-react";
 
 export function WalletRequiredNotice({
   title,
@@ -11,10 +12,15 @@ export function WalletRequiredNotice({
 }) {
   return (
     <div className="mx-auto max-w-2xl py-16 text-center">
-      <div className="rounded-2xl border border-gray-100 bg-white p-12 shadow-lg">
-        <h1 className="mb-6 text-3xl font-bold text-gray-900">{title}</h1>
-        <p className="mb-8 text-gray-600">{description}</p>
-        <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-6 py-2 font-medium text-white shadow-lg transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00] hover:shadow-xl" />
+      <div className="rounded-2xl border border-border p-12 shadow-md transition-shadow hover:shadow-lg">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-highrable-orange-2/20 text-highrable-orange-2">
+          <Wallet className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <h1 className="mb-4 font-sans text-3xl font-bold text-foreground">{title}</h1>
+        <p className="mb-8 font-sans text-base leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+        <WalletConnectTrigger />
       </div>
     </div>
   );
