@@ -2,7 +2,12 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
+import {
+  ProductPageHero,
+  showErrorToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { TOnboardingFormSchema, type TOnboardingFormValues } from "@/features/onboarding/types";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
@@ -170,27 +175,35 @@ export function OnboardingPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <section className="grid gap-6 border-b border-[#e8e8e8] pb-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
-        <div>
-          <SectionLabel>Highrable onboarding</SectionLabel>
-          <h1 className="mt-2 max-w-3xl text-4xl leading-tight font-semibold text-[#0a0a0a]">
-            Set up one public identity for hiring and freelance work.
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f5f5f]">{helperText}</p>
+      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+        <div className="space-y-5">
+          <ProductPageHero
+            label="Highrable Onboarding"
+            title={
+              <>
+                Set up one public identity for{" "}
+                <span className="text-[#FF7003]">hiring and freelance work</span>.
+              </>
+            }
+            description={helperText}
+          />
         </div>
-        <div className="border-l border-[#e8e8e8] pl-4">
-          <p className="hr-label-caps text-[#7f7f7f]">Profile use</p>
-          <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">
-            Highrable keeps this identity role-neutral. You can hire, apply for work, or do both
-            from the same wallet.
-          </p>
+
+        {/* Right panel */}
+        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-xs sm:rounded-xl">
+          <div className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
+            <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
+              Profile use
+            </span>
+            <span className="hr-text-primary text-xs leading-none sm:text-sm">
+              Highrable keeps this identity role-neutral. You can hire, apply for work, or do both
+              from the same wallet.
+            </span>
+          </div>
         </div>
       </section>
 
-      <form
-        onSubmit={(event) => void handleSubmit(event)}
-        className="space-y-5 border border-[#e8e8e8] bg-white p-5 sm:p-6"
-      >
+      <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5 p-5 sm:p-6">
         <ProfileIdentityFields
           values={values}
           skillsInput={skillsInput}
@@ -214,7 +227,7 @@ export function OnboardingPage() {
           </p>
         ) : null}
 
-        <div className="flex justify-end border-t border-[#e8e8e8] pt-5">
+        <div className="flex justify-end border-t border-[#e8e8e8] pt-8">
           <AppButton
             type="submit"
             disabled={status === "saving"}

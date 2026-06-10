@@ -56,7 +56,7 @@ export function WalletConnectTrigger({
           {walletState.isConnecting ? "Connecting wallet..." : label}
         </AppButton>
       </ResponsiveDialogTrigger>
-      <ResponsiveDialogContent className="max-w-3xl border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
+      <ResponsiveDialogContent className="max-w-3xl sm:max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Choose account method</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
@@ -66,14 +66,19 @@ export function WalletConnectTrigger({
 
         <div className="p-5 sm:p-6">
           <div className="grid gap-4 lg:grid-cols-2">
-            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
-                  <Wallet className="h-5 w-5" aria-hidden="true" />
+            <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+              <div className="flex flex-col items-start gap-2">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
+                    <Wallet className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <p className="font-sans text-base font-semibold text-foreground">
+                    External Wallet
+                  </p>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">External Wallet</p>
-                  <p className="mt-3 text-sm text-gray-600">
+
+                <div className="mt-3 flex min-w-0 flex-col gap-3">
+                  <p className="font-sans text-sm text-muted-foreground">
                     Connect Freighter or WalletConnect. This is still required for escrow
                     transaction signing.
                   </p>
