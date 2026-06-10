@@ -195,27 +195,25 @@ export function JobsPage() {
     <div className="space-y-8">
       {/* Hero */}
       <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
-        <div className="space-y-5">
-          <ProductPageHero
-            label="Open Opportunities"
-            title={
-              <>
-                Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
-              </>
-            }
-            description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
-            actions={
-              <>
-                <AppButton asChild className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono">
-                  <Link href="/post-job">Post a Job</Link>
-                </AppButton>
-              </>
-            }
-          />
-        </div>
+        <ProductPageHero
+          label="Open Opportunities"
+          title={
+            <>
+              Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
+            </>
+          }
+          description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
+          actions={
+            <>
+              <AppButton asChild className="hr-v2-button-primary rounded-lg px-6 font-mono">
+                <Link href="/post-job">Post a Job</Link>
+              </AppButton>
+            </>
+          }
+        />
 
         {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-xs sm:rounded-xl">
+        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
           {[
             { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
             { label: "Matching", value: visibleJobs.length },

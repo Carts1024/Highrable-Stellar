@@ -236,7 +236,7 @@ export function PasskeySmartAccountCard() {
     <section className="w-full overflow-hidden rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
       <div className="flex w-full flex-col items-start gap-5">
         <div className="flex w-full items-center gap-3">
-          <div className="shrink-0 rounded-xl bg-highrable-orange-2/20 p-3 text-highrable-orange-2">
+          <div className="shrink-0 rounded-xl bg-highrable-orange-2/10 p-3 text-highrable-orange-2">
             <KeyRound className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="flex-1">
@@ -306,7 +306,7 @@ export function PasskeySmartAccountCard() {
                     <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
                       Fee Readiness
                     </p>
-                    <p className="mt-3 text-base font-bold wrap-break-word text-gray-900">
+                    <p className="mt-3 text-sm font-bold wrap-break-word text-gray-900">
                       {formatFeePath(feeReadiness)}
                     </p>
                   </div>

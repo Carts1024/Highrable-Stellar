@@ -70,7 +70,7 @@ export function WalletConnectTrigger({
             <section className="w-full rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
               <div className="flex h-full flex-col gap-4">
                 <div className="flex items-start gap-4">
-                  <div className="shrink-0 rounded-xl bg-highrable-orange-2/20 p-3 text-highrable-orange-2">
+                  <div className="shrink-0 rounded-xl bg-highrable-orange-2/10 p-3 text-highrable-orange-2">
                     <Wallet className="h-5 w-5" aria-hidden="true" />
                   </div>
                   <div className="flex-1">

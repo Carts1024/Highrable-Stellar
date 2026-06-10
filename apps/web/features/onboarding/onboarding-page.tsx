@@ -195,7 +195,7 @@ export function OnboardingPage() {
             <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
               Profile use
             </span>
-            <span className="hr-text-primary text-xs leading-none sm:text-sm">
+            <span className="hr-text-primary text-xs leading-none font-medium sm:text-sm">
               Highrable keeps this identity role-neutral. You can hire, apply for work, or do both
               from the same wallet.
             </span>
