@@ -162,15 +162,13 @@ const ResponsiveDialogHeader = ({ className, ...props }: ResponsiveDialogHeaderP
   if (isDesktop) {
     return (
       <DialogHeader
-        className={cn("border-b border-[#e8e8e8] px-5 py-4 sm:px-6", className)}
+        className={cn("border-b border-border px-5 py-4 sm:px-6", className)}
         {...props}
       />
     );
   }
 
-  return (
-    <DrawerHeader className={cn("border-b border-[#e8e8e8] text-left", className)} {...props} />
-  );
+  return <DrawerHeader className={cn("border-b border-border text-left", className)} {...props} />;
 };
 ResponsiveDialogHeader.displayName = "ResponsiveDialogHeader";
 
@@ -182,10 +180,22 @@ const ResponsiveDialogTitle = React.forwardRef<HTMLHeadingElement, ResponsiveDia
     const isDesktop = useMediaQuery("(min-width: 768px)");
 
     if (isDesktop) {
-      return <DialogTitle ref={ref} className={className} {...props} />;
+      return (
+        <DialogTitle
+          ref={ref}
+          className={cn("text-xl font-bold font-sans leading-none tracking-tight", className)}
+          {...props}
+        />
+      );
     }
 
-    return <DrawerTitle ref={ref} className={className} {...props} />;
+    return (
+      <DrawerTitle
+        ref={ref}
+        className={cn("text-lg font-bold font-sans leading-none tracking-tight", className)}
+        {...props}
+      />
+    );
   },
 );
 ResponsiveDialogTitle.displayName = "ResponsiveDialogTitle";
@@ -200,10 +210,22 @@ const ResponsiveDialogDescription = React.forwardRef<
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
-    return <DialogDescription ref={ref} className={className} {...props} />;
+    return (
+      <DialogDescription
+        ref={ref}
+        className={cn("text-sm font-sans text-muted-foreground", className)}
+        {...props}
+      />
+    );
   }
 
-  return <DrawerDescription ref={ref} className={className} {...props} />;
+  return (
+    <DrawerDescription
+      ref={ref}
+      className={cn("text-sm font-sans text-muted-foreground", className)}
+      {...props}
+    />
+  );
 });
 ResponsiveDialogDescription.displayName = "ResponsiveDialogDescription";
 
@@ -272,10 +294,10 @@ const ResponsiveDialogClose = React.forwardRef<
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
-    return <DialogClose ref={ref} {...props} className="text-foreground" />;
+    return <DialogClose ref={ref} {...props} style={{ color: "var(--foreground)" }} />;
   }
 
-  return <DrawerClose ref={ref} {...props} className="text-foreground" />;
+  return <DrawerClose ref={ref} {...props} style={{ color: "var(--foreground)" }} />;
 });
 ResponsiveDialogClose.displayName = "ResponsiveDialogClose";
 
