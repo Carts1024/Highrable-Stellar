@@ -1,10 +1,15 @@
 import { TStellarPublicKeySchema } from "@/core/wallet/validation";
-import { LocalStorageKeys } from "@creit-tech/stellar-wallets-kit/types";
 import { z } from "zod";
 
 import type { TWalletAccount } from "@/core/wallet/types";
 
 const TWalletModuleIdSchema = z.string().trim().min(1).max(256);
+const WALLET_STORAGE_KEYS = {
+  activeAddress: "@StellarWalletsKit/activeAddress",
+  selectedModuleId: "@StellarWalletsKit/selectedModuleId",
+} as const;
+
+type TWalletStorageKey = (typeof WALLET_STORAGE_KEYS)[keyof typeof WALLET_STORAGE_KEYS];
 
 export type TStoredWalletSelection = {
   address: string;
@@ -23,7 +28,7 @@ function getBrowserStorage(): Storage | null {
   }
 }
 
-function readStorageValue(storage: Storage, key: LocalStorageKeys): string | null {
+function readStorageValue(storage: Storage, key: TWalletStorageKey): string | null {
   try {
     const value = storage.getItem(key)?.trim();
     return value && value.length > 0 ? value : null;
@@ -32,7 +37,7 @@ function readStorageValue(storage: Storage, key: LocalStorageKeys): string | nul
   }
 }
 
-function writeStorageValue(storage: Storage, key: LocalStorageKeys, value: string): void {
+function writeStorageValue(storage: Storage, key: TWalletStorageKey, value: string): void {
   try {
     storage.setItem(key, value);
   } catch {
@@ -40,7 +45,7 @@ function writeStorageValue(storage: Storage, key: LocalStorageKeys, value: strin
   }
 }
 
-function removeStorageValue(storage: Storage, key: LocalStorageKeys): void {
+function removeStorageValue(storage: Storage, key: TWalletStorageKey): void {
   try {
     storage.removeItem(key);
   } catch {
@@ -56,8 +61,8 @@ export class WalletPersistenceService {
       return null;
     }
 
-    const address = readStorageValue(storage, LocalStorageKeys.activeAddress);
-    const walletId = readStorageValue(storage, LocalStorageKeys.selectedModuleId);
+    const address = readStorageValue(storage, WALLET_STORAGE_KEYS.activeAddress);
+    const walletId = readStorageValue(storage, WALLET_STORAGE_KEYS.selectedModuleId);
 
     const parsedSelection = z
       .object({
@@ -98,8 +103,8 @@ export class WalletPersistenceService {
       return;
     }
 
-    writeStorageValue(storage, LocalStorageKeys.activeAddress, parsedSelection.data.address);
-    writeStorageValue(storage, LocalStorageKeys.selectedModuleId, parsedSelection.data.walletId);
+    writeStorageValue(storage, WALLET_STORAGE_KEYS.activeAddress, parsedSelection.data.address);
+    writeStorageValue(storage, WALLET_STORAGE_KEYS.selectedModuleId, parsedSelection.data.walletId);
   }
 
   public clearWalletSelection(): void {
@@ -109,7 +114,7 @@ export class WalletPersistenceService {
       return;
     }
 
-    removeStorageValue(storage, LocalStorageKeys.activeAddress);
-    removeStorageValue(storage, LocalStorageKeys.selectedModuleId);
+    removeStorageValue(storage, WALLET_STORAGE_KEYS.activeAddress);
+    removeStorageValue(storage, WALLET_STORAGE_KEYS.selectedModuleId);
   }
 }
