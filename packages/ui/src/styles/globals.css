@@ -369,6 +369,13 @@ input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s;
 }
 
+input:-webkit-autofill::selection,
+input::selection {
+  background-color: rgba(255, 112, 3, 0.25);
+  color: #111827;
+  -webkit-text-fill-color: #111827;
+}
+
 .rich-text-toolbar .ql-formats {
   margin-right: 0;
 }

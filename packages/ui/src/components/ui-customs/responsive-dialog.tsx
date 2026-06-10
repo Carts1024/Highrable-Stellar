@@ -135,7 +135,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
         <DialogContent
           ref={ref}
           className={cn(
-            "max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] overflow-hidden",
+            "max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] flex flex-col",
             className,
           )}
         >
@@ -145,7 +145,7 @@ const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialo
     }
 
     return (
-      <DrawerContent ref={ref} className={cn("max-h-[90dvh] overflow-hidden", className)}>
+      <DrawerContent ref={ref} className={cn("max-h-[90dvh] flex flex-col", className)}>
         {children}
       </DrawerContent>
     );
