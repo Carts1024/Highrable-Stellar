@@ -9,12 +9,13 @@ import { FreelancerProfileHeader } from "@/features/profile/components/freelance
 import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
 import { api } from "@repo/convex-client";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 
@@ -65,23 +66,25 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         onEdit={() => setIsEditing(true)}
       />
 
-      <Dialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-none border-[#e8e8e8] sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Edit profile</DialogTitle>
-            <DialogDescription>
+      <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
+        <ResponsiveDialogContent className="rounded-none border-[#e8e8e8] sm:max-w-3xl">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Edit profile</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Keep these fields aligned with your public onboarding identity.
-            </DialogDescription>
-          </DialogHeader>
-          {canEdit ? (
-            <EditFreelancerProfileForm
-              profile={profile}
-              onSaved={() => setIsEditing(false)}
-              onCancel={() => setIsEditing(false)}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody>
+            {canEdit ? (
+              <EditFreelancerProfileForm
+                profile={profile}
+                onSaved={() => setIsEditing(false)}
+                onCancel={() => setIsEditing(false)}
+              />
+            ) : null}
+          </ResponsiveDialogBody>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
 
       {stats.completedContracts === 0 ? (
         <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">

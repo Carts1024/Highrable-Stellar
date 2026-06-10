@@ -31,6 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/ui/tooltip";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowUpRight,
@@ -41,7 +47,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  TriangleAlert,
   User,
 } from "lucide-react";
 import Link from "next/link";
@@ -201,7 +206,7 @@ export function JobsPage() {
             description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
             actions={
               <>
-                <AppButton asChild className="hr-v2-button-primary gap-2 rounded-lg px-6">
+                <AppButton asChild className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono">
                   <Link href="/post-job">Post a Job</Link>
                 </AppButton>
               </>
@@ -355,13 +360,28 @@ export function JobsPage() {
               return (
                 <article
                   key={job._id}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
+                  className="group border-borderbg-card flex flex-col overflow-hidden rounded-xl border shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
                 >
                   {/* Card header */}
                   <div className="flex flex-col gap-3 p-6 pb-4">
                     {/* Badge row */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <JobSafetyBadge status={safetyStatus.status} />
+                      {isUnfunded ? (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex cursor-default">
+                                <JobSafetyBadge status={safetyStatus.status} />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-center">
+                              This job has not been funded yet. Confirm escrow before starting work.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <JobSafetyBadge status={safetyStatus.status} />
+                      )}
 
                       {getJobSafetyLabel(safetyStatus.status) !==
                         getMarketplaceStatusMeta(escrow?.status ?? job.status).label && (
@@ -375,7 +395,7 @@ export function JobsPage() {
                       )}
 
                       {isVerifiedFunded && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           Escrow Verified
                         </span>
@@ -387,18 +407,8 @@ export function JobsPage() {
                       </span>
                     </div>
 
-                    {/* Unfunded warning */}
-                    {isUnfunded && (
-                      <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
-                        <span className="mt-px text-amber-500">
-                          <TriangleAlert className="h-4 w-4" />
-                        </span>
-                        This job has not been funded yet. Confirm escrow before starting work.
-                      </div>
-                    )}
-
                     {/* Title + budget */}
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="mt-3 flex items-start justify-between gap-4">
                       <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
                         {job.title}
                       </h3>
@@ -406,7 +416,7 @@ export function JobsPage() {
                         <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
                           {formatBudget(job.totalBudget ?? job.budget)}
                         </p>
-                        <p className="mt-1 font-mono text-[9px] tracking-[0.08em] text-muted-foreground/60 uppercase">
+                        <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
                           {isMilestoneProject ? "Total Budget" : "Budget"}
                         </p>
                       </div>
@@ -421,9 +431,9 @@ export function JobsPage() {
                   </div>
 
                   {/* Meta strip */}
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/40 bg-muted/20 px-6 py-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Type
                       </span>
                       <span className="font-semibold text-foreground">
@@ -433,7 +443,7 @@ export function JobsPage() {
 
                     <div className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Client
                       </span>
                       <Link
@@ -446,7 +456,7 @@ export function JobsPage() {
 
                     <div className="flex items-center gap-1.5">
                       <Coins className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Asset
                       </span>
                       <span className="max-w-30 truncate font-semibold text-foreground sm:max-w-none">
@@ -454,7 +464,7 @@ export function JobsPage() {
                       </span>
                     </div>
 
-                    <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-100/60 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/5 dark:text-emerald-400">
+                    <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                       {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
                     </div>

@@ -13,14 +13,15 @@ import { getReadableAttachmentError } from "@/features/attachments/lib";
 import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/components/ui/dialog";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
 import { useId, useMemo, useState } from "react";
@@ -317,89 +318,91 @@ export function OpenDisputeDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={isSubmitting ? undefined : onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-[#e8e8e8] bg-white">
-        <DialogHeader>
-          <DialogTitle className="text-xl text-[#0a0a0a]">
+    <ResponsiveDialog open={isOpen} onOpenChange={isSubmitting ? undefined : onOpenChange}>
+      <ResponsiveDialogContent className="max-w-2xl border-[#e8e8e8] bg-white">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
             Open Platform-Reviewed Dispute
-          </DialogTitle>
-          <DialogDescription className="text-[#5f5f5f]">
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-[#5f5f5f]">
             Save dispute evidence in Highrable and mark the escrow disputed on Stellar.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          <div className="flex gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              Manual dispute review pauses release and cancellation. This MVP does not automate
-              escrow judgment or fund splitting.
-            </p>
+        <ResponsiveDialogBody>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="flex gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Manual dispute review pauses release and cancellation. This MVP does not automate
+                escrow judgment or fund splitting.
+              </p>
+            </div>
           </div>
-        </div>
 
-        {canOpenDispute?.allowed === false ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {canOpenDispute.reason}
-          </p>
-        ) : null}
+          {canOpenDispute?.allowed === false ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {canOpenDispute.reason}
+            </p>
+          ) : null}
 
-        <div className="grid gap-4">
-          <label className="grid gap-2" htmlFor={reasonSelectId}>
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
-            <DisputeReasonSelect
-              id={reasonSelectId}
-              value={reasonCategory}
+          <div className="grid gap-4">
+            <label className="grid gap-2" htmlFor={reasonSelectId}>
+              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
+              <DisputeReasonSelect
+                id={reasonSelectId}
+                value={reasonCategory}
+                disabled={isSubmitting}
+                onChange={setReasonCategory}
+              />
+            </label>
+
+            <label className="grid gap-2" htmlFor={descriptionId}>
+              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
+              <Textarea
+                id={descriptionId}
+                value={description}
+                disabled={isSubmitting}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe what happened, what has already been tried, and what evidence matters."
+                className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
+              />
+            </label>
+
+            <AttachmentUploader
+              value={attachments}
+              onChange={setAttachments}
               disabled={isSubmitting}
-              onChange={setReasonCategory}
+              ownerRole={ownerRole}
             />
-          </label>
+          </div>
 
-          <label className="grid gap-2" htmlFor={descriptionId}>
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
-            <Textarea
-              id={descriptionId}
-              value={description}
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <AppButton
+              type="button"
+              variant="secondary"
               disabled={isSubmitting}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Describe what happened, what has already been tried, and what evidence matters."
-              className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
-            />
-          </label>
-
-          <AttachmentUploader
-            value={attachments}
-            onChange={setAttachments}
-            disabled={isSubmitting}
-            ownerRole={ownerRole}
-          />
-        </div>
-
-        {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="flex flex-wrap justify-end gap-2">
-          <AppButton
-            type="button"
-            variant="secondary"
-            disabled={isSubmitting}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </AppButton>
-          <AppButton
-            type="button"
-            disabled={!canSubmit || isSubmitting}
-            onClick={() => void handleSubmit()}
-            className="disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? "Opening Dispute..." : "Open Dispute"}
-          </AppButton>
-        </div>
-      </DialogContent>
-    </Dialog>
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              type="button"
+              disabled={!canSubmit || isSubmitting}
+              onClick={() => void handleSubmit()}
+              className="disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? "Opening Dispute..." : "Open Dispute"}
+            </AppButton>
+          </div>
+        </ResponsiveDialogBody>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

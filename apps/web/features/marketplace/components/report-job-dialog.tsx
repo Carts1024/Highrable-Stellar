@@ -14,12 +14,13 @@ import {
 } from "@repo/ui/components/ui/select";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
@@ -102,73 +103,80 @@ export function ReportJobDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-[#e8e8e8] bg-white">
-        <DialogHeader>
-          <DialogTitle className="text-xl text-[#0a0a0a]">Report suspicious job</DialogTitle>
-          <DialogDescription className="text-[#5f5f5f]">
+    <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-lg border-[#e8e8e8] bg-white">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
+            Report suspicious job
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-[#5f5f5f]">
             Reports help flag jobs for manual review. Jobs are not removed automatically.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="report-job-reason" className="block text-sm font-medium text-[#0a0a0a]">
-              Reason
-            </label>
-            <Select value={reason} onValueChange={(value) => setReason(value as TReportReason)}>
-              <SelectTrigger
-                id="report-job-reason"
-                className="h-11 w-full border-[#e8e8e8] bg-white text-[#0a0a0a] focus-visible:border-[#FF7003] focus-visible:ring-[#FF7003]/20"
+        <ResponsiveDialogBody>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="report-job-reason"
+                className="block text-sm font-medium text-[#0a0a0a]"
               >
-                <SelectValue placeholder="Choose a reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {REPORT_REASONS.map((reportReason) => (
-                  <SelectItem key={reportReason.value} value={reportReason.value}>
-                    {reportReason.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                Reason
+              </label>
+              <Select value={reason} onValueChange={(value) => setReason(value as TReportReason)}>
+                <SelectTrigger
+                  id="report-job-reason"
+                  className="h-11 w-full border-[#e8e8e8] bg-white text-[#0a0a0a] focus-visible:border-[#FF7003] focus-visible:ring-[#FF7003]/20"
+                >
+                  <SelectValue placeholder="Choose a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_REASONS.map((reportReason) => (
+                    <SelectItem key={reportReason.value} value={reportReason.value}>
+                      {reportReason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-2">
-            <label
-              htmlFor="report-job-details"
-              className="block text-sm font-medium text-[#0a0a0a]"
-            >
-              Details
-            </label>
-            <AppTextarea
-              id="report-job-details"
-              rows={4}
-              value={details}
-              maxLength={1000}
-              onChange={(event) => {
-                setDetails(event.target.value);
-                setError(null);
-              }}
-              placeholder="Optional context for review"
-            />
-          </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="report-job-details"
+                className="block text-sm font-medium text-[#0a0a0a]"
+              >
+                Details
+              </label>
+              <AppTextarea
+                id="report-job-details"
+                rows={4}
+                value={details}
+                maxLength={1000}
+                onChange={(event) => {
+                  setDetails(event.target.value);
+                  setError(null);
+                }}
+                placeholder="Optional context for review"
+              />
+            </div>
 
-          {error ? (
-            <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-700">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
+            {error ? (
+              <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-700">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
 
-          <div className="flex justify-end gap-2">
-            <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </AppButton>
-            <AppButton type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit Report"}
-            </AppButton>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="flex justify-end gap-2">
+              <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+                Cancel
+              </AppButton>
+              <AppButton type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "Submit Report"}
+              </AppButton>
+            </div>
+          </form>
+        </ResponsiveDialogBody>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

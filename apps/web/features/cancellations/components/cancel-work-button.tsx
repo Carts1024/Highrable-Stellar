@@ -9,8 +9,6 @@ import { SafetyInfoDisclosure } from "@repo/ui/components/highrable/safety-info-
 import { Button } from "@repo/ui/components/ui/button";
 import { Checkbox } from "@repo/ui/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -25,6 +23,11 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+} from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { Ban, RotateCcw, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -275,7 +278,7 @@ export function CancelWorkButton({
       ) : null}
 
       {isClient && !displayedRequest ? (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button
               type="button"
@@ -287,7 +290,7 @@ export function CancelWorkButton({
               {buttonLabel}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <ResponsiveDialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{buttonLabel}</DialogTitle>
               <DialogDescription>
@@ -296,95 +299,99 @@ export function CancelWorkButton({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <CancellationEligibilityNotice eligibility={eligibility} />
-              <CancellationActionGuardNotice eligibility={eligibility} />
+            <ResponsiveDialogBody>
+              <div className="space-y-4">
+                <CancellationEligibilityNotice eligibility={eligibility} />
+                <CancellationActionGuardNotice eligibility={eligibility} />
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="cancellation-reason-category"
-                  className="font-mono text-xs text-[#6f6f6f] uppercase"
-                >
-                  Cancellation reason
-                </label>
-                <Select
-                  value={reasonCategory}
-                  onValueChange={(value) => setReasonCategory(value as TCancellationReasonCategory)}
-                >
-                  <SelectTrigger id="cancellation-reason-category" className="w-full">
-                    <SelectValue placeholder="Select reason" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {REASON_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="cancellation-reason-category"
+                    className="font-mono text-xs text-[#6f6f6f] uppercase"
+                  >
+                    Cancellation reason
+                  </label>
+                  <Select
+                    value={reasonCategory}
+                    onValueChange={(value) =>
+                      setReasonCategory(value as TCancellationReasonCategory)
+                    }
+                  >
+                    <SelectTrigger id="cancellation-reason-category" className="w-full">
+                      <SelectValue placeholder="Select reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REASON_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="cancellation-reason-text"
-                  className="font-mono text-xs text-[#6f6f6f] uppercase"
-                >
-                  Details
-                </label>
-                <Textarea
-                  id="cancellation-reason-text"
-                  value={reasonText}
-                  onChange={(event) => setReasonText(event.target.value)}
-                  placeholder="Explain why cancellation is appropriate."
-                  className="min-h-28"
-                  maxLength={4000}
-                />
-              </div>
-
-              <div className="flex items-start gap-3 rounded-lg border border-[#e8e8e8] bg-white p-3 text-sm">
-                <Checkbox
-                  id="cancellation-client-warning"
-                  checked={clientWarningAccepted}
-                  onCheckedChange={(checked) => setClientWarningAccepted(checked === true)}
-                />
-                <label htmlFor="cancellation-client-warning">
-                  I understand cancellation may require freelancer agreement, dispute review, or
-                  wallet approval, and should not be used to avoid reviewing submitted work.
-                </label>
-              </div>
-
-              {eligibility?.proofSubmitted ? (
-                <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-                  <Checkbox
-                    id="cancellation-proof-warning"
-                    checked={proofWarningAccepted}
-                    onCheckedChange={(checked) => setProofWarningAccepted(checked === true)}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="cancellation-reason-text"
+                    className="font-mono text-xs text-[#6f6f6f] uppercase"
+                  >
+                    Details
+                  </label>
+                  <Textarea
+                    id="cancellation-reason-text"
+                    value={reasonText}
+                    onChange={(event) => setReasonText(event.target.value)}
+                    placeholder="Explain why cancellation is appropriate."
+                    className="min-h-28"
+                    maxLength={4000}
                   />
-                  <label htmlFor="cancellation-proof-warning">
-                    I understand proof exists and direct cancellation is blocked unless review or
-                    dispute outcome permits it.
+                </div>
+
+                <div className="flex items-start gap-3 rounded-lg border border-[#e8e8e8] bg-white p-3 text-sm">
+                  <Checkbox
+                    id="cancellation-client-warning"
+                    checked={clientWarningAccepted}
+                    onCheckedChange={(checked) => setClientWarningAccepted(checked === true)}
+                  />
+                  <label htmlFor="cancellation-client-warning">
+                    I understand cancellation may require freelancer agreement, dispute review, or
+                    wallet approval, and should not be used to avoid reviewing submitted work.
                   </label>
                 </div>
-              ) : null}
 
-              {submitError ? <p className="text-sm text-red-700">{submitError}</p> : null}
-            </div>
+                {eligibility?.proofSubmitted ? (
+                  <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                    <Checkbox
+                      id="cancellation-proof-warning"
+                      checked={proofWarningAccepted}
+                      onCheckedChange={(checked) => setProofWarningAccepted(checked === true)}
+                    />
+                    <label htmlFor="cancellation-proof-warning">
+                      I understand proof exists and direct cancellation is blocked unless review or
+                      dispute outcome permits it.
+                    </label>
+                  </div>
+                ) : null}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
-                Close
-              </Button>
-              <Button
-                type="button"
-                disabled={!canSubmit}
-                onClick={() => void handleCreateRequest()}
-                className="disabled:opacity-60"
-              >
-                {isSubmitting ? "Submitting..." : buttonLabel}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                {submitError ? <p className="text-sm text-red-700">{submitError}</p> : null}
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={() => void handleCreateRequest()}
+                  className="disabled:opacity-60"
+                >
+                  {isSubmitting ? "Submitting..." : buttonLabel}
+                </Button>
+              </DialogFooter>
+            </ResponsiveDialogBody>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       ) : null}
     </div>
   );

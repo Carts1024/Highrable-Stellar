@@ -10,12 +10,13 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -90,99 +91,109 @@ export function ReleasePaymentDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl border-[#e8e8e8] bg-white">
-        <DialogHeader>
-          <DialogTitle className="text-xl text-[#0a0a0a]">Confirm Payment Release</DialogTitle>
-          <DialogDescription className="text-[#5f5f5f]">
+    <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-xl border-[#e8e8e8] bg-white">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
+            Confirm Payment Release
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-[#5f5f5f]">
             Releasing payment is irreversible. Confirm job outcome and review details before sending
             funds.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
-        <div className="grid gap-2 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm">
-          <p>
-            <span className="font-medium text-[#0a0a0a]">Job:</span> {jobTitle}
-          </p>
-          <p>
-            <span className="font-medium text-[#0a0a0a]">Freelancer:</span>{" "}
-            {shortenWalletAddress(freelancerWallet)}
-          </p>
-          <p>
-            <span className="font-medium text-[#0a0a0a]">Amount:</span>{" "}
-            {formatTokenAmount(
-              amount,
-              formatAssetLabel(asset),
-              escrowAsset?.decimals ?? stablecoinConfig.decimals,
-            )}
-          </p>
-          <p>
-            <span className="font-medium text-[#0a0a0a]">Asset:</span> {formatAssetLabel(asset)}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label htmlFor="release-rating" className="grid gap-1 text-sm font-medium text-[#0a0a0a]">
-            Rating (1-5 stars)
-            <AppInput
-              id="release-rating"
-              type="number"
-              min={1}
-              max={5}
-              value={rating}
-              disabled={isSubmitting}
-              onChange={(event) => {
-                setRating(Number(event.target.value));
-                setValidationError(null);
-              }}
-              aria-label="Rating for freelancer performance"
-            />
-          </label>
-
-          <label htmlFor="release-review" className="grid gap-1 text-sm font-medium text-[#0a0a0a]">
-            Feedback (optional)
-            <AppTextarea
-              id="release-review"
-              value={reviewText}
-              disabled={isSubmitting}
-              maxLength={1000}
-              rows={4}
-              onChange={(event) => {
-                setReviewText(event.target.value);
-                setValidationError(null);
-              }}
-              placeholder="Share feedback about the work quality"
-              aria-label="Review text for freelancer work"
-            />
-          </label>
-
-          {validationError ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {validationError}
+        <ResponsiveDialogBody>
+          <div className="grid gap-2 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm">
+            <p>
+              <span className="font-medium text-[#0a0a0a]">Job:</span> {jobTitle}
             </p>
-          ) : null}
-
-          {errorMessage ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {errorMessage}
+            <p>
+              <span className="font-medium text-[#0a0a0a]">Freelancer:</span>{" "}
+              {shortenWalletAddress(freelancerWallet)}
             </p>
-          ) : null}
-
-          <div className="flex justify-end gap-2">
-            <AppButton
-              type="button"
-              variant="secondary"
-              disabled={isSubmitting}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </AppButton>
-            <AppButton type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Releasing Payment..." : "Confirm & Release"}
-            </AppButton>
+            <p>
+              <span className="font-medium text-[#0a0a0a]">Amount:</span>{" "}
+              {formatTokenAmount(
+                amount,
+                formatAssetLabel(asset),
+                escrowAsset?.decimals ?? stablecoinConfig.decimals,
+              )}
+            </p>
+            <p>
+              <span className="font-medium text-[#0a0a0a]">Asset:</span> {formatAssetLabel(asset)}
+            </p>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <label
+              htmlFor="release-rating"
+              className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+            >
+              Rating (1-5 stars)
+              <AppInput
+                id="release-rating"
+                type="number"
+                min={1}
+                max={5}
+                value={rating}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  setRating(Number(event.target.value));
+                  setValidationError(null);
+                }}
+                aria-label="Rating for freelancer performance"
+              />
+            </label>
+
+            <label
+              htmlFor="release-review"
+              className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+            >
+              Feedback (optional)
+              <AppTextarea
+                id="release-review"
+                value={reviewText}
+                disabled={isSubmitting}
+                maxLength={1000}
+                rows={4}
+                onChange={(event) => {
+                  setReviewText(event.target.value);
+                  setValidationError(null);
+                }}
+                placeholder="Share feedback about the work quality"
+                aria-label="Review text for freelancer work"
+              />
+            </label>
+
+            {validationError ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {validationError}
+              </p>
+            ) : null}
+
+            {errorMessage ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {errorMessage}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <AppButton
+                type="button"
+                variant="secondary"
+                disabled={isSubmitting}
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </AppButton>
+              <AppButton type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Releasing Payment..." : "Confirm & Release"}
+              </AppButton>
+            </div>
+          </form>
+        </ResponsiveDialogBody>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

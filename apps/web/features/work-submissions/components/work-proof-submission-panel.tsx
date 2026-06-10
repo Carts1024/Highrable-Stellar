@@ -30,17 +30,18 @@ import {
 } from "@repo/ui/components/highrable/v2-theme";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { cn } from "@repo/ui/lib/utils";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowUpRight,
@@ -989,8 +990,8 @@ export function WorkProofSubmissionPanel({
           </div>
           <p className={cn("text-sm", V2_THEME.colors.textMuted)}>{summary}</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
+          <ResponsiveDialogTrigger asChild>
             <AppButton
               type="button"
               variant="outline"
@@ -1004,21 +1005,23 @@ export function WorkProofSubmissionPanel({
               <Eye className="mr-2 h-4 w-4" />
               {buttonLabel}
             </AppButton>
-          </DialogTrigger>
-          <DialogContent className="max-h-[95svh] overflow-y-auto rounded-none border-none shadow-2xl sm:max-w-4xl">
-            <DialogHeader className="border-b border-[#e8e8e8] pb-4">
-              <DialogTitle className="text-xl font-bold tracking-widest uppercase">
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="rounded-none border-none shadow-2xl sm:max-w-4xl">
+            <ResponsiveDialogHeader className="border-b border-[#e8e8e8] pb-4">
+              <ResponsiveDialogTitle className="text-xl font-bold tracking-widest uppercase">
                 {isReleased ? "Final Work" : "Work Submission"}
-              </DialogTitle>
-              <DialogDescription className="text-sm">
+              </ResponsiveDialogTitle>
+              <ResponsiveDialogDescription className="text-sm">
                 Submit, review, and manage project deliverables.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="pt-6">
-              <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
-            </div>
-          </DialogContent>
-        </Dialog>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
+            <ResponsiveDialogBody>
+              <div className="pt-6">
+                <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
+              </div>
+            </ResponsiveDialogBody>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
     </section>
   );

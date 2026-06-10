@@ -28,7 +28,7 @@ export function WalletAccountButton({ className }: IWalletAccountButtonProps) {
           type="button"
           variant="outline"
           className={cn(
-            "rounded-lg px-4 py-2 font-mono text-xs tracking-[0.06em] uppercase shadow-none transition-colors hover:border-[var(--highrable-orange-2)] hover:bg-[var(--highrable-surface-accent)] hover:text-[var(--highrable-orange-4)]",
+            "rounded-lg px-4 py-2 font-mono text-xs tracking-[0.06em] uppercase shadow-none transition-colors hover:border-highrable-orange-2 hover:bg-highrable-surface-accent hover:text-highrable-orange-4",
             accountToneClassName,
             className,
           )}

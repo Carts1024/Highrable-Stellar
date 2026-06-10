@@ -6,13 +6,14 @@ import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import type { TConvexDoc } from "@repo/convex-client";
@@ -38,22 +39,22 @@ export function FreelancerSafetyChecklist({
           <SectionLabel>Work Safety</SectionLabel>
           <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
+        <ResponsiveDialog>
+          <ResponsiveDialogTrigger asChild>
             <AppButton type="button" variant="secondary" className="rounded-none">
               View checklist
             </AppButton>
-          </DialogTrigger>
-          <DialogContent className="rounded-none">
-            <DialogHeader>
-              <DialogTitle>Before Starting Work</DialogTitle>
-              <DialogDescription>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="rounded-none">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>
                 Only start after the job shows Verified Funded and the payment terms match the
                 agreement.
-              </DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </section>
     );
   }
@@ -87,39 +88,41 @@ export function FreelancerSafetyChecklist({
         <SectionLabel>Work Safety</SectionLabel>
         <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
       </div>
-      <Dialog>
-        <DialogTrigger asChild>
+      <ResponsiveDialog>
+        <ResponsiveDialogTrigger asChild>
           <AppButton type="button" variant="secondary" className="rounded-none">
             View checklist
           </AppButton>
-        </DialogTrigger>
-        <DialogContent className="rounded-none">
-          <DialogHeader>
-            <DialogTitle>Before Starting Work</DialogTitle>
-            <DialogDescription>
+        </ResponsiveDialogTrigger>
+        <ResponsiveDialogContent className="rounded-none">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Confirm the escrow and payment terms before you begin delivery.
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="space-y-2 text-sm">
-            {checklist.map((item) => {
-              const Icon = item.isComplete ? CheckCircle2 : Circle;
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody>
+            <ul className="space-y-2 text-sm">
+              {checklist.map((item) => {
+                const Icon = item.isComplete ? CheckCircle2 : Circle;
 
-              return (
-                <li key={item.label} className="flex items-center gap-2 text-[#5f5f5f]">
-                  <Icon
-                    className={`h-4 w-4 shrink-0 ${
-                      item.isComplete ? "text-emerald-700" : "text-amber-600"
-                    }`}
-                  />
-                  <span className={item.isComplete ? "text-[#0a0a0a]" : undefined}>
-                    {item.label}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </DialogContent>
-      </Dialog>
+                return (
+                  <li key={item.label} className="flex items-center gap-2 text-[#5f5f5f]">
+                    <Icon
+                      className={`h-4 w-4 shrink-0 ${
+                        item.isComplete ? "text-emerald-700" : "text-amber-600"
+                      }`}
+                    />
+                    <span className={item.isComplete ? "text-[#0a0a0a]" : undefined}>
+                      {item.label}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </ResponsiveDialogBody>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </section>
   );
 }

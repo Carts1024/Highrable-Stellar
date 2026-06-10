@@ -13,15 +13,16 @@ import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
 import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { z } from "zod";
@@ -149,58 +150,60 @@ export function ApplyToJobForm({
           />
         </div>
       </div>
-      <Dialog>
-        <DialogTrigger asChild>
+      <ResponsiveDialog>
+        <ResponsiveDialogTrigger asChild>
           <AppButton type="button" className="hr-v2-button-primary rounded-none">
             Apply to Job
           </AppButton>
-        </DialogTrigger>
-        <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Apply to Job</DialogTitle>
-            <DialogDescription>
+        </ResponsiveDialogTrigger>
+        <ResponsiveDialogContent className="rounded-none sm:max-w-2xl">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Apply to Job</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
               Send a focused proposal and optionally attach verified work history.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleApply} className="space-y-4">
-            <div>
-              <label
-                htmlFor="apply-proposal"
-                className="mb-2 block text-sm font-medium text-gray-700"
-              >
-                Short proposal
-              </label>
-              <AppTextarea
-                id="apply-proposal"
-                rows={4}
-                value={proposal}
-                maxLength={1200}
-                onChange={(event) => {
-                  setProposal(event.target.value);
-                  setError(null);
-                }}
-                placeholder="Highlight your relevant experience and timeline"
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody>
+            <form onSubmit={handleApply} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="apply-proposal"
+                  className="mb-2 block text-sm font-medium text-gray-700"
+                >
+                  Short proposal
+                </label>
+                <AppTextarea
+                  id="apply-proposal"
+                  rows={4}
+                  value={proposal}
+                  maxLength={1200}
+                  onChange={(event) => {
+                    setProposal(event.target.value);
+                    setError(null);
+                  }}
+                  placeholder="Highlight your relevant experience and timeline"
+                />
+              </div>
+
+              <ShowcaseWorkSelector
+                freelancerWallet={walletIdentity.walletAddress}
+                selectedEscrowId={showcasedWorkEscrowId}
+                onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
               />
-            </div>
 
-            <ShowcaseWorkSelector
-              freelancerWallet={walletIdentity.walletAddress}
-              selectedEscrowId={showcasedWorkEscrowId}
-              onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
-            />
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-            <AppButton
-              type="submit"
-              disabled={isSubmitting}
-              className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Applying..." : "Submit Application"}
-            </AppButton>
-          </form>
-        </DialogContent>
-      </Dialog>
+              <AppButton
+                type="submit"
+                disabled={isSubmitting}
+                className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Applying..." : "Submit Application"}
+              </AppButton>
+            </form>
+          </ResponsiveDialogBody>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </section>
   );
 }

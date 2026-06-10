@@ -4,15 +4,15 @@ import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { api } from "@repo/convex-client";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/components/ui-customs/responsive-dialog";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
 import { Wallet } from "lucide-react";
@@ -45,8 +45,8 @@ export function WalletConnectTrigger({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
+      <ResponsiveDialogTrigger asChild>
         <AppButton
           type="button"
           variant="highrableGradient"
@@ -55,17 +55,17 @@ export function WalletConnectTrigger({
         >
           {walletState.isConnecting ? "Connecting wallet..." : label}
         </AppButton>
-      </DialogTrigger>
-      <DialogContent className="max-h-[min(90vh,48rem)] max-w-3xl overflow-hidden border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
-        <div className="max-h-[min(90vh,48rem)] overflow-y-auto overscroll-contain p-5 pr-12 sm:p-6 sm:pr-14">
-          <DialogHeader>
-            <DialogTitle>Choose account method</DialogTitle>
-            <DialogDescription>
-              Connect an external wallet or use a device passkey account.
-            </DialogDescription>
-          </DialogHeader>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent className="max-w-3xl border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Choose account method</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            Connect an external wallet or use a device passkey account.
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="p-5 sm:p-6">
+          <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
@@ -93,7 +93,7 @@ export function WalletConnectTrigger({
             <PasskeySmartAccountCard />
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

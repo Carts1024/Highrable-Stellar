@@ -22,7 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 } from "./dialog";
 
 /**
@@ -43,8 +43,9 @@ interface ResponsiveDialogProps {
   readonly breakpoint?: string; // Default: "(min-width: 768px)"
 }
 
-interface ResponsiveDialogTriggerProps
-  extends React.ComponentPropsWithoutRef<typeof DialogTrigger> {
+interface ResponsiveDialogTriggerProps extends React.ComponentPropsWithoutRef<
+  typeof DialogTrigger
+> {
   readonly asChild?: boolean;
 }
 
@@ -53,23 +54,21 @@ interface ResponsiveDialogContentProps {
   readonly children: React.ReactNode;
 }
 
-interface ResponsiveDialogHeaderProps
-  extends React.ComponentPropsWithoutRef<typeof DialogHeader> {
+interface ResponsiveDialogHeaderProps extends React.ComponentPropsWithoutRef<typeof DialogHeader> {
   readonly className?: string;
 }
 
-interface ResponsiveDialogTitleProps
-  extends React.ComponentPropsWithoutRef<typeof DialogTitle> {
+interface ResponsiveDialogTitleProps extends React.ComponentPropsWithoutRef<typeof DialogTitle> {
   readonly className?: string;
 }
 
-interface ResponsiveDialogDescriptionProps
-  extends React.ComponentPropsWithoutRef<typeof DialogDescription> {
+interface ResponsiveDialogDescriptionProps extends React.ComponentPropsWithoutRef<
+  typeof DialogDescription
+> {
   readonly className?: string;
 }
 
-interface ResponsiveDialogFooterProps
-  extends React.ComponentPropsWithoutRef<typeof DialogFooter> {
+interface ResponsiveDialogFooterProps extends React.ComponentPropsWithoutRef<typeof DialogFooter> {
   readonly className?: string;
 }
 
@@ -81,19 +80,8 @@ interface ResponsiveDialogBodyProps {
 /**
  * Root component - wraps both Dialog and Drawer
  */
-const ResponsiveDialog = React.forwardRef<
-  HTMLDivElement,
-  ResponsiveDialogProps
->(
-  (
-    {
-      open,
-      onOpenChange,
-      children,
-      breakpoint = "(min-width: 768px)",
-    },
-    ref,
-  ) => {
+const ResponsiveDialog = React.forwardRef<HTMLDivElement, ResponsiveDialogProps>(
+  ({ open, onOpenChange, children, breakpoint = "(min-width: 768px)" }, _ref) => {
     const isDesktop = useMediaQuery(breakpoint);
     const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -122,65 +110,53 @@ ResponsiveDialog.displayName = "ResponsiveDialog";
 /**
  * Trigger component - renders DialogTrigger or DrawerTrigger
  */
-const ResponsiveDialogTrigger = React.forwardRef<
-  HTMLButtonElement,
-  ResponsiveDialogTriggerProps
->(({ asChild, ...props }, ref) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+const ResponsiveDialogTrigger = React.forwardRef<HTMLButtonElement, ResponsiveDialogTriggerProps>(
+  ({ asChild, ...props }, ref) => {
+    const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  if (isDesktop) {
-    return (
-      <DialogTrigger ref={ref} asChild={asChild} {...props} />
-    );
-  }
+    if (isDesktop) {
+      return <DialogTrigger ref={ref} asChild={asChild} {...props} />;
+    }
 
-  return (
-    <DrawerTrigger ref={ref} asChild={asChild} {...props} />
-  );
-});
+    return <DrawerTrigger ref={ref} asChild={asChild} {...props} />;
+  },
+);
 ResponsiveDialogTrigger.displayName = "ResponsiveDialogTrigger";
 
 /**
  * Content wrapper - handles dialog/drawer content with proper scrolling
  */
-const ResponsiveDialogContent = React.forwardRef<
-  HTMLDivElement,
-  ResponsiveDialogContentProps
->(({ className, children }, ref) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+const ResponsiveDialogContent = React.forwardRef<HTMLDivElement, ResponsiveDialogContentProps>(
+  ({ className, children }, ref) => {
+    const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  if (isDesktop) {
+    if (isDesktop) {
+      return (
+        <DialogContent
+          ref={ref}
+          className={cn(
+            "max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] overflow-hidden",
+            className,
+          )}
+        >
+          {children}
+        </DialogContent>
+      );
+    }
+
     return (
-      <DialogContent
-        ref={ref}
-        className={cn(
-          "max-h-[min(90vh,calc(100vh-4rem))] w-[calc(100vw-2rem)] overflow-hidden",
-          className,
-        )}
-      >
+      <DrawerContent ref={ref} className={cn("max-h-[90dvh] overflow-hidden", className)}>
         {children}
-      </DialogContent>
+      </DrawerContent>
     );
-  }
-
-  return (
-    <DrawerContent
-      ref={ref}
-      className={cn("max-h-[90dvh] overflow-hidden", className)}
-    >
-      {children}
-    </DrawerContent>
-  );
-});
+  },
+);
 ResponsiveDialogContent.displayName = "ResponsiveDialogContent";
 
 /**
  * Header component
  */
-const ResponsiveDialogHeader = ({
-  className,
-  ...props
-}: ResponsiveDialogHeaderProps) => {
+const ResponsiveDialogHeader = ({ className, ...props }: ResponsiveDialogHeaderProps) => {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
@@ -193,10 +169,7 @@ const ResponsiveDialogHeader = ({
   }
 
   return (
-    <DrawerHeader
-      className={cn("border-b border-[#e8e8e8] text-left", className)}
-      {...props}
-    />
+    <DrawerHeader className={cn("border-b border-[#e8e8e8] text-left", className)} {...props} />
   );
 };
 ResponsiveDialogHeader.displayName = "ResponsiveDialogHeader";
@@ -204,22 +177,17 @@ ResponsiveDialogHeader.displayName = "ResponsiveDialogHeader";
 /**
  * Title component
  */
-const ResponsiveDialogTitle = React.forwardRef<
-  HTMLHeadingElement,
-  ResponsiveDialogTitleProps
->(({ className, ...props }, ref) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+const ResponsiveDialogTitle = React.forwardRef<HTMLHeadingElement, ResponsiveDialogTitleProps>(
+  ({ className, ...props }, ref) => {
+    const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  if (isDesktop) {
-    return (
-      <DialogTitle ref={ref} className={className} {...props} />
-    );
-  }
+    if (isDesktop) {
+      return <DialogTitle ref={ref} className={className} {...props} />;
+    }
 
-  return (
-    <DrawerTitle ref={ref} className={className} {...props} />
-  );
-});
+    return <DrawerTitle ref={ref} className={className} {...props} />;
+  },
+);
 ResponsiveDialogTitle.displayName = "ResponsiveDialogTitle";
 
 /**
@@ -232,61 +200,53 @@ const ResponsiveDialogDescription = React.forwardRef<
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
-    return (
-      <DialogDescription ref={ref} className={className} {...props} />
-    );
+    return <DialogDescription ref={ref} className={className} {...props} />;
   }
 
-  return (
-    <DrawerDescription ref={ref} className={className} {...props} />
-  );
+  return <DrawerDescription ref={ref} className={className} {...props} />;
 });
 ResponsiveDialogDescription.displayName = "ResponsiveDialogDescription";
 
 /**
  * Body component - scrollable content area
  */
-const ResponsiveDialogBody = React.forwardRef<
-  HTMLDivElement,
-  ResponsiveDialogBodyProps
->(({ className, children }, ref) => {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+const ResponsiveDialogBody = React.forwardRef<HTMLDivElement, ResponsiveDialogBodyProps>(
+  ({ className, children }, ref) => {
+    const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  if (isDesktop) {
+    if (isDesktop) {
+      return (
+        <div
+          ref={ref}
+          className={cn(
+            "max-h-[min(90vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-5 sm:p-6",
+            className,
+          )}
+        >
+          {children}
+        </div>
+      );
+    }
+
     return (
       <div
         ref={ref}
         className={cn(
-          "max-h-[min(90vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-5 sm:p-6",
+          "max-h-[calc(90dvh-8rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4",
           className,
         )}
       >
         {children}
       </div>
     );
-  }
-
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        "max-h-[calc(90dvh-8rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-});
+  },
+);
 ResponsiveDialogBody.displayName = "ResponsiveDialogBody";
 
 /**
  * Footer component
  */
-const ResponsiveDialogFooter = ({
-  className,
-  ...props
-}: ResponsiveDialogFooterProps) => {
+const ResponsiveDialogFooter = ({ className, ...props }: ResponsiveDialogFooterProps) => {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
@@ -298,12 +258,7 @@ const ResponsiveDialogFooter = ({
     );
   }
 
-  return (
-    <DrawerFooter
-      className={cn("border-t border-[#e8e8e8] pt-2", className)}
-      {...props}
-    />
-  );
+  return <DrawerFooter className={cn("border-t border-[#e8e8e8] pt-2", className)} {...props} />;
 };
 ResponsiveDialogFooter.displayName = "ResponsiveDialogFooter";
 
@@ -325,7 +280,13 @@ const ResponsiveDialogClose = React.forwardRef<
 ResponsiveDialogClose.displayName = "ResponsiveDialogClose";
 
 export {
-  ResponsiveDialog, ResponsiveDialogBody, ResponsiveDialogClose, ResponsiveDialogContent, ResponsiveDialogDescription, ResponsiveDialogFooter, ResponsiveDialogHeader,
-  ResponsiveDialogTitle, ResponsiveDialogTrigger
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
 };
-

@@ -7,13 +7,14 @@ import { api } from "@repo/convex-client";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -63,35 +64,37 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
           <HighrableV2Metric label="Funded" value={trustStats.fundedJobs} />
           <HighrableV2Metric label="Disputed" value={trustStats.disputedJobs} />
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
+        <ResponsiveDialog>
+          <ResponsiveDialogTrigger asChild>
             <AppButton type="button" variant="secondary" className="rounded-none">
               View trust signals
             </AppButton>
-          </DialogTrigger>
-          <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Client Trust Signals</DialogTitle>
-              <DialogDescription>
+          </ResponsiveDialogTrigger>
+          <ResponsiveDialogContent className="rounded-none sm:max-w-2xl">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>Client Trust Signals</ResponsiveDialogTitle>
+              <ResponsiveDialogDescription>
                 Escrow activity for {shortenWalletAddress(clientWallet)}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-5 border-y border-[#e8e8e8] py-5 sm:grid-cols-2">
-              <HighrableV2Metric label="Wallet" value={shortenWalletAddress(clientWallet)} />
-              <HighrableV2Metric label="Jobs posted" value={trustStats.jobsPosted} />
-              <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
-              <HighrableV2Metric label="Jobs completed" value={trustStats.completedJobs} />
-              <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
-              <HighrableV2Metric label="Total escrow funded" value={fundedAssets} />
-            </div>
-            <Link
-              href={`/clients/${encodeURIComponent(clientWallet)}`}
-              className="font-medium text-[#FF7003] hover:text-[#E85D00]"
-            >
-              View full client profile
-            </Link>
-          </DialogContent>
-        </Dialog>
+              </ResponsiveDialogDescription>
+            </ResponsiveDialogHeader>
+            <ResponsiveDialogBody>
+              <div className="grid gap-5 border-y border-[#e8e8e8] py-5 sm:grid-cols-2">
+                <HighrableV2Metric label="Wallet" value={shortenWalletAddress(clientWallet)} />
+                <HighrableV2Metric label="Jobs posted" value={trustStats.jobsPosted} />
+                <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
+                <HighrableV2Metric label="Jobs completed" value={trustStats.completedJobs} />
+                <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
+                <HighrableV2Metric label="Total escrow funded" value={fundedAssets} />
+              </div>
+              <Link
+                href={`/clients/${encodeURIComponent(clientWallet)}`}
+                className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+              >
+                View full client profile
+              </Link>
+            </ResponsiveDialogBody>
+          </ResponsiveDialogContent>
+        </ResponsiveDialog>
       </div>
     </section>
   );

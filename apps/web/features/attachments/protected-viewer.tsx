@@ -7,12 +7,13 @@ import { api } from "@repo/convex-client";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@repo/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+} from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { Download, Eye, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -434,51 +435,55 @@ export function ProtectedAttachmentDialog({
     )} · Access logged`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-5xl overflow-auto border-[#e8e8e8] bg-white">
-        <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-2 text-xl text-[#0a0a0a]">
+    <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
+      <ResponsiveDialogContent className="max-w-5xl border-[#e8e8e8] bg-white">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="flex flex-wrap items-center gap-2 text-xl text-[#0a0a0a]">
             <Eye className="h-5 w-5 text-[#FF7003]" />
             Protected preview
             <AttachmentProtectionBadge protection={protection} />
-          </DialogTitle>
-          <DialogDescription className="text-[#5f5f5f]">
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription className="text-[#5f5f5f]">
             {attachment.name} · Watermarked and access logged.
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
 
-        <div className="space-y-3">
-          <ProtectionNotice />
-          {protection?.downloadRestricted ? <DownloadRestrictedNotice /> : null}
-          {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-          <ProtectedAttachmentShell
-            watermarkText={watermarkText}
-            isInactive={isInactive}
-            onDeterrent={logDeterrent}
-          >
-            <ProtectedPreviewBody attachment={attachment} preview={preview} />
-          </ProtectedAttachmentShell>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-[#7f7f7f]">
-              Anti-leak deterrents are active for this watermarked preview.
-            </p>
-            <AppButton
-              type="button"
-              variant="outline"
-              disabled={protection?.downloadRestricted}
-              onClick={() => void handleDownloadAttempt()}
-              className="rounded-lg border-[#d8d8d8] text-[#0a0a0a]"
+        <ResponsiveDialogBody>
+          <div className="space-y-3">
+            <ProtectionNotice />
+            {protection?.downloadRestricted ? <DownloadRestrictedNotice /> : null}
+            {error ? (
+              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>
+            ) : null}
+            <ProtectedAttachmentShell
+              watermarkText={watermarkText}
+              isInactive={isInactive}
+              onDeterrent={logDeterrent}
             >
-              <Download className="mr-2 h-4 w-4" />
-              {protection?.downloadRestricted ? "Download restricted" : "Download"}
-            </AppButton>
+              <ProtectedPreviewBody attachment={attachment} preview={preview} />
+            </ProtectedAttachmentShell>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[#7f7f7f]">
+                Anti-leak deterrents are active for this watermarked preview.
+              </p>
+              <AppButton
+                type="button"
+                variant="outline"
+                disabled={protection?.downloadRestricted}
+                onClick={() => void handleDownloadAttempt()}
+                className="rounded-lg border-[#d8d8d8] text-[#0a0a0a]"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {protection?.downloadRestricted ? "Download restricted" : "Download"}
+              </AppButton>
+            </div>
+            <AttachmentAccessLogsPanel
+              attachmentId={attachment._id}
+              viewerWallet={walletIdentity.walletAddress}
+            />
           </div>
-          <AttachmentAccessLogsPanel
-            attachmentId={attachment._id}
-            viewerWallet={walletIdentity.walletAddress}
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+        </ResponsiveDialogBody>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

@@ -13,13 +13,14 @@ import { api } from "@repo/convex-client";
 import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { useMutation } from "convex/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -241,8 +242,8 @@ export function ApplicationsList({
             </div>
 
             <div className="flex flex-wrap justify-end gap-2">
-              <Dialog>
-                <DialogTrigger asChild>
+              <ResponsiveDialog>
+                <ResponsiveDialogTrigger asChild>
                   <AppButton
                     type="button"
                     variant="secondary"
@@ -250,19 +251,23 @@ export function ApplicationsList({
                   >
                     Proposal
                   </AppButton>
-                </DialogTrigger>
-                <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>{shortenWalletAddress(application.freelancerWallet)}</DialogTitle>
-                    <DialogDescription>
+                </ResponsiveDialogTrigger>
+                <ResponsiveDialogContent className="rounded-none sm:max-w-2xl">
+                  <ResponsiveDialogHeader>
+                    <ResponsiveDialogTitle>
+                      {shortenWalletAddress(application.freelancerWallet)}
+                    </ResponsiveDialogTitle>
+                    <ResponsiveDialogDescription>
                       Applied {new Date(application.createdAt).toLocaleString()}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <p className="border-y border-[#e8e8e8] py-5 text-sm leading-relaxed text-[#5f5f5f]">
-                    {application.proposal}
-                  </p>
-                </DialogContent>
-              </Dialog>
+                    </ResponsiveDialogDescription>
+                  </ResponsiveDialogHeader>
+                  <ResponsiveDialogBody>
+                    <p className="border-y border-[#e8e8e8] py-5 text-sm leading-relaxed text-[#5f5f5f]">
+                      {application.proposal}
+                    </p>
+                  </ResponsiveDialogBody>
+                </ResponsiveDialogContent>
+              </ResponsiveDialog>
               <AppButton
                 asChild
                 variant="secondary"
