@@ -285,7 +285,7 @@ export function DashboardPage() {
               </span>
               <span
                 className={cn(
-                  "text-xl leading-none font-semibold sm:text-2xl",
+                  "text-lg leading-none font-semibold sm:text-xl",
                   accent ? "text-highrable-orange-2" : "hr-text-primary",
                 )}
               >
