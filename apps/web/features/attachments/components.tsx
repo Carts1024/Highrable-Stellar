@@ -18,12 +18,18 @@ import {
   HighrableV2Badge,
   HighrableV2Bullet,
   HighrableV2IconNotice,
-  SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
-import { NativeSelect } from "@repo/ui/components/ui/native-select";
+import { Label } from "@repo/ui/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/ui/select";
 import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
@@ -156,6 +162,8 @@ function getNormalizedHttpUrl(value: string): string | null {
   }
 }
 
+//  Atomic sub-components
+
 export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
   const className = "h-4 w-4";
 
@@ -170,7 +178,7 @@ export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
 
 export function AttachmentTypeBadge({ type }: IAttachmentTypeBadgeProps) {
   return (
-    <Badge className="hr-text-secondary rounded-none border-border bg-background px-2 py-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-background">
+    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-muted">
       {getAttachmentLabel(type)}
     </Badge>
   );
@@ -184,13 +192,15 @@ export function AttachmentRemoveButton({ disabled, onRemove }: IAttachmentRemove
       size="icon"
       disabled={disabled}
       onClick={onRemove}
-      className="hr-text-secondary h-8 w-8 rounded-none hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
       aria-label="Remove attachment"
     >
       <Trash2 className="h-4 w-4" />
     </AppButton>
   );
 }
+
+// Attachment preview card
 
 export function AttachmentPreviewCard({
   attachment,
@@ -210,9 +220,7 @@ export function AttachmentPreviewCard({
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handleDownload = async () => {
-    if (isDraft) {
-      return;
-    }
+    if (isDraft) return;
 
     if (!walletIdentity.walletAddress) {
       setDownloadError("Connect the participant wallet to download this attachment.");
@@ -237,24 +245,27 @@ export function AttachmentPreviewCard({
   return (
     <div
       className={cn(
-        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b border-border bg-background px-4 py-4 last:border-b-0",
-        isFailed ? "bg-red-50/60" : undefined,
+        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-b-0",
+        isFailed ? "bg-red-50/50" : "bg-card",
       )}
     >
-      <div className="hr-surface-muted hr-text-primary flex h-10 w-10 shrink-0 items-center justify-center border border-border">
+      {/* File type icon */}
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
         {isUploading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <AttachmentFileIcon type={type} />
         )}
       </div>
+
+      {/* Name + metadata */}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           {isProtected ? (
             <button
               type="button"
               onClick={() => setIsProtectedPreviewOpen(true)}
-              className="hr-text-primary hover:hr-text-accent min-w-0 truncate text-left text-sm font-semibold"
+              className="hr-text-primary hover:hr-text-accent min-w-0 truncate text-left font-sans text-sm font-semibold"
             >
               {attachment.name}
             </button>
@@ -263,15 +274,17 @@ export function AttachmentPreviewCard({
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="hr-text-primary hover:hr-text-accent min-w-0 truncate text-sm font-semibold"
+              className="hr-text-primary hover:hr-text-accent min-w-0 truncate font-sans text-sm font-semibold"
             >
               {attachment.name}
             </a>
           ) : (
-            <p className="hr-text-primary min-w-0 truncate text-sm font-semibold">
+            <p className="hr-text-primary min-w-0 truncate font-sans text-sm font-semibold">
               {attachment.name}
             </p>
           )}
+
+          {/* Inline status notices — hover tooltip via HighrableV2IconNotice */}
           {isDraft && attachment.error ? (
             <HighrableV2IconNotice
               label="Attachment error"
@@ -287,19 +300,17 @@ export function AttachmentPreviewCard({
             />
           ) : null}
           {downloadError ? (
-            <HighrableV2IconNotice
-              label="Attachment download"
-              tone="warning"
-              message={downloadError}
-            />
+            <HighrableV2IconNotice label="Download error" tone="warning" message={downloadError} />
           ) : null}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+
+        {/* Type badge + status badges + size */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <AttachmentTypeBadge type={type} />
           {!isDraft ? <AttachmentProtectionBadge protection={attachment.protection} /> : null}
           {isUploading ? <HighrableV2Badge>Uploading</HighrableV2Badge> : null}
           {isFailed ? <HighrableV2Badge tone="solid">Failed</HighrableV2Badge> : null}
-          <span className="hr-text-muted font-mono text-xs">
+          <span className="hr-text-muted font-sans text-xs">
             {isUploading ? "Uploading..." : formatAttachmentSize(attachment.size)}
             {"mimeType" in attachment && attachment.mimeType ? ` · ${attachment.mimeType}` : ""}
             {!isDraft && attachment.protection?.isProtected
@@ -308,6 +319,8 @@ export function AttachmentPreviewCard({
           </span>
         </div>
       </div>
+
+      {/* Action button */}
       {readOnly && !isDraft ? (
         <AppButton
           type="button"
@@ -315,7 +328,7 @@ export function AttachmentPreviewCard({
           size="sm"
           disabled={isDownloadRestricted}
           onClick={() => void handleDownload()}
-          className="rounded-none border-border px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg border-border px-3 text-xs disabled:cursor-not-allowed disabled:opacity-60"
           aria-label={`Download ${attachment.name}`}
         >
           <Download className="mr-1.5 h-3.5 w-3.5" />
@@ -324,6 +337,7 @@ export function AttachmentPreviewCard({
       ) : !readOnly && onRemove ? (
         <AttachmentRemoveButton disabled={isUploading} onRemove={onRemove} />
       ) : null}
+
       {isProtected && !isDraft ? (
         <ProtectedAttachmentDialog
           attachment={attachment}
@@ -335,10 +349,12 @@ export function AttachmentPreviewCard({
   );
 }
 
+// Attachment list
+
 export function AttachmentList({ attachments, readOnly = false, onRemove }: IAttachmentListProps) {
   if (attachments.length === 0) {
     return (
-      <div className="hr-text-secondary flex items-center gap-2 border-y border-dashed border-border px-4 py-4 text-sm">
+      <div className="hr-text-secondary flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-4 font-sans text-sm">
         <HighrableV2Bullet tone="muted" aria-hidden="true" />
         <span>No attachments added.</span>
       </div>
@@ -346,7 +362,7 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
   }
 
   return (
-    <div className="border-y border-border">
+    <div className="overflow-hidden rounded-lg border border-border">
       {attachments.map((attachment) => {
         const id = "id" in attachment ? attachment.id : attachment._id;
 
@@ -362,6 +378,8 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
     </div>
   );
 }
+
+// Link attachment input
 
 export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputProps) {
   const [url, setUrl] = useState("");
@@ -392,8 +410,12 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-[1fr_9.5rem_auto]">
+      <Label className="sr-only" htmlFor="link-attachment-url">
+        Link URL
+      </Label>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_10rem_auto]">
         <AppInput
+          id="link-attachment-url"
           value={url}
           disabled={disabled || isAdding}
           onChange={(event) => {
@@ -401,31 +423,38 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
             setError(null);
           }}
           placeholder="https://example.com/reference"
-          className="rounded-none border-border bg-background"
           aria-label="Attachment URL"
           maxLength={MAX_EXTERNAL_URL_LENGTH}
+          className="w-full"
         />
-        <NativeSelect
+
+        <Select
           value={type}
+          onValueChange={(value) => setType(value as "link" | "video_link")}
           disabled={disabled || isAdding}
-          onChange={(event) => setType(event.target.value as "link" | "video_link")}
-          className="hr-text-primary h-10 rounded-none border-border bg-background"
-          aria-label="Attachment link type"
         >
-          <option value="link">Link</option>
-          <option value="video_link">Video link</option>
-        </NativeSelect>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="link">Link</SelectItem>
+            <SelectItem value="video_link">Video Link</SelectItem>
+          </SelectContent>
+        </Select>
+
         <AppButton
           type="button"
           disabled={disabled || isAdding}
           onClick={() => void handleAdd()}
-          className="hr-v2-button-secondary rounded-none px-4 text-sm font-semibold"
+          className="hr-v2-button-secondary ml-12 w-full text-sm font-semibold sm:w-auto"
         >
-          {isAdding ? "Adding..." : "Add link"}
+          {isAdding ? "Adding..." : "Add Link"}
         </AppButton>
       </div>
+
       {error ? (
-        <div className="flex items-center gap-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 text-sm text-red-600">
           <HighrableV2IconNotice label="Link attachment error" tone="danger" message={error} />
           <span>Check URL</span>
         </div>
@@ -434,18 +463,16 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
   );
 }
 
+// Dropzone
+
 export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzoneProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const handleFiles = (fileList: FileList | null) => {
-    if (!fileList || disabled) {
-      return;
-    }
+    if (!fileList || disabled) return;
     onFiles(Array.from(fileList));
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
@@ -470,10 +497,10 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
         handleFiles(event.dataTransfer.files);
       }}
       className={cn(
-        "grid cursor-pointer place-items-center border border-dashed p-5 text-center transition-colors",
+        "grid cursor-pointer place-items-center rounded-lg border border-dashed p-6 text-center transition-colors",
         isDragging
-          ? "border-[#FF7003] bg-orange-50"
-          : "hr-surface-muted border-border hover:border-[#FF7003]/70",
+          ? "border-highrable-orange-2 bg-orange-50"
+          : "border-border bg-muted/30 hover:border-highrable-orange-2/60 hover:bg-muted/50",
         disabled ? "pointer-events-none opacity-60" : undefined,
       )}
     >
@@ -486,18 +513,27 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
         aria-label="Upload attachments"
         onChange={(event) => handleFiles(event.target.files)}
       />
-      <Upload className="mx-auto h-5 w-5 text-[#FF7003]" />
-      <p className="hr-text-primary mt-2 text-sm font-semibold">Drop files or browse</p>
-      <div className="mt-1 flex items-center justify-center gap-2">
-        <p className="hr-text-secondary text-xs">Images, docs, PDFs, Markdown, video.</p>
+
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
+        <Upload className="h-5 w-5" />
+      </div>
+
+      <p className="hr-text-primary mt-3 font-mono text-sm font-semibold">
+        Drop files or click to browse
+      </p>
+
+      <div className="mt-1 flex items-center justify-center gap-1.5">
+        <p className="hr-text-secondary font-sans text-xs">Images, docs, PDFs, Markdown, video</p>
         <HighrableV2IconNotice
           label="Attachment limits"
-          message="Images must be 10 MB or smaller. Documents, PDFs, Markdown, and files must be 10 MB or smaller. Videos must be 25 MB or smaller."
+          message="Images, documents, PDFs, and Markdown must be 10 MB or smaller. Videos must be 25 MB or smaller."
         />
       </div>
     </div>
   );
 }
+
+// Full uploader
 
 export function AttachmentUploader({
   value,
@@ -596,11 +632,7 @@ export function AttachmentUploader({
           : {}),
       });
 
-      patchDraft(draftId, {
-        id: attachmentId,
-        status: "ready",
-        error: undefined,
-      });
+      patchDraft(draftId, { id: attachmentId, status: "ready", error: undefined });
       setError(null);
     } catch (error) {
       const message = getReadableAttachmentError(
@@ -613,15 +645,11 @@ export function AttachmentUploader({
   };
 
   const handleFiles = (files: File[]) => {
-    for (const file of files) {
-      void uploadFile(file);
-    }
+    for (const file of files) void uploadFile(file);
   };
 
   const addExternalLink = async (input: { url: string; type: "link" | "video_link" }) => {
-    if (!walletIdentity.walletAddress) {
-      throw new Error("Missing wallet identity.");
-    }
+    if (!walletIdentity.walletAddress) throw new Error("Missing wallet identity.");
 
     const normalizedUrl = getNormalizedHttpUrl(input.url);
     if (!normalizedUrl || !isValidHttpUrl(normalizedUrl)) {
@@ -690,20 +718,20 @@ export function AttachmentUploader({
   ).length;
 
   return (
-    <section className="space-y-4 border border-border bg-background p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
-        <div className="space-y-2">
-          <SectionLabel>Attachments</SectionLabel>
-          <div className="flex flex-wrap items-center gap-2">
-            <HighrableV2Badge tone={readyAttachmentCount > 0 ? "solid" : "accent"}>
-              {readyAttachmentCount} ready
-            </HighrableV2Badge>
-            {uploadingAttachmentCount > 0 ? (
-              <HighrableV2Badge>{uploadingAttachmentCount} uploading</HighrableV2Badge>
-            ) : null}
-          </div>
+    <div className="space-y-3">
+      {/* Header row: status badges + info notices */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <HighrableV2Badge tone={readyAttachmentCount > 0 ? "solid" : "accent"}>
+            {readyAttachmentCount} ready
+          </HighrableV2Badge>
+          {uploadingAttachmentCount > 0 ? (
+            <HighrableV2Badge>{uploadingAttachmentCount} uploading</HighrableV2Badge>
+          ) : null}
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Info notices — hover tooltips, no click needed */}
+        <div className="flex items-center gap-1.5">
           <HighrableV2IconNotice
             label="Attachment storage notice"
             message="Attachments are stored off-chain and linked to the job after the post is created."
@@ -722,17 +750,19 @@ export function AttachmentUploader({
         </div>
       </div>
 
+      {/* Dropzone */}
       <AttachmentDropzone
         disabled={disabled || !walletIdentity.walletAddress}
         onFiles={handleFiles}
       />
 
-      <div className="hr-surface-muted flex items-center justify-between gap-3 border border-border p-3">
+      {/* Protected preview toggle */}
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
         <label
           htmlFor="attachment-protected-preview"
-          className="hr-text-primary flex min-w-0 items-center gap-2 text-sm font-semibold"
+          className="hr-text-primary flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold"
         >
-          <ShieldCheck className="h-4 w-4 shrink-0 text-[#B94A00]" aria-hidden="true" />
+          <ShieldCheck className="h-4 w-4 shrink-0 text-highrable-text-accent" aria-hidden="true" />
           Protected preview
         </label>
         <div className="flex items-center gap-2">
@@ -746,25 +776,30 @@ export function AttachmentUploader({
             checked={useProtectedPreview}
             disabled={disabled}
             onCheckedChange={setUseProtectedPreview}
-            className="data-[state=checked]:bg-[#FF7003]"
+            className="data-[state=checked]:bg-highrable-orange-2"
           />
         </div>
       </div>
 
+      {/* Link input */}
       <LinkAttachmentInput
         disabled={disabled || !walletIdentity.walletAddress}
         onAdd={addExternalLink}
       />
+
+      {/* File list */}
       <AttachmentList
         attachments={value}
         onRemove={(attachmentId) => void removeAttachment(attachmentId)}
       />
+
+      {/* Upload/action error */}
       {error ? (
-        <div className="flex items-center gap-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           <HighrableV2IconNotice label="Attachment action error" tone="danger" message={error} />
           <span>Attachment action failed</span>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }
