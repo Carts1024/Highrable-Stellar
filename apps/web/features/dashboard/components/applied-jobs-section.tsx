@@ -1,19 +1,11 @@
 "use client";
 
+import { RouteEmptyState } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerAppliedJobs } from "@/features/dashboard/hooks/use-freelancer-applied-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@repo/ui/components/ui/table";
-import { BriefcaseBusiness } from "lucide-react";
+import { BriefcaseBusiness, ClipboardList } from "lucide-react";
 import Link from "next/link";
 
 function formatDate(timestamp: number): string {
@@ -25,91 +17,121 @@ export function AppliedJobsSection() {
     useFreelancerAppliedJobs();
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <SectionLabel>Applications</SectionLabel>
-          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Applied jobs</h2>
-          <p className="mt-1 text-sm text-[#5f5f5f]">
-            Jobs you applied to with your current application status.
-          </p>
-        </div>
+    <section className="space-y-5">
+      <div className="space-y-0.5">
+        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+          Applications
+        </p>
+        <h2 className="hr-text-primary font-sans text-lg font-semibold">Applied jobs</h2>
+        <p className="hr-text-secondary mt-1 text-sm">
+          Jobs you applied to with your current application status.
+        </p>
       </div>
 
-      <div className="border-y border-[#e8e8e8]">
-        {isInitialLoading ? (
-          <p className="px-1 py-5 text-sm text-[#5f5f5f] sm:px-4">Loading applications...</p>
-        ) : items.length === 0 ? (
-          <p className="bg-[#fafafa] px-1 py-10 text-center text-sm text-[#5f5f5f] sm:px-4">
-            You have not applied to any jobs yet.
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Job</TableHead>
-                <TableHead>Applied</TableHead>
-                <TableHead>Application</TableHead>
-                <TableHead>Job</TableHead>
-                <TableHead>Escrow</TableHead>
-                <TableHead>Budget</TableHead>
-                <TableHead>Proposal</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.applicationId} className="hover:bg-[#fff7ed]/40">
-                  <TableCell className="max-w-55 font-medium">
-                    <p className="hr-text-primary truncate">{item.title}</p>
-                    {item.milestoneTitle ? (
-                      <p className="hr-text-muted truncate text-xs font-normal">
-                        Milestone: {item.milestoneTitle}
-                      </p>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>{formatDate(item.applicationCreatedAt)}</TableCell>
-                  <TableCell>
-                    <StatusPill label={item.derivedApplicationStatus} />
-                  </TableCell>
-                  <TableCell>
-                    <StatusPill label={item.jobStatus} />
-                  </TableCell>
-                  <TableCell>
-                    {item.escrowStatus ? <StatusPill label={item.escrowStatus} /> : "-"}
-                  </TableCell>
-                  <TableCell>
+      {isInitialLoading ? (
+        <div className="flex flex-col gap-4">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-xl border border-border/60 bg-muted/30"
+            />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <RouteEmptyState
+          icon={<ClipboardList className="h-10 w-10" />}
+          title="No applications yet"
+          description="Browse the marketplace and apply to jobs to see them here."
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {items.map((item) => (
+            <article
+              key={item.applicationId}
+              className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="hr-text-primary truncate text-base font-bold transition-colors group-hover:text-highrable-orange-3">
+                    {item.title}
+                  </h3>
+                  {item.milestoneTitle ? (
+                    <p className="hr-text-muted truncate text-xs font-medium">
+                      Milestone: {item.milestoneTitle}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-sans text-lg leading-none font-bold tracking-tight text-highrable-orange-3">
                     {formatAmount(item.budget)} {formatAsset(item.asset)}
-                  </TableCell>
-                  <TableCell className="hr-text-secondary max-w-70 truncate">
-                    {item.proposalPreview || "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <AppButton
-                      asChild
-                      variant="secondary"
-                      className="h-8 rounded-none px-3 text-xs"
-                    >
-                      <Link href={`/marketplace/jobs/${item.jobId}`}>
-                        <BriefcaseBusiness className="h-3.5 w-3.5" />
-                        View
-                      </Link>
-                    </AppButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] tracking-[0.08em] text-muted-foreground/60 uppercase">
+                    Budget
+                  </p>
+                </div>
+              </div>
+
+              {item.proposalPreview ? (
+                <p className="hr-text-secondary line-clamp-2 text-sm leading-relaxed">
+                  {item.proposalPreview}
+                </p>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border-y border-border/80 bg-muted/50 px-4 py-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+                    Applied
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {formatDate(item.applicationCreatedAt)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+                    Application
+                  </span>
+                  <StatusPill label={item.derivedApplicationStatus} />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+                    Job
+                  </span>
+                  <StatusPill label={item.jobStatus} />
+                </div>
+                {item.escrowStatus ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+                      Escrow
+                    </span>
+                    <StatusPill label={item.escrowStatus} />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex justify-end">
+                <AppButton
+                  asChild
+                  variant="outline"
+                  className="h-9 gap-2 rounded-lg px-4 text-xs font-semibold hover:bg-muted/60"
+                >
+                  <Link href={`/marketplace/jobs/${item.jobId}`}>
+                    <BriefcaseBusiness className="h-3.5 w-3.5" />
+                    View
+                  </Link>
+                </AppButton>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       {(canLoadMore || isLoadingMore) && (
         <div className="flex justify-end">
           <AppButton
-            variant="secondary"
+            variant="outline"
             onClick={() => loadMore(nextPageSize)}
             disabled={!canLoadMore || isLoadingMore}
-            className="rounded-none"
+            className="h-9 rounded-lg px-4 text-xs font-semibold"
           >
             {isLoadingMore ? "Loading..." : "Load more"}
           </AppButton>
