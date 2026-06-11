@@ -241,7 +241,7 @@ const ResponsiveDialogBody = React.forwardRef<HTMLDivElement, ResponsiveDialogBo
         <div
           ref={ref}
           className={cn(
-            "max-h-[min(90vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-5 sm:p-6",
+            "max-h-[min(90vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5",
             className,
           )}
         >
