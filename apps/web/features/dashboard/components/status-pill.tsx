@@ -1,5 +1,3 @@
-import { Badge } from "@repo/ui/components/ui/badge";
-
 const STATUS_STYLES: Record<string, string> = {
   pending: "border-amber-200 bg-amber-50 text-amber-800",
   selected: "border-orange-200 bg-orange-50 text-orange-800",
@@ -27,8 +25,10 @@ export function StatusPill({ label }: IStatusPillProps) {
   const style = STATUS_STYLES[normalized] ?? "border-zinc-300 bg-zinc-100 text-zinc-700";
 
   return (
-    <Badge className={`font-mono text-[0.65rem] tracking-[0.06em] uppercase ${style}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-mono text-[10px] tracking-[0.06em] uppercase ${style}`}
+    >
       {toStatusLabel(normalized)}
-    </Badge>
+    </span>
   );
 }

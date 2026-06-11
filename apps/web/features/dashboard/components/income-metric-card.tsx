@@ -31,11 +31,11 @@ export function IncomeMetricCard({
           <p className="font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
             {title}
           </p>
-          <p className="hr-text-primary mt-2 truncate text-2xl leading-none font-sans font-bold tracking-tight">
+          <p className="hr-text-primary mt-2 truncate font-sans text-2xl leading-none font-bold tracking-tight">
             {value}
           </p>
           {subtitle ? (
-            <p className="hr-text-secondary mt-2 text-xs font-sans leading-relaxed">{subtitle}</p>
+            <p className="hr-text-secondary mt-2 font-sans text-xs leading-relaxed">{subtitle}</p>
           ) : null}
         </div>
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">

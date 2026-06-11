@@ -1,8 +1,9 @@
 "use client";
 
+import { RouteEmptyState } from "@/features/common";
 import { RecentPayoutItem } from "@/features/dashboard/components/recent-payout-item";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { motion } from "framer-motion";
+import { Wallet } from "lucide-react";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -16,26 +17,31 @@ export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6 }}
-      className=""
     >
-      <section className="space-y-4">
-        <div>
-          <SectionLabel>Recent Payouts</SectionLabel>
-          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Verified releases</h2>
-          <p className="mt-1 text-sm text-[#5f5f5f]">
+      <section className="space-y-5">
+        <div className="space-y-0.5">
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            Recent Payouts
+          </p>
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">Verified releases</h2>
+          <p className="hr-text-secondary mt-1 font-sans text-sm">
             Verified payouts are linked to completed escrow records.
           </p>
         </div>
 
-        <div className="border-y border-[#e8e8e8]">
-          {payouts.length === 0 ? (
-            <p className="bg-[#fafafa] px-1 py-10 text-center text-sm text-[#5f5f5f] sm:px-4">
-              No completed payouts yet. Completed payment releases will appear here.
-            </p>
-          ) : (
-            payouts.map((payout) => <RecentPayoutItem key={payout.escrowId} payout={payout} />)
-          )}
-        </div>
+        {payouts.length === 0 ? (
+          <RouteEmptyState
+            icon={<Wallet className="h-10 w-10" />}
+            title="No completed payouts yet"
+            description="Completed payment releases will appear here."
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {payouts.map((payout) => (
+              <RecentPayoutItem key={payout.escrowId} payout={payout} />
+            ))}
+          </div>
+        )}
       </section>
     </motion.div>
   );
