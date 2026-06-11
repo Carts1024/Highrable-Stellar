@@ -16,11 +16,17 @@ import {
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui/components/ui/select";
 import { useMutation, useQuery } from "convex/react";
-import { Filter, Search } from "lucide-react";
+import { ChevronDown, Filter, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -32,6 +38,12 @@ import { JobList } from "./components/job-list";
 
 type TMarketplaceFilter = "all" | "verified_funded";
 type TMarketplaceSortOption = "safest" | "budget_high" | "budget_low";
+
+const SORT_OPTIONS = [
+  { value: "safest", label: "Safest first" },
+  { value: "budget_high", label: "Highest budget" },
+  { value: "budget_low", label: "Lowest budget" },
+] as const;
 
 const MARKETPLACE_SORTERS: Record<
   TMarketplaceSortOption,
@@ -74,8 +86,8 @@ export function MarketplacePage() {
   const [filter, setFilter] = useState<TMarketplaceFilter>("all");
   const [sortBy, setSortBy] = useState<TMarketplaceSortOption>("safest");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const searchInputId = "marketplace-search-input";
-  const sortSelectId = "marketplace-sort-select";
 
   const visibleRows = useMemo(() => {
     if (!marketplaceRows) {
@@ -180,8 +192,9 @@ export function MarketplacePage() {
   };
 
   return (
-    <div className="space-y-10">
-      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+    <div className="space-y-8">
+      {/* Hero */}
+      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <ProductPageHero
           label="Marketplace Workflow"
           title={
@@ -190,115 +203,164 @@ export function MarketplacePage() {
             </>
           }
           description="Post work, review applicants, and move selected collaborations into escrow without leaving the workflow."
+          actions={
+            <AppButton
+              type="button"
+              className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
+              onClick={() => setIsCreateJobOpen((open) => !open)}
+            >
+              <Plus className="h-4 w-4" />
+              {isCreateJobOpen ? "Close Job Form" : "Post a Job"}
+            </AppButton>
+          }
         />
 
-        <div className="grid gap-5 border-l border-[#e8e8e8] py-2">
-          <HighrableV2Metric label="Active jobs" value={marketplaceRows?.length ?? "-"} />
-          <HighrableV2Metric label="Matching" value={visibleRows.length} />
-          <HighrableV2Metric
-            label="Visible budget pool"
-            value={formatBudget(totalBudget)}
-            className="text-[#B94A00]"
-          />
+        {/* Metric panel */}
+        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
+          {[
+            { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
+            { label: "Matching", value: visibleRows.length },
+            {
+              label: "Visible budget pool",
+              value: formatBudget(totalBudget),
+              accent: true,
+            },
+          ].map(({ label, value, accent }) => (
+            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
+              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
+                {label}
+              </span>
+              <span
+                className={`text-xl leading-none font-semibold sm:text-2xl ${
+                  accent ? "text-highrable-orange-2" : "hr-text-primary"
+                }`}
+              >
+                {value}
+              </span>
+            </div>
+          ))}
         </div>
       </section>
 
-      <details className="group border border-[#e8e8e8] bg-[#fafafa] p-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-          <span>
-            <SectionLabel>Create Job Workspace</SectionLabel>
-            <span className="mt-2 block text-sm leading-relaxed text-[#5f5f5f]">
-              Open the posting form when you need to create escrow-ready client work.
-            </span>
-          </span>
-          <span className="font-mono text-xs text-[#B94A00] uppercase group-open:hidden">Open</span>
-          <span className="hidden font-mono text-xs text-[#B94A00] uppercase group-open:block">
-            Hide
-          </span>
-        </summary>
-        <div className="mt-4">
+      {/* Create job workspace */}
+      {isCreateJobOpen ? (
+        <section className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+                Create Job Workspace
+              </p>
+              <h2 className="hr-text-primary font-sans text-lg font-semibold">
+                Post escrow-ready client work
+              </h2>
+            </div>
+            <AppButton
+              type="button"
+              variant="outline"
+              className="h-9 rounded-lg px-4 text-xs font-semibold"
+              onClick={() => setIsCreateJobOpen(false)}
+            >
+              Close
+            </AppButton>
+          </div>
           <CreateJobForm
             onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
           />
-        </div>
-      </details>
+        </section>
+      ) : null}
 
-      <section className="border border-[#e8e8e8] bg-white p-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <label htmlFor={searchInputId} className="relative block">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <AppInput
-              id={searchInputId}
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by title, description, asset, or wallet"
-              className="h-11 rounded-none border-[#e8e8e8] pr-3 pl-10 focus-visible:ring-[#FF7003]/30"
-            />
-          </label>
+      {/* Controls */}
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Search + Sort group */}
+          <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
+            {/* Search */}
+            <label htmlFor={searchInputId} className="relative w-full lg:max-w-xl">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+              <AppInput
+                id={searchInputId}
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by title, description, asset, or wallet"
+                className="w-full pr-4 pl-10 font-sans"
+              />
+            </label>
 
-          <label htmlFor={sortSelectId} className="relative block">
-            <Filter className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <select
-              id={sortSelectId}
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as TMarketplaceSortOption)}
-              className="h-11 w-full appearance-none rounded-none border border-[#e8e8e8] bg-white pr-3 pl-9 text-sm font-medium text-[#5f5f5f] outline-hidden transition-colors focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]/20"
+            {/* Sort */}
+            <div className="relative w-full lg:w-50">
+              <Select
+                value={sortBy}
+                onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
+              >
+                <SelectTrigger className="w-full pl-10 font-sans">
+                  <Filter className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 hidden h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+            </div>
+          </div>
+
+          {/* Filter + Reset */}
+          <div className="flex items-center justify-between gap-2 lg:justify-end">
+            {/* Filter segmented control */}
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
+              {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  className={`rounded-md px-3 py-1.5 font-mono text-xs tracking-widest whitespace-nowrap uppercase transition-all duration-150 ${
+                    filter === f
+                      ? "border border-highrable-orange-2 bg-highrable-orange-2 text-white shadow-sm"
+                      : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {f === "all" ? "All Jobs" : "Verified Only"}
+                </button>
+              ))}
+            </div>
+
+            <AppButton
+              type="button"
+              variant="outline"
+              className="h-9 rounded-lg px-4 text-xs font-semibold"
+              onClick={() => {
+                setSearchTerm("");
+                setFilter("all");
+                setSortBy("safest");
+              }}
             >
-              <option value="safest">Safest first</option>
-              <option value="budget_high">Highest budget</option>
-              <option value="budget_low">Lowest budget</option>
-            </select>
-          </label>
-        </div>
-        <div className="mt-3 inline-flex border border-[#e8e8e8] bg-white p-1">
-          <button
-            type="button"
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 font-mono text-xs tracking-[0.04em] uppercase ${
-              filter === "all" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
-            }`}
-          >
-            All active jobs
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("verified_funded")}
-            className={`px-3 py-1.5 font-mono text-xs tracking-[0.04em] uppercase ${
-              filter === "verified_funded" ? "bg-[#0a0a0a] text-white" : "text-[#5f5f5f]"
-            }`}
-          >
-            Verified Funded
-          </button>
+              Reset view
+            </AppButton>
+          </div>
         </div>
       </section>
 
       {applyError ? (
-        <p className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {applyError}
         </p>
       ) : null}
 
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <SectionLabel>Marketplace Feed</SectionLabel>
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">
-              {visibleRows.length} jobs found
-            </h2>
-          </div>
-          <AppButton
-            type="button"
-            variant="outline"
-            className="rounded-none border-[#e8e8e8] bg-white text-sm font-semibold text-[#5f5f5f] hover:bg-[#fafafa]"
-            onClick={() => {
-              setSearchTerm("");
-              setFilter("all");
-              setSortBy("safest");
-            }}
-          >
-            Reset view
-          </AppButton>
+      {/* Feed */}
+      <section className="space-y-5">
+        <div className="space-y-0.5">
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            Marketplace Feed
+          </p>
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">
+            {visibleRows.length} jobs found
+          </h2>
         </div>
         <JobList
           jobs={marketplaceRows === undefined ? undefined : visibleRows}
