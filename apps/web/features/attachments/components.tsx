@@ -413,7 +413,7 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
       <Label className="sr-only" htmlFor="link-attachment-url">
         Link URL
       </Label>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_10rem_auto]">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]">
         <AppInput
           id="link-attachment-url"
           value={url}
@@ -433,7 +433,7 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
           onValueChange={(value) => setType(value as "link" | "video_link")}
           disabled={disabled || isAdding}
         >
-          <SelectTrigger className="w-full sm:w-40">
+          <SelectTrigger className="w-full sm:min-w-40">
             <SelectValue placeholder="Select type" />
           </SelectTrigger>
 
@@ -447,7 +447,7 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
           type="button"
           disabled={disabled || isAdding}
           onClick={() => void handleAdd()}
-          className="hr-v2-button-secondary ml-12 w-full text-sm font-semibold sm:w-auto"
+          className="hr-v2-button-secondary w-full text-sm font-semibold sm:w-auto"
         >
           {isAdding ? "Adding..." : "Add Link"}
         </AppButton>

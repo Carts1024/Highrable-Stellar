@@ -431,7 +431,8 @@ export function PasskeySmartAccountCard() {
                 {/* Primary Action */}
                 <AppButton
                   type="button"
-                  className="h-10 w-full bg-highrable-orange-2 font-medium text-white shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
+                  variant="primary"
+                  className="h-10 w-full"
                   onClick={() => setShowSendPanel((currentValue) => !currentValue)}
                   disabled={Boolean(feeReadiness && !feeReadiness.canExecute)}
                 >

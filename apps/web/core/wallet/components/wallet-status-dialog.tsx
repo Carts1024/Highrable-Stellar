@@ -30,7 +30,7 @@ export function WalletStatusDialog({ trigger }: IWalletStatusDialogProps) {
   return (
     <ResponsiveDialog>
       <ResponsiveDialogTrigger asChild>{trigger}</ResponsiveDialogTrigger>
-      <ResponsiveDialogContent className="max-w-4xl">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>Wallet details</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

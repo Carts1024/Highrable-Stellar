@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, Filter, Plus, Search } from "lucide-react";
+import { Filter, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -306,7 +306,6 @@ export function MarketplacePage() {
                   ))}
                 </SelectContent>
               </Select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-3 hidden h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
             </div>
           </div>
 

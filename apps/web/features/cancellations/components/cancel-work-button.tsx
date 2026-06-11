@@ -290,7 +290,8 @@ export function CancelWorkButton({
               {buttonLabel}
             </Button>
           </DialogTrigger>
-          <ResponsiveDialogContent className="sm:max-w-2xl">
+
+          <ResponsiveDialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>{buttonLabel}</DialogTitle>
               <DialogDescription>

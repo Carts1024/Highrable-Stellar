@@ -659,7 +659,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
   }
 
   return (
-    <div className="max-h-[560px] space-y-2 overflow-auto border border-[#e8e8e8] bg-white p-4 font-mono text-xs leading-relaxed text-[#1f1f1f]">
+    <div className="max-h-140 space-y-2 overflow-auto border border-[#e8e8e8] bg-white p-4 font-mono text-xs leading-relaxed text-[#1f1f1f]">
       {markdown.split("\n").map((line, index) => {
         const key = `${index}-${line.slice(0, 12)}`;
         if (line.startsWith("# ")) {
@@ -699,7 +699,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
 function AgreementRichTextPreview({ agreement }: { agreement: TWorkAgreement }) {
   if (agreement.contentHtml?.trim()) {
     return (
-      <div className="max-h-[560px] overflow-auto border border-[#e8e8e8] bg-white p-4">
+      <div className="max-h-140 overflow-auto border border-[#e8e8e8] bg-white p-4">
         <RichTextContent
           html={agreement.contentHtml}
           fallbackText={getPlainTextFromMarkdown(agreement.contentMarkdown)}
@@ -1708,7 +1708,8 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                 Open agreement workspace
               </AppButton>
             </ResponsiveDialogTrigger>
-            <ResponsiveDialogContent className="rounded-none sm:max-w-5xl">
+
+            <ResponsiveDialogContent className="max-w-3xl">
               <ResponsiveDialogHeader>
                 <ResponsiveDialogTitle>{agreement.title}</ResponsiveDialogTitle>
                 <ResponsiveDialogDescription>

@@ -319,7 +319,7 @@ export function OpenDisputeDialog({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={isSubmitting ? undefined : onOpenChange}>
-      <ResponsiveDialogContent className="max-w-2xl border-[#e8e8e8] bg-white">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
             Open Platform-Reviewed Dispute

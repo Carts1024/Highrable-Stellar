@@ -436,7 +436,7 @@ export function ProtectedAttachmentDialog({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-5xl border-[#e8e8e8] bg-white">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="flex flex-wrap items-center gap-2 text-xl text-[#0a0a0a]">
             <Eye className="h-5 w-5 text-[#FF7003]" />

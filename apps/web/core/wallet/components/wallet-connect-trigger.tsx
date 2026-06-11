@@ -57,7 +57,7 @@ export function WalletConnectTrigger({
         </AppButton>
       </ResponsiveDialogTrigger>
 
-      <ResponsiveDialogContent className="flex max-h-[90vh] max-w-3xl flex-col sm:max-w-3xl">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader className="shrink-0 space-y-2">
           <ResponsiveDialogTitle>Connect Your Account</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>

@@ -67,7 +67,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
       />
 
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
-        <ResponsiveDialogContent className="rounded-none border-[#e8e8e8] sm:max-w-3xl">
+        <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Edit Profile</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>

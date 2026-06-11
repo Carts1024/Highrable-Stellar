@@ -209,7 +209,13 @@ export function HighrableV2Metric({
   ...props
 }: IHighrableV2MetricProps) {
   return (
-    <div className={cn("border-l border-border pl-4", className)} {...props}>
+    <div
+      className={cn(
+        "rounded-md border-l-3 border-highrable-orange-2 px-4 py-3 shadow-sm",
+        className,
+      )}
+      {...props}
+    >
       <p className="hr-label-caps hr-text-muted">{label}</p>
       <div className="hr-text-primary mt-1 text-2xl leading-none font-semibold">{value}</div>
       {description ? (
