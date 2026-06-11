@@ -92,28 +92,28 @@ export function ReleasePaymentDialog({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-xl border-[#e8e8e8] bg-white">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
+          <ResponsiveDialogTitle className="font-sans text-xl text-foreground">
             Confirm Payment Release
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="text-[#5f5f5f]">
+          <ResponsiveDialogDescription className="text-muted-foreground">
             Releasing payment is irreversible. Confirm job outcome and review details before sending
             funds.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
         <ResponsiveDialogBody>
-          <div className="grid gap-2 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3 text-sm">
+          <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <p>
-              <span className="font-medium text-[#0a0a0a]">Job:</span> {jobTitle}
+              <span className="font-medium text-foreground">Job:</span> {jobTitle}
             </p>
             <p>
-              <span className="font-medium text-[#0a0a0a]">Freelancer:</span>{" "}
+              <span className="font-medium text-foreground">Freelancer:</span>{" "}
               {shortenWalletAddress(freelancerWallet)}
             </p>
             <p>
-              <span className="font-medium text-[#0a0a0a]">Amount:</span>{" "}
+              <span className="font-medium text-foreground">Amount:</span>{" "}
               {formatTokenAmount(
                 amount,
                 formatAssetLabel(asset),
@@ -121,14 +121,14 @@ export function ReleasePaymentDialog({
               )}
             </p>
             <p>
-              <span className="font-medium text-[#0a0a0a]">Asset:</span> {formatAssetLabel(asset)}
+              <span className="font-medium text-foreground">Asset:</span> {formatAssetLabel(asset)}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <label
               htmlFor="release-rating"
-              className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+              className="grid gap-1 text-sm font-medium text-foreground"
             >
               Rating (1-5 stars)
               <AppInput
@@ -148,7 +148,7 @@ export function ReleasePaymentDialog({
 
             <label
               htmlFor="release-review"
-              className="grid gap-1 text-sm font-medium text-[#0a0a0a]"
+              className="grid gap-1 text-sm font-medium text-foreground"
             >
               Feedback (optional)
               <AppTextarea
