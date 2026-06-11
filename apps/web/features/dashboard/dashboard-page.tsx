@@ -16,7 +16,6 @@ import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelance
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
 import { useRequireOnboarding } from "@/features/onboarding";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
@@ -39,7 +38,6 @@ interface IQuickAction {
   readonly title: string;
   readonly description: string;
   readonly icon: typeof Briefcase;
-  readonly iconContainerClassName?: string;
 }
 
 const QUICK_ACTIONS: readonly IQuickAction[] = [
@@ -48,21 +46,18 @@ const QUICK_ACTIONS: readonly IQuickAction[] = [
     title: "Browse Jobs",
     description: "Find new opportunities",
     icon: Briefcase,
-    iconContainerClassName: "hr-gradient-primary border-transparent text-white",
   },
   {
     href: "/post-job",
     title: "Post a Job",
     description: "Hire talented freelancers",
     icon: Users,
-    iconContainerClassName: "bg-primary text-primary-foreground border-transparent",
   },
   {
     href: "/disputes",
     title: "Disputes",
     description: "Review active cases",
     icon: AlertTriangle,
-    iconContainerClassName: "hr-v2-badge-accent text-current",
   },
 ] as const;
 
@@ -77,7 +72,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
       label: "Client Operations",
       title: (
         <>
-          Client <span className="hr-v2-gradient-text">Jobs Dashboard</span>
+          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
         </>
       ),
       description:
@@ -89,7 +84,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
     label: "Freelancer Performance",
     title: (
       <>
-        Freelancer <span className="hr-v2-gradient-text">Income Dashboard</span>
+        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
       </>
     ),
     description:
@@ -102,7 +97,7 @@ function UnfundedWarningBanner() {
     <RouteCallout
       tone="warning"
       icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}
-      className="rounded-none"
+      className="rounded-lg"
     >
       <span>
         Your testnet wallet is not funded. You can view your dashboard, but Stellar transactions
@@ -116,7 +111,10 @@ function DashboardSkeletonCards() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-28 animate-pulse border border-[#e8e8e8] bg-[#fafafa]" />
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-xl border border-border/60 bg-muted/30"
+        />
       ))}
     </div>
   );
@@ -136,23 +134,31 @@ function DashboardCommandBar({
     : null;
 
   return (
-    <div className="border border-[#e8e8e8] bg-white p-4">
+    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:rounded-2xl">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center border border-[#e8e8e8] bg-[#fafafa] text-[#FF7003]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
             <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <SectionLabel>Dashboard Mode</SectionLabel>
+            <p className="font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
+              Dashboard Mode
+            </p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <DashboardModeLabel mode={mode} />
-              <p className="text-sm text-[#5f5f5f]">Switch between freelancer and client work.</p>
+              <p className="hr-text-secondary text-sm">
+                Switch between freelancer and client work.
+              </p>
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {publicProfileHref ? (
-            <AppButton asChild variant="secondary" size="sm" className="rounded-none">
+            <AppButton
+              asChild
+              variant="outline"
+              className="h-9 rounded-lg px-4 text-xs font-semibold"
+            >
               <Link href={publicProfileHref}>View public profile</Link>
             </AppButton>
           ) : null}
@@ -169,19 +175,21 @@ function QuickActions() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.7 }}
-      className="space-y-4"
+      className="space-y-5"
     >
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <SectionLabel>Quick Actions</SectionLabel>
-          <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Common workflows</h2>
+        <div className="space-y-0.5">
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            Quick Actions
+          </p>
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">Common workflows</h2>
         </div>
-        <AppButton asChild variant="secondary" className="rounded-none">
+        <AppButton asChild variant="outline" className="h-9 rounded-lg px-4 text-xs font-semibold">
           <Link href="/marketplace">Open Marketplace Flow</Link>
         </AppButton>
       </div>
 
-      <div className="border-y border-[#e8e8e8]">
+      <div className="flex flex-col gap-4">
         {QUICK_ACTIONS.map((action) => {
           const Icon = action.icon;
 
@@ -189,25 +197,20 @@ function QuickActions() {
             <Link
               key={action.href}
               href={action.href}
-              className="group flex items-center justify-between gap-4 border-b border-[#e8e8e8] bg-white px-1 py-5 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40 sm:px-4"
+              className="group flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center border",
-                    action.iconContainerClassName,
-                  )}
-                >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 text-left">
-                  <p className="text-sm font-semibold text-[#0a0a0a] group-hover:text-[#B94A00]">
+                  <p className="hr-text-primary text-sm font-semibold transition-colors group-hover:text-highrable-orange-3">
                     {action.title}
                   </p>
-                  <p className="text-sm text-[#5f5f5f]">{action.description}</p>
+                  <p className="hr-text-secondary text-sm">{action.description}</p>
                 </div>
               </div>
-              <span className="font-mono text-xs tracking-[0.06em] text-[#B94A00] uppercase">
+              <span className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
                 Open
               </span>
             </Link>
@@ -248,7 +251,7 @@ export function DashboardPage() {
   }
 
   if (onboardingGuard.isCheckingOnboarding) {
-    return <p className="hr-text-secondary text-sm">Checking onboarding...</p>;
+    return <p className="font-sans text-sm text-muted-foreground">Checking onboarding…</p>;
   }
 
   if (!isRoleLoading && role === "admin") {
@@ -256,22 +259,40 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-10">
-      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+    <div className="space-y-8">
+      {/* Hero */}
+      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <ProductPageHero
           label={heroCopy.label}
           title={heroCopy.title}
           description={heroCopy.description}
         />
 
-        <div className="grid gap-5 border-t border-[#e8e8e8] pt-6 lg:border-t-0 lg:border-l lg:py-2 lg:pt-0">
-          <HighrableV2Metric label="Mode" value={selectedMode === "client" ? "Client" : "Talent"} />
-          <HighrableV2Metric label="Network" value={isTestnet ? "Testnet" : "Mainnet"} />
-          <HighrableV2Metric
-            label="Wallet"
-            value={isFunded === false ? "Needs XLM" : "Ready"}
-            className={isFunded === false ? "text-[#B94A00]" : undefined}
-          />
+        {/* Metric panel */}
+        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
+          {[
+            { label: "Mode", value: selectedMode === "client" ? "Client" : "Talent" },
+            { label: "Network", value: isTestnet ? "Testnet" : "Mainnet" },
+            {
+              label: "Wallet",
+              value: isFunded === false ? "Needs XLM" : "Ready",
+              accent: isFunded === false,
+            },
+          ].map(({ label, value, accent }) => (
+            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
+              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
+                {label}
+              </span>
+              <span
+                className={cn(
+                  "text-xl leading-none font-semibold sm:text-2xl",
+                  accent ? "text-highrable-orange-2" : "hr-text-primary",
+                )}
+              >
+                {value}
+              </span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -303,7 +324,6 @@ export function DashboardPage() {
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
               subtitle="Completed escrow payments via Stellar"
               icon={DollarSign}
-              iconClassName="hr-gradient-primary border-transparent text-white"
               animationDelay={0.3}
             />
 
@@ -312,7 +332,6 @@ export function DashboardPage() {
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
               subtitle="Funds already locked by clients"
               icon={Clock}
-              iconClassName="bg-primary text-primary-foreground border-transparent"
               animationDelay={0.35}
             />
 
@@ -321,7 +340,6 @@ export function DashboardPage() {
               value={summary.completedJobs.toString()}
               subtitle="Payments released through Stellar escrow"
               icon={CheckCircle}
-              iconClassName="hr-v2-badge-accent text-current"
               animationDelay={0.4}
             />
 
@@ -330,7 +348,6 @@ export function DashboardPage() {
               value={summary.activeJobs.toString()}
               subtitle="Funded or submitted, awaiting release"
               icon={Briefcase}
-              iconClassName="hr-surface-muted hr-text-primary"
               animationDelay={0.45}
             />
 
@@ -339,7 +356,6 @@ export function DashboardPage() {
               value={summary.awaitingFunding.toString()}
               subtitle="Escrows created but not yet funded by client"
               icon={Hourglass}
-              iconClassName="border-border text-muted-foreground"
               animationDelay={0.5}
             />
           </motion.div>
