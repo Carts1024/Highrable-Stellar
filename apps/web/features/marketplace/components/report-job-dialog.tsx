@@ -104,12 +104,12 @@ export function ReportJobDialog({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-lg border-[#e8e8e8] bg-white">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
+          <ResponsiveDialogTitle className="hr-text-primary text-xl">
             Report suspicious job
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="text-[#5f5f5f]">
+          <ResponsiveDialogDescription>
             Reports help flag jobs for manual review. Jobs are not removed automatically.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
@@ -119,15 +119,12 @@ export function ReportJobDialog({
             <div className="space-y-2">
               <label
                 htmlFor="report-job-reason"
-                className="block text-sm font-medium text-[#0a0a0a]"
+                className="hr-text-primary block text-sm font-medium"
               >
                 Reason
               </label>
               <Select value={reason} onValueChange={(value) => setReason(value as TReportReason)}>
-                <SelectTrigger
-                  id="report-job-reason"
-                  className="h-11 w-full border-[#e8e8e8] bg-white text-[#0a0a0a] focus-visible:border-[#FF7003] focus-visible:ring-[#FF7003]/20"
-                >
+                <SelectTrigger id="report-job-reason" className="h-11 w-full">
                   <SelectValue placeholder="Choose a reason" />
                 </SelectTrigger>
                 <SelectContent>
@@ -143,7 +140,7 @@ export function ReportJobDialog({
             <div className="space-y-2">
               <label
                 htmlFor="report-job-details"
-                className="block text-sm font-medium text-[#0a0a0a]"
+                className="hr-text-primary block text-sm font-medium"
               >
                 Details
               </label>
@@ -167,10 +164,19 @@ export function ReportJobDialog({
             ) : null}
 
             <div className="flex justify-end gap-2">
-              <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+              <AppButton
+                type="button"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </AppButton>
-              <AppButton type="submit" disabled={isSubmitting}>
+              <AppButton
+                type="submit"
+                disabled={isSubmitting}
+                className="hr-v2-button-primary rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 {isSubmitting ? "Submitting..." : "Submit Report"}
               </AppButton>
             </div>
