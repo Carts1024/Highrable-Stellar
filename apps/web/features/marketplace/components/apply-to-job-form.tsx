@@ -11,8 +11,9 @@ import {
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Label } from "@repo/ui/components/ui/label";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   ResponsiveDialog,
@@ -30,6 +31,7 @@ import { z } from "zod";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 import { ShowcaseWorkSelector } from "./showcase-work-selector";
+
 const APPLY_PROPOSAL_SCHEMA = z
   .string()
   .transform(sanitizeMultilineInput)
@@ -60,27 +62,56 @@ export function ApplyToJobForm({
 
   if (!walletIdentity.isConnected) {
     return (
-      <div className="border border-gray-200 bg-gray-50 p-4">
-        <p className="mb-3 text-sm text-gray-700">Connect wallet to apply.</p>
-        <WalletConnectTrigger className="hr-v2-button-primary rounded-none px-4 py-2 text-sm font-medium text-white" />
+      <div className="rounded-xl border border-border bg-muted/30 p-5">
+        <p className="mb-3 text-sm text-muted-foreground">Connect wallet to apply.</p>
+        <WalletConnectTrigger className="hr-v2-button-primary rounded-lg px-4 py-2 text-sm font-medium text-white" />
       </div>
     );
   }
 
   if (!isJobOpen) {
-    return <p className="text-sm text-gray-600">Applications are closed for this job.</p>;
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <p className="font-sans text-sm font-medium text-amber-800">
+          Applications are closed for this job.
+        </p>
+        <p className="mt-1 font-sans text-xs text-amber-700">
+          This position is no longer accepting new applicants.
+        </p>
+      </div>
+    );
   }
 
   if (isClient) {
-    return <p className="text-sm text-gray-600">Client cannot apply to their own job.</p>;
+    return (
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+        <p className="font-sans text-sm font-medium text-blue-800">
+          You are the client for this job.
+        </p>
+        <p className="mt-1 font-sans text-xs text-blue-700">
+          Clients cannot apply to their own listings.
+        </p>
+      </div>
+    );
   }
 
   if (isCheckingApplicationStatus) {
-    return <p className="text-sm text-gray-600">Checking application status...</p>;
+    return (
+      <div className="rounded-xl border border-border bg-muted/50 px-4 py-3">
+        <p className="font-sans text-sm font-medium">Checking application status...</p>
+      </div>
+    );
   }
 
   if (hasApplied) {
-    return <p className="text-sm text-emerald-700">You already applied to this job.</p>;
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p className="font-sans text-sm font-medium text-emerald-800">Application submitted</p>
+        <p className="mt-1 font-sans text-xs text-emerald-700">
+          You have already applied to this job.
+        </p>
+      </div>
+    );
   }
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -134,11 +165,13 @@ export function ApplyToJobForm({
   };
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 border border-[#e8e8e8] bg-white p-5">
+    <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
       <div className="space-y-2">
-        <SectionLabel>Freelancer Action</SectionLabel>
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-[#0a0a0a]">Apply</h2>
+        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+          Freelancer Action
+        </p>
+        <div className="flex items-center gap-3">
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">Apply</h2>
           <HighrableV2IconNotice
             label="Apply safety notice"
             tone={job.status === "funded" ? "success" : "warning"}
@@ -150,38 +183,40 @@ export function ApplyToJobForm({
           />
         </div>
       </div>
+
       <ResponsiveDialog>
         <ResponsiveDialogTrigger asChild>
-          <AppButton type="button" className="hr-v2-button-primary rounded-none">
+          <AppButton type="button" variant="primary" className="text-xs">
             Apply to Job
           </AppButton>
         </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent className="rounded-none sm:max-w-2xl">
+
+        <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Apply to Job</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              Send a focused proposal and optionally attach verified work history.
+            <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
+              Apply to {job.title}
+            </ResponsiveDialogTitle>
+
+            <ResponsiveDialogDescription className="hr-text-secondary text-sm">
+              Share relevant experience, timeline, and delivery approach.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
-          <ResponsiveDialogBody>
-            <form onSubmit={handleApply} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="apply-proposal"
-                  className="mb-2 block text-sm font-medium text-gray-700"
-                >
-                  Short proposal
-                </label>
+
+          <ResponsiveDialogBody className="max-h-[70vh] overflow-y-auto">
+            <form onSubmit={handleApply} className="space-y-6">
+              <div className="space-y-1.5">
+                <Label htmlFor="job-application-proposal">Proposal</Label>
                 <AppTextarea
                   id="apply-proposal"
-                  rows={4}
+                  rows={6}
                   value={proposal}
                   maxLength={1200}
                   onChange={(event) => {
                     setProposal(event.target.value);
                     setError(null);
                   }}
-                  placeholder="Highlight your relevant experience and timeline"
+                  placeholder="Highlight your relevant experience and expected delivery timeline."
+                  className="rounded-lg"
                 />
               </div>
 
@@ -191,15 +226,29 @@ export function ApplyToJobForm({
                 onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
               />
 
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {error ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              ) : null}
 
-              <AppButton
-                type="submit"
-                disabled={isSubmitting}
-                className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? "Applying..." : "Submit Application"}
-              </AppButton>
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setProposal("");
+                    setShowcasedWorkEscrowId(null);
+                    setError(null);
+                  }}
+                >
+                  Cancel
+                </AppButton>
+
+                <AppButton type="submit" disabled={isSubmitting} variant="primary">
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
+                </AppButton>
+              </div>
             </form>
           </ResponsiveDialogBody>
         </ResponsiveDialogContent>

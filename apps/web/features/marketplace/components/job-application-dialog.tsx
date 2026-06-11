@@ -8,6 +8,7 @@ import {
 } from "@/features/marketplace/components/trust-safety-notice";
 import { useOnboardingState } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { Label } from "@repo/ui/components/ui/label";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import {
   ResponsiveDialog,
@@ -84,30 +85,22 @@ export function JobApplicationDialog({
 
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent className="max-w-xl border-[#e8e8e8] bg-white">
+      <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
+          <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
             Apply to {jobTitle}
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription className="text-[#5f5f5f]">
+          <ResponsiveDialogDescription className="hr-text-secondary text-sm">
             Share relevant experience, timeline, and delivery approach.
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        <ResponsiveDialogBody>
+        <ResponsiveDialogBody className="max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleSubmit} className="space-y-4">
             <TrustSafetyNotice type={trustSafetyNoticeType} compact />
-            <p className="text-sm text-[#5f5f5f]">
-              Only start work after this job shows Verified Funded.
-            </p>
 
             <div className="space-y-2">
-              <label
-                htmlFor="job-application-proposal"
-                className="block text-sm font-medium text-[#0a0a0a]"
-              >
-                Proposal
-              </label>
+              <Label htmlFor="job-application-proposal">Proposal</Label>
               <AppTextarea
                 id="job-application-proposal"
                 rows={6}
@@ -118,6 +111,7 @@ export function JobApplicationDialog({
                   setValidationError(null);
                 }}
                 placeholder="Highlight your relevant experience and expected delivery timeline."
+                className="rounded-lg"
               />
             </div>
 
@@ -139,11 +133,11 @@ export function JobApplicationDialog({
               </p>
             ) : null}
 
-            <div className="flex justify-end gap-2">
-              <AppButton type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+              <AppButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </AppButton>
-              <AppButton type="submit" disabled={isSubmitting}>
+              <AppButton type="submit" disabled={isSubmitting} variant="primary">
                 {isSubmitting ? "Submitting..." : "Submit Application"}
               </AppButton>
             </div>
