@@ -125,9 +125,9 @@ export function MilestoneActionPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-4">
+    <div className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-[#0a0a0a]">Milestone Escrow</h4>
+        <h4 className="hr-text-primary text-sm font-semibold">Milestone Escrow</h4>
         <StatusBadge label={milestone.status} />
       </div>
 
@@ -165,7 +165,7 @@ export function MilestoneActionPanel({
         <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
       ) : null}
       {walletIdentity.walletType ? (
-        <p className="rounded-lg border border-[#e8e8e8] bg-white px-3 py-2 text-sm text-[#3f3f3f]">
+        <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 font-sans text-xs text-muted-foreground">
           {isPasskeyMode
             ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
             : "Signing with Freighter or WalletConnect."}
@@ -174,7 +174,7 @@ export function MilestoneActionPanel({
       {activeDispute ? <DisputeActionGuardNotice /> : null}
 
       {milestone.status === "open" ? (
-        <p className="text-sm text-[#5f5f5f]">
+        <p className="hr-text-secondary text-sm">
           {applicationGate.canApply
             ? "Freelancers can apply to this milestone. The client selects one freelancer for this milestone only."
             : applicationGate.message}
@@ -261,7 +261,7 @@ export function MilestoneActionPanel({
             </div>
           ) : null}
           {role !== "selectedFreelancer" && role !== "client" ? (
-            <p className="text-sm text-[#5f5f5f]">Waiting for freelancer submission.</p>
+            <p className="hr-text-secondary text-sm">Waiting for freelancer submission.</p>
           ) : null}
         </div>
       ) : null}
@@ -290,7 +290,7 @@ export function MilestoneActionPanel({
               />
             </div>
           ) : (
-            <p className="text-sm text-[#5f5f5f]">Waiting for client approval.</p>
+            <p className="hr-text-secondary text-sm">Waiting for client approval.</p>
           )}
         </div>
       ) : null}
@@ -332,16 +332,16 @@ export function MilestoneActionPanel({
       ) : null}
 
       {milestone.status === "cancelled" ? (
-        <p className="text-sm text-[#5f5f5f]">Milestone cancelled.</p>
+        <p className="hr-text-secondary text-sm">Milestone cancelled.</p>
       ) : null}
       {milestone.status === "disputed" ? (
         <p className="text-sm text-red-700">Milestone disputed and requires manual review.</p>
       ) : null}
 
       {escrow ? (
-        <div className="border-t border-[#e8e8e8] pt-3">
+        <div className="border-t border-border/60 pt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-[#5f5f5f]">
+            <p className="text-xs text-muted-foreground/70">
               Escrow #{escrow.escrowId} · {formatAssetLabel(escrow.asset)}
             </p>
             <AppButton

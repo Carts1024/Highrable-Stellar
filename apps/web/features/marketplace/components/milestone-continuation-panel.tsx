@@ -74,10 +74,10 @@ export function MilestoneContinuationPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-3">
+    <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
       <div>
-        <h4 className="text-sm font-semibold text-[#0a0a0a]">Milestone continuation</h4>
-        <p className="mt-1 text-sm text-[#5f5f5f]">{applicationGate.message}</p>
+        <h4 className="text-sm font-semibold text-foreground">Milestone continuation</h4>
+        <p className="mt-1 text-sm text-muted-foreground">{applicationGate.message}</p>
       </div>
 
       {applicationGate.reason === "continuation_offer_rejected" ? (
@@ -128,7 +128,7 @@ export function MilestoneContinuationPanel({
 
       {canRespondToOffer ? (
         <div className="space-y-2">
-          <p className="text-sm text-[#5f5f5f]">
+          <p className="text-sm text-muted-foreground">
             The client wants to retain you for milestone {milestone.order}.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -169,7 +169,7 @@ export function MilestoneContinuationPanel({
       ) : null}
 
       {applicationGate.reason === "continuation_offer_pending" && !canRespondToOffer ? (
-        <p className="text-sm text-[#5f5f5f]">
+        <p className="text-sm text-muted-foreground">
           Waiting for {shortenWalletAddress(applicationGate.continuationOfferFreelancerWallet)} to
           respond.
         </p>

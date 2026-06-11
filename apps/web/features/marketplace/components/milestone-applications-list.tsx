@@ -64,12 +64,14 @@ export function MilestoneApplicationsList({
   };
 
   if (isLoading) {
-    return <p className="text-sm text-[#7f7f7f]">Loading milestone applications...</p>;
+    return (
+      <p className="font-sans text-sm text-muted-foreground">Loading milestone applications...</p>
+    );
   }
 
   if (!applications || applications.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-3 text-sm text-[#5f5f5f]">
+      <p className="rounded-xl border border-dashed border-border bg-muted/30 p-4 font-sans text-sm text-muted-foreground">
         No applications for this milestone yet.
       </p>
     );
@@ -86,25 +88,25 @@ export function MilestoneApplicationsList({
         return (
           <article
             key={application._id}
-            className="rounded-lg border border-[#e8e8e8] bg-white p-3"
+            className="group rounded-xl border border-border bg-card p-4 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+              <div className="space-y-1">
                 <Link
                   href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}
-                  className="text-sm font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+                  className="hr-text-primary text-sm font-semibold transition-colors hover:text-highrable-orange-3"
                 >
                   {shortenWalletAddress(application.freelancerWallet)}
                 </Link>
-                <p className="text-xs text-[#7f7f7f]">
+                <p className="font-mono text-[0.65rem] tracking-[0.06em] text-muted-foreground/70 uppercase">
                   Applied {new Date(application.createdAt).toLocaleString()}
                 </p>
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <AppButton
                   asChild
-                  variant="secondary"
-                  className="h-8 border-[#e8e8e8] px-3 py-1.5 text-xs font-semibold text-[#0a0a0a] hover:bg-[#f5f5f5]"
+                  variant="outline"
+                  className="h-8 rounded-lg px-3 text-xs font-semibold"
                 >
                   <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
                     View profile
@@ -113,8 +115,8 @@ export function MilestoneApplicationsList({
                 {application.showcasedWorkEscrowId ? (
                   <AppButton
                     asChild
-                    variant="secondary"
-                    className="h-8 border-[#FF7003] px-3 py-1.5 text-xs font-semibold text-[#FF7003] hover:bg-[#FF7003]/5"
+                    variant="outline"
+                    className="h-8 rounded-lg border-highrable-orange-2/40 px-3 text-xs font-semibold text-highrable-orange-3 hover:border-highrable-orange-2 hover:bg-highrable-orange-2/5"
                   >
                     <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
                       View showcased work
@@ -124,10 +126,9 @@ export function MilestoneApplicationsList({
                 {canAssign ? (
                   <AppButton
                     type="button"
-                    variant="secondary"
                     disabled={selectingWallet === application.freelancerWallet || isAssigned}
                     onClick={() => void handleAssign(application.freelancerWallet)}
-                    className="h-8 px-3 py-1.5 text-xs disabled:opacity-60"
+                    className="hr-v2-button-primary h-8 rounded-lg px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isAssigned
                       ? "Assigned"
@@ -138,7 +139,7 @@ export function MilestoneApplicationsList({
                 ) : null}
               </div>
             </div>
-            <p className="mt-2 text-sm text-[#5f5f5f]">{application.proposal}</p>
+            <p className="hr-text-secondary mt-2 font-sans text-sm">{application.proposal}</p>
           </article>
         );
       })}
