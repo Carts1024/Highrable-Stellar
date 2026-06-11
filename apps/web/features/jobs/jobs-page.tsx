@@ -372,7 +372,11 @@ export function JobsPage() {
                                 <JobSafetyBadge status={safetyStatus.status} />
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs text-center">
+                            <TooltipContent
+                              side="top"
+                              tone="neutral"
+                              className="max-w-xs text-sm leading-relaxed"
+                            >
                               This job has not been funded yet. Confirm escrow before starting work.
                             </TooltipContent>
                           </Tooltip>
@@ -387,13 +391,13 @@ export function JobsPage() {
                       )}
 
                       {isMilestoneProject && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
                           Milestone Project
                         </span>
                       )}
 
                       {isVerifiedFunded && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           Escrow Verified
                         </span>

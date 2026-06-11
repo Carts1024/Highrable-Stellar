@@ -69,7 +69,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="rounded-none border-[#e8e8e8] sm:max-w-3xl">
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Edit profile</ResponsiveDialogTitle>
+            <ResponsiveDialogTitle>Edit Profile</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
               Keep these fields aligned with your public onboarding identity.
             </ResponsiveDialogDescription>
