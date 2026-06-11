@@ -3,9 +3,10 @@
 import { cn } from "@repo/ui/lib/utils";
 import { Info } from "lucide-react";
 
+import type { TTooltipTone } from "../ui/tooltip";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import {
   V2_BADGE_ACCENT_CLASS,
   V2_BADGE_SOLID_CLASS,
@@ -56,18 +57,26 @@ export interface IHighrableV2MetricProps extends ComponentPropsWithoutRef<"div">
   readonly description?: ReactNode;
 }
 
-export interface IHighrableV2IconNoticeProps extends ComponentPropsWithoutRef<"button"> {
+export interface IHighrableV2IconNoticeProps extends ComponentPropsWithoutRef<"span"> {
   readonly label: string;
   readonly message: ReactNode;
   readonly tone?: "neutral" | "warning" | "danger" | "success";
 }
 
 const ICON_NOTICE_CLASSES: Record<Required<IHighrableV2IconNoticeProps>["tone"], string> = {
-  neutral: "border-border bg-background hr-text-secondary hover:hr-text-primary",
-  warning: "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100",
-  danger: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+  neutral: "border-border bg-background text-muted-foreground",
+  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  danger: "border-red-200 bg-red-50 text-red-600",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-600",
 };
+
+const NOTICE_TO_TOOLTIP_TONE: Record<Required<IHighrableV2IconNoticeProps>["tone"], TTooltipTone> =
+  {
+    neutral: "neutral",
+    warning: "warning",
+    danger: "danger",
+    success: "success",
+  };
 
 /** Square-dot prefixed, monospaced uppercase label for section headers. */
 export function HighrableV2SectionLabel({
@@ -210,6 +219,12 @@ export function HighrableV2Metric({
   );
 }
 
+/**
+ * Inline info icon that reveals a tooltip on hover.
+ * Replaces the previous click-to-open Popover pattern.
+ * The trigger is a non-interactive `<span>` so it doesn't
+ * accidentally submit forms or steal focus from neighbouring controls.
+ */
 export function HighrableV2IconNotice({
   label,
   message,
@@ -218,25 +233,33 @@ export function HighrableV2IconNotice({
   ...props
 }: IHighrableV2IconNoticeProps) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          className={cn(
-            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-none border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
-            ICON_NOTICE_CLASSES[tone],
-            className,
-          )}
-          {...props}
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {/* span instead of button — purely presentational, no click action */}
+          <span
+            role="img"
+            aria-label={label}
+            className={cn(
+              "inline-flex h-5 w-5 shrink-0 cursor-default select-none items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+              ICON_NOTICE_CLASSES[tone],
+              className,
+            )}
+            {...props}
+          >
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          tone={NOTICE_TO_TOOLTIP_TONE[tone]}
+          className="max-w-xs text-sm leading-relaxed"
         >
-          <Info className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" sideOffset={8} className="max-w-xs text-sm leading-relaxed">
-        {message}
-      </PopoverContent>
-    </Popover>
+          {message}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
