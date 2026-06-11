@@ -3,7 +3,6 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   ResponsiveDialog,
@@ -34,25 +33,31 @@ export function FreelancerSafetyChecklist({
 
   if (!isSelectedFreelancer) {
     return (
-      <section className="flex flex-wrap items-center justify-between gap-4 border border-[#e8e8e8] bg-white p-5">
+      <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
         <div className="space-y-2">
-          <SectionLabel>Work Safety</SectionLabel>
-          <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            Work Safety
+          </p>
+          <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+            Before Starting Work
+          </h2>
         </div>
+
         <ResponsiveDialog>
           <ResponsiveDialogTrigger asChild>
-            <AppButton type="button" variant="secondary" className="rounded-none">
-              View checklist
+            <AppButton type="button" variant="primary" className="text-xs">
+              View Checklist
             </AppButton>
           </ResponsiveDialogTrigger>
-          <ResponsiveDialogContent className="rounded-none">
+
+          <ResponsiveDialogContent className="max-w-3xl">
             <ResponsiveDialogHeader>
               <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
-              <ResponsiveDialogDescription>
-                Only start after the job shows Verified Funded and the payment terms match the
-                agreement.
-              </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
+            <ResponsiveDialogBody className="font-sans text-sm">
+              Only start after the job shows Verified Funded and the payment terms match the
+              agreement.
+            </ResponsiveDialogBody>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
       </section>
@@ -83,18 +88,24 @@ export function FreelancerSafetyChecklist({
   ];
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 border border-[#e8e8e8] bg-white p-5">
+    <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
       <div className="space-y-2">
-        <SectionLabel>Work Safety</SectionLabel>
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Before Starting Work</h2>
+        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+          Work Safety
+        </p>
+        <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+          Before Starting Work
+        </h2>
       </div>
+
       <ResponsiveDialog>
         <ResponsiveDialogTrigger asChild>
-          <AppButton type="button" variant="secondary" className="rounded-none">
-            View checklist
+          <AppButton type="button" variant="primary" className="text-xs">
+            View Checklist
           </AppButton>
         </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent className="rounded-none">
+
+        <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
@@ -102,18 +113,18 @@ export function FreelancerSafetyChecklist({
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 font-sans text-sm">
               {checklist.map((item) => {
                 const Icon = item.isComplete ? CheckCircle2 : Circle;
 
                 return (
-                  <li key={item.label} className="flex items-center gap-2 text-[#5f5f5f]">
+                  <li key={item.label} className="flex items-center gap-2 text-muted-foreground">
                     <Icon
                       className={`h-4 w-4 shrink-0 ${
                         item.isComplete ? "text-emerald-700" : "text-amber-600"
                       }`}
                     />
-                    <span className={item.isComplete ? "text-[#0a0a0a]" : undefined}>
+                    <span className={item.isComplete ? "hr-text-primary" : undefined}>
                       {item.label}
                     </span>
                   </li>

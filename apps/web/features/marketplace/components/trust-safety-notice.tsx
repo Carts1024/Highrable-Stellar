@@ -48,7 +48,7 @@ export function TrustSafetyNotice({ type, compact = false, className }: ITrustSa
   return (
     <Alert
       className={cn(
-        "rounded-xl",
+        "items-center rounded-lg font-sans",
         notice.tone === "green"
           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
           : "border-amber-200 bg-amber-50 text-amber-900",
@@ -57,7 +57,7 @@ export function TrustSafetyNotice({ type, compact = false, className }: ITrustSa
       )}
       role={notice.tone === "green" ? "status" : "note"}
     >
-      <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", compact ? "h-3.5 w-3.5" : null)} />
+      <Icon className={cn("h-4 w-4 shrink-0", compact ? "h-3.5 w-3.5" : null)} />
       <AlertDescription className={compact ? "text-xs" : undefined}>
         {notice.message}
       </AlertDescription>

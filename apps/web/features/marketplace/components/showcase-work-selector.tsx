@@ -3,6 +3,7 @@
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { getWorkTypeLabel } from "@/features/profile/lib/profile-format";
 import { api } from "@repo/convex-client";
+import { Label } from "@repo/ui/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -43,10 +44,8 @@ export function ShowcaseWorkSelector({
   const selectedWork = works?.find((work) => work.escrowId === selectedEscrowId) ?? null;
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={selectorId} className="block text-sm font-medium text-[#0a0a0a]">
-        Showcased completed work
-      </label>
+    <div className="space-y-1.5">
+      <Label htmlFor={selectorId}>Showcased completed work</Label>
       <Select
         value={selectedEscrowId ?? NO_SHOWCASE_VALUE}
         onValueChange={(value) =>
@@ -56,7 +55,7 @@ export function ShowcaseWorkSelector({
       >
         <SelectTrigger
           id={selectorId}
-          className="w-full border-[#e8e8e8] bg-white text-left"
+          className="w-full text-left"
           aria-label="Showcased completed work"
         >
           <SelectValue
@@ -74,16 +73,21 @@ export function ShowcaseWorkSelector({
           ))}
         </SelectContent>
       </Select>
+
       {!freelancerWallet ? (
-        <p className="text-xs text-[#7f7f7f]">Connect wallet to choose showcased work.</p>
+        <p className="font-sans text-xs text-muted-foreground">
+          Connect wallet to choose showcased work.
+        </p>
       ) : null}
+
       {freelancerWallet && works !== undefined && !hasCompletedWorks ? (
-        <p className="text-xs text-[#7f7f7f]">
+        <p className="font-sans text-xs text-muted-foreground">
           No escrow-verified completed work is available to showcase yet.
         </p>
       ) : null}
+
       {selectedWork ? (
-        <p className="text-xs text-[#5f5f5f]">
+        <p className="hr-text-secondary font-sans text-xs">
           {getWorkTypeLabel(selectedWork.workType)} selected for this application.
         </p>
       ) : null}
