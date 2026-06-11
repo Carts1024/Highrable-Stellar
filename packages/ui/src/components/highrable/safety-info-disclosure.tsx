@@ -61,24 +61,24 @@ export function SafetyInfoDisclosure({
         <button
           type="button"
           className={cn(
-            "inline-flex h-8 w-8 items-center justify-center rounded-none border transition-all focus-visible:ring-2 focus-visible:outline-hidden",
+            "inline-flex h-6 w-6 items-center justify-center rounded-md border transition-all focus-visible:ring-2 focus-visible:outline-hidden",
             toneClasses[tone],
             className,
           )}
           aria-label={label}
         >
-          {icon ?? <ShieldAlert className="h-4 w-4" aria-hidden="true" />}
+          {icon ?? <ShieldAlert className="h-3 w-3" aria-hidden="true" />}
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[380px] max-w-[90vw] border-amber-100 p-0 shadow-xl"
+        className="w-95 max-w-[90vw] border-amber-100 p-0 shadow-xl"
         side="bottom"
         align="end"
         sideOffset={8}
       >
         <div className="flex flex-col">
-          <header className="border-b border-amber-100 bg-amber-50/50 px-4 py-2.5">
-            <h3 className="text-xs font-bold tracking-wider text-amber-900/70 uppercase">
+          <header className="border-b rounded-t-md border-amber-100 bg-amber-50/50 px-4 py-2.5">
+            <h3 className="text-xs font-bold font-mono tracking-wider text-highrable-text-accent uppercase">
               Safety & Security Notices ({validChildren.length})
             </h3>
           </header>
@@ -94,7 +94,7 @@ export function SafetyInfoDisclosure({
               ))}
             </div>
           </div>
-          <footer className="border-t border-[#f0f0f0] bg-[#fafafa] px-4 py-2 text-[10px] text-[#8f8f8f]">
+          <footer className="border-t border-border rounded-b-md bg-muted px-4 py-2 font-sans text-[10px] text-muted-foreground">
             These notices are provided for your protection on the Stellar network.
           </footer>
         </div>

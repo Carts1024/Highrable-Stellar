@@ -52,21 +52,23 @@ export function TalentPage() {
           }
         />
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-3 border-b border-border/60 pb-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-highrable-orange-2/10 text-highrable-orange-2">
               <BadgeCheck className="h-5 w-5" />
             </div>
             <div>
               <h2 className="font-mono font-semibold text-foreground">Planned trust signals</h2>
-              <p className="font-sans text-sm text-gray-500">Backed by completed escrow releases</p>
+              <p className="font-sans text-sm text-muted-foreground">
+                Backed by completed escrow releases
+              </p>
             </div>
           </div>
           <div className="mt-4 space-y-3">
             {plannedSignals.map((signal) => (
               <div
                 key={signal}
-                className="flex gap-3 rounded-xl bg-gray-50 p-3 font-sans text-sm text-gray-700"
+                className="flex gap-3 rounded-xl bg-muted/40 p-3 font-sans text-sm text-foreground"
               >
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                 <span>{signal}</span>
@@ -88,10 +90,10 @@ export function TalentPage() {
           {previewProfiles.map((profile) => (
             <article
               key={profile.name}
-              className="rounded-xl border border-dashed border-border bg-white p-5"
+              className="rounded-xl border border-dashed border-border bg-card p-5 transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
             >
               <div className="flex items-center justify-start gap-4">
-                <BriefcaseBusiness className="h-12 w-12 rounded-xl bg-gray-100 p-3 text-muted-foreground" />
+                <BriefcaseBusiness className="h-12 w-12 rounded-xl bg-muted p-3 text-muted-foreground" />
                 <h3 className="font-sans font-semibold text-foreground">{profile.name}</h3>
               </div>
 

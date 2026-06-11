@@ -17,8 +17,8 @@ import { api } from "@repo/convex-client";
 import {
   HighrableV2IconNotice,
   HighrableV2Metric,
-  SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
+import { Button } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 
@@ -74,15 +74,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
   );
 
   if (!hasJobId) {
-    return <p className="text-sm text-gray-700">Job not found.</p>;
+    return <p className="text-sm text-muted-foreground">Job not found.</p>;
   }
 
   if (job === undefined) {
-    return <p className="text-sm text-gray-500">Loading job...</p>;
+    return <p className="text-sm text-muted-foreground">Loading job...</p>;
   }
 
   if (job === null) {
-    return <p className="text-sm text-gray-700">Job not found.</p>;
+    return <p className="text-sm text-muted-foreground">Job not found.</p>;
   }
 
   const safeApplications = applications ?? [];
@@ -130,13 +130,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
         description="Review the core terms, escrow state, and next actions without leaving the marketplace workflow."
       />
 
-      <section className="border border-[#e8e8e8] bg-white">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
+      <section className="rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 p-5 sm:p-6">
           <div className="space-y-2">
-            <SectionLabel>Contract Snapshot</SectionLabel>
-            <h2 className="text-2xl font-semibold text-[#0a0a0a]">{job.description}</h2>
+            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+              Contract Snapshot
+            </p>
+            <h2 className="hr-text-primary font-sans text-2xl font-semibold">{job.title}</h2>
           </div>
-          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <JobSafetyBadge status={safetyStatus.status} />
             {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
             <HighrableV2IconNotice
@@ -192,7 +194,9 @@ export function JobDetail({ jobId }: { jobId: string }) {
         </div>
 
         <div className="p-5 sm:p-6">
-          <p className="max-w-4xl text-sm leading-relaxed text-[#5f5f5f]">{job.description}</p>
+          <p className="hr-text-secondary max-w-4xl font-sans text-sm leading-relaxed">
+            {job.description}
+          </p>
 
           {!isMilestoneProject ? (
             <div className="mt-5">
@@ -207,28 +211,28 @@ export function JobDetail({ jobId }: { jobId: string }) {
             </div>
           ) : null}
 
-          <dl className="mt-6 grid gap-5 border-t border-[#e8e8e8] pt-5 text-sm text-[#5f5f5f] sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="mt-6 grid gap-5 border-t border-border/60 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Work mode
               </dt>
-              <dd className="font-semibold text-[#0a0a0a]">
+              <dd className="hr-text-primary font-sans font-semibold">
                 {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Budget
               </dt>
-              <dd className="font-semibold text-[#0a0a0a]">
+              <dd className="hr-text-primary font-sans font-semibold">
                 {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Asset
               </dt>
-              <dd className="flex items-center gap-2 font-semibold text-[#0a0a0a]">
+              <dd className="hr-text-primary flex items-center gap-2 font-sans font-semibold">
                 {formatAssetLabel(job.asset)}
                 {isNativeXlmJob && (
                   <HighrableV2IconNotice
@@ -240,27 +244,27 @@ export function JobDetail({ jobId }: { jobId: string }) {
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Client wallet
               </dt>
-              <dd className="font-semibold text-[#0a0a0a]">
+              <dd className="hr-text-primary font-sans font-semibold">
                 <Link
                   href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-                  className="hover:text-[#FF7003]"
+                  className="hover:text-highrable-orange-3"
                 >
                   {shortenWalletAddress(job.clientWallet)}
                 </Link>
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Freelancer
               </dt>
-              <dd className="font-semibold text-[#0a0a0a]">
+              <dd className="hr-text-primary font-sans font-semibold">
                 {job.selectedFreelancerWallet ? (
                   <Link
                     href={`/freelancers/${encodeURIComponent(job.selectedFreelancerWallet)}`}
-                    className="hover:text-[#FF7003]"
+                    className="hover:text-highrable-orange-3"
                   >
                     {shortenWalletAddress(job.selectedFreelancerWallet)}
                   </Link>
@@ -270,43 +274,47 @@ export function JobDetail({ jobId }: { jobId: string }) {
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
                 Job hash
               </dt>
-              <dd className="font-semibold break-all text-[#0a0a0a]">{job.jobHash}</dd>
+              <dd className="hr-text-primary font-sans font-semibold break-all">{job.jobHash}</dd>
             </div>
           </dl>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-4">
             <ReportJobButton jobId={convexJobId} />
             {mergedEscrow ? (
-              <Link
-                href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}
-                className="inline-flex text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
-              >
-                View escrow proof
-              </Link>
+              <Button asChild variant="outline">
+                <Link href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}>
+                  View Escrow Proof
+                </Link>
+              </Button>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section className="space-y-3 border border-[#e8e8e8] bg-white p-5 sm:p-6">
+      <section className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">Attachments</h2>
-            <p className="mt-1 text-sm text-[#5f5f5f]">
+          <div className="space-y-2">
+            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+              Attachments
+            </p>
+            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+              Reference files
+            </h2>
+            <p className="hr-text-secondary mt-1 font-sans text-sm">
               Reference files and links supplied by the client for this work.
             </p>
           </div>
           {attachments ? (
-            <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+            <p className="font-mono text-xs tracking-[0.08em] text-muted-foreground/60 uppercase">
               {attachments.length} item{attachments.length === 1 ? "" : "s"}
             </p>
           ) : null}
         </div>
         {attachments === undefined ? (
-          <p className="text-sm text-gray-500">Loading attachments...</p>
+          <p className="text-sm text-muted-foreground">Loading attachments...</p>
         ) : (
           <AttachmentList attachments={attachments} readOnly />
         )}
@@ -344,12 +352,16 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {isMilestoneProject ? (
         <section className="space-y-5">
-          <div className="border border-[#e8e8e8] bg-white p-5 sm:p-6">
+          <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <SectionLabel>Milestone Progress</SectionLabel>
-                <h2 className="mt-2 text-lg font-semibold text-[#0a0a0a]">Funding status</h2>
-                <p className="mt-1 text-sm text-[#5f5f5f]">
+                <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+                  Milestone Progress
+                </p>
+                <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+                  Funding status
+                </h2>
+                <p className="hr-text-secondary mt-1 text-sm">
                   Funding and Verified Funded status are tracked per milestone, not for the whole
                   project.
                 </p>
@@ -357,7 +369,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
               <StatusBadge label={job.status} />
             </div>
 
-            <div className="mt-5 grid gap-5 border-t border-[#e8e8e8] pt-5 text-sm sm:grid-cols-5">
+            <div className="mt-5 grid gap-5 border-t border-border/60 pt-5 text-sm sm:grid-cols-5">
               <HighrableV2Metric
                 label="Total"
                 value={projectSummary?.milestones.length ?? job.milestoneCount ?? 0}
@@ -380,17 +392,17 @@ export function JobDetail({ jobId }: { jobId: string }) {
               />
             </div>
 
-            <p className="mt-4 text-sm font-medium text-[#0a0a0a]">
+            <p className="hr-text-primary mt-4 text-sm font-medium">
               {projectSummary?.milestoneCountsByStatus.released ?? 0} of{" "}
               {projectSummary?.milestones.length ?? job.milestoneCount ?? 0} milestones paid
             </p>
           </div>
 
           {projectSummary === undefined ? (
-            <p className="text-sm text-gray-500">Loading milestones...</p>
+            <p className="text-sm text-muted-foreground">Loading milestones...</p>
           ) : null}
           {projectSummary?.milestones.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
+            <p className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground sm:rounded-2xl">
               No milestones found for this project.
             </p>
           ) : null}

@@ -24,8 +24,8 @@ import {
   SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
 import {
-  V2_BUTTON_SECONDARY_CLASS,
-  V2_PANEL_CLASS,
+  // V2_BUTTON_SECONDARY_CLASS,
+  // V2_PANEL_CLASS,
   V2_THEME,
 } from "@repo/ui/components/highrable/v2-theme";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -971,54 +971,51 @@ export function WorkProofSubmissionPanel({
   const isReleased = escrow?.status === "released" || job.status === "completed";
 
   return (
-    <section className={cn(V2_PANEL_CLASS, "bg-white p-4")} aria-label="Work submission">
+    <section
+      className="space-y-3 rounded-lg border border-border/80 bg-muted/50 p-5 sm:p-6"
+      aria-label="Work submission"
+    >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <FileCheck2 className="h-4 w-4 text-[#FF7003]" aria-hidden="true" />
-            <h3 className="text-sm font-bold tracking-wider text-[#0a0a0a] uppercase">
-              {isReleased ? "Final work" : "Work submission"}
-            </h3>
+            <FileCheck2 className="h-4 w-4 text-highrable-orange-2" aria-hidden="true" />
+            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+              {isReleased ? "Final Work" : "Work Submission"}
+            </h2>
             {latestSubmission ? (
-              <Badge
-                variant="secondary"
-                className="rounded-none text-[10px] tracking-wider uppercase"
-              >
+              <Badge variant="secondary" className="text-[10px] tracking-wider uppercase">
                 {getStatusLabel(latestSubmission.status)}
               </Badge>
             ) : null}
           </div>
-          <p className={cn("text-sm", V2_THEME.colors.textMuted)}>{summary}</p>
+          <p className="hr-text-secondary font-sans text-sm">{summary}</p>
         </div>
+
         <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
           <ResponsiveDialogTrigger asChild>
             <AppButton
               type="button"
               variant="outline"
               disabled={!escrow?.escrowId || !walletIdentity.isConnected}
-              className={cn(
-                "shrink-0 rounded-none disabled:cursor-not-allowed disabled:opacity-60",
-                V2_BUTTON_SECONDARY_CLASS,
-              )}
+              className="shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               aria-label={buttonLabel}
             >
-              <Eye className="mr-2 h-4 w-4" />
+              <Eye className="h-4 w-4" />
               {buttonLabel}
             </AppButton>
           </ResponsiveDialogTrigger>
-          <ResponsiveDialogContent className="rounded-none border-none shadow-2xl sm:max-w-4xl">
-            <ResponsiveDialogHeader className="border-b border-[#e8e8e8] pb-4">
-              <ResponsiveDialogTitle className="text-xl font-bold tracking-widest uppercase">
+
+          <ResponsiveDialogContent className="max-w-3xl">
+            <ResponsiveDialogHeader>
+              <ResponsiveDialogTitle>
                 {isReleased ? "Final Work" : "Work Submission"}
               </ResponsiveDialogTitle>
-              <ResponsiveDialogDescription className="text-sm">
+              <ResponsiveDialogDescription>
                 Submit, review, and manage project deliverables.
               </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
             <ResponsiveDialogBody>
-              <div className="pt-6">
-                <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
-              </div>
+              <WorkProofSubmissionDialogContent job={job} escrow={escrow} milestone={milestone} />
             </ResponsiveDialogBody>
           </ResponsiveDialogContent>
         </ResponsiveDialog>
