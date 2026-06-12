@@ -33,15 +33,15 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   ) as TFreelancerProfileResponse | null | undefined;
 
   if (!decodedWalletAddress) {
-    return <p className="text-sm text-gray-700">Freelancer profile not found.</p>;
+    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
   }
 
   if (profileData === undefined) {
-    return <p className="text-sm text-gray-500">Loading freelancer profile...</p>;
+    return <p className="text-sm text-muted-foreground">Loading freelancer profile...</p>;
   }
 
   if (profileData === null) {
-    return <p className="text-sm text-gray-700">Freelancer profile not found.</p>;
+    return <p className="text-sm text-muted-foreground">Freelancer profile not found.</p>;
   }
 
   const { profile, stats, verifiedReviews, recentContracts } = profileData;
@@ -53,10 +53,10 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         label="Freelancer Profile"
         title={
           <>
-            Wallet-based <span className="text-[#FF7003]">work history</span>
+            Wallet-based <span className="hr-v2-gradient-text">Work History</span>
           </>
         }
-        description="Completed work and reviews on Highrable are verified through real paid Stellar escrow transactions."
+        description="Completed work and reviews are verified through real paid Stellar escrow transactions — harder to fake than standard marketplace ratings."
       />
 
       <FreelancerProfileHeader
@@ -69,8 +69,10 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Edit Profile</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
+            <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
+              Edit profile
+            </ResponsiveDialogTitle>
+            <ResponsiveDialogDescription className="hr-text-secondary text-sm">
               Keep these fields aligned with your public onboarding identity.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
@@ -87,7 +89,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
       </ResponsiveDialog>
 
       {stats.completedContracts === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#e8e8e8] bg-white p-5 text-sm text-[#5f5f5f]">
+        <p className="rounded-xl border border-dashed border-border bg-muted/20 p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
           This freelancer does not have escrow-verified paid work yet.
         </p>
       ) : null}

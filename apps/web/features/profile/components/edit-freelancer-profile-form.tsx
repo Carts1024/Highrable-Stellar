@@ -20,7 +20,6 @@ import type { TFreelancerProfile } from "@/features/profile/types";
 
 function buildInitialValues(profile: TFreelancerProfile): TProfileIdentityFormValues {
   const fallbackParts = (profile.name ?? "").trim().split(/\s+/).filter(Boolean);
-
   return {
     firstName: profile.firstName ?? fallbackParts[0] ?? "",
     middleName: profile.middleName ?? "",
@@ -63,26 +62,20 @@ export function EditFreelancerProfileForm({
       setAvatarPreviewUrl(null);
       return;
     }
-
     const objectUrl = URL.createObjectURL(avatarFile);
     setAvatarPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [avatarFile]);
 
   const setField = (field: keyof TProfileIdentityFormValues, value: string) => {
-    setValues((currentValue) => ({ ...currentValue, [field]: value }));
+    setValues((current) => ({ ...current, [field]: value }));
     setError(null);
   };
 
   const uploadAvatar = async (): Promise<TConvexStorageId | undefined> => {
-    if (!avatarFile) {
-      return undefined;
-    }
-
+    if (!avatarFile) return undefined;
     const validationError = validateAvatarFile(avatarFile);
-    if (validationError) {
-      throw new Error(validationError);
-    }
+    if (validationError) throw new Error(validationError);
 
     const uploadUrl = await generateUploadUrl({
       walletAddress: profile.walletAddress,
@@ -97,11 +90,7 @@ export function EditFreelancerProfileForm({
       headers: { "Content-Type": avatarFile.type },
       body: avatarFile,
     });
-
-    if (!response.ok) {
-      throw new Error("Avatar upload failed.");
-    }
-
+    if (!response.ok) throw new Error("Avatar upload failed.");
     const body = (await response.json()) as { storageId: TConvexStorageId };
     return body.storageId;
   };
@@ -141,7 +130,7 @@ export function EditFreelancerProfileForm({
   };
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5">
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       <ProfileIdentityFields
         values={values}
         skillsInput={skillsInput}
@@ -161,17 +150,16 @@ export function EditFreelancerProfileForm({
       />
 
       {error ? (
-        <p className="border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       ) : null}
-      <div className="flex flex-wrap justify-end gap-2 border-t border-[#e8e8e8] pt-5">
-        <AppButton type="button" variant="ghost" onClick={onCancel}>
+
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <AppButton type="button" variant="outline" onClick={onCancel}>
           Cancel
         </AppButton>
-        <AppButton
-          type="submit"
-          disabled={status === "saving"}
-          className="hr-v2-button-primary rounded-none"
-        >
+        <AppButton type="submit" disabled={status === "saving"} variant="primary">
           {status === "saving" ? "Saving..." : "Save profile"}
         </AppButton>
       </div>
