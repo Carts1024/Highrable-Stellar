@@ -84,7 +84,7 @@ export function PostedJobsSection() {
                 </div>
               </div>
 
-              <div className="-mx-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-4 py-3 text-xs">
+              <div className="-mx-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                     Created

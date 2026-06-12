@@ -22,8 +22,8 @@ export function AppliedJobsSection() {
         <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
           Applications
         </p>
-        <h2 className="hr-text-primary font-sans text-lg font-semibold">Applied jobs</h2>
-        <p className="hr-text-secondary mt-1 text-sm">
+        <h2 className="hr-text-primary font-sans text-lg font-semibold">Applied Jobs</h2>
+        <p className="hr-text-secondary mt-1 font-sans text-sm">
           Jobs you applied to with your current application status.
         </p>
       </div>
@@ -33,7 +33,7 @@ export function AppliedJobsSection() {
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-xl border border-border/60 bg-muted/30"
+              className="h-44 animate-pulse rounded-xl border border-border/60 bg-muted/30"
             />
           ))}
         </div>
@@ -52,7 +52,7 @@ export function AppliedJobsSection() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="hr-text-primary truncate text-base font-bold transition-colors group-hover:text-highrable-orange-3">
+                  <h3 className="hr-text-primary truncate text-lg font-bold transition-colors group-hover:text-highrable-orange-3">
                     {item.title}
                   </h3>
                   {item.milestoneTitle ? (
@@ -77,7 +77,7 @@ export function AppliedJobsSection() {
                 </p>
               ) : null}
 
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border-y border-border/80 bg-muted/50 px-4 py-3 text-xs">
+              <div className="-mx-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                     Applied

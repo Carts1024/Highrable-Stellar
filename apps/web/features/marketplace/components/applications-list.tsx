@@ -226,7 +226,7 @@ export function ApplicationsList({
         {applications.map((application) => (
           <article
             key={application._id}
-            className="group rounded-lg border border-border bg-muted/50 p-5 shadow-none transition-all duration-200 focus-within:ring-2 focus-within:ring-highrable-orange-2/50 hover:border-highrable-orange-3/30 hover:shadow-sm"
+            className="group mb-3 rounded-lg border border-border bg-muted/50 p-5 shadow-none transition-all duration-200 focus-within:ring-2 focus-within:ring-highrable-orange-2/50 hover:border-highrable-orange-3/30 hover:shadow-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">

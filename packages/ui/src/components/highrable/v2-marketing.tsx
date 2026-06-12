@@ -192,7 +192,7 @@ export function HighrableV2Bullet({
       className={cn(
         "inline-block h-1 w-1 shrink-0 bg-current",
         tone === "accent" ? "hr-text-accent" : undefined,
-        tone === "muted" ? "text-border" : undefined,
+        tone === "muted" ? "text-muted-foreground" : undefined,
         tone === "inverse" ? "text-white/80" : undefined,
         className,
       )}
