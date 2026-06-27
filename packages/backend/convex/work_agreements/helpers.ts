@@ -1520,8 +1520,8 @@ export async function assertCanSendAgreement(
           .withIndex("by_jobId_order", (q) => q.eq("jobId", job._id))
           .order("asc")
           .take(500);
-    const assigned = assignedMilestones.filter(
-      (milestone): milestone is Doc<"milestones"> => Boolean(milestone?.assignedFreelancerWallet),
+    const assigned = assignedMilestones.filter((milestone): milestone is Doc<"milestones"> =>
+      Boolean(milestone?.assignedFreelancerWallet),
     );
     const assignedWallets = new Set(
       assigned.map((milestone) => normalizeWalletAddress(milestone.assignedFreelancerWallet!)),
