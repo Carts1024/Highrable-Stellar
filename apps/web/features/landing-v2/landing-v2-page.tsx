@@ -21,7 +21,6 @@ export function LandingPageV2() {
         <V2ProblemsSection />
         <V2FeaturesSection />
         <V2HowItWorksSection />
-        update
         <V2TargetMarketSection />
         <V2UniqueSection />
         <V2CtaSection />
