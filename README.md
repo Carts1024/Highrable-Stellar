@@ -222,9 +222,8 @@ Before production deployment, review:
 | --- | --- | --- |
 | Bette Anjanelle Cabarles | Frontend Developer | [@anjobette](https://github.com/anjobette) |
 | Carl Aldrey Bergado | Smart Contract and Fullstack Developer | [@Carts1024](https://github.com/Carts1024) |
-| Christelle Anne Dacapias | Social Media Manager | [@chrissstellee](https://github.com/chrissstellee) |
-| Crystalyn Danga | Business Analyst, Researcher, Project Manager | [@tal_zz](https://github.com/tal_zz) |
-| Sherwin Limosnero | Public Relations, Pitcher | [@owenlim225](https://github.com/owenlim225) |
+| Christelle Anne Dacapias | Smart Contract Developer | [@chrissstellee](https://github.com/chrissstellee) |
+| Sherwin Limosnero | Frontend Developer | [@owenlim225](https://github.com/owenlim225) |
 
 ## 📜 License
 
