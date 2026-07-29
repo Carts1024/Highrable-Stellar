@@ -3,11 +3,14 @@
 import { Particles } from "@repo/ui/components/highrable/particles";
 import {
   V2_BADGE_ACCENT_CLASS,
+  V2_BUTTON_PRIMARY_CLASS,
+  V2_BUTTON_SECONDARY_CLASS,
   V2_GRADIENT_TEXT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
-import { ArrowUpRight, CheckCircle2, Lock, ShieldCheck, Star, Zap } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CheckCircle2, Lock, ShieldCheck, Star, Zap } from "lucide-react";
+import Link from "next/link";
 
 import { V2WaitlistForm } from "./v2-waitlist-form";
 
@@ -233,8 +236,28 @@ function HeroAppMockup() {
   );
 }
 
-/** Full-width hero section with split-screen waitlist layout. */
-export function V2Hero() {
+function HeroLaunchActions() {
+  return (
+    <div className="flex w-full flex-col gap-3 sm:flex-row">
+      <Link
+        href="/jobs"
+        className={`${V2_BUTTON_PRIMARY_CLASS} flex items-center justify-center gap-2 px-6 py-3 font-mono text-xs font-bold tracking-widest uppercase`}
+      >
+        Find Work
+        <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+      <Link
+        href="/post-job"
+        className={`${V2_BUTTON_SECONDARY_CLASS} flex items-center justify-center px-6 py-3 font-mono text-xs font-bold tracking-widest uppercase`}
+      >
+        Post a Job
+      </Link>
+    </div>
+  );
+}
+
+/** Full-width hero section with waitlist or launch actions selected by configuration. */
+export function V2Hero({ waitlistMode }: { readonly waitlistMode: boolean }) {
   return (
     <section className="relative overflow-hidden bg-background pt-20 pb-16 sm:pt-24 sm:pb-20 lg:pt-36 lg:pb-32">
       <Particles className="pointer-events-none absolute inset-0 z-0 opacity-60" />
@@ -287,7 +310,7 @@ export function V2Hero() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="w-full max-w-md"
             >
-              <V2WaitlistForm />
+              {waitlistMode ? <V2WaitlistForm /> : <HeroLaunchActions />}
             </motion.div>
 
             {/* Trust indicators */}

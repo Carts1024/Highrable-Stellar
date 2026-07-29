@@ -117,8 +117,13 @@ Configure the required values in the copied env files:
 - `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
 - `NEXT_PUBLIC_APP_DOMAIN`
+- `NEXT_PUBLIC_WAITLIST_MODE` (`true`, omitted, or invalid keeps waitlist mode on; `false` enables the full product UI)
 - `HIGHRABLE_ADMIN_WALLET_ADDRESS`
 - `HIGHRABLE_ADMIN_CONVEX_SECRET`
+
+`NEXT_PUBLIC_WAITLIST_MODE` is a browser launch gate, not a backend authorization control. Restart
+or redeploy the web app after changing it. API and Convex access continue to use their existing
+authentication and authorization rules.
 
 Run the full monorepo development workflow:
 

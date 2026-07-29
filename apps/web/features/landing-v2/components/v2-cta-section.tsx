@@ -1,14 +1,17 @@
 "use client";
 
 import {
+  V2_BUTTON_INVERSE_CLASS,
+  V2_BUTTON_LIGHT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
   V2_SECTION_SPACING_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 /** Full-width final CTA styled inside a glassmorphic dark container with animated background glow blobs. */
-export function V2CtaSection() {
+export function V2CtaSection({ waitlistMode }: { readonly waitlistMode: boolean }) {
   return (
     <section className={`relative overflow-hidden ${V2_SECTION_SPACING_CLASS}`}>
       <div className={V2_PAGE_CONTAINER_CLASS}>
@@ -70,22 +73,23 @@ export function V2CtaSection() {
               near-instant payouts, and own your verified reputation.
             </p>
 
-            {/* TODO: Re-enable when platform launches */}
-            {/* <div className="flex flex-col mt-10 items-center justify-center gap-4 sm:flex-row">
-              <Link
-                href="/jobs"
-                className={`${V2_BUTTON_LIGHT_CLASS} flex items-center justify-center gap-2 px-8 py-3.5 font-mono text-xs font-bold tracking-widest uppercase shadow-lg shadow-white/5`}
-              >
-                Find Work
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-              <Link
-                href="/post-job"
-                className={`${V2_BUTTON_INVERSE_CLASS} flex items-center justify-center gap-2 px-8 py-3.5 font-mono text-xs font-bold tracking-widest uppercase hover:border-orange-500`}
-              >
-                Post a Job
-              </Link>
-            </div> */}
+            {!waitlistMode ? (
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link
+                  href="/jobs"
+                  className={`${V2_BUTTON_LIGHT_CLASS} flex items-center justify-center gap-2 px-8 py-3.5 font-mono text-xs font-bold tracking-widest uppercase shadow-lg shadow-white/5`}
+                >
+                  Find Work
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/post-job"
+                  className={`${V2_BUTTON_INVERSE_CLASS} flex items-center justify-center gap-2 px-8 py-3.5 font-mono text-xs font-bold tracking-widest uppercase hover:border-orange-500`}
+                >
+                  Post a Job
+                </Link>
+              </div>
+            ) : null}
           </motion.div>
         </div>
       </div>

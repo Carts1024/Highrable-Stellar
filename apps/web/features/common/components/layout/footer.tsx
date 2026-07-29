@@ -39,6 +39,15 @@ const FOOTER_SECTIONS = [
   },
 ] satisfies readonly THighrableV2FooterSection[];
 
+const WAITLIST_FOOTER_SECTIONS = FOOTER_SECTIONS.map((section) =>
+  section.title === "Platform"
+    ? {
+        ...section,
+        links: section.links.filter((link) => link.href.startsWith("/home")),
+      }
+    : section,
+);
+
 const TRUST_SIGNALS = ["Escrow-backed", "Stellar payments", "Verified reputation"] as const;
 
 function renderFooterLink(link: THighrableV2FooterLink, className: string) {
@@ -67,7 +76,7 @@ function renderFooterLink(link: THighrableV2FooterLink, className: string) {
 }
 
 /** Renders the shared Highrable marketing footer with app-specific links and assets. */
-export function Footer() {
+export function Footer({ waitlistMode = false }: { readonly waitlistMode?: boolean }) {
   return (
     <HighrableV2Footer
       brand={{
@@ -77,7 +86,7 @@ export function Footer() {
         logoSrc: "/logo/highrable-icon.jpg",
         logoAlt: "Highrable logo",
       }}
-      sections={FOOTER_SECTIONS}
+      sections={waitlistMode ? WAITLIST_FOOTER_SECTIONS : FOOTER_SECTIONS}
       trustSignals={TRUST_SIGNALS}
       network={{
         label: "Built on",

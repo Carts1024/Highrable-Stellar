@@ -11,21 +11,21 @@ import { V2TargetMarketSection } from "./components/v2-target-market-section";
 import { V2UniqueSection } from "./components/v2-unique-section";
 
 /** Renders the redesigned Highrable marketing landing page (v2). */
-export function LandingPageV2() {
+export function LandingPageV2({ waitlistMode }: { readonly waitlistMode: boolean }) {
   return (
     <div className="bg-background font-sans text-foreground antialiased">
-      <V2Navbar />
+      <V2Navbar waitlistMode={waitlistMode} />
       <main>
-        <V2Hero />
+        <V2Hero waitlistMode={waitlistMode} />
         <V2DemoVideoSection />
         <V2ProblemsSection />
         <V2FeaturesSection />
         <V2HowItWorksSection />
         <V2TargetMarketSection />
         <V2UniqueSection />
-        <V2CtaSection />
+        <V2CtaSection waitlistMode={waitlistMode} />
       </main>
-      <Footer />
+      <Footer waitlistMode={waitlistMode} />
     </div>
   );
 }

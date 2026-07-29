@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { resolveWaitlistMode } from "./waitlist-mode";
+
 /**
  * Interface for the validated client-side application environment.
  */
@@ -16,6 +18,7 @@ export interface IClientEnv {
   readonly NEXT_PUBLIC_STABLECOIN_SYMBOL?: string;
   readonly NEXT_PUBLIC_STABLECOIN_DECIMALS?: number;
   readonly NEXT_PUBLIC_APP_DOMAIN: string;
+  readonly NEXT_PUBLIC_WAITLIST_MODE: boolean;
   readonly NEXT_PUBLIC_REPUTATION_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_ESCROW_CONTRACT_ID?: string;
   readonly NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID?: string;
@@ -147,6 +150,7 @@ const ClientEnvSchema = z.object({
   NEXT_PUBLIC_STABLECOIN_SYMBOL: z.string().trim().min(1).optional(),
   NEXT_PUBLIC_STABLECOIN_DECIMALS: z.coerce.number().int().min(0).max(18).optional(),
   NEXT_PUBLIC_APP_DOMAIN: z.string().trim().min(1),
+  NEXT_PUBLIC_WAITLIST_MODE: z.preprocess(resolveWaitlistMode, z.boolean()),
   NEXT_PUBLIC_REPUTATION_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_ESCROW_CONTRACT_ID: TContractIdSchema.optional(),
   NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: TStellarAssetContractConfigSchema.optional(),
@@ -206,6 +210,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_STABLECOIN_SYMBOL: process.env.NEXT_PUBLIC_STABLECOIN_SYMBOL,
     NEXT_PUBLIC_STABLECOIN_DECIMALS: process.env.NEXT_PUBLIC_STABLECOIN_DECIMALS,
     NEXT_PUBLIC_APP_DOMAIN: resolveAppDomainEnvValue(),
+    NEXT_PUBLIC_WAITLIST_MODE: process.env.NEXT_PUBLIC_WAITLIST_MODE,
     NEXT_PUBLIC_REPUTATION_CONTRACT_ID: process.env.NEXT_PUBLIC_REPUTATION_CONTRACT_ID,
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID,
     NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID: process.env.NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID,
