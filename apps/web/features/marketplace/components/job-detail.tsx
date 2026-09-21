@@ -88,20 +88,28 @@ export function JobDetail({ jobId }: { jobId: string }) {
   const safeApplications = applications ?? [];
   const mergedEscrow = verifiedReviewData?.escrow ?? escrow ?? null;
   const safetyStatus = getJobSafetyStatus({ job, escrow: mergedEscrow });
+  const jobType = job.jobType ?? "micro_gig";
+  const isMilestoneProject = jobType === "milestone_project";
+  const projectSummary = milestoneSummary;
   const isConnectedClient = isSameWallet(walletIdentity.walletAddress, job.clientWallet);
+  const isAssignedMilestoneConnectedFreelancer =
+    isMilestoneProject &&
+    Boolean(
+      projectSummary?.milestones.some((milestone) =>
+        isSameWallet(walletIdentity.walletAddress, milestone.assignedFreelancerWallet),
+      ),
+    );
   const isSelectedConnectedFreelancer = isSameWallet(
     walletIdentity.walletAddress,
     job.selectedFreelancerWallet,
   );
-  const canViewAgreementPanel = isConnectedClient || isSelectedConnectedFreelancer;
+  const canViewAgreementPanel =
+    isConnectedClient || isSelectedConnectedFreelancer || isAssignedMilestoneConnectedFreelancer;
   const scamAnalysis = analyzeJobScamSignals({
     title: job.title,
     description: job.description,
   });
-  const jobType = job.jobType ?? "micro_gig";
-  const isMilestoneProject = jobType === "milestone_project";
   const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
-  const projectSummary = milestoneSummary;
   const marketplaceStatus = mergedEscrow?.status ?? job.status;
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;

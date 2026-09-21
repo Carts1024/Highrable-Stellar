@@ -117,8 +117,13 @@ Configure the required values in the copied env files:
 - `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
 - `NEXT_PUBLIC_APP_DOMAIN`
+- `NEXT_PUBLIC_WAITLIST_MODE` (`true`, omitted, or invalid keeps waitlist mode on; `false` enables the full product UI)
 - `HIGHRABLE_ADMIN_WALLET_ADDRESS`
 - `HIGHRABLE_ADMIN_CONVEX_SECRET`
+
+`NEXT_PUBLIC_WAITLIST_MODE` is a browser launch gate, not a backend authorization control. Restart
+or redeploy the web app after changing it. API and Convex access continue to use their existing
+authentication and authorization rules.
 
 Run the full monorepo development workflow:
 
@@ -222,9 +227,8 @@ Before production deployment, review:
 | --- | --- | --- |
 | Bette Anjanelle Cabarles | Frontend Developer | [@anjobette](https://github.com/anjobette) |
 | Carl Aldrey Bergado | Smart Contract and Fullstack Developer | [@Carts1024](https://github.com/Carts1024) |
-| Christelle Anne Dacapias | Social Media Manager | [@chrissstellee](https://github.com/chrissstellee) |
-| Crystalyn Danga | Business Analyst, Researcher, Project Manager | [@tal_zz](https://github.com/tal_zz) |
-| Sherwin Limosnero | Public Relations, Pitcher | [@owenlim225](https://github.com/owenlim225) |
+| Christelle Anne Dacapias | Smart Contract Developer | [@chrissstellee](https://github.com/chrissstellee) |
+| Sherwin Limosnero | Frontend Developer | [@owenlim225](https://github.com/owenlim225) |
 
 ## 📜 License
 

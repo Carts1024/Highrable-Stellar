@@ -1,4 +1,4 @@
-import type { IInfoCardField } from "./types";
+import type { IEmailSocialLink, IInfoCardField } from "./types";
 
 import { EMAIL_COLORS, EMAIL_FONTS, EMAIL_RADIUS } from "./tokens";
 
@@ -14,41 +14,27 @@ export function escapeEmailHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+export function buildEyebrow(text: string): string {
+  return `<p style="font-family: ${EMAIL_FONTS.mono}; font-size: 11px; font-weight: 700; color: ${EMAIL_COLORS.brand.accentText}; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px 0;">${escapeEmailHtml(text)}</p>`;
+}
+
 export function buildSectionHeading(text: string): string {
-  return `<h2 style="font-family: ${EMAIL_FONTS.sans}; font-size: 22px; font-weight: 700; color: ${EMAIL_COLORS.text.primary}; margin: 0 0 10px 0; letter-spacing: -0.02em;">${escapeEmailHtml(text)}</h2>`;
+  return `<h1 style="font-family: ${EMAIL_FONTS.sans}; font-size: 30px; line-height: 1.08; font-weight: 800; color: ${EMAIL_COLORS.text.primary}; margin: 0 0 16px 0; letter-spacing: 0;">${escapeEmailHtml(text)}</h1>`;
 }
 
 export function buildBodyText(text: string): string {
-  return `<p style="font-family: ${EMAIL_FONTS.sans}; font-size: 15px; color: ${EMAIL_COLORS.text.secondary}; line-height: 1.65; margin: 0 0 24px 0;">${text}</p>`;
-}
-
-export function buildOtpBlock(token: string): string {
-  const escapedToken = escapeEmailHtml(token);
-
-  return `
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="margin: 28px 0;">
-      <tr>
-        <td align="center">
-          <div style="display: inline-block; background-color: ${EMAIL_COLORS.card.bgMuted}; border: 1px solid ${EMAIL_COLORS.card.border}; border-radius: ${EMAIL_RADIUS.lg}; padding: 22px 44px;">
-            <span style="font-family: ${EMAIL_FONTS.mono}; font-size: 36px; font-weight: 700; letter-spacing: 10px; color: ${EMAIL_COLORS.text.primary}; line-height: 1;">${escapedToken}</span>
-          </div>
-          <p style="font-family: ${EMAIL_FONTS.sans}; color: ${EMAIL_COLORS.text.dimmed}; font-size: 12px; margin: 10px 0 0 0; text-align: center;">This code expires in 10 minutes.</p>
-        </td>
-      </tr>
-    </table>
-  `;
+  return `<p style="font-family: ${EMAIL_FONTS.sans}; font-size: 15px; color: ${EMAIL_COLORS.text.secondary}; line-height: 1.65; margin: 0 0 20px 0;">${text}</p>`;
 }
 
 export function buildPrimaryButton(label: string, url: string): string {
   const escapedLabel = escapeEmailHtml(label);
   const escapedUrl = escapeEmailHtml(url);
 
-  // Using a solid color (not gradient) for reliable rendering across email clients.
   return `
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="margin: 28px 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="margin: 28px 0 22px 0;">
       <tr>
-        <td align="center">
-          <a href="${escapedUrl}" style="display: inline-block; background-color: ${EMAIL_COLORS.brand.primary}; color: #ffffff; font-family: ${EMAIL_FONTS.sans}; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: ${EMAIL_RADIUS.md}; letter-spacing: -0.01em;">${escapedLabel}</a>
+        <td align="left">
+          <a href="${escapedUrl}" style="display: inline-block; background-color: ${EMAIL_COLORS.brand.orange2}; color: #ffffff; font-family: ${EMAIL_FONTS.mono}; font-size: 12px; font-weight: 800; text-decoration: none; padding: 14px 22px; border-radius: ${EMAIL_RADIUS.md}; text-transform: uppercase; letter-spacing: 0.08em; box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.14);"> ${escapedLabel} </a>
         </td>
       </tr>
     </table>
@@ -78,16 +64,47 @@ export function buildInfoCard(fields: IInfoCardField[]): string {
   `;
 }
 
-export function buildSecurityAlert(message: string): string {
+export function buildFeatureList(items: string[]): string {
+  const rows = items
+    .map(
+      (item) => `
+        <tr>
+          <td width="18" style="padding: 7px 0; vertical-align: top;">
+            <span style="display: inline-block; width: 6px; height: 6px; background-color: ${EMAIL_COLORS.brand.orange2}; border-radius: 999px; margin-top: 7px;"></span>
+          </td>
+          <td style="padding: 7px 0; vertical-align: top; font-family: ${EMAIL_FONTS.sans}; font-size: 14px; line-height: 1.55; color: ${EMAIL_COLORS.text.secondary};">
+            ${escapeEmailHtml(item)}
+          </td>
+        </tr>
+      `,
+    )
+    .join("");
+
   return `
-    <div style="background-color: ${EMAIL_COLORS.semantic.dangerBg}; border: 1px solid ${EMAIL_COLORS.semantic.dangerBorder}; border-radius: ${EMAIL_RADIUS.md}; padding: 14px 16px; margin: 20px 0;">
-      <p style="font-family: ${EMAIL_FONTS.sans}; color: ${EMAIL_COLORS.semantic.dangerFg}; font-size: 13px; margin: 0; line-height: 1.6;">
-        <strong>Security notice:</strong> ${escapeEmailHtml(message)}
-      </p>
+    <div style="background-color: ${EMAIL_COLORS.card.bgAccent}; border: 1px solid ${EMAIL_COLORS.card.borderAccent}; border-radius: ${EMAIL_RADIUS.md}; padding: 12px 16px; margin: 22px 0;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation">
+        ${rows}
+      </table>
+    </div>
+  `;
+}
+
+export function buildSocialLinks(links: readonly IEmailSocialLink[]): string {
+  const items = links
+    .map(
+      (link) =>
+        `<a href="${escapeEmailHtml(link.href)}" style="display: inline-block; color: ${EMAIL_COLORS.text.primary}; font-family: ${EMAIL_FONTS.mono}; font-size: 11px; font-weight: 800; text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em; padding: 9px 10px; border: 1px solid ${EMAIL_COLORS.card.border}; border-radius: ${EMAIL_RADIUS.sm}; background-color: ${EMAIL_COLORS.card.bg}; margin: 0 6px 8px 0;">${escapeEmailHtml(link.label)}</a>`,
+    )
+    .join("");
+
+  return `
+    <div style="margin: 26px 0 8px 0;">
+      <p style="font-family: ${EMAIL_FONTS.mono}; font-size: 11px; font-weight: 700; color: ${EMAIL_COLORS.text.muted}; text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 12px 0;">Follow Highrable</p>
+      <div>${items}</div>
     </div>
   `;
 }
 
 export function buildDisclaimerText(text: string): string {
-  return `<p style="font-family: ${EMAIL_FONTS.sans}; font-size: 12px; color: ${EMAIL_COLORS.text.dimmed}; line-height: 1.6; margin: 0; text-align: center;">${escapeEmailHtml(text)}</p>`;
+  return `<p style="font-family: ${EMAIL_FONTS.sans}; font-size: 12px; color: ${EMAIL_COLORS.text.muted}; line-height: 1.6; margin: 0;">${escapeEmailHtml(text)}</p>`;
 }

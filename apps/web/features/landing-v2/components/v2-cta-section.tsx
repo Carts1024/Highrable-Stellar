@@ -1,14 +1,17 @@
 "use client";
 
 import {
+  V2_BUTTON_INVERSE_CLASS,
+  V2_BUTTON_LIGHT_CLASS,
   V2_PAGE_CONTAINER_CLASS,
   V2_SECTION_SPACING_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 /** Full-width final CTA styled inside a glassmorphic dark container with animated background glow blobs. */
-export function V2CtaSection() {
+export function V2CtaSection({ waitlistMode }: { readonly waitlistMode: boolean }) {
   return (
     <section className={`relative overflow-hidden ${V2_SECTION_SPACING_CLASS}`}>
       <div className={V2_PAGE_CONTAINER_CLASS}>

@@ -14,6 +14,7 @@ import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
+import waitlistEntries from "./waitlist/schema";
 import workAgreements, {
   workAgreementEvents,
   workAgreementVersions,
@@ -37,6 +38,7 @@ export default defineSchema({
   reputationRecords,
   revisionRequests,
   transactions,
+  waitlistEntries,
   workAgreements,
   workAgreementEvents,
   workAgreementVersions,
