@@ -23,7 +23,7 @@ export function LandingPageV2({ waitlistMode }: { readonly waitlistMode: boolean
         <V2HowItWorksSection />
         <V2TargetMarketSection />
         <V2UniqueSection />
-        <V2CtaSection waitlistMode={waitlistMode} />
+        <V2CtaSection />
       </main>
       <Footer />
     </div>
