@@ -9625,51 +9625,6 @@ snapshots:
       typescript: 5.9.2
       zod: 4.4.3
 
-  /abitype@1.2.4(typescript@5.9.2)(zod@3.22.4):
-    resolution: {integrity: sha512-dpKH+N27vRjarMVTFFkeY445VTKftzGWpL0FiT7xmVmzQRKazZexzC5uHG0f6XKsVLAuUlndnbGau6lRejClxg==}
-    peerDependencies:
-      typescript: '>=5.0.4'
-      zod: ^3.22.0 || ^4.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      zod:
-        optional: true
-    dependencies:
-      typescript: 5.9.2
-      zod: 3.22.4
-    dev: false
-
-  /abitype@1.2.4(typescript@5.9.2)(zod@3.25.76):
-    resolution: {integrity: sha512-dpKH+N27vRjarMVTFFkeY445VTKftzGWpL0FiT7xmVmzQRKazZexzC5uHG0f6XKsVLAuUlndnbGau6lRejClxg==}
-    peerDependencies:
-      typescript: '>=5.0.4'
-      zod: ^3.22.0 || ^4.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      zod:
-        optional: true
-    dependencies:
-      typescript: 5.9.2
-      zod: 3.25.76
-    dev: false
-    optional: true
-
-  /abitype@1.2.4(typescript@5.9.2)(zod@4.3.6):
-    resolution: {integrity: sha512-dpKH+N27vRjarMVTFFkeY445VTKftzGWpL0FiT7xmVmzQRKazZexzC5uHG0f6XKsVLAuUlndnbGau6lRejClxg==}
-    peerDependencies:
-      typescript: '>=5.0.4'
-      zod: ^3.22.0 || ^4.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-      zod:
-        optional: true
-    dependencies:
-      typescript: 5.9.2
-      zod: 3.22.4
-
   abitype@1.2.4(typescript@5.9.2)(zod@3.25.76):
     optionalDependencies:
       typescript: 5.9.2

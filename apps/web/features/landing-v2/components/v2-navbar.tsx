@@ -82,7 +82,7 @@ function NavActions({ waitlistMode }: { readonly waitlistMode: boolean }) {
 }
 
 /** Sticky top navigation bar with scroll-aware shadow transition. */
-export function V2Navbar() {
+export function V2Navbar({ waitlistMode }: { readonly waitlistMode: boolean }) {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -105,7 +105,7 @@ export function V2Navbar() {
       <div className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
         <Logo />
         <NavLinks pathname={pathname} />
-        <NavActions />
+        <NavActions waitlistMode={waitlistMode} />
       </div>
     </motion.header>
   );
