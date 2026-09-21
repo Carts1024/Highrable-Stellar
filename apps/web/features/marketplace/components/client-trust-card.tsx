@@ -4,16 +4,17 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2Metric } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/responsive-dialog";
 import { useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -31,9 +32,9 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
 
   if (trustStats === undefined) {
     return (
-      <section className="border border-[#e8e8e8] bg-white p-5">
+      <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div>
-          <p className="text-sm text-[#7f7f7f]">Loading client trust signals...</p>
+          <p className="text-sm text-muted-foreground">Loading client trust signals...</p>
         </div>
       </section>
     );
@@ -47,36 +48,47 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
       : "None yet";
 
   return (
-    <section className="border border-[#e8e8e8] bg-white p-5">
+    <section className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-2">
-          <SectionLabel>Client Trust</SectionLabel>
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            Client Trust
+          </p>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-[#FF7003]" />
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">
+            <ShieldCheck className="h-5 w-5 text-highrable-orange-2" />
+            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
               {shortenWalletAddress(clientWallet)}
             </h2>
           </div>
         </div>
-        <div className={`grid gap-5 ${compact ? "grid-cols-2" : "sm:grid-cols-3"}`}>
-          <HighrableV2Metric label="Posted" value={trustStats.jobsPosted} />
-          <HighrableV2Metric label="Funded" value={trustStats.fundedJobs} />
-          <HighrableV2Metric label="Disputed" value={trustStats.disputedJobs} />
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <AppButton type="button" variant="secondary" className="rounded-none">
-              View trust signals
+      </div>
+
+      {/* Trust Metrics */}
+      <div className={`grid gap-5 ${compact ? "grid-cols-2" : "sm:grid-cols-3"}`}>
+        <HighrableV2Metric label="Posted" value={trustStats.jobsPosted} />
+        <HighrableV2Metric label="Funded" value={trustStats.fundedJobs} />
+        <HighrableV2Metric label="Disputed" value={trustStats.disputedJobs} />
+      </div>
+
+      {/* Trust Signals Button and Dialog */}
+      <ResponsiveDialog>
+        <div className="mt-4 flex justify-end">
+          <ResponsiveDialogTrigger asChild>
+            <AppButton type="button" variant="primary" className="text-xs">
+              View Trust Signals
             </AppButton>
-          </DialogTrigger>
-          <DialogContent className="max-h-[85svh] overflow-y-auto rounded-none sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Client Trust Signals</DialogTitle>
-              <DialogDescription>
-                Escrow activity for {shortenWalletAddress(clientWallet)}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-5 border-y border-[#e8e8e8] py-5 sm:grid-cols-2">
+          </ResponsiveDialogTrigger>
+        </div>
+
+        <ResponsiveDialogContent className="max-w-3xl">
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Client Trust Signals</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              Escrow activity for {shortenWalletAddress(clientWallet)}.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody>
+            <div className="grid gap-5 sm:grid-cols-2">
               <HighrableV2Metric label="Wallet" value={shortenWalletAddress(clientWallet)} />
               <HighrableV2Metric label="Jobs posted" value={trustStats.jobsPosted} />
               <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
@@ -84,15 +96,17 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
               <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
               <HighrableV2Metric label="Total escrow funded" value={fundedAssets} />
             </div>
-            <Link
-              href={`/clients/${encodeURIComponent(clientWallet)}`}
-              className="font-medium text-[#FF7003] hover:text-[#E85D00]"
-            >
-              View full client profile
-            </Link>
-          </DialogContent>
-        </Dialog>
-      </div>
+
+            <div className="mt-6 flex justify-end">
+              <AppButton asChild variant="primary">
+                <Link href={`/clients/${encodeURIComponent(clientWallet)}`}>
+                  View Client Profile
+                </Link>
+              </AppButton>
+            </div>
+          </ResponsiveDialogBody>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </section>
   );
 }

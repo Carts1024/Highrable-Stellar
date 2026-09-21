@@ -1,6 +1,8 @@
 "use client";
 
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { Badge } from "@repo/ui/components/ui/badge";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 
 export function WalletStatusCard() {
   const {
@@ -16,59 +18,69 @@ export function WalletStatusCard() {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-3">
+    <div className="w-full overflow-hidden rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        {/* Left: identity info */}
+        <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#FF7003]/10 px-3 py-1 text-xs font-semibold tracking-wide text-[#FF7003] uppercase">
+            <Badge className="rounded-lg border-transparent bg-highrable-orange-2/20 px-3 py-1 font-mono text-xs font-semibold tracking-wider text-highrable-orange-4 uppercase">
               {walletState.selectedWallet ?? "Stellar Wallet"}
-            </span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+            </Badge>
+            <Badge variant="outline" className="rounded-lg px-3 py-1 font-mono text-xs">
               {walletState.network ?? "Unknown network"}
-            </span>
+            </Badge>
           </div>
 
           <div>
-            <p className="text-sm text-gray-500">Connected address</p>
-            <p className="font-mono text-sm break-all text-gray-900">{walletState.walletAddress}</p>
+            <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+              Connected Address
+            </p>
+            <p className="mt-2 font-mono text-sm font-medium break-all text-foreground">
+              {walletState.walletAddress}
+            </p>
           </div>
         </div>
 
+        {/* Right: actions */}
         <div className="space-y-3 lg:min-w-60">
           <div className="flex flex-wrap gap-2">
-            <button
+            <AppButton
               type="button"
+              variant="outline"
+              className="font-medium"
               onClick={() => void refreshWalletState()}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               Refresh
-            </button>
-            <button
+            </AppButton>
+            <AppButton
               type="button"
+              variant="outline"
+              className="border-highrable-orange-2/25 font-medium text-highrable-orange-4 hover:bg-highrable-orange-2/5 disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void checkFundingStatus()}
               disabled={!walletState.isTestnet || walletState.isCheckingFunding}
-              className="rounded-lg border border-[#FF7003]/25 px-4 py-2 text-sm font-medium text-[#FF7003] transition-colors hover:bg-[#FF7003]/5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Check funding
-            </button>
-            <button
+              Check Funding
+            </AppButton>
+            <AppButton
               type="button"
+              variant="outline"
+              className="font-medium"
               onClick={() => void disconnectWallet()}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               Disconnect
-            </button>
+            </AppButton>
           </div>
 
           {walletState.isTestnet && walletState.isFunded === false ? (
-            <button
+            <AppButton
               type="button"
+              variant="outline"
+              className="w-full border-amber-300 font-semibold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
               onClick={() => void fundTestnetAccount()}
               disabled={walletState.isFundingWithFriendbot}
-              className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
-            </button>
+            </AppButton>
           ) : null}
         </div>
       </div>

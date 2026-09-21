@@ -16,7 +16,7 @@ export function LandingPageV2({ waitlistMode }: { readonly waitlistMode: boolean
     <div className="bg-background font-sans text-foreground antialiased">
       <V2Navbar waitlistMode={waitlistMode} />
       <main>
-        <V2Hero waitlistMode={waitlistMode} />
+        <V2Hero />
         <V2DemoVideoSection />
         <V2ProblemsSection />
         <V2FeaturesSection />
