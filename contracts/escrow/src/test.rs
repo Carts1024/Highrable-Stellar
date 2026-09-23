@@ -5,10 +5,15 @@ extern crate std;
 use super::{Error, EscrowContract, EscrowContractClient, TEscrow, TEscrowStatus};
 use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
-    token, Address, BytesN, Env,
+    testutils::{
+        Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger, MockAuth, MockAuthInvoke,
+    },
+    token, Address, BytesN, Env, IntoVal, InvokeError,
 };
 use std::boxed::Box;
+
+type DisputeTryResult =
+    Result<Result<(), soroban_sdk::ConversionError>, Result<Error, InvokeError>>;
 
 struct TTestContext {
     env: Env,
@@ -111,12 +116,165 @@ fn fund_escrow(context: &TTestContext, escrow_id: u64) {
         .fund_escrow(&context.client, &escrow_id);
 }
 
+fn create_funded_escrow(
+    context: &TTestContext,
+    amount: i128,
+    hash_byte: u8,
+    created_at: u64,
+    funded_at: u64,
+) -> u64 {
+    set_timestamp(&context.env, created_at);
+    let escrow_id = create_escrow(context, amount, hash_byte);
+    set_timestamp(&context.env, funded_at);
+    fund_escrow(context, escrow_id);
+    escrow_id
+}
+
 fn submit_work(context: &TTestContext, escrow_id: u64) {
     context.escrow_client.submit_work(
         &context.freelancer,
         &escrow_id,
         &hash_from_byte(&context.env, 42),
     );
+}
+
+fn create_submitted_escrow(
+    context: &TTestContext,
+    amount: i128,
+    hash_byte: u8,
+    created_at: u64,
+    funded_at: u64,
+    submitted_at: u64,
+) -> u64 {
+    let escrow_id = create_funded_escrow(context, amount, hash_byte, created_at, funded_at);
+    set_timestamp(&context.env, submitted_at);
+    submit_work(context, escrow_id);
+    escrow_id
+}
+
+fn usdc_balances(context: &TTestContext) -> (i128, i128, i128) {
+    (
+        context.mock_usdc_client.balance(&context.client),
+        context.mock_usdc_client.balance(&context.freelancer),
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+    )
+}
+
+fn assert_dispute_transition_preserves_other_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    before: &TEscrow,
+    balances_before: (i128, i128, i128),
+) {
+    let mut expected_after = before.clone();
+    expected_after.status = TEscrowStatus::Disputed;
+
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected_after);
+    assert_eq!(usdc_balances(context), balances_before);
+}
+
+fn assert_dispute_rejection_preserves_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    before: &TEscrow,
+    balances_before: (i128, i128, i128),
+) {
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), *before);
+    assert_eq!(usdc_balances(context), balances_before);
+}
+
+fn try_mark_disputed_with_auth(
+    context: &TTestContext,
+    authorized_address: &Address,
+    caller: &Address,
+    escrow_id: u64,
+) -> DisputeTryResult {
+    let invoke = MockAuthInvoke {
+        contract: &context.escrow_contract_id,
+        fn_name: "mark_disputed",
+        args: (caller.clone(), escrow_id).into_val(&context.env),
+        sub_invokes: &[],
+    };
+
+    context
+        .escrow_client
+        .mock_auths(&[MockAuth {
+            address: authorized_address,
+            invoke: &invoke,
+        }])
+        .try_mark_disputed(caller, &escrow_id)
+}
+
+fn assert_dispute_authorization(context: &TTestContext, caller: &Address, escrow_id: u64) {
+    assert_eq!(
+        context.env.auths(),
+        std::vec![(
+            caller.clone(),
+            AuthorizedInvocation {
+                function: AuthorizedFunction::Contract((
+                    context.escrow_contract_id.clone(),
+                    soroban_sdk::Symbol::new(&context.env, "mark_disputed"),
+                    (caller.clone(), escrow_id).into_val(&context.env),
+                )),
+                sub_invocations: std::vec![],
+            },
+        )]
+    );
+}
+
+fn assert_dispute_succeeds_for(context: &TTestContext, caller: &Address, escrow_id: u64) {
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    assert!(matches!(
+        before.status,
+        TEscrowStatus::Funded | TEscrowStatus::Submitted
+    ));
+    let balances_before = usdc_balances(context);
+
+    let result = try_mark_disputed_with_auth(context, caller, caller, escrow_id);
+    assert_dispute_authorization(context, caller, escrow_id);
+    assert_eq!(result, Ok(Ok(())));
+    assert_dispute_transition_preserves_other_state(context, escrow_id, &before, balances_before);
+}
+
+fn assert_dispute_rejected_with_auth(
+    context: &TTestContext,
+    caller: &Address,
+    escrow_id: u64,
+    expected_error: Error,
+) {
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = usdc_balances(context);
+
+    let result = try_mark_disputed_with_auth(context, caller, caller, escrow_id);
+    // The exact MockAuth invocation above proves authorization succeeded; the
+    // host's auth snapshot is empty when the contract returns a typed error.
+    assert_eq!(result, Err(Ok(expected_error)));
+    assert_dispute_rejection_preserves_state(context, escrow_id, &before, balances_before);
+}
+
+fn assert_dispute_authorization_fails(
+    context: &TTestContext,
+    authorized_address: Option<&Address>,
+    claimed_caller: &Address,
+    escrow_id: u64,
+) {
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = usdc_balances(context);
+
+    let result = match authorized_address {
+        Some(address) => try_mark_disputed_with_auth(context, address, claimed_caller, escrow_id),
+        None => {
+            context.env.mock_auths(&[]);
+            context
+                .escrow_client
+                .try_mark_disputed(claimed_caller, &escrow_id)
+        }
+    };
+
+    assert_eq!(result, Err(Err(InvokeError::Abort)));
+    assert_dispute_rejection_preserves_state(context, escrow_id, &before, balances_before);
 }
 
 fn resolve_dispute(context: &TTestContext, escrow_id: u64, freelancer_share_bps: u32, hash: u8) {
@@ -410,7 +568,7 @@ fn assign_freelancer_rejects_unauthorized_client_self_and_existing_assignment() 
 }
 
 #[test]
-fn unassigned_funded_escrow_rejects_freelancer_required_actions() {
+fn unassigned_funded_escrow_rejects_freelancer_and_dispute_actions() {
     let context = setup();
 
     let escrow_id = context.escrow_client.create_and_fund_open_escrow(
@@ -435,10 +593,19 @@ fn unassigned_funded_escrow_rejects_freelancer_required_actions() {
     );
     assert_eq!(release, Err(Ok(Error::InvalidStatus)));
 
-    let dispute_by_freelancer = context
-        .escrow_client
-        .try_mark_disputed(&context.freelancer, &escrow_id);
-    assert_eq!(dispute_by_freelancer, Err(Ok(Error::InvalidFreelancer)));
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(before.status, TEscrowStatus::Funded);
+    assert_eq!(before.freelancer, None);
+    let balances_before = usdc_balances(&context);
+    for caller in [
+        &context.client,
+        &context.freelancer,
+        &context.platform_admin,
+    ] {
+        let dispute_result = try_mark_disputed_with_auth(&context, caller, caller, escrow_id);
+        assert_eq!(dispute_result, Err(Ok(Error::InvalidFreelancer)));
+        assert_dispute_rejection_preserves_state(&context, escrow_id, &before, balances_before);
+    }
 }
 
 #[test]
@@ -757,54 +924,102 @@ fn unauthorized_cancel_fails() {
 fn mark_disputed_works() {
     let context = setup();
 
-    let funded_escrow_id = create_escrow(&context, 150, 34);
-    fund_escrow(&context, funded_escrow_id);
-    context
-        .escrow_client
-        .mark_disputed(&context.client, &funded_escrow_id);
+    let funded_for_client = create_funded_escrow(&context, 150, 34, 2, 3);
+    let submitted_for_client = create_submitted_escrow(&context, 151, 35, 4, 5, 6);
+    let funded_for_freelancer = create_funded_escrow(&context, 152, 36, 7, 8);
+    let submitted_for_freelancer = create_submitted_escrow(&context, 153, 37, 9, 10, 11);
+    let funded_for_admin = create_funded_escrow(&context, 154, 38, 12, 13);
+    let submitted_for_admin = create_submitted_escrow(&context, 155, 39, 14, 15, 16);
 
-    let funded_escrow = context.escrow_client.get_escrow(&funded_escrow_id);
-    assert_eq!(funded_escrow.status, TEscrowStatus::Disputed);
+    for funded_id in [funded_for_client, funded_for_freelancer, funded_for_admin] {
+        assert_eq!(
+            context.escrow_client.get_escrow(&funded_id).status,
+            TEscrowStatus::Funded
+        );
+    }
+    for submitted_id in [
+        submitted_for_client,
+        submitted_for_freelancer,
+        submitted_for_admin,
+    ] {
+        assert_eq!(
+            context.escrow_client.get_escrow(&submitted_id).status,
+            TEscrowStatus::Submitted
+        );
+    }
 
-    let submitted_escrow_id = create_escrow(&context, 150, 35);
-    fund_escrow(&context, submitted_escrow_id);
-    submit_work(&context, submitted_escrow_id);
-    context
-        .escrow_client
-        .mark_disputed(&context.freelancer, &submitted_escrow_id);
-
-    let submitted_escrow = context.escrow_client.get_escrow(&submitted_escrow_id);
-    assert_eq!(submitted_escrow.status, TEscrowStatus::Disputed);
+    for (caller, funded_id, submitted_id) in [
+        (&context.client, funded_for_client, submitted_for_client),
+        (
+            &context.freelancer,
+            funded_for_freelancer,
+            submitted_for_freelancer,
+        ),
+        (
+            &context.platform_admin,
+            funded_for_admin,
+            submitted_for_admin,
+        ),
+    ] {
+        assert_dispute_succeeds_for(&context, caller, funded_id);
+        assert_dispute_succeeds_for(&context, caller, submitted_id);
+    }
 }
 
 #[test]
-fn platform_admin_can_mark_disputed_for_retry_flow() {
+fn missing_or_misattributed_dispute_authorization_fails() {
     let context = setup();
 
-    let escrow_id = create_escrow(&context, 180, 35);
-    fund_escrow(&context, escrow_id);
+    let funded_id = create_funded_escrow(&context, 460, 40, 2, 3);
+    let submitted_id = create_submitted_escrow(&context, 461, 41, 4, 5, 6);
+    assert_eq!(
+        context.escrow_client.get_escrow(&funded_id).status,
+        TEscrowStatus::Funded
+    );
+    assert_eq!(
+        context.escrow_client.get_escrow(&submitted_id).status,
+        TEscrowStatus::Submitted
+    );
 
-    context
-        .escrow_client
-        .mark_disputed(&context.platform_admin, &escrow_id);
-
-    let escrow = context.escrow_client.get_escrow(&escrow_id);
-    assert_eq!(escrow.status, TEscrowStatus::Disputed);
+    for caller in [
+        &context.client,
+        &context.freelancer,
+        &context.platform_admin,
+    ] {
+        for escrow_id in [funded_id, submitted_id] {
+            assert_dispute_authorization_fails(&context, None, caller, escrow_id);
+            assert_dispute_authorization_fails(
+                &context,
+                Some(&context.outsider),
+                caller,
+                escrow_id,
+            );
+        }
+    }
 }
 
 #[test]
-fn unauthorized_dispute_fails() {
+fn authenticated_outsider_dispute_fails() {
     let context = setup();
 
-    let escrow_id = create_escrow(&context, 460, 36);
-    fund_escrow(&context, escrow_id);
+    let funded_id = create_funded_escrow(&context, 462, 42, 2, 3);
+    let submitted_id = create_submitted_escrow(&context, 463, 43, 4, 5, 6);
+    assert_eq!(
+        context.escrow_client.get_escrow(&funded_id).status,
+        TEscrowStatus::Funded
+    );
+    assert_eq!(
+        context.escrow_client.get_escrow(&submitted_id).status,
+        TEscrowStatus::Submitted
+    );
 
-    let random_wallet = Address::generate(&context.env);
-    let result = context
-        .escrow_client
-        .try_mark_disputed(&random_wallet, &escrow_id);
-
-    assert_eq!(result, Err(Ok(Error::Unauthorized)));
+    assert_dispute_rejected_with_auth(&context, &context.outsider, funded_id, Error::Unauthorized);
+    assert_dispute_rejected_with_auth(
+        &context,
+        &context.outsider,
+        submitted_id,
+        Error::Unauthorized,
+    );
 }
 
 #[test]
@@ -812,14 +1027,7 @@ fn dispute_wrong_status_fails() {
     let context = setup();
 
     let created_id = create_escrow(&context, 190, 37);
-    let created = context
-        .escrow_client
-        .try_mark_disputed(&context.client, &created_id);
-    assert_eq!(created, Err(Ok(Error::InvalidStatus)));
-
-    let released_id = create_escrow(&context, 390, 38);
-    fund_escrow(&context, released_id);
-    submit_work(&context, released_id);
+    let released_id = create_submitted_escrow(&context, 390, 38, 4, 5, 6);
     context.escrow_client.approve_and_release(
         &context.client,
         &released_id,
@@ -827,31 +1035,34 @@ fn dispute_wrong_status_fails() {
         &hash_from_byte(&context.env, 39),
     );
 
-    let released = context
-        .escrow_client
-        .try_mark_disputed(&context.client, &released_id);
-    assert_eq!(released, Err(Ok(Error::InvalidStatus)));
-
     let cancelled_id = create_escrow(&context, 500, 40);
     context
         .escrow_client
         .cancel_escrow(&context.client, &cancelled_id);
 
-    let cancelled = context
-        .escrow_client
-        .try_mark_disputed(&context.client, &cancelled_id);
-    assert_eq!(cancelled, Err(Ok(Error::InvalidStatus)));
-
-    let disputed_id = create_escrow(&context, 510, 41);
-    fund_escrow(&context, disputed_id);
+    let disputed_id = create_funded_escrow(&context, 510, 41, 7, 8);
     context
         .escrow_client
         .mark_disputed(&context.client, &disputed_id);
 
-    let already_disputed = context
-        .escrow_client
-        .try_mark_disputed(&context.client, &disputed_id);
-    assert_eq!(already_disputed, Err(Ok(Error::InvalidStatus)));
+    for (escrow_id, expected_status) in [
+        (created_id, TEscrowStatus::Created),
+        (released_id, TEscrowStatus::Released),
+        (cancelled_id, TEscrowStatus::Cancelled),
+        (disputed_id, TEscrowStatus::Disputed),
+    ] {
+        assert_eq!(
+            context.escrow_client.get_escrow(&escrow_id).status,
+            expected_status
+        );
+        for caller in [
+            &context.client,
+            &context.freelancer,
+            &context.platform_admin,
+        ] {
+            assert_dispute_rejected_with_auth(&context, caller, escrow_id, Error::InvalidStatus);
+        }
+    }
 }
 
 #[test]
