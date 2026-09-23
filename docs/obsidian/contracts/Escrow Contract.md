@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-23
 source_of_truth: repository
 ---
 
@@ -99,7 +99,7 @@ No `events().publish(...)` or equivalent event emission is present in the curren
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Reusable funded and submitted fixtures establish lifecycle state through public contract calls. Dispute marking tests compare the full escrow record and client/freelancer/escrow USDC balances before and after valid transitions; rejected status transitions and unauthorized callers assert that both remain unchanged while preserving their typed errors. These tests use the existing mocked authorization setup and do not verify cryptographic signatures.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Reusable funded and submitted fixtures establish lifecycle state through public contract calls using broad authorization mocks. Dispute operation tests replace those fixture mocks with invocation-scoped `MockAuth` entries for the exact caller, method, and escrow ID; successful calls also assert the host-recorded authorization address and arguments. Missing or misattributed auth is checked as a host-level invocation failure, while authenticated outsider, invalid-status, and unassigned-escrow rejections preserve their typed errors and the full escrow record and USDC balances. These tests exercise Soroban authorization enforcement but do not verify cryptographic signatures or wallet integration.
 
 ## Deployment Configuration
 

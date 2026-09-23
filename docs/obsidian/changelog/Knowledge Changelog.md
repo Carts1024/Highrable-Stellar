@@ -11,6 +11,7 @@ source_of_truth: repository
 ## 2026-09-23
 
 - Documented the escrow dispute test foundation: public-call funded/submitted fixtures and full-record/token-balance preservation checks for successful marking, invalid statuses, and unauthorized callers.
+- Recorded the C04 authorization boundary: fixture setup uses broad mocks, while dispute calls use exact invocation-scoped Soroban auth and assert address/arguments or host rejection without claiming signature coverage.
 
 ## 2026-09-21
 
