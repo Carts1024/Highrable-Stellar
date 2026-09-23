@@ -1,7 +1,5 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
-
 import type { TDashboardMode } from "@/features/dashboard/types";
 
 interface IDashboardModeSwitchProps {
@@ -9,31 +7,28 @@ interface IDashboardModeSwitchProps {
   readonly onModeChange: (mode: TDashboardMode) => void;
 }
 
+const MODES: { value: TDashboardMode; label: string }[] = [
+  { value: "freelancer", label: "Freelancer Mode" },
+  { value: "client", label: "Client Mode" },
+];
+
 export function DashboardModeSwitch({ selectedMode, onModeChange }: IDashboardModeSwitchProps) {
   return (
-    <Tabs
-      value={selectedMode}
-      onValueChange={(value) => {
-        if (value === "client" || value === "freelancer") {
-          onModeChange(value);
-        }
-      }}
-      className="w-full md:w-auto"
-    >
-      <TabsList className="grid w-full grid-cols-2 rounded-none border border-[#e8e8e8] bg-[#fafafa] p-1 md:w-72">
-        <TabsTrigger
-          value="freelancer"
-          className="rounded-none font-mono text-xs tracking-[0.06em] text-[#5f5f5f] uppercase data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white"
+    <div className="flex w-full items-center gap-1 rounded-lg border border-border bg-muted p-1 md:w-72">
+      {MODES.map(({ value, label }) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onModeChange(value)}
+          className={`flex-1 rounded-md px-3 py-1.5 font-mono text-xs tracking-widest whitespace-nowrap uppercase transition-all duration-150 ${
+            selectedMode === value
+              ? "border border-highrable-orange-2 bg-highrable-orange-2 text-white shadow-sm"
+              : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
         >
-          Freelancer Mode
-        </TabsTrigger>
-        <TabsTrigger
-          value="client"
-          className="rounded-none font-mono text-xs tracking-[0.06em] text-[#5f5f5f] uppercase data-[state=active]:bg-[#0a0a0a] data-[state=active]:text-white"
-        >
-          Client Mode
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }

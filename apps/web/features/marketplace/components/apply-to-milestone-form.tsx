@@ -53,24 +53,32 @@ export function ApplyToMilestoneForm({
   const canApply = milestone.status === "open" && applicationGate.canApply;
 
   if (!canApply) {
-    return <p className="text-sm text-gray-600">{applicationGate.message}</p>;
+    return <p className="hr-text-secondary font-sans text-sm">{applicationGate.message}</p>;
   }
 
   if (!walletIdentity.isConnected) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-        <p className="mb-2 text-sm text-gray-700">Connect wallet to apply to this milestone.</p>
-        <WalletConnectTrigger className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-3 py-2 text-sm font-medium text-white" />
+      <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <p className="hr-text-secondary mb-3 font-sans text-sm">
+          Connect wallet to apply to this milestone.
+        </p>
+        <WalletConnectTrigger className="hr-v2-button-primary rounded-lg px-4 py-2 font-mono text-sm" />
       </div>
     );
   }
 
   if (isClient) {
-    return <p className="text-sm text-gray-600">Client cannot apply to their own milestone.</p>;
+    return (
+      <p className="hr-text-secondary font-sans text-sm">
+        Client cannot apply to their own milestone.
+      </p>
+    );
   }
 
   if (hasApplied) {
-    return <p className="text-sm text-emerald-700">You already applied to this milestone.</p>;
+    return (
+      <p className="font-sans text-sm text-emerald-700">You already applied to this milestone.</p>
+    );
   }
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -119,11 +127,8 @@ export function ApplyToMilestoneForm({
   };
 
   return (
-    <form
-      onSubmit={handleApply}
-      className="space-y-3 rounded-lg border border-gray-200 bg-white p-3"
-    >
-      <p className="text-sm text-[#5f5f5f]">
+    <form onSubmit={handleApply} className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <p className="hr-text-secondary font-sans text-sm">
         Apply only for this milestone. Do not start until this milestone is Verified Funded.
       </p>
       <AppTextarea
@@ -141,8 +146,12 @@ export function ApplyToMilestoneForm({
         selectedEscrowId={showcasedWorkEscrowId}
         onSelectedEscrowIdChange={setShowcasedWorkEscrowId}
       />
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <AppButton type="submit" disabled={isSubmitting} className="disabled:opacity-60">
+      {error ? <p className="font-sans text-sm text-red-600">{error}</p> : null}
+      <AppButton
+        type="submit"
+        disabled={isSubmitting}
+        className="hr-v2-button-primary rounded-lg font-mono tracking-[0.06em] disabled:cursor-not-allowed disabled:opacity-60"
+      >
         {isSubmitting ? "Applying..." : "Apply to Milestone"}
       </AppButton>
     </form>
