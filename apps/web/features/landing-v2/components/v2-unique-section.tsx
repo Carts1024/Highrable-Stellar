@@ -83,11 +83,11 @@ export function V2UniqueSection() {
         >
           <SectionLabel className="mb-4">Why Highrable</SectionLabel>
           <h2 className="hr-text-primary text-3xl leading-[1.15] font-medium md:text-4xl">
-            Not just a blockchain layer on top
+            Not just another freelance platform
           </h2>
           <p className="hr-text-secondary mt-4 text-base leading-relaxed">
-            Highrable combines smart contract escrow, portable on-chain reputation, and borderless
-            stablecoin payments today, with AI hiring marked as coming soon.
+            Highrable combines secure payment holds, a permanent work record you own, and
+            near-instant borderless payouts — all in a platform that anyone can use.
           </p>
         </motion.div>
 

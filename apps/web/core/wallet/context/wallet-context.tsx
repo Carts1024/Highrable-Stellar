@@ -1,7 +1,7 @@
 "use client";
 
 import { StellarAuthService } from "@/core/wallet/auth/stellar-auth-service";
-import { StellarWalletKitClient } from "@/core/wallet/clients/stellar-wallet-kit-client";
+import { LazyStellarWalletClient } from "@/core/wallet/clients/lazy-stellar-wallet-client";
 import { STELLAR_TESTNET_NETWORK_LABEL } from "@/core/wallet/config";
 import { FriendbotService } from "@/core/wallet/services/friendbot-service";
 import { HorizonAccountService } from "@/core/wallet/services/horizon-account-service";
@@ -131,7 +131,7 @@ export function WalletContextProvider({
   const [authSession, setAuthSession] = useState<TAuthSession | null>(null);
   const hasAttemptedWalletRestoreRef = useRef(false);
   const activeWalletAddressRef = useRef<string | null>(DEFAULT_STATE.walletAddress);
-  const [wallet] = useState<IWalletClient>(() => walletClient ?? new StellarWalletKitClient());
+  const [wallet] = useState<IWalletClient>(() => walletClient ?? new LazyStellarWalletClient());
   const [auth] = useState<IWalletAuthService>(() => walletAuthService ?? new StellarAuthService());
   const [friendbot] = useState<IWalletFriendbotService>(
     () => walletFriendbotService ?? new FriendbotService(),
