@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-09-23
+
+- Documented the escrow dispute test foundation: public-call funded/submitted fixtures and full-record/token-balance preservation checks for successful marking, invalid statuses, and unauthorized callers.
+
 ## 2026-09-21
 
 - Initialized the repository-native Obsidian vault at `docs/obsidian/`.

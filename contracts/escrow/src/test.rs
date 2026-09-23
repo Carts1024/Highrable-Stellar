@@ -111,12 +111,73 @@ fn fund_escrow(context: &TTestContext, escrow_id: u64) {
         .fund_escrow(&context.client, &escrow_id);
 }
 
+fn create_funded_escrow(
+    context: &TTestContext,
+    amount: i128,
+    hash_byte: u8,
+    created_at: u64,
+    funded_at: u64,
+) -> u64 {
+    set_timestamp(&context.env, created_at);
+    let escrow_id = create_escrow(context, amount, hash_byte);
+    set_timestamp(&context.env, funded_at);
+    fund_escrow(context, escrow_id);
+    escrow_id
+}
+
 fn submit_work(context: &TTestContext, escrow_id: u64) {
     context.escrow_client.submit_work(
         &context.freelancer,
         &escrow_id,
         &hash_from_byte(&context.env, 42),
     );
+}
+
+fn create_submitted_escrow(
+    context: &TTestContext,
+    amount: i128,
+    hash_byte: u8,
+    created_at: u64,
+    funded_at: u64,
+    submitted_at: u64,
+) -> u64 {
+    let escrow_id = create_funded_escrow(context, amount, hash_byte, created_at, funded_at);
+    set_timestamp(&context.env, submitted_at);
+    submit_work(context, escrow_id);
+    escrow_id
+}
+
+fn usdc_balances(context: &TTestContext) -> (i128, i128, i128) {
+    (
+        context.mock_usdc_client.balance(&context.client),
+        context.mock_usdc_client.balance(&context.freelancer),
+        context
+            .mock_usdc_client
+            .balance(&context.escrow_contract_id),
+    )
+}
+
+fn assert_dispute_transition_preserves_other_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    before: &TEscrow,
+    balances_before: (i128, i128, i128),
+) {
+    let mut expected_after = before.clone();
+    expected_after.status = TEscrowStatus::Disputed;
+
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected_after);
+    assert_eq!(usdc_balances(context), balances_before);
+}
+
+fn assert_dispute_rejection_preserves_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    before: &TEscrow,
+    balances_before: (i128, i128, i128),
+) {
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), *before);
+    assert_eq!(usdc_balances(context), balances_before);
 }
 
 fn resolve_dispute(context: &TTestContext, escrow_id: u64, freelancer_share_bps: u32, hash: u8) {
@@ -757,54 +818,70 @@ fn unauthorized_cancel_fails() {
 fn mark_disputed_works() {
     let context = setup();
 
-    let funded_escrow_id = create_escrow(&context, 150, 34);
-    fund_escrow(&context, funded_escrow_id);
+    let funded_escrow_id = create_funded_escrow(&context, 150, 34, 2, 3);
+    let funded_before = context.escrow_client.get_escrow(&funded_escrow_id);
+    assert_eq!(funded_before.status, TEscrowStatus::Funded);
+    let funded_balances_before = usdc_balances(&context);
+
     context
         .escrow_client
         .mark_disputed(&context.client, &funded_escrow_id);
 
-    let funded_escrow = context.escrow_client.get_escrow(&funded_escrow_id);
-    assert_eq!(funded_escrow.status, TEscrowStatus::Disputed);
+    assert_dispute_transition_preserves_other_state(
+        &context,
+        funded_escrow_id,
+        &funded_before,
+        funded_balances_before,
+    );
 
-    let submitted_escrow_id = create_escrow(&context, 150, 35);
-    fund_escrow(&context, submitted_escrow_id);
-    submit_work(&context, submitted_escrow_id);
+    let submitted_escrow_id = create_submitted_escrow(&context, 150, 35, 4, 5, 6);
+    let submitted_before = context.escrow_client.get_escrow(&submitted_escrow_id);
+    assert_eq!(submitted_before.status, TEscrowStatus::Submitted);
+    let submitted_balances_before = usdc_balances(&context);
+
     context
         .escrow_client
         .mark_disputed(&context.freelancer, &submitted_escrow_id);
 
-    let submitted_escrow = context.escrow_client.get_escrow(&submitted_escrow_id);
-    assert_eq!(submitted_escrow.status, TEscrowStatus::Disputed);
+    assert_dispute_transition_preserves_other_state(
+        &context,
+        submitted_escrow_id,
+        &submitted_before,
+        submitted_balances_before,
+    );
 }
 
 #[test]
 fn platform_admin_can_mark_disputed_for_retry_flow() {
     let context = setup();
 
-    let escrow_id = create_escrow(&context, 180, 35);
-    fund_escrow(&context, escrow_id);
+    let escrow_id = create_funded_escrow(&context, 180, 35, 2, 3);
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(before.status, TEscrowStatus::Funded);
+    let balances_before = usdc_balances(&context);
 
     context
         .escrow_client
         .mark_disputed(&context.platform_admin, &escrow_id);
 
-    let escrow = context.escrow_client.get_escrow(&escrow_id);
-    assert_eq!(escrow.status, TEscrowStatus::Disputed);
+    assert_dispute_transition_preserves_other_state(&context, escrow_id, &before, balances_before);
 }
 
 #[test]
 fn unauthorized_dispute_fails() {
     let context = setup();
 
-    let escrow_id = create_escrow(&context, 460, 36);
-    fund_escrow(&context, escrow_id);
+    let escrow_id = create_funded_escrow(&context, 460, 36, 2, 3);
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    assert_eq!(before.status, TEscrowStatus::Funded);
+    let balances_before = usdc_balances(&context);
 
-    let random_wallet = Address::generate(&context.env);
     let result = context
         .escrow_client
-        .try_mark_disputed(&random_wallet, &escrow_id);
+        .try_mark_disputed(&context.outsider, &escrow_id);
 
     assert_eq!(result, Err(Ok(Error::Unauthorized)));
+    assert_dispute_rejection_preserves_state(&context, escrow_id, &before, balances_before);
 }
 
 #[test]
@@ -812,14 +889,21 @@ fn dispute_wrong_status_fails() {
     let context = setup();
 
     let created_id = create_escrow(&context, 190, 37);
+    let created_before = context.escrow_client.get_escrow(&created_id);
+    assert_eq!(created_before.status, TEscrowStatus::Created);
+    let created_balances_before = usdc_balances(&context);
     let created = context
         .escrow_client
         .try_mark_disputed(&context.client, &created_id);
     assert_eq!(created, Err(Ok(Error::InvalidStatus)));
+    assert_dispute_rejection_preserves_state(
+        &context,
+        created_id,
+        &created_before,
+        created_balances_before,
+    );
 
-    let released_id = create_escrow(&context, 390, 38);
-    fund_escrow(&context, released_id);
-    submit_work(&context, released_id);
+    let released_id = create_submitted_escrow(&context, 390, 38, 4, 5, 6);
     context.escrow_client.approve_and_release(
         &context.client,
         &released_id,
@@ -827,31 +911,57 @@ fn dispute_wrong_status_fails() {
         &hash_from_byte(&context.env, 39),
     );
 
+    let released_before = context.escrow_client.get_escrow(&released_id);
+    assert_eq!(released_before.status, TEscrowStatus::Released);
+    let released_balances_before = usdc_balances(&context);
     let released = context
         .escrow_client
         .try_mark_disputed(&context.client, &released_id);
     assert_eq!(released, Err(Ok(Error::InvalidStatus)));
+    assert_dispute_rejection_preserves_state(
+        &context,
+        released_id,
+        &released_before,
+        released_balances_before,
+    );
 
     let cancelled_id = create_escrow(&context, 500, 40);
     context
         .escrow_client
         .cancel_escrow(&context.client, &cancelled_id);
 
+    let cancelled_before = context.escrow_client.get_escrow(&cancelled_id);
+    assert_eq!(cancelled_before.status, TEscrowStatus::Cancelled);
+    let cancelled_balances_before = usdc_balances(&context);
     let cancelled = context
         .escrow_client
         .try_mark_disputed(&context.client, &cancelled_id);
     assert_eq!(cancelled, Err(Ok(Error::InvalidStatus)));
+    assert_dispute_rejection_preserves_state(
+        &context,
+        cancelled_id,
+        &cancelled_before,
+        cancelled_balances_before,
+    );
 
-    let disputed_id = create_escrow(&context, 510, 41);
-    fund_escrow(&context, disputed_id);
+    let disputed_id = create_funded_escrow(&context, 510, 41, 7, 8);
     context
         .escrow_client
         .mark_disputed(&context.client, &disputed_id);
 
+    let disputed_before = context.escrow_client.get_escrow(&disputed_id);
+    assert_eq!(disputed_before.status, TEscrowStatus::Disputed);
+    let disputed_balances_before = usdc_balances(&context);
     let already_disputed = context
         .escrow_client
         .try_mark_disputed(&context.client, &disputed_id);
     assert_eq!(already_disputed, Err(Ok(Error::InvalidStatus)));
+    assert_dispute_rejection_preserves_state(
+        &context,
+        disputed_id,
+        &disputed_before,
+        disputed_balances_before,
+    );
 }
 
 #[test]
