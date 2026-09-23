@@ -9,12 +9,6 @@ import {
   PasskeySmartAccountCompatibilityError,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
-import {
-  clearSmartAccountLocalSession,
-  ensureConnectedPasskeyWalletShape,
-  getSmartAccountKit,
-  resetSmartAccountKit,
-} from "@/core/stellar/smart-account-kit";
 import { api } from "@repo/convex-client";
 import { useMutation } from "convex/react";
 import {
@@ -27,6 +21,7 @@ import {
   useState,
 } from "react";
 
+import type * as SmartAccountRuntime from "@/core/stellar/smart-account-kit";
 import type { IndexedContractSummary } from "smart-account-kit";
 
 export type THighrableWalletType = "external_wallet" | "passkey_smart_account";
@@ -84,6 +79,13 @@ const DEFAULT_STATE: TPasskeySmartAccountState = {
 };
 
 const PasskeySmartAccountContext = createContext<TPasskeySmartAccountContextValue | null>(null);
+
+let smartAccountRuntimePromise: Promise<typeof SmartAccountRuntime> | null = null;
+
+async function loadSmartAccountRuntime(): Promise<typeof SmartAccountRuntime> {
+  smartAccountRuntimePromise ??= import("@/core/stellar/smart-account-kit");
+  return await smartAccountRuntimePromise;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof PasskeyConfigError) {
@@ -233,6 +235,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
     setState((currentValue) => ({ ...currentValue, isRestoring: true }));
 
     try {
+      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit } =
+        await loadSmartAccountRuntime();
       const kit = getSmartAccountKit();
       const result = await kit.connectWallet();
 
@@ -250,6 +254,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       setConnectedState({ ...result, sessionStatus: "restored" });
       return result.contractId;
     } catch (error) {
+      const { getSmartAccountKit } = await loadSmartAccountRuntime();
       await getSmartAccountKit()
         .disconnect()
         .catch(() => undefined);
@@ -269,6 +274,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       ensurePasskeyReady();
       setState((currentValue) => ({ ...currentValue, isCreating: true, error: null }));
 
+      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit } =
+        await loadSmartAccountRuntime();
       const kit = getSmartAccountKit();
       const result = await kit.createWallet("Highrable", createPasskeyUserName(), {
         autoSubmit: true,
@@ -308,6 +315,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
       let result;
+      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit, resetSmartAccountKit } =
+        await loadSmartAccountRuntime();
       try {
         const kit = getSmartAccountKit();
         const authentication = await kit.authenticatePasskey();
@@ -404,6 +413,8 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         ensurePasskeyReady();
         setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
+        const { ensureConnectedPasskeyWalletShape, getSmartAccountKit } =
+          await loadSmartAccountRuntime();
         const result = await getSmartAccountKit().connectWallet({
           contractId,
           credentialId: pendingCredentialId,
@@ -452,6 +463,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
 
   const disconnectPasskeyAccount = useCallback(async () => {
     try {
+      const { getSmartAccountKit } = await loadSmartAccountRuntime();
       await getSmartAccountKit().disconnect();
     } catch {
       // Local UI state should clear even if the SDK session was already gone.
@@ -463,6 +475,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
 
   const clearLocalPasskeySession = useCallback(async () => {
     try {
+      const { clearSmartAccountLocalSession } = await loadSmartAccountRuntime();
       await clearSmartAccountLocalSession();
       resetDiscoveredContracts(
         setDiscoveredContracts,

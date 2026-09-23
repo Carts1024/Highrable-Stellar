@@ -1,3 +1,6 @@
+import { RouteEmptyState } from "@/features/common";
+import { Briefcase } from "lucide-react";
+
 import type { TMarketplaceJobRow } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
@@ -20,9 +23,12 @@ export function JobList({
 }: IJobListProps) {
   if (jobs === undefined) {
     return (
-      <div className="grid gap-4">
+      <div className="flex flex-col gap-4">
         {[0, 1, 2].map((item) => (
-          <div key={item} className="h-36 animate-pulse border border-gray-100 bg-gray-50" />
+          <div
+            key={item}
+            className="h-44 animate-pulse rounded-xl border border-border/60 bg-muted/30"
+          />
         ))}
       </div>
     );
@@ -30,14 +36,16 @@ export function JobList({
 
   if (jobs.length === 0) {
     return (
-      <div className="border border-dashed border-[#e8e8e8] bg-[#f5f5f5] p-8 text-center text-sm text-[#5f5f5f]">
-        No matching jobs yet. Adjust the search or create the first job.
-      </div>
+      <RouteEmptyState
+        icon={<Briefcase className="h-10 w-10" />}
+        title="No matching jobs"
+        description="Adjust the search or create the first job."
+      />
     );
   }
 
   return (
-    <div className="border-y border-[#e8e8e8]">
+    <div className="flex flex-col gap-4">
       {jobs.map((job) =>
         "job" in job ? (
           <JobCard

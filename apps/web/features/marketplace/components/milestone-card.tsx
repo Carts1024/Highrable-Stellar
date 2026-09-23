@@ -40,15 +40,17 @@ export function MilestoneCard({
     milestone.status === "released";
 
   return (
-    <article className="space-y-5 rounded-xl border border-[#e8e8e8] bg-white p-5 shadow-sm">
+    <article className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
-          <p className="text-xs font-semibold tracking-[0.08em] text-[#7f7f7f] uppercase">
+          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
             Milestone {milestone.order}
           </p>
-          <h3 className="text-lg font-semibold text-[#0a0a0a]">{milestone.title}</h3>
+          <h3 className="hr-text-primary font-sans text-lg font-semibold">{milestone.title}</h3>
           {milestone.description ? (
-            <p className="text-sm leading-relaxed text-[#5f5f5f]">{milestone.description}</p>
+            <p className="hr-text-secondary font-sans text-sm leading-relaxed">
+              {milestone.description}
+            </p>
           ) : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -56,7 +58,7 @@ export function MilestoneCard({
           {milestone.escrowId ? (
             <Link
               href={`/proof/${encodeURIComponent(milestone.escrowId)}`}
-              className="inline-flex items-center rounded-md border border-[#FF7003]/30 px-2.5 py-1 text-xs font-medium text-[#FF7003] hover:bg-[#FFF7ED]"
+              className="inline-flex items-center rounded-lg border border-highrable-orange-2/30 px-2.5 py-1 text-xs font-medium text-highrable-orange-3 hover:bg-highrable-orange-2/5"
             >
               View proof
             </Link>
@@ -64,20 +66,24 @@ export function MilestoneCard({
         </div>
       </div>
 
-      <dl className="grid gap-3 text-sm text-[#5f5f5f] sm:grid-cols-3">
+      <dl className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
         <div>
-          <dt className="text-[#7f7f7f]">Amount</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
+          <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+            Amount
+          </dt>
+          <dd className="hr-text-primary font-sans font-semibold">
             {formatAmount(milestone.amount)} {formatAssetLabel(milestone.asset)}
           </dd>
         </div>
         <div>
-          <dt className="text-[#7f7f7f]">Assigned freelancer</dt>
-          <dd className="font-semibold text-[#0a0a0a]">
+          <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+            Assigned freelancer
+          </dt>
+          <dd className="hr-text-primary font-sans font-semibold">
             {milestone.assignedFreelancerWallet ? (
               <Link
                 href={`/freelancers/${encodeURIComponent(milestone.assignedFreelancerWallet)}`}
-                className="hover:text-[#FF7003]"
+                className="transition-colors hover:text-highrable-orange-3"
               >
                 {shortenWalletAddress(milestone.assignedFreelancerWallet)}
               </Link>
@@ -87,8 +93,10 @@ export function MilestoneCard({
           </dd>
         </div>
         <div>
-          <dt className="text-[#7f7f7f]">Applications</dt>
-          <dd className="font-semibold text-[#0a0a0a]">{safeApplications.length}</dd>
+          <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
+            Applications
+          </dt>
+          <dd className="hr-text-primary font-sans font-semibold">{safeApplications.length}</dd>
         </div>
       </dl>
 
@@ -117,7 +125,7 @@ export function MilestoneCard({
             applicationGate={applicationGate}
           />
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-[#0a0a0a]">Apply</h4>
+            <h4 className="hr-text-primary font-sans text-sm font-semibold">Apply</h4>
             <ApplyToMilestoneForm
               job={job}
               milestone={milestone}
@@ -126,7 +134,7 @@ export function MilestoneCard({
             />
           </div>
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-[#0a0a0a]">Applications</h4>
+            <h4 className="hr-text-primary font-sans text-sm font-semibold">Applications</h4>
             <MilestoneApplicationsList
               job={job}
               milestone={milestone}

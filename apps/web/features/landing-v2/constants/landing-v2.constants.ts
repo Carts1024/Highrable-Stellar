@@ -69,44 +69,44 @@ export const FEATURES: readonly TFeatureItem[] = [
     id: "escrow",
     title: "Smart Contract Escrow",
     description:
-      "Client funds are locked in a Stellar smart contract before work begins and released automatically upon milestone approval - zero manual mediation.",
-    businessValue: "Eliminates payment risk and non-payment disputes entirely.",
+      "Client funds are held in a secure, automated account before work begins and released to the freelancer the moment a milestone is approved — no manual back-and-forth.",
+    businessValue: "Neither side can lose money. Payment disputes become impossible.",
   },
   {
     id: "reviews",
     title: "On-Chain Reviews",
     description:
-      "Reviews are tied to verified transactions and stored on-chain - tamper-proof and permanently linked to real, completed work.",
-    businessValue: "Reduces hiring risk and ensures platform credibility at every level.",
+      "Every review is tied to a real, completed job and stored permanently in a tamper-proof record — it can't be bought, faked, or deleted by anyone.",
+    businessValue: "You can actually trust the ratings you see.",
   },
   {
     id: "ai-matching",
     title: "AI Matching + Interview",
     description:
-      "Coming soon: AI candidate recommendations, resume parsing, and automated skill assessments for faster shortlisting.",
-    businessValue: "Planned to support faster, data-driven hiring with less manual screening.",
+      "Coming soon: AI automatically shortlists the best candidates for your job based on skills, past work, and verified reviews.",
+    businessValue: "Find the right hire in hours, not weeks.",
     comingSoon: true,
   },
   {
     id: "wallet",
     title: "Stablecoin Payments",
     description:
-      "Instant cross-border payments via stablecoins on Stellar - low-cost, fast, and accessible from anywhere in the world.",
-    businessValue: "Higher take-home pay and global participation for freelancers.",
+      "Get paid in USDC — a digital dollar that stays at $1.00 — instantly, anywhere in the world, with near-zero transfer fees.",
+    businessValue: "More money in your pocket. No waiting 3–7 days for a bank transfer.",
   },
   {
     id: "reputation",
     title: "Portable Reputation",
     description:
-      "Work history and ratings live on-chain and are owned by the user - not locked into a single platform's ecosystem.",
-    businessValue: "Freelancers build long-term career credibility, not just platform scores.",
+      "Your work history and ratings belong to you — not Highrable. Take your verified track record with you, even if you move to another platform.",
+    businessValue: "Your reputation is an asset you own, not a score we hold hostage.",
   },
   {
     id: "onboarding",
     title: "Simple Onboarding",
     description:
-      "Sign up with email or social login via smart wallets. No private keys or seed phrases required to get started on Stellar.",
-    businessValue: "Lowers entry barriers for both Web2 and Web3 users at scale.",
+      "Sign up with your Google or GitHub account. No crypto wallets, no seed phrases, no technical setup required.",
+    businessValue: "Anyone can join in under 2 minutes — no crypto knowledge needed.",
   },
 ];
 
@@ -285,9 +285,9 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "01",
     title: "Trust is Embedded in the System",
     points: [
-      "Smart contract escrow locks funds before work begins",
-      "Transaction-linked on-chain reviews cannot be faked or removed",
-      "Milestone-based automated fund release - no manual platform mediation",
+      "Payment is locked in a secure hold before any work begins — neither side can touch it until a milestone is approved",
+      "Reviews are tied to real completed jobs and permanently recorded — no one can fake or delete them",
+      "Payment releases automatically when work is approved — no manual step, no disputes, no middleman",
     ],
   },
   {
@@ -295,9 +295,9 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "02",
     title: "AI Hiring + Blockchain Verification",
     points: [
-      "Coming soon: AI Matching and AI Interview for faster, smarter talent selection",
-      "Blockchain escrow and on-chain reviews for verified execution",
-      "Complete journey: match -> verify work -> release payment -> build reputation",
+      "Coming soon: AI matches you with the best candidates and can run automated skill tests",
+      "Payments are secured and recorded permanently — no one can alter the transaction history",
+      "One complete journey: get matched → verify the work → get paid → build your reputation",
     ],
     comingSoon: true,
   },
@@ -306,9 +306,9 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "03",
     title: "Borderless & Low-Fee Freelancing",
     points: [
-      "Stablecoin payments with near-zero gas fees on Stellar",
-      "Cross-border payouts without traditional banking delays or restrictions",
-      "Flat 5% fee - versus the 10-20% industry standard on legacy platforms",
+      "Get paid in USDC — a digital dollar worth $1.00 — via Stellar, a payment network built for near-instant, near-free transfers",
+      "Send and receive money across borders without traditional bank delays or restrictions",
+      "Flat 5% fee — compared to the 10–20% most freelance platforms charge",
     ],
   },
   {
@@ -316,9 +316,9 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "04",
     title: "Reputation Owned by the User",
     points: [
-      "Work history is tied to verified, immutable on-chain transactions",
-      "Reviews are tamper-resistant and harder to manipulate or delete",
-      "Portable reputation that follows the freelancer across platforms",
+      "Your work history is tied to verified, permanent transaction records that no one can alter",
+      "Reviews can't be deleted or manipulated — what clients wrote stays exactly as they wrote it",
+      "Your reputation follows you — even if you leave the platform, your track record stays yours",
     ],
   },
   {
@@ -326,9 +326,9 @@ export const UNIQUE_POINTS: readonly TUniquePoint[] = [
     number: "05",
     title: "Web3 Innovation + Mainstream Access",
     points: [
-      "Sign up via email or social login - zero crypto knowledge required",
-      "Fiat-to-stablecoin abstraction lets clients pay with a credit card",
-      "Competes with both Web2 platforms and Web3 marketplaces simultaneously",
+      "Sign up with your Google or GitHub account — zero crypto knowledge or setup required",
+      "Clients can pay with a credit card — we handle converting it to digital dollars behind the scenes",
+      "Works for people who've never heard of crypto, and those who live and breathe it",
     ],
   },
 ];
