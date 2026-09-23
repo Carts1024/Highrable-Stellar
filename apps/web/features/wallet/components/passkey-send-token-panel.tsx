@@ -77,50 +77,72 @@ export function PasskeySendTokenPanel({
 
   if (transfer.step === "confirm") {
     return (
-      <section className="border border-[#0a0a0a] bg-white">
-        <div className="border-b border-[#0a0a0a] px-4 py-3">
-          <h3 className="text-sm font-semibold text-[#0a0a0a]">Confirm transfer</h3>
-          <p className="text-xs text-[#5f5f5f]">Review before passkey approval.</p>
+      <section className="overflow-hidden rounded-xl border border-border">
+        {/* Header */}
+        <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
+          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+            Confirm Transfer
+          </p>
+          <p className="mt-1 font-sans text-sm text-muted-foreground">
+            Review before passkey approval.
+          </p>
         </div>
-        <div className="space-y-4 p-4">
-          <dl className="grid gap-3 sm:grid-cols-2">
+
+        <div className="space-y-5 p-5">
+          <dl className="grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Asset</dt>
-              <dd className="text-sm font-semibold text-[#0a0a0a]">{selectedAssetSymbol}</dd>
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Asset
+              </dt>
+              <dd className="mt-2 font-sans text-sm font-semibold text-foreground">
+                {selectedAssetSymbol}
+              </dd>
             </div>
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Amount</dt>
-              <dd className="text-sm font-semibold text-[#0a0a0a]">
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Amount
+              </dt>
+              <dd className="mt-2 font-sans text-sm font-semibold text-foreground">
                 {transfer.draft.amount} {selectedAssetSymbol}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">From</dt>
-              <dd className="font-mono text-xs text-[#0a0a0a]">
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                From
+              </dt>
+              <dd className="mt-2 font-mono text-xs break-all text-foreground">
                 {formatAddress(smartAccountAddress)}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Recipient</dt>
-              <dd className="font-mono text-xs text-[#0a0a0a]">
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Recipient
+              </dt>
+              <dd className="mt-2 font-mono text-xs break-all text-foreground">
                 {formatAddress(transfer.draft.recipientAddress.trim().toUpperCase())}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Recipient type</dt>
-              <dd className="text-sm text-[#0a0a0a]">
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Recipient Type
+              </dt>
+              <dd className="mt-2 font-sans text-sm text-foreground">
                 {transfer.validation.recipientType === "contract_account"
                   ? "Passkey Smart Account"
                   : "External Wallet"}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Network</dt>
-              <dd className="text-sm text-[#0a0a0a]">{STELLAR_NETWORK}</dd>
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Network
+              </dt>
+              <dd className="mt-2 font-sans text-sm text-foreground">{STELLAR_NETWORK}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="font-mono text-[11px] text-[#777] uppercase">Estimated fee path</dt>
-              <dd className="text-sm text-[#0a0a0a]">
+              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+                Estimated Fee Path
+              </dt>
+              <dd className="mt-2 font-sans text-sm text-foreground">
                 {feePath}
                 {transfer.readiness.feeSourceAddress
                   ? ` (${formatAddress(transfer.readiness.feeSourceAddress)})`
@@ -128,22 +150,29 @@ export function PasskeySendTokenPanel({
               </dd>
             </div>
           </dl>
-          <Alert className="rounded-none border-[#f97316] bg-[#fff7ed]">
-            <AlertDescription className="text-[#7c2d12]">
+
+          <Alert className="rounded-lg border-amber-300 bg-amber-50">
+            <AlertDescription className="font-sans text-sm leading-relaxed text-amber-900">
               Transfers are irreversible. Only approve if the recipient and amount are correct.
             </AlertDescription>
           </Alert>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => transfer.updateDraft({})}>
+
+          <div className="flex flex-wrap gap-3 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="font-medium"
+              onClick={() => transfer.updateDraft({})}
+            >
               Back
             </Button>
             <Button
               type="button"
-              className="bg-linear-to-r from-[#f97316] to-[#f59e0b] text-white hover:from-[#ea580c] hover:to-[#d97706]"
+              className="bg-highrable-orange-2 font-medium text-white shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
               onClick={() => void transfer.submitTransfer()}
             >
               <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
-              Approve with passkey
+              Approve with Passkey
             </Button>
           </div>
         </div>
@@ -152,35 +181,53 @@ export function PasskeySendTokenPanel({
   }
 
   return (
-    <section className="border border-[#d8d8d8] bg-white">
-      <div className="flex items-center justify-between border-b border-[#e8e8e8] px-4 py-3">
+    <section className="overflow-hidden rounded-xl border border-border">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-[#0a0a0a]">Send token</h3>
-          <p className="text-xs text-[#6f6f6f]">Passkey smart account transfer</p>
+          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+            Send Token
+          </p>
+          <p className="mt-1 font-sans text-sm text-muted-foreground">
+            Passkey smart account transfer
+          </p>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="font-medium text-muted-foreground hover:text-foreground"
+        >
           Close
         </Button>
       </div>
-      <div className="space-y-4 p-4">
+
+      <div className="space-y-5 p-5">
         {!transfer.readiness.canSend && transfer.readiness.reason ? (
-          <Alert className="rounded-none border-amber-300 bg-amber-50">
-            <AlertDescription className="text-amber-900">
+          <Alert className="rounded-lg border-amber-300 bg-amber-50">
+            <AlertDescription className="font-sans text-sm leading-relaxed text-amber-900">
               {transfer.readiness.reason}
             </AlertDescription>
           </Alert>
         ) : null}
 
+        {/* Asset + Recipient row */}
         <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
           <div className="space-y-2">
-            <Label htmlFor="passkey-transfer-asset">Asset</Label>
+            <Label
+              htmlFor="passkey-transfer-asset"
+              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+            >
+              Asset
+            </Label>
             <Select
               value={transfer.draft.asset}
               onValueChange={(value) =>
                 transfer.updateDraft({ asset: value === "XLM" ? "XLM" : "USDC" })
               }
             >
-              <SelectTrigger id="passkey-transfer-asset" className="w-full rounded-none">
+              <SelectTrigger id="passkey-transfer-asset" className="w-full font-sans">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -191,13 +238,18 @@ export function PasskeySendTokenPanel({
               </SelectContent>
             </Select>
             {!xlmTransfersEnabled ? (
-              <p className="text-xs text-[#777]">
+              <p className="font-sans text-xs text-muted-foreground">
                 XLM transfers require NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID.
               </p>
             ) : null}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="passkey-transfer-recipient">Recipient</Label>
+            <Label
+              htmlFor="passkey-transfer-recipient"
+              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+            >
+              Recipient
+            </Label>
             <Input
               id="passkey-transfer-recipient"
               value={transfer.draft.recipientAddress}
@@ -206,40 +258,58 @@ export function PasskeySendTokenPanel({
               }
               spellCheck={false}
               placeholder="G... or C..."
-              className="rounded-none font-mono text-xs"
+              className="font-mono text-xs"
             />
           </div>
         </div>
 
+        {/* Amount + Balance row */}
         <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
           <div className="space-y-2">
-            <Label htmlFor="passkey-transfer-amount">Amount</Label>
+            <Label
+              htmlFor="passkey-transfer-amount"
+              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+            >
+              Amount
+            </Label>
             <Input
               id="passkey-transfer-amount"
               inputMode="decimal"
               value={transfer.draft.amount}
               onChange={(event) => transfer.updateDraft({ amount: event.target.value.trim() })}
               placeholder="0.00"
-              className="rounded-none font-mono"
+              className="font-mono"
             />
           </div>
-          <div className="border border-[#e8e8e8] px-3 py-2">
-            <p className="font-mono text-[11px] text-[#777] uppercase">Balance</p>
-            <p className="mt-1 text-sm font-semibold text-[#0a0a0a]">{balanceDisplay}</p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+              Balance
+            </p>
+            <p className="mt-2 font-sans text-sm font-semibold text-foreground">{balanceDisplay}</p>
           </div>
         </div>
 
-        <div className="grid gap-2 border border-[#e8e8e8] bg-[#fafafa] p-3 text-xs text-[#555] sm:grid-cols-3">
-          <p>
-            <span className="mr-2 inline-block h-1.5 w-1.5 bg-[#f97316]" aria-hidden="true" />
+        {/* Info bar */}
+        <div className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 font-sans text-xs text-muted-foreground sm:grid-cols-3">
+          <p className="flex items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-highrable-orange-2"
+              aria-hidden="true"
+            />
             Network: {STELLAR_NETWORK}
           </p>
-          <p>
-            <span className="mr-2 inline-block h-1.5 w-1.5 bg-[#f97316]" aria-hidden="true" />
+          <p className="flex items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-highrable-orange-2"
+              aria-hidden="true"
+            />
             Fee: {feePath}
           </p>
-          <p>
-            <span className="mr-2 inline-block h-1.5 w-1.5 bg-[#f97316]" aria-hidden="true" />
+          <p className="flex items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-highrable-orange-2"
+              aria-hidden="true"
+            />
             Recipient:{" "}
             {transfer.validation.recipientType === "contract_account"
               ? "Smart account"
@@ -250,12 +320,14 @@ export function PasskeySendTokenPanel({
         </div>
 
         {(transfer.error ?? transfer.validation.message) ? (
-          <p className="text-sm text-red-700">{transfer.error ?? transfer.validation.message}</p>
+          <p className="font-sans text-sm font-medium text-red-600">
+            {transfer.error ?? transfer.validation.message}
+          </p>
         ) : null}
 
         {transfer.step === "success" && transfer.txExplorerUrl ? (
-          <Alert className="rounded-none border-emerald-300 bg-emerald-50">
-            <AlertDescription className="text-emerald-900">
+          <Alert className="rounded-lg border-emerald-300 bg-emerald-50">
+            <AlertDescription className="font-sans text-sm text-emerald-900">
               Transfer submitted.{" "}
               <a
                 href={transfer.txExplorerUrl}
@@ -271,16 +343,17 @@ export function PasskeySendTokenPanel({
         ) : null}
 
         {transfer.step === "submitting" ? (
-          <p className="flex items-center text-sm text-[#555]">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          <p className="flex items-center gap-2 font-sans text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Waiting for passkey approval and Stellar confirmation.
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        {/* Actions */}
+        <div className="flex flex-wrap gap-3 pt-1">
           <Button
             type="button"
-            className="bg-linear-to-r from-[#f97316] to-[#f59e0b] text-white hover:from-[#ea580c] hover:to-[#d97706]"
+            className="bg-highrable-orange-2 font-medium text-white shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
             disabled={primaryDisabled}
             onClick={transfer.prepareConfirmation}
           >
@@ -288,8 +361,13 @@ export function PasskeySendTokenPanel({
             Send
             <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button type="button" variant="outline" onClick={() => void transfer.refreshReadiness()}>
-            Refresh readiness
+          <Button
+            type="button"
+            variant="outline"
+            className="font-medium"
+            onClick={() => void transfer.refreshReadiness()}
+          >
+            Refresh Readiness
           </Button>
         </div>
       </div>
