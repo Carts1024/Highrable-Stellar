@@ -26,12 +26,12 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
     <div className="space-y-2">
       <AppButton
         type="button"
-        variant="secondary"
+        variant="outline"
         onClick={() => setIsDialogOpen(true)}
-        className="h-9 px-3 text-xs"
+        className="gap-2 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
       >
         <Flag className="h-3.5 w-3.5" />
-        Report suspicious job
+        Report Suspicious Job
       </AppButton>
 
       {(reportCount ?? 0) >= 3 ? (
