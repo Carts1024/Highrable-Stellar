@@ -5,12 +5,15 @@ import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import {
-  HighrableV2Bullet,
-  HighrableV2IconNotice,
-} from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/ui/tooltip";
+import { Coins, Send, ShieldCheck, User } from "lucide-react";
 import Link from "next/link";
 
 import type { TConvexDoc } from "@repo/convex-client";
@@ -47,116 +50,175 @@ export function JobCard({
     (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
   const safetyStatus = getJobSafetyStatus({ job, escrow });
   const marketplaceStatus = escrow?.status ?? job.status;
+  const isUnfunded = safetyStatus.status === "unfunded";
+  const isVerifiedFunded = safetyStatus.status === "verified_funded";
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <article className="group border-b border-[#e8e8e8] bg-white px-1 py-5 transition-colors last:border-b-0 hover:bg-[#fff7ed]/40 sm:px-4">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
+    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm">
+      {/* Card header */}
+      <div className="flex flex-col gap-3 p-6 pb-4">
+        {/* Badge row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {isUnfunded ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-default">
+                    <JobSafetyBadge status={safetyStatus.status} />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  tone="neutral"
+                  className="max-w-xs text-sm leading-relaxed"
+                >
+                  This job has not been funded yet. Confirm escrow before starting work.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
             <JobSafetyBadge status={safetyStatus.status} />
-            {shouldShowMarketplaceStatusBadge ? <StatusBadge label={marketplaceStatus} /> : null}
-            {safetyStatus.status === "unfunded" ? (
-              <HighrableV2IconNotice
-                label="Unfunded job warning"
-                tone="warning"
-                message="This job has not been funded yet. Confirm escrow before starting work."
-              />
-            ) : null}
-            {safetyStatus.status === "verified_funded" ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                Escrow verified
-              </span>
-            ) : null}
-            {!isMilestoneProject ? (
-              <DeadlineBadge
-                deadlineAt={job.deadlineAt}
-                submittedAt={job.submittedAt}
-                completedAt={job.completedAt}
-                approvedAt={job.approvedAt}
-                escrowStatus={escrow?.status}
-                workStatus={job.status}
-              />
-            ) : null}
-          </div>
+          )}
 
-          <div>
-            <h3 className="text-xl font-semibold text-gray-950">{job.title}</h3>
-            <p className="mt-2 line-clamp-3 max-w-3xl text-sm leading-6 text-gray-600">
-              {job.description}
-            </p>
-          </div>
+          {shouldShowMarketplaceStatusBadge && <StatusBadge label={marketplaceStatus} />}
 
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-gray-600">
-            <span className="inline-flex items-center gap-2">
-              <HighrableV2Bullet tone="muted" />
-              {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+          {isMilestoneProject && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
+              Milestone Project
             </span>
-            <span className="inline-flex items-center gap-2">
-              <HighrableV2Bullet tone="muted" />
-              Client{" "}
-              <Link
-                href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-                className="hover:text-[#FF7003]"
-              >
-                {shortenWalletAddress(job.clientWallet)}
-              </Link>
+          )}
+
+          {isVerifiedFunded && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Escrow Verified
             </span>
-            <span className="inline-flex items-center gap-2">
-              <HighrableV2Bullet tone="muted" />
-              Asset {formatAssetLabel(job.asset)}
-              {isNativeXlmJob ? (
-                <HighrableV2IconNotice
-                  label="XLM volatility warning"
-                  tone="warning"
-                  message="XLM escrow is volatile. Final fiat value may change."
-                />
-              ) : null}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <HighrableV2Bullet tone="muted" />
-              Freelancer {shortenWalletAddress(job.selectedFreelancerWallet)}
-            </span>
-          </div>
+          )}
+
+          {!isMilestoneProject && (
+            <DeadlineBadge
+              deadlineAt={job.deadlineAt}
+              submittedAt={job.submittedAt}
+              completedAt={job.completedAt}
+              approvedAt={job.approvedAt}
+              escrowStatus={escrow?.status}
+              workStatus={job.status}
+              compact
+            />
+          )}
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 lg:items-end">
-          <div className="lg:text-right">
-            <div className="text-2xl font-bold text-[#B94A00]">
+        {/* Title + budget */}
+        <div className="mt-3 flex items-start justify-between gap-4">
+          <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
+            {job.title}
+          </h3>
+          <div className="shrink-0 text-right">
+            <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
               {formatAmount(job.totalBudget ?? job.budget)}
-            </div>
-            <div className="text-xs font-medium text-gray-500">
-              {formatAssetLabel(job.asset)} {isMilestoneProject ? "total budget" : "budget"}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <Link
-              href={`/marketplace/jobs/${job._id}`}
-              className="inline-flex items-center gap-1 border border-[#e8e8e8] px-4 py-2 text-sm font-semibold text-[#5f5f5f] transition-colors hover:bg-white"
-            >
-              Details
-              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </Link>
-
-            {canApply ? (
-              <AppButton
-                type="button"
-                disabled={isApplying}
-                onClick={() => onApply(job._id)}
-                className="hr-v2-button-primary rounded-none px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isApplying ? "Applying..." : "Apply"}
-              </AppButton>
-            ) : null}
-          </div>
-          {isMilestoneProject ? (
-            <p className="max-w-[14rem] text-xs leading-relaxed text-[#5f5f5f] lg:text-right">
-              Apply to specific milestones on the detail page.
             </p>
+            <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
+              {isMilestoneProject ? "Total Budget" : "Budget"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="px-6 pb-5">
+        <p className="hr-text-secondary max-w-3xl text-sm leading-relaxed whitespace-pre-line">
+          {job.description}
+        </p>
+      </div>
+
+      {/* Meta strip */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+            Type
+          </span>
+          <span className="font-semibold text-foreground">
+            {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5 text-muted-foreground/50" />
+          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+            Client
+          </span>
+          <Link
+            href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+            className="font-semibold text-foreground transition-colors hover:text-highrable-orange-3 hover:underline"
+          >
+            {shortenWalletAddress(job.clientWallet)}
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Coins className="h-3.5 w-3.5 text-muted-foreground/50" />
+          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+            Asset
+          </span>
+          <span className="max-w-30 truncate font-semibold text-foreground sm:max-w-none">
+            {formatAssetLabel(job.asset)}
+          </span>
+          {isNativeXlmJob ? (
+            <HighrableV2IconNotice
+              label="XLM volatility warning"
+              tone="warning"
+              message="XLM escrow is volatile. Final fiat value may change."
+            />
           ) : null}
         </div>
+
+        {job.selectedFreelancerWallet ? (
+          <div className="flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5 text-muted-foreground/50" />
+            <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
+              Freelancer
+            </span>
+            <span className="font-semibold text-foreground">
+              {shortenWalletAddress(job.selectedFreelancerWallet)}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
+        </div>
+      </div>
+
+      {/* Footer actions */}
+      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border/40 px-6 py-4">
+        {isMilestoneProject ? (
+          <p className="hr-text-secondary mr-auto max-w-sm font-sans text-xs leading-relaxed">
+            Apply to specific milestones on the detail page.
+          </p>
+        ) : null}
+
+        <AppButton
+          asChild
+          variant="outline"
+          className="h-9 rounded-lg px-4 text-xs font-semibold hover:bg-muted/60"
+        >
+          <Link href={`/marketplace/jobs/${job._id}`}>Details</Link>
+        </AppButton>
+
+        {canApply && (
+          <AppButton
+            type="button"
+            disabled={isApplying}
+            onClick={() => onApply(job._id)}
+            className="hr-v2-button-primary h-9 gap-2 rounded-lg px-5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {isApplying ? "Applying…" : "Apply Now"}
+          </AppButton>
+        )}
       </div>
     </article>
   );
