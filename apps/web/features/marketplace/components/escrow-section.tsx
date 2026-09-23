@@ -43,17 +43,17 @@ export function EscrowSection({
     <div className="space-y-3" role="region" aria-label={ariaLabel}>
       {children}
       {helperText ? (
-        <p className="text-sm text-[#5f5f5f]" role="status">
+        <p className="text-sm text-muted-foreground" role="status">
           {helperText}
         </p>
       ) : null}
       {infoText ? (
-        <p className="text-sm text-gray-700" role="status">
+        <p className="text-sm text-foreground/80" role="status">
           {infoText}
         </p>
       ) : null}
       {warningText ? (
-        <p aria-live="polite" className="text-sm text-amber-800" role="alert">
+        <p aria-live="polite" className="text-sm text-amber-600 dark:text-amber-500" role="alert">
           {warningText}
         </p>
       ) : null}

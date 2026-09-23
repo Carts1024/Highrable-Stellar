@@ -31,6 +31,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@repo/ui/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@repo/ui/components/ui/tooltip";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowUpRight,
@@ -41,7 +47,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  TriangleAlert,
   User,
 } from "lucide-react";
 import Link from "next/link";
@@ -189,28 +194,26 @@ export function JobsPage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="grid gap-6 border-b border-border/60 pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
-        <div className="space-y-5">
-          <ProductPageHero
-            label="Open Opportunities"
-            title={
-              <>
-                Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
-              </>
-            }
-            description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
-            actions={
-              <>
-                <AppButton asChild className="hr-v2-button-primary gap-2 rounded-lg px-6">
-                  <Link href="/post-job">Post a Job</Link>
-                </AppButton>
-              </>
-            }
-          />
-        </div>
+      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+        <ProductPageHero
+          label="Open Opportunities"
+          title={
+            <>
+              Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
+            </>
+          }
+          description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
+          actions={
+            <>
+              <AppButton asChild className="hr-v2-button-primary rounded-lg px-6 font-mono">
+                <Link href="/post-job">Post a Job</Link>
+              </AppButton>
+            </>
+          }
+        />
 
         {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-xs sm:rounded-xl">
+        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
           {[
             { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
             { label: "Matching", value: visibleJobs.length },
@@ -221,7 +224,7 @@ export function JobsPage() {
             },
           ].map(({ label, value, accent }) => (
             <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="font-mono text-[10px] tracking-[0.08em] text-muted-foreground/80 uppercase">
+              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
                 {label}
               </span>
               <span
@@ -300,16 +303,16 @@ export function JobsPage() {
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <p className="font-mono text-[10px] tracking-[0.08em] text-highrable-orange-3 uppercase">
+            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
               Marketplace Feed
             </p>
-            <h2 className="hr-text-primary text-lg font-semibold">
+            <h2 className="hr-text-primary font-sans text-lg font-semibold">
               {visibleJobs.length} jobs found
             </h2>
           </div>
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-1 font-mono text-[10px] tracking-[0.06em] text-highrable-orange-3 uppercase hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-[11px] tracking-[0.06em] text-highrable-orange-3 uppercase hover:underline"
           >
             Manage marketplace flow
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -328,7 +331,7 @@ export function JobsPage() {
           </div>
         ) : visibleJobs.length === 0 ? (
           <RouteEmptyState
-            icon={<Briefcase className="h-10 w-10 text-muted-foreground" />}
+            icon={<Briefcase className="h-10 w-10" />}
             title="No matching jobs"
             description="Try a broader search or check back after new clients post opportunities."
           />
@@ -355,13 +358,32 @@ export function JobsPage() {
               return (
                 <article
                   key={job._id}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
+                  className="group border-borderbg-card flex flex-col overflow-hidden rounded-xl border shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
                 >
                   {/* Card header */}
                   <div className="flex flex-col gap-3 p-6 pb-4">
                     {/* Badge row */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <JobSafetyBadge status={safetyStatus.status} />
+                      {isUnfunded ? (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex cursor-default">
+                                <JobSafetyBadge status={safetyStatus.status} />
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              tone="neutral"
+                              className="max-w-xs text-sm leading-relaxed"
+                            >
+                              This job has not been funded yet. Confirm escrow before starting work.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <JobSafetyBadge status={safetyStatus.status} />
+                      )}
 
                       {getJobSafetyLabel(safetyStatus.status) !==
                         getMarketplaceStatusMeta(escrow?.status ?? job.status).label && (
@@ -369,13 +391,13 @@ export function JobsPage() {
                       )}
 
                       {isMilestoneProject && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
                           Milestone Project
                         </span>
                       )}
 
                       {isVerifiedFunded && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           Escrow Verified
                         </span>
@@ -387,18 +409,8 @@ export function JobsPage() {
                       </span>
                     </div>
 
-                    {/* Unfunded warning */}
-                    {isUnfunded && (
-                      <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
-                        <span className="mt-px text-amber-500">
-                          <TriangleAlert className="h-4 w-4" />
-                        </span>
-                        This job has not been funded yet. Confirm escrow before starting work.
-                      </div>
-                    )}
-
                     {/* Title + budget */}
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="mt-3 flex items-start justify-between gap-4">
                       <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
                         {job.title}
                       </h3>
@@ -406,7 +418,7 @@ export function JobsPage() {
                         <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
                           {formatBudget(job.totalBudget ?? job.budget)}
                         </p>
-                        <p className="mt-1 font-mono text-[9px] tracking-[0.08em] text-muted-foreground/60 uppercase">
+                        <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
                           {isMilestoneProject ? "Total Budget" : "Budget"}
                         </p>
                       </div>
@@ -421,9 +433,9 @@ export function JobsPage() {
                   </div>
 
                   {/* Meta strip */}
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/40 bg-muted/20 px-6 py-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Type
                       </span>
                       <span className="font-semibold text-foreground">
@@ -433,7 +445,7 @@ export function JobsPage() {
 
                     <div className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Client
                       </span>
                       <Link
@@ -446,7 +458,7 @@ export function JobsPage() {
 
                     <div className="flex items-center gap-1.5">
                       <Coins className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      <span className="font-mono text-[9px] tracking-wide text-muted-foreground/50 uppercase">
+                      <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Asset
                       </span>
                       <span className="max-w-30 truncate font-semibold text-foreground sm:max-w-none">
@@ -454,7 +466,7 @@ export function JobsPage() {
                       </span>
                     </div>
 
-                    <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-100/60 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/5 dark:text-emerald-400">
+                    <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                       {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
                     </div>

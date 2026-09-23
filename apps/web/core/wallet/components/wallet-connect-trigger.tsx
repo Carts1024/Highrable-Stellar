@@ -4,15 +4,15 @@ import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
 import { api } from "@repo/convex-client";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@repo/ui/components/ui/dialog";
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@repo/ui/components/ui-customs/responsive-dialog";
+import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
 import { useMutation } from "convex/react";
 import { Wallet } from "lucide-react";
@@ -45,8 +45,8 @@ export function WalletConnectTrigger({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
+      <ResponsiveDialogTrigger asChild>
         <AppButton
           type="button"
           variant="highrableGradient"
@@ -55,45 +55,53 @@ export function WalletConnectTrigger({
         >
           {walletState.isConnecting ? "Connecting wallet..." : label}
         </AppButton>
-      </DialogTrigger>
-      <DialogContent className="max-h-[min(90vh,48rem)] max-w-3xl overflow-hidden border-[#e8e8e8] bg-white p-0 sm:max-w-3xl">
-        <div className="max-h-[min(90vh,48rem)] overflow-y-auto overscroll-contain p-5 pr-12 sm:p-6 sm:pr-14">
-          <DialogHeader>
-            <DialogTitle>Choose account method</DialogTitle>
-            <DialogDescription>
-              Connect an external wallet or use a device passkey account.
-            </DialogDescription>
-          </DialogHeader>
+      </ResponsiveDialogTrigger>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="rounded-xl bg-[#FF7003]/10 p-2 text-[#FF7003]">
-                  <Wallet className="h-5 w-5" aria-hidden="true" />
+      <ResponsiveDialogContent className="max-w-3xl">
+        <ResponsiveDialogHeader className="shrink-0 space-y-2">
+          <ResponsiveDialogTitle>Connect Your Account</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            Choose between an external wallet or a device-secured passkey account.
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+
+        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+          <div className="flex flex-col gap-5">
+            <section className="w-full rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
+              <div className="flex h-full flex-col gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0 rounded-xl bg-highrable-orange-2/10 p-3 text-highrable-orange-2">
+                    <Wallet className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-sans text-lg font-bold text-foreground">External Wallet</p>
+                    <p className="font-sans text-xs text-muted-foreground/80">
+                      Freighter or WalletConnect
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">External Wallet</p>
-                  <p className="mt-3 text-sm text-gray-600">
-                    Connect Freighter or WalletConnect. This is still required for escrow
-                    transaction signing.
-                  </p>
-                  <AppButton
-                    type="button"
-                    variant="highrableGradient"
-                    onClick={() => void handleExternalWalletConnect()}
-                    disabled={walletState.isConnecting}
-                    className="mt-4"
-                  >
-                    {walletState.isConnecting ? "Opening wallet..." : "Connect External Wallet"}
-                  </AppButton>
-                </div>
+
+                <p className="font-sans text-sm leading-relaxed text-muted-foreground">
+                  Connect your external wallet for transaction signing. This is required for escrow
+                  operations and will work seamlessly alongside your passkey account.
+                </p>
+
+                <AppButton
+                  type="button"
+                  className="mt-2 bg-highrable-orange-2 font-medium shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
+                  onClick={() => void handleExternalWalletConnect()}
+                  disabled={walletState.isConnecting}
+                >
+                  <Wallet className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {walletState.isConnecting ? "Opening wallet..." : "Connect External Wallet"}
+                </AppButton>
               </div>
             </section>
 
             <PasskeySmartAccountCard />
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }
