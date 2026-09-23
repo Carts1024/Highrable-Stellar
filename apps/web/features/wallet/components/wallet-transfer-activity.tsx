@@ -54,43 +54,67 @@ export function WalletTransferActivity({ walletAddress }: IWalletTransferActivit
     | undefined;
 
   return (
-    <section className="border border-[#d8d8d8] bg-white">
-      <div className="flex items-center justify-between border-b border-[#e8e8e8] px-4 py-3">
+    <section className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-[#0a0a0a]">Recent transfers</h3>
-          <p className="text-xs text-[#6f6f6f]">Passkey wallet transfer activity</p>
+          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
+            Recent Transfers
+          </p>
+          <p className="mt-1 font-sans text-sm text-muted-foreground">
+            Passkey wallet transfer activity
+          </p>
         </div>
       </div>
-      <div className="divide-y divide-[#ececec]">
+      <div className="divide-y divide-gray-200">
         {transfers === undefined ? (
-          <p className="px-4 py-4 text-sm text-[#6f6f6f]">Loading transfer activity...</p>
+          <div className="flex items-center gap-2 px-5 py-4 font-sans text-sm text-muted-foreground">
+            <span
+              className="h-2 w-2 animate-pulse rounded-full bg-highrable-orange-2/60"
+              aria-hidden="true"
+            />
+            Loading transfer activity...
+          </div>
         ) : transfers.length === 0 ? (
-          <p className="px-4 py-4 text-sm text-[#6f6f6f]">No passkey transfers yet.</p>
+          <p className="px-5 py-4 font-sans text-sm text-muted-foreground">
+            No passkey transfers yet.
+          </p>
         ) : (
           transfers.map((transfer) => (
-            <article key={transfer._id} className="grid gap-3 px-4 py-3 sm:grid-cols-[1fr_auto]">
+            <article
+              key={transfer._id}
+              className="grid gap-3 px-5 py-4 transition-colors hover:bg-gray-100/60 sm:grid-cols-[1fr_auto]"
+            >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="h-1.5 w-1.5 bg-[#f97316]" aria-hidden="true" />
-                  <p className="font-mono text-xs font-semibold text-[#0a0a0a]">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full bg-highrable-orange-2"
+                    aria-hidden="true"
+                  />
+                  <p className="font-mono text-xs font-semibold text-foreground">
                     {transfer.amount ?? "0"} {transfer.asset ?? "USDC"}
                   </p>
                   <Badge variant={getStatusBadgeVariant(transfer.status)}>{transfer.status}</Badge>
                 </div>
-                <p className="mt-1 truncate font-mono text-xs text-[#555]">
+                <p className="mt-1.5 truncate font-mono text-xs text-muted-foreground">
                   To {shortenAddress(transfer.recipientAddress)} /{" "}
                   {formatRecipientType(transfer.recipientType)}
                 </p>
                 {transfer.errorMessage ? (
-                  <p className="mt-1 text-xs text-red-700">{transfer.errorMessage}</p>
+                  <p className="mt-1 text-xs font-medium text-red-600">{transfer.errorMessage}</p>
                 ) : null}
               </div>
               <div className="flex items-center gap-2 sm:justify-end">
-                <span className="font-mono text-[11px] text-[#777]">
+                <span className="font-mono text-xs text-muted-foreground/70">
                   {formatTimestamp(transfer.createdAt)}
                 </span>
                 {transfer.txHash ? (
-                  <Button asChild type="button" variant="outline" size="icon" className="h-8 w-8">
+                  <Button
+                    asChild
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                  >
                     <a
                       href={getTxExplorerUrl(transfer.txHash)}
                       target="_blank"

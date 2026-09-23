@@ -149,7 +149,7 @@ export function DateTimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start border-gray-300 px-3 text-left font-normal focus:border-[#FF7003]",
+            "w-full justify-start border-gray-300 px-3 text-left font-normal font-sans focus:border-[#FF7003] hover:bg-transparent hover:text-foreground",
             !valueDate && "text-muted-foreground",
             className,
           )}
@@ -175,7 +175,7 @@ export function DateTimePicker({
             }}
             initialFocus
           />
-          <div className="flex flex-col divide-y sm:h-[300px] sm:flex-row sm:divide-x sm:divide-y-0">
+          <div className="flex flex-col divide-y sm:h-75 sm:flex-row sm:divide-x sm:divide-y-0">
             <ScrollArea className="w-64 sm:w-auto">
               <div className="flex p-2 sm:flex-col">
                 {Array.from({ length: 12 }, (_, index) => index + 1)

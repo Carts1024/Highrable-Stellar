@@ -13,7 +13,7 @@
     "contracts:verify:testnet": "bash scripts/verify-testnet.sh",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",
-    "prepare": "husky"
+    "prepare": "node -e \"try { require('husky') } catch (e) { process.exit(0) } require('child_process').execSync('npx husky', { stdio: 'inherit' })\""
   },
   "devDependencies": {
     "husky": "^9.1.7",
@@ -25,5 +25,5 @@
   "engines": {
     "node": ">=20.9.0"
   },
-  "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499"
+  "packageManager": "pnpm@12.5.1+sha512.e3f305bc784a2bc89f5ad3b6138889470fae8d2af5f36b61216ec91c2c3d64089775f9de38aac331044ea40f245cb0d5666392dfdf65824e1907ef6a2c62de5f"
 }
