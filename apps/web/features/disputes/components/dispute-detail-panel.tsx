@@ -4,7 +4,10 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
@@ -142,6 +145,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         sourceAddress: walletIdentity.walletAddress,
         signTransaction,
         walletType: walletIdentity.walletType,
+        operationId: clientRequestId,
         caller: walletIdentity.walletAddress,
         escrowId: dispute.onChainEscrowId,
       });
@@ -190,23 +194,25 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         await updateTransactionStatus({
           clientRequestId,
           ...(failedTxHash ? { txHash: failedTxHash } : {}),
-          status: "failed",
+          status: isPendingStellarTransactionError(error) ? "pending" : "failed",
           errorMessage,
         });
       } catch {
         // Best-effort transaction status update.
       }
 
-      try {
-        await markFailed({
-          disputeId: dispute._id,
-          actorWallet: walletIdentity.walletAddress,
-          actorWalletType: walletIdentity.walletType,
-          errorMessage,
-          ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-        });
-      } catch {
-        // Best-effort dispute failure event update.
+      if (!isPendingStellarTransactionError(error)) {
+        try {
+          await markFailed({
+            disputeId: dispute._id,
+            actorWallet: walletIdentity.walletAddress,
+            actorWalletType: walletIdentity.walletType,
+            errorMessage,
+            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
+          });
+        } catch {
+          // Best-effort dispute failure event update.
+        }
       }
 
       setRetryError(errorMessage);

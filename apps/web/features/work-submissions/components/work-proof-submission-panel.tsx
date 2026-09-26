@@ -4,7 +4,10 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { submitWorkOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList, AttachmentUploader } from "@/features/attachments/components";
@@ -273,6 +276,7 @@ function WorkProofSubmissionDialogContent({
         sourceAddress: walletIdentity.walletAddress,
         signTransaction,
         walletType: walletIdentity.walletType,
+        operationId: clientRequestId,
         freelancer: escrow.freelancerWallet!,
         escrowId: escrow.escrowId,
         proofHash: await toBytesN32Hash(submission.proofHash),
@@ -298,13 +302,23 @@ function WorkProofSubmissionDialogContent({
       });
     } catch (error) {
       const message = normalizeStellarError(error);
-      await updateTransactionStatus({ clientRequestId, status: "failed", errorMessage: message });
-      await markFailed({
-        submissionId: submission._id,
-        walletAddress: walletIdentity.walletAddress,
+      await updateTransactionStatus({
+        clientRequestId,
+        status: isPendingStellarTransactionError(error) ? "pending" : "failed",
         errorMessage: message,
       });
-      throw new Error("Proof metadata was saved, but on-chain anchoring failed. You can retry.");
+      if (!isPendingStellarTransactionError(error)) {
+        await markFailed({
+          submissionId: submission._id,
+          walletAddress: walletIdentity.walletAddress,
+          errorMessage: message,
+        });
+      }
+      throw new Error(
+        isPendingStellarTransactionError(error)
+          ? "Proof anchoring is still pending. Use transaction recovery before retrying."
+          : "Proof metadata was saved, but on-chain anchoring failed. You can retry.",
+      );
     }
   };
 

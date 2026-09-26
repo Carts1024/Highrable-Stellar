@@ -9,7 +9,10 @@ import {
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -624,7 +627,6 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
-
     try {
       await postAdminReviewStatus(disputeId, reviewStatus, sanitizedReviewMessage || undefined);
       setActionSuccess("Dispute review status updated.");
@@ -684,6 +686,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         sourceAddress: activeWalletAddress,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         caller: activeWalletAddress,
         escrowId: detail.dispute.onChainEscrowId,
       });
@@ -735,7 +738,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         await updateTransactionStatus({
           clientRequestId,
           ...(failedTxHash ? { txHash: failedTxHash } : {}),
-          status: "failed",
+          status: isPendingStellarTransactionError(nextError) ? "pending" : "failed",
           errorMessage: normalizedError,
         });
       } catch {
@@ -791,6 +794,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
+    const clientRequestId = createClientRequestId(detail.dispute.onChainEscrowId);
 
     try {
       await assertWalletExecutionReady({
@@ -828,6 +832,17 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
       });
 
+      await createTransaction({
+        walletAddress: activeWalletAddress,
+        walletType: activeWalletType,
+        type: "resolve_dispute",
+        clientRequestId,
+        escrowId: detail.dispute.onChainEscrowId,
+        ...(detail.dispute.jobId ? { jobId: detail.dispute.jobId } : {}),
+        ...(detail.dispute.milestoneId ? { milestoneId: detail.dispute.milestoneId } : {}),
+        status: "pending",
+      });
+
       const resolutionHash = await toBytesN32Hash(
         `dispute:${detail.dispute._id}:status:${resolutionStatus}:bps:${freelancerShareBps}:note:${sanitizedResolutionNote}`,
       );
@@ -839,10 +854,18 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         sourceAddress: connectedWallet,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         platformAdmin,
         escrowId: detail.dispute.onChainEscrowId,
         freelancerShareBps,
         resolutionHash,
+      });
+
+      await updateTransactionStatus({
+        clientRequestId,
+        txHash: txResult.txHash,
+        transactionHash: txResult.txHash,
+        status: "success",
       });
 
       await postAdminResolution(disputeId, {
@@ -859,20 +882,38 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     } catch (nextError) {
       const normalizedError = normalizeStellarError(nextError);
       try {
-        const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
-        const sanitizedResolutionNote = sanitizeLimitedMultilineInput(
-          resolutionNote,
-          MAX_RESOLUTION_NOTE_LENGTH,
-        );
-        await postAdminResolution(disputeId, {
-          phase: "failed",
-          status: resolutionStatus,
-          freelancerShareBps,
+        await updateTransactionStatus({
+          clientRequestId,
+          ...(typeof nextError === "object" &&
+          nextError !== null &&
+          "txHash" in nextError &&
+          typeof nextError.txHash === "string"
+            ? { txHash: nextError.txHash, transactionHash: nextError.txHash }
+            : {}),
+          status: isPendingStellarTransactionError(nextError) ? "pending" : "failed",
           errorMessage: normalizedError,
-          ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
         });
       } catch {
-        // Best-effort failure recording.
+        // Best-effort transaction update.
+      }
+
+      if (!isPendingStellarTransactionError(nextError)) {
+        try {
+          const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
+          const sanitizedResolutionNote = sanitizeLimitedMultilineInput(
+            resolutionNote,
+            MAX_RESOLUTION_NOTE_LENGTH,
+          );
+          await postAdminResolution(disputeId, {
+            phase: "failed",
+            status: resolutionStatus,
+            freelancerShareBps,
+            errorMessage: normalizedError,
+            ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
+          });
+        } catch {
+          // Best-effort failure recording.
+        }
       }
 
       setActionError(
@@ -893,6 +934,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     activeWalletAddress,
     activeWalletType,
     address,
+    createTransaction,
     detail,
     disputeId,
     loadDetail,
@@ -900,6 +942,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     resolutionShareInput,
     resolutionStatus,
     signTransaction,
+    updateTransactionStatus,
     walletState.canWriteContracts,
     walletState.isConnected,
     walletState.isTestnet,

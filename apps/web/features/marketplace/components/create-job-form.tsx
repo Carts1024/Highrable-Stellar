@@ -26,7 +26,10 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
@@ -877,6 +880,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             escrowContractId: preFundingConfig.escrowContractId,
             sourceAddress: address!,
             signTransaction,
+            operationId: createEscrowRequestId,
             client: address!,
             asset: selectedEscrowAsset.tokenContractId,
             amount: payload.budget,
@@ -922,6 +926,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               escrowContractId: preFundingConfig.escrowContractId,
               sourceAddress: address!,
               signTransaction,
+              operationId: fundEscrowRequestId,
               client: address!,
               escrowId: result.escrowId,
             });
@@ -975,7 +980,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 clientRequestId: fundEscrowRequestId,
                 ...(failedFundTxHash ? { txHash: failedFundTxHash } : {}),
                 ...(failedFundTxHash ? { transactionHash: failedFundTxHash } : {}),
-                status: "failed",
+                status: isPendingStellarTransactionError(fundError) ? "pending" : "failed",
                 errorMessage: fundErrorMessage,
               });
 
@@ -1000,7 +1005,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             clientRequestId: createEscrowRequestId,
             ...(failedTxHash ? { txHash: failedTxHash } : {}),
             ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-            status: "failed",
+            status: isPendingStellarTransactionError(error) ? "pending" : "failed",
             errorMessage,
           });
 

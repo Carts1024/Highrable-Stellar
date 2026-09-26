@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-09-26
+
+- Documented the opt-in Velo Gas Station Testnet boundary: pinned SDK, authenticated server handoff, Convex recovery identity, safe response fields, status-only recovery, and operator prerequisites.
 
 ## 2026-09-21
 

@@ -2,7 +2,10 @@
 
 import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { assignFreelancerOnChain } from "@/core/stellar/escrow-contract";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -107,6 +110,7 @@ export function ApplicationsList({
         escrowContractId: config.escrowContractId,
         sourceAddress: address,
         signTransaction,
+        operationId: clientRequestId,
         client: job.clientWallet,
         freelancer: freelancerWallet,
         escrowId: escrow.escrowId,
@@ -138,7 +142,7 @@ export function ApplicationsList({
       await updateTransactionStatus({
         clientRequestId,
         ...(failedTxHash ? { txHash: failedTxHash } : {}),
-        status: "failed",
+        status: isPendingStellarTransactionError(error) ? "pending" : "failed",
         errorMessage,
       });
 

@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -23,11 +23,17 @@ The current deployed contract metadata is recorded in `deployments/testnet.json`
 - The network passphrase must match the selected network for every built transaction.
 - Contract IDs, token configuration, RPC, Horizon, and passphrase are validated from environment-backed config.
 
+## Velo Gas Station boundary
+
+When `NEXT_PUBLIC_ENABLE_VELO_GAS_STATION=true` on Testnet, an external-wallet Soroban call still follows the existing build, prepare, and wallet-sign path. The browser sends the signed inner XDR and its client-owned operation ID to the authenticated Node routes `POST /api/stellar/gas/submit` and `/status`; the server validates the wallet source, one `invokeHostFunction` operation, and body bounds before calling the pinned `@carts1024/velo-sdk`.
+
+The integration pins the verified published package `@carts1024/velo-sdk@0.1.0-alpha.3`. The Velo API key, deployment URL, sponsorship policy, allowlist, quota, and relayer funding remain server/operator concerns. Convex stores only the recovery identity and safe inner/outer hash, status, fee, and reconciliation fields. Unknown or timed-out submission outcomes are pending and recover through status-only calls; the signed XDR is never stored or returned. Passkey smart-account execution remains on its existing path.
+
 ## Current integration limits
 
 - The contracts do not currently publish explicit application events.
 - Convex synchronization reads contract state on demand; it is not a general RPC/Horizon indexer.
 - Historical wallet transaction indexing is not implemented.
-- A successful readiness check does not prove that the external relayer, contracts, or production operations are audited.
+- A successful readiness check does not prove that the external relayer, Velo Testnet policy, contracts, or production operations are audited.
 
 See [[stellar/Transaction Lifecycle]], [[stellar/Wallet Identity Model]], [[stellar/Network Configuration]], and [[modules/Sync and Transactions]].

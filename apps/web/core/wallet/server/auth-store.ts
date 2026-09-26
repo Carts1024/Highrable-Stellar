@@ -1,7 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 
-import { env } from "@/core/config/env";
-import { TStellarPublicKeySchema } from "@/core/wallet/validation";
+import { env } from "../../config/env";
+import { TStellarPublicKeySchema } from "../validation";
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;

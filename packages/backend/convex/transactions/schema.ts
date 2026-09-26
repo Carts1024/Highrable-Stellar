@@ -12,6 +12,7 @@ const transactionTypeEnum = createStringEnum([
   "record_reputation",
   "cancel_escrow",
   "mark_disputed",
+  "resolve_dispute",
   "wallet_transfer",
 ] as const);
 
@@ -22,6 +23,14 @@ const feePathEnum = createStringEnum([
   "classic_source_account",
   "external_wallet",
 ] as const);
+const gasStatusEnum = createStringEnum([
+  "claimed",
+  "submission_unknown",
+  "submitted",
+  "succeeded",
+  "failed",
+  "cancelled",
+] as const);
 
 export const TRANSACTION_TYPES = transactionTypeEnum.map;
 export const TRANSACTION_STATUSES = transactionStatusEnum.map;
@@ -30,11 +39,13 @@ export const transactionTypeValidator = transactionTypeEnum.validator;
 export const transactionStatusValidator = transactionStatusEnum.validator;
 export const walletTypeValidator = walletTypeEnum.validator;
 export const feePathValidator = feePathEnum.validator;
+export const gasStatusValidator = gasStatusEnum.validator;
 
 export type TTransactionType = Infer<typeof transactionTypeValidator>;
 export type TTransactionStatus = Infer<typeof transactionStatusValidator>;
 export type TWalletType = Infer<typeof walletTypeValidator>;
 export type TFeePath = Infer<typeof feePathValidator>;
+export type TGasStatus = Infer<typeof gasStatusValidator>;
 
 export default defineTable({
   walletAddress: v.string(),
@@ -55,6 +66,12 @@ export default defineTable({
   network: v.optional(v.string()),
   feePath: v.optional(feePathValidator),
   sourceAccount: v.optional(v.string()),
+  gasRequestId: v.optional(v.string()),
+  gasTransactionHash: v.optional(v.string()),
+  gasOuterTransactionHash: v.optional(v.string()),
+  gasStatus: v.optional(gasStatusValidator),
+  gasActualFeeStroops: v.optional(v.union(v.string(), v.null())),
+  gasReconciliationRequired: v.optional(v.boolean()),
   confirmedAt: v.optional(v.number()),
   status: transactionStatusValidator,
   errorMessage: v.optional(v.string()),

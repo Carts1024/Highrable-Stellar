@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -18,6 +18,10 @@ The web app exposes:
 `apps/web/core/wallet/server/auth-store.ts` uses HMAC-signed payloads. Challenges live for five minutes; sessions live for 24 hours. Production requires `WALLET_SESSION_SECRET`; development has a fallback warning.
 
 `apps/web/core/wallet/server/signature.ts` decodes Stellar public keys and accepts the Freighter-style prefixed hash or raw message verification path.
+
+## Velo Gas Station handoff
+
+The Testnet-only Velo routes require the signed HTTP-only session cookie and use its verified `sub` wallet as the transaction source. They additionally require an existing wallet-owned Convex transaction row keyed by the client operation ID. The browser may send the wallet-signed inner XDR only to the submit route; the server validates it and keeps the Velo key, deployment URL, and recovery calls server-side. The status route accepts only the stored request/inner-hash identity.
 
 ## Admin boundary
 

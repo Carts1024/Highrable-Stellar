@@ -49,3 +49,38 @@ export const getTransactionByHash = query({
       .unique();
   },
 });
+
+export const getGasRecoveryRecord = query({
+  args: {
+    walletAddress: v.string(),
+    clientRequestId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = sanitizeTransactionWallet(args.walletAddress);
+    const clientRequestId = args.clientRequestId.trim();
+    if (!clientRequestId) {
+      return null;
+    }
+
+    const transaction = await ctx.db
+      .query("transactions")
+      .withIndex("by_clientRequestId", (q) => q.eq("clientRequestId", clientRequestId))
+      .unique();
+
+    if (!transaction || transaction.walletAddress !== walletAddress) {
+      return null;
+    }
+
+    return {
+      clientRequestId: transaction.clientRequestId ?? clientRequestId,
+      status: transaction.status,
+      gasStatus: transaction.gasStatus ?? null,
+      gasRequestId: transaction.gasRequestId ?? null,
+      gasTransactionHash: transaction.gasTransactionHash ?? null,
+      gasOuterTransactionHash: transaction.gasOuterTransactionHash ?? null,
+      gasActualFeeStroops: transaction.gasActualFeeStroops ?? null,
+      gasReconciliationRequired: transaction.gasReconciliationRequired ?? false,
+      errorMessage: transaction.errorMessage ?? null,
+    };
+  },
+});

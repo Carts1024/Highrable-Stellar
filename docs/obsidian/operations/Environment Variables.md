@@ -2,7 +2,7 @@
 type: reference
 area: operations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -16,6 +16,7 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 | --- | --- |
 | Network | `NEXT_PUBLIC_STELLAR_NETWORK`, `NEXT_PUBLIC_STELLAR_RPC_URL`, `NEXT_PUBLIC_STELLAR_HORIZON_URL`, `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE` |
 | Convex/app | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_WAITLIST_MODE`, `NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER` |
+| Optional Velo feature flag | `NEXT_PUBLIC_ENABLE_VELO_GAS_STATION` — must remain false unless the Testnet Velo policy and deployment are verified. |
 | Contracts | `NEXT_PUBLIC_ESCROW_CONTRACT_ID`, `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` |
 | Assets | `NEXT_PUBLIC_STABLECOIN_ASSET_CODE`, `NEXT_PUBLIC_STABLECOIN_ISSUER`, `NEXT_PUBLIC_USDC_ASSET_CODE`, `NEXT_PUBLIC_USDC_ASSET_ISSUER`, `NEXT_PUBLIC_STABLECOIN_SYMBOL`, `NEXT_PUBLIC_STABLECOIN_DECIMALS`, `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`, `NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID` |
 | Wallets | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` |
@@ -29,6 +30,9 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 - `SMART_ACCOUNT_RELAYER_PRIVATE_KEY` and `SMART_ACCOUNT_RELAYER_PUBLIC_KEY` support a configured relayer path.
 - `SMART_ACCOUNT_CHANNELS_API_KEY` supports the channels relayer integration when selected.
 - `SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS`, `SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX`, `SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY`, and `SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE` constrain relayer policy.
+- `VELO_GAS_API_KEY` is a gas-scoped Testnet key and `VELO_BASE_URL` is the exact Velo deployment URL. They are used only by the Node gas routes and must never be `NEXT_PUBLIC_*`, placed in browser storage, logged, or returned in API responses.
+
+Before enabling the Velo flag, an operator must verify the Testnet policy is enabled with a positive cap/quota, every target contract is allowlisted, the relayer is active and funded, the configured public relayer matches the signer, and the key is scoped to gas operations. This repository does not invent or verify those credentials or live provider settings.
 
 Convex chain reads use server-side names such as `STELLAR_NETWORK`, `STELLAR_RPC_URL`, `STELLAR_NETWORK_PASSPHRASE`, `ESCROW_CONTRACT_ID`, `REPUTATION_CONTRACT_ID`, and `STELLAR_READ_SOURCE_ACCOUNT` as defined by `packages/backend/convex/lib/stellarReads.ts`.
 

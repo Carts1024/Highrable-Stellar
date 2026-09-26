@@ -20,6 +20,7 @@ type TBaseEscrowCallParams = {
   sourceAddress: string;
   signTransaction?: TSignedTransactionSubmitter;
   walletType?: TWalletExecutionMode;
+  operationId?: string;
 };
 
 type TEscrowResult = TConfirmedContractTx;
@@ -90,6 +91,7 @@ async function executeEscrowContract(
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     signTransaction: params.signTransaction,
+    operationId: params.operationId,
   });
 }
 
@@ -357,6 +359,7 @@ export async function createEscrowOnChain(
       ],
       signTransaction: params.signTransaction,
       walletType: params.walletType,
+      operationId: params.operationId,
     });
 
     return await recoverCreatedEscrowAfterSubmission({
@@ -427,6 +430,7 @@ export async function createOpenEscrowOnChain(
       ],
       signTransaction: params.signTransaction,
       walletType: params.walletType,
+      operationId: params.operationId,
     });
 
     return await recoverCreatedEscrowAfterSubmission({
@@ -494,6 +498,7 @@ export async function createAndFundOpenEscrowOnChain(
     ],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 
   const escrowId =
@@ -535,6 +540,7 @@ export async function fundEscrowOnChain(
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -550,6 +556,7 @@ export async function assignFreelancerOnChain(
     args: [addressScVal(params.client), u64ScVal(params.escrowId), addressScVal(params.freelancer)],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -569,6 +576,7 @@ export async function submitWorkOnChain(
     ],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -594,6 +602,7 @@ export async function approveAndReleaseOnChain(
     ],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -609,6 +618,7 @@ export async function cancelEscrowOnChain(
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -624,6 +634,7 @@ export async function markDisputedOnChain(
     args: [addressScVal(params.caller), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 
@@ -649,6 +660,7 @@ export async function resolveDisputeOnChain(
     ],
     signTransaction: params.signTransaction,
     walletType: params.walletType,
+    operationId: params.operationId,
   });
 }
 

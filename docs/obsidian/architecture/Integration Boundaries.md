@@ -2,7 +2,7 @@
 type: architecture
 area: integrations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -18,12 +18,13 @@ source_of_truth: repository
 | WebAuthn | Passkey approval for smart-account authorization. | RP ID must match the app domain; device/browser support and configured verifier matter. |
 | Resend | Backend waitlist email component. | Configuration is in `packages/backend/convex/convex.config.ts`; credentials stay server-side. |
 | Stellar Explorer URLs | Human-readable links stored alongside transaction records. | Links are metadata, not proof that a Convex record was successfully synchronized. |
+| Velo Gas Station | Testnet fee sponsorship for opt-in external-wallet Soroban calls. | Browser sends one wallet-signed inner XDR to authenticated Node routes; the API key, exact deployment URL, policy/allowlist/quota, relayer, and recovery calls stay server-side. |
 
 ## Absent boundaries
 
 - No separate public backend API gateway for ordinary product operations.
 - No dedicated chain indexer or event consumer.
-- No evidence of a general relayer service implementation in this repository; readiness code validates a configured external/custom/managed fee path.
+- No in-repository general relayer service; Velo is a bounded external Testnet sponsorship integration and readiness code still validates the separate passkey/custom/managed fee paths.
 - No contract event emission in the current escrow or reputation source.
 
 Related: [[architecture/Architecture Overview]], [[stellar/Stellar Integration]], [[modules/Sync and Transactions]].

@@ -41,6 +41,7 @@ export interface IClientEnv {
     | "sdk_source_account"
     | "unknown";
   readonly NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER?: boolean;
+  readonly NEXT_PUBLIC_ENABLE_VELO_GAS_STATION?: boolean;
   readonly NODE_ENV: "development" | "production" | "test";
 }
 
@@ -58,6 +59,8 @@ export interface IServerEnv extends IClientEnv {
   readonly SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX?: string;
   readonly SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY?: string;
   readonly SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE?: string;
+  readonly VELO_GAS_API_KEY?: string;
+  readonly VELO_BASE_URL?: string;
 }
 
 const TContractIdSchema = z
@@ -173,6 +176,7 @@ const ClientEnvSchema = z.object({
     .enum(["none", "custom", "openzeppelin_channels", "sdk_source_account", "unknown"])
     .optional(),
   NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: OptionalBooleanEnvSchema,
+  NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: OptionalBooleanEnvSchema,
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
@@ -187,6 +191,8 @@ const ServerEnvSchema = ClientEnvSchema.extend({
   SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE: z.string().trim().min(1).optional(),
+  VELO_GAS_API_KEY: z.string().trim().min(1).optional(),
+  VELO_BASE_URL: z.string().url().optional(),
 });
 
 function formatZodError(error: z.ZodError): string {
@@ -233,6 +239,7 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL,
     NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: process.env.NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND,
     NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: process.env.NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER,
+    NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: process.env.NEXT_PUBLIC_ENABLE_VELO_GAS_STATION,
     NODE_ENV: process.env.NODE_ENV,
     WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
     HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
@@ -246,6 +253,8 @@ function validateEnv(): IServerEnv {
       process.env.SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY,
     SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE:
       process.env.SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE,
+    VELO_GAS_API_KEY: process.env.VELO_GAS_API_KEY,
+    VELO_BASE_URL: process.env.VELO_BASE_URL,
   });
 
   if (!result.success) {

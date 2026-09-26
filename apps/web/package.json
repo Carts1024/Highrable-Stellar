@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@carts1024/velo-sdk": "0.1.0-alpha.3",
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@heroicons/react": "^2.2.0",
     "@hookstate/core": "^4.0.2",
