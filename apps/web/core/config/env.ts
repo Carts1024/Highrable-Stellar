@@ -60,6 +60,9 @@ export interface IServerEnv extends IClientEnv {
   readonly SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY?: string;
   readonly SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE?: string;
   readonly VELO_GAS_API_KEY?: string;
+  readonly VELO_GAS_ENV?: "testnet";
+  readonly VELO_GAS_BASE_URL?: string;
+  /** @deprecated Use VELO_GAS_BASE_URL for Gas Station configuration. */
   readonly VELO_BASE_URL?: string;
 }
 
@@ -192,6 +195,8 @@ const ServerEnvSchema = ClientEnvSchema.extend({
   SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE: z.string().trim().min(1).optional(),
   VELO_GAS_API_KEY: z.string().trim().min(1).optional(),
+  VELO_GAS_ENV: z.enum(["testnet"]).optional(),
+  VELO_GAS_BASE_URL: z.string().url().optional(),
   VELO_BASE_URL: z.string().url().optional(),
 });
 
@@ -254,6 +259,8 @@ function validateEnv(): IServerEnv {
     SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE:
       process.env.SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE,
     VELO_GAS_API_KEY: process.env.VELO_GAS_API_KEY,
+    VELO_GAS_ENV: process.env.VELO_GAS_ENV,
+    VELO_GAS_BASE_URL: process.env.VELO_GAS_BASE_URL,
     VELO_BASE_URL: process.env.VELO_BASE_URL,
   });
 

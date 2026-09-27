@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-09-27
+
+- Updated the Velo Gas Station integration to SDK `0.1.0-alpha.4`, including the `tg_test_` Gas key requirement, corrected Testnet origin default, preferred `VELO_GAS_BASE_URL` configuration, and server-side key-shape validation.
+
 ## 2026-09-26
 
 - Documented the opt-in Velo Gas Station Testnet boundary: pinned SDK, authenticated server handoff, Convex recovery identity, safe response fields, status-only recovery, and operator prerequisites.

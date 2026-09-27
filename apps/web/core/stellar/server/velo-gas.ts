@@ -10,6 +10,7 @@ export const GAS_TIMEOUT_MS = 10_000;
 export const GAS_STATUS_TIMEOUT_MS = 8_000;
 export const MAX_GAS_REQUEST_BYTES = 128 * 1024;
 export const MAX_SIGNED_TRANSACTION_XDR_LENGTH = 100_000;
+export const VELO_GAS_TESTNET_API_KEY_PATTERN = /^tg_test_[a-f0-9]{32}$/i;
 
 export const GasSubmissionBodySchema = z.object({
   operationId: z
@@ -80,26 +81,42 @@ export function assertVeloGasTestnet(): void {
   if (env.NEXT_PUBLIC_STELLAR_NETWORK !== "testnet") {
     throw new GasConfigurationError("Velo Gas Station is available only on Stellar Testnet.");
   }
+
+  if (env.VELO_GAS_ENV && env.VELO_GAS_ENV !== "testnet") {
+    throw new GasConfigurationError("VELO_GAS_ENV must be set to testnet for Gas Station.");
+  }
+}
+
+export function validateVeloGasApiKey(apiKey: string): string {
+  const normalized = apiKey.trim();
+
+  if (!VELO_GAS_TESTNET_API_KEY_PATTERN.test(normalized)) {
+    throw new GasConfigurationError(
+      "VELO_GAS_API_KEY must be a Gas Station Testnet key beginning with tg_test_.",
+    );
+  }
+
+  return normalized;
 }
 
 export function createVeloGasClient(): Velo {
   assertVeloGasTestnet();
 
-  const apiKey = env.VELO_GAS_API_KEY?.trim();
-  const baseUrl = env.VELO_BASE_URL?.trim();
+  const configuredApiKey = env.VELO_GAS_API_KEY?.trim();
+  const baseUrl = env.VELO_GAS_BASE_URL?.trim() || env.VELO_BASE_URL?.trim();
 
-  if (!apiKey || !baseUrl) {
-    throw new GasConfigurationError(
-      "Configure VELO_GAS_API_KEY and the exact VELO_BASE_URL on the server.",
-    );
+  if (!configuredApiKey) {
+    throw new GasConfigurationError("Configure the Gas Station VELO_GAS_API_KEY on the server.");
   }
 
-  return new Velo({
-    apiKey,
-    baseUrl,
+  const config = {
+    apiKey: validateVeloGasApiKey(configuredApiKey),
     environment: "testnet",
     timeoutMs: GAS_TIMEOUT_MS,
-  });
+    ...(baseUrl ? { baseUrl } : {}),
+  } as const;
+
+  return new Velo(config);
 }
 
 export function validateSignedSorobanTransaction(

@@ -17,6 +17,7 @@ import {
   sponsorAndObserveGas,
   toPendingGasResponse,
   toSafeGasResponse,
+  validateVeloGasApiKey,
 } from "./velo-gas";
 
 function gasResult(status: GasSubmitResult["status"]): GasSubmitResult {
@@ -47,6 +48,14 @@ function fakeVelo(overrides: Partial<Velo["gas"]> = {}): Velo {
 }
 
 describe("Velo Gas Station boundary", () => {
+  it("accepts only the alpha.4 Gas Station Testnet key shape", () => {
+    const apiKey = `tg_test_${"a".repeat(32)}`;
+
+    expect(validateVeloGasApiKey(apiKey)).toBe(apiKey);
+    expect(() => validateVeloGasApiKey(`tk_test_${"a".repeat(32)}`)).toThrow(/tg_test_/);
+    expect(() => validateVeloGasApiKey("tg_test_not-a-real-key")).toThrow(/tg_test_/);
+  });
+
   it("requires the signed wallet session before the server handoff", () => {
     const request = new NextRequest("http://localhost/api/stellar/gas/submit");
 

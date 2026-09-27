@@ -2,7 +2,7 @@
 type: reference
 area: operations
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 source_of_truth: repository
 ---
 
@@ -30,7 +30,7 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 - `SMART_ACCOUNT_RELAYER_PRIVATE_KEY` and `SMART_ACCOUNT_RELAYER_PUBLIC_KEY` support a configured relayer path.
 - `SMART_ACCOUNT_CHANNELS_API_KEY` supports the channels relayer integration when selected.
 - `SMART_ACCOUNT_ALLOWED_TARGET_CONTRACTS`, `SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_TX`, `SMART_ACCOUNT_MAX_SPONSORED_FEE_PER_ACCOUNT_DAILY`, and `SMART_ACCOUNT_RELAY_RATE_LIMIT_PER_MINUTE` constrain relayer policy.
-- `VELO_GAS_API_KEY` is a gas-scoped Testnet key and `VELO_BASE_URL` is the exact Velo deployment URL. They are used only by the Node gas routes and must never be `NEXT_PUBLIC_*`, placed in browser storage, logged, or returned in API responses.
+- `VELO_GAS_API_KEY` must be a Gas Station Testnet key with the `tg_test_` prefix (the general `tk_test_` prefix is not authorized for Gas), `VELO_GAS_ENV` must be `testnet`, and `VELO_GAS_BASE_URL` optionally overrides the Velo Gas origin. They are used only by the Node gas routes and must never be `NEXT_PUBLIC_*`, placed in browser storage, logged, or returned in API responses. The legacy `VELO_BASE_URL` name remains accepted as a migration alias.
 
 Before enabling the Velo flag, an operator must verify the Testnet policy is enabled with a positive cap/quota, every target contract is allowlisted, the relayer is active and funded, the configured public relayer matches the signer, and the key is scoped to gas operations. This repository does not invent or verify those credentials or live provider settings.
 
