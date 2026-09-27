@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -32,6 +32,8 @@ source_of_truth: repository
 | `/talent` | Planned discovery surface with preview cards | Placeholder; no live directory |
 
 Dynamic job/profile/proof pages validate route parameters for SEO/404 behavior and may use server Convex reads for metadata.
+
+The waitlist route gate is opt-in: `NEXT_PUBLIC_WAITLIST_MODE=true` redirects product pages to `/`; omitted or invalid values leave routes available.
 
 ## API routes
 
