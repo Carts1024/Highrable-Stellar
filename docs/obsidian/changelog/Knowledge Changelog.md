@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -11,6 +11,7 @@ source_of_truth: repository
 ## 2026-09-28
 
 - Added the C02 backend dispute regression harness with `convex-test`, deterministic fixtures, explicit Convex module loading, separate test TypeScript configuration, and verified schema/index/participant/admin/failure-path coverage without changing production dispute contracts.
+- Hardened C05 dispute creation authorization: typed parent-ID normalization, job/milestone/escrow relationship invariants, explicit escrow and `job` alias handling, legacy micro-gig compatibility, assigned `funded`/`submitted` eligibility, normalized participant roles, and status-index duplicate detection without a 50-record blind spot. Extended the in-memory suite to 40 passing backend tests and documented the unchanged admin credential boundary and wallet-possession limitation.
 
 ## 2026-09-27
 
