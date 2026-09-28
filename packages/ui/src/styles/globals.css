@@ -49,6 +49,7 @@
   --highrable-orange-2: #ff7003;
   --highrable-orange-3: #e85d00;
   --highrable-orange-4: #b94a00;
+  --highrable-button-gradient: linear-gradient(to right, #ff8703, #fe6002);
   --highrable-gradient-primary: linear-gradient(
     135deg,
     var(--highrable-orange-1),
@@ -200,7 +201,7 @@
     background-image: var(--highrable-gradient-primary-strong);
   }
   .hr-gradient-interactive {
-    background-image: var(--highrable-gradient-primary);
+    background-image: var(--highrable-button-gradient);
     background-size: 100% 100%;
     transition:
       background-size 0.2s ease,
@@ -214,6 +215,10 @@
   }
   .hr-hard-shadow-strong {
     box-shadow: var(--highrable-shadow-hard-strong);
+  }
+  .hr-button-primary-colors {
+    background-image: var(--highrable-button-gradient);
+    color: #fff;
   }
   .hr-panel {
     background-color: var(--card);
@@ -245,22 +250,38 @@
     color: var(--ring);
   }
   .hr-v2-button-primary {
-    background-image: var(--highrable-gradient-primary);
-    color: var(--primary-foreground);
+    background-image: var(--highrable-button-gradient);
+    color: #fff;
     border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       filter 0.2s ease,
       transform 0.2s ease;
   }
-  .hr-v2-button-primary:hover {
+  a.hr-button-hover-shadow {
+    transition-property: box-shadow, color, background-color, border-color, opacity;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
+  button:not(:disabled):hover,
+  [data-slot="button"]:not(:disabled):hover,
+  .hr-button-hover-shadow:hover,
+  .hr-v2-button-primary:hover,
+  .hr-v2-button-secondary:hover,
+  .hr-v2-button-light:hover,
+  .hr-v2-button-inverse:hover {
     box-shadow: var(--highrable-shadow-hard-strong);
+  }
+  [data-slot="button"][data-variant="outline"]:not(:disabled):hover {
+    background-color: transparent;
+  }
+  .hr-v2-button-primary:hover {
     filter: brightness(1.04);
   }
   .hr-v2-button-secondary {
-    background-color: var(--card);
-    border: 1px solid var(--highrable-text-primary);
-    color: var(--highrable-text-primary);
+    background-color: transparent;
+    border: 1px solid var(--highrable-orange-3);
+    color: var(--highrable-text-accent);
     border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
@@ -268,24 +289,21 @@
       border-color 0.2s ease;
   }
   .hr-v2-button-secondary:hover {
-    background-color: var(--highrable-text-primary);
-    color: var(--primary-foreground);
+    background-color: transparent;
+    color: var(--highrable-text-accent);
   }
   .hr-v2-button-light {
     background-color: var(--card);
-    color: var(--highrable-orange-3);
+    color: var(--highrable-text-accent);
     border-radius: var(--radius);
     transition:
       box-shadow 0.2s ease,
       transform 0.2s ease;
   }
-  .hr-v2-button-light:hover {
-    box-shadow: var(--highrable-shadow-hard-strong);
-  }
   .hr-v2-button-inverse {
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.88);
-    color: var(--primary-foreground);
+    color: #fff;
     border-radius: var(--radius);
     transition:
       background-color 0.2s ease,
@@ -293,9 +311,8 @@
       border-color 0.2s ease;
   }
   .hr-v2-button-inverse:hover {
-    background-color: var(--card);
-    border-color: var(--card);
-    color: var(--highrable-orange-3);
+    background-color: transparent;
+    color: var(--highrable-text-accent);
   }
   .hr-v2-grid-overlay {
     background-image:
