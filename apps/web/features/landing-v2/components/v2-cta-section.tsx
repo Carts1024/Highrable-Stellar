@@ -1,76 +1,67 @@
 "use client";
 
-import {
-  V2_PAGE_CONTAINER_CLASS,
-  V2_SECTION_SPACING_CLASS,
-} from "@repo/ui/components/highrable/v2-theme";
-import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
 
-/** Full-width final CTA styled inside a glassmorphic dark container with animated background glow blobs. */
+import { EDITORIAL_CONTAINER_CLASS, EDITORIAL_SECTION_CLASS } from "./editorial-layout";
+import { V2Reveal } from "./v2-animated-elements";
+
+/** Final full-screen invitation, using the landing page's existing actions. */
 export function V2CtaSection() {
   return (
-    <section className={`relative overflow-hidden ${V2_SECTION_SPACING_CLASS}`}>
-      <div className={V2_PAGE_CONTAINER_CLASS}>
-        <div className="relative overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 px-8 py-16 text-center shadow-2xl md:px-16 md:py-24 dark:border-neutral-800 dark:bg-black">
-          {/* Immersive background glow effects */}
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], x: [0, 20, 0], y: [0, -20, 0] }}
-            transition={{ repeat: Infinity, duration: 10, ease: "easeInOut" }}
-            className="pointer-events-none absolute -top-20 -left-20 h-64 w-64 rounded-full bg-orange-600/20 blur-[80px]"
-          />
-          <motion.div
-            animate={{ scale: [1.2, 1, 1.2], x: [0, -30, 0], y: [0, 30, 0] }}
-            transition={{ repeat: Infinity, duration: 12, ease: "easeInOut" }}
-            className="pointer-events-none absolute -right-20 -bottom-20 h-80 w-80 rounded-full bg-amber-600/15 blur-[100px]"
-          />
-          {/* Third slow-moving blob for depth */}
-          <motion.div
-            animate={{ scale: [1, 1.3, 1], x: [0, -15, 0], y: [0, 15, 0] }}
-            transition={{ repeat: Infinity, duration: 16, ease: "easeInOut", delay: 3 }}
-            className="pointer-events-none absolute top-1/2 left-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/8 blur-[90px]"
-          />
-
-          {/* Animated dot-grid overlay */}
+    <section className={EDITORIAL_SECTION_CLASS}>
+      <div className={EDITORIAL_CONTAINER_CLASS}>
+        <V2Reveal
+          y={24}
+          scale={0.98}
+          className="relative mx-auto max-w-5xl overflow-hidden rounded-2xl bg-linear-to-br from-[#FF8703] to-[#FE6002] px-5 py-14 text-center text-white sm:px-12 sm:py-16 md:py-24"
+        >
           <div
-            className="pointer-events-none absolute inset-0 opacity-[0.04]"
-            style={{
-              backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
-              backgroundSize: "28px 28px",
-            }}
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full bg-white/15 blur-3xl"
           />
+          <div className="relative mx-auto max-w-2xl">
+            <V2Reveal
+              as="span"
+              delay={0.1}
+              y={12}
+              className="inline-flex rounded-full border border-white/45 px-4 py-2 font-mono text-[0.6rem] font-semibold tracking-[0.12em] uppercase"
+            >
+              Secure · Fast · Fair
+            </V2Reveal>
+            <V2Reveal
+              as="h2"
+              delay={0.18}
+              className="mx-auto mt-6 text-3xl leading-[1.08] font-bold tracking-tight sm:text-4xl md:text-6xl"
+            >
+              The next era of freelance work.
+            </V2Reveal>
+            <V2Reveal
+              as="p"
+              delay={0.26}
+              className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-white/90 sm:text-base"
+            >
+              Your payment is held safely until the work is approved, and every review you earn is
+              kept permanently.
+            </V2Reveal>
 
-          {/* Thin glowing beam border line */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-orange-500/50 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-orange-500/20 to-transparent" />
-
-          {/* Content Wrapper */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.65 }}
-            className="relative z-10 mx-auto max-w-2xl"
-          >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3.5 py-1 text-orange-400">
-              <Sparkles className="h-3.5 w-3.5 fill-current" />
-              <span className="font-mono text-[0.65rem] font-bold tracking-widest uppercase">
-                Secure · Instant · Fair
-              </span>
-            </div>
-
-            <h2 className="mb-6 text-3xl leading-[1.1] font-bold tracking-tight text-white md:text-[3.25rem]">
-              The future of freelance
-              <br />
-              work is guaranteed.
-            </h2>
-
-            <p className="mx-auto max-w-lg text-sm leading-relaxed text-neutral-400 sm:text-base">
-              Join Highrable today. Your payment is held safely until the work is done, you get paid
-              in seconds, and every review you earn is permanent.
-            </p>
-          </motion.div>
-        </div>
+            <V2Reveal delay={0.34} className="mt-8 flex justify-center">
+              <div className="mx-auto flex w-full max-w-md flex-col justify-center gap-3 sm:flex-row">
+                <Link
+                  href="/jobs"
+                  className="hr-button-hover-shadow flex min-h-11 items-center justify-center rounded-lg bg-white px-6 py-3 font-mono text-xs font-bold tracking-widest text-[#B94A00] uppercase transition-colors hover:bg-white/90"
+                >
+                  Find Work
+                </Link>
+                <Link
+                  href="/post-job"
+                  className="hr-button-hover-shadow flex min-h-11 items-center justify-center rounded-lg border border-white/70 px-6 py-3 font-mono text-xs font-bold tracking-widest text-white uppercase transition-colors hover:bg-transparent"
+                >
+                  Post a Job
+                </Link>
+              </div>
+            </V2Reveal>
+          </div>
+        </V2Reveal>
       </div>
     </section>
   );

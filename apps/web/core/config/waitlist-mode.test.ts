@@ -8,13 +8,13 @@ import {
 
 describe("resolveWaitlistMode", () => {
   it.each([
-    [undefined, true],
-    [null, true],
-    ["", true],
+    [undefined, false],
+    [null, false],
+    ["", false],
     ["true", true],
     [" TRUE ", true],
-    ["invalid", true],
-    ["1", true],
+    ["invalid", false],
+    ["1", false],
     ["false", false],
     [" FALSE ", false],
   ])("resolves %j to %s", (value, expected) => {
