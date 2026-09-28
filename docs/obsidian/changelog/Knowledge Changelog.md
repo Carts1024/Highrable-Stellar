@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-09-28
+
+- Added reusable timestamped escrow fixtures and stronger dispute lifecycle regression checks. Tests compare complete records and token balances around successful and rejected dispute marking; mocked authorization remains a lifecycle-testing boundary (see [[contracts/Escrow Contract]]).
 
 ## 2026-09-27
 

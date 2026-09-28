@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -99,7 +99,7 @@ No `events().publish(...)` or equivalent event emission is present in the curren
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute tests use timestamped funded and submitted fixtures established through public contract calls. Successful marking checks the full escrow record and client, freelancer, and escrow token balances, proving only `status` changes; rejected `Created`, `Released`, `Cancelled`, and already-`Disputed` attempts preserve the complete record and balances while asserting typed errors. The unassigned-escrow `InvalidFreelancer` case remains covered. Test authorization is mocked and does not prove signature enforcement.
 
 ## Deployment Configuration
 
