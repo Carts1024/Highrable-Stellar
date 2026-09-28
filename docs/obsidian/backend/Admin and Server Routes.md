@@ -2,7 +2,7 @@
 type: reference
 area: backend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -29,6 +29,10 @@ The admin route handlers validate request bodies with Zod and then call typed Co
 - `POST /api/auth/stellar/verify` validates the challenge message and Ed25519 signature, consumes the nonce, and creates a signed HTTP-only session cookie.
 
 The challenge/session implementation is in `apps/web/core/wallet/server/auth-store.ts`. Production requires `WALLET_SESSION_SECRET`; development has a fallback warning.
+
+## Velo Gas Station routes
+
+`POST /api/stellar/gas/submit` and `POST /api/stellar/gas/status` are authenticated wallet routes, not admin routes. They use the verified session subject plus a wallet-owned `clientRequestId`, enforce bounded Zod payloads, and persist only safe Velo recovery data through Convex. The submit route accepts one signed Soroban `invokeHostFunction` XDR for the initial handoff; subsequent uncertain execution recovery is status-only.
 
 ## Convex admin boundary
 
