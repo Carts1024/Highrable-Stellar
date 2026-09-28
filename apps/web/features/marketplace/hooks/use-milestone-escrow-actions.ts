@@ -19,7 +19,10 @@ import {
   type TEscrowPaymentAsset,
 } from "@/core/stellar/payment-assets";
 import { getSmartAccountKit } from "@/core/stellar/smart-account-kit";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -224,6 +227,7 @@ export function useMilestoneEscrowActions({
     async (
       action: TMilestoneEscrowAction,
       callback: (params: {
+        clientRequestId: string;
         config: ReturnType<typeof getRequiredEscrowActionConfig>;
         escrowAsset: TEscrowPaymentAsset;
         passkeyReadiness: IPasskeyEscrowExecutionReadiness | null;
@@ -253,7 +257,12 @@ export function useMilestoneEscrowActions({
           status: "pending",
         });
 
-        const result = await callback({ config, escrowAsset, passkeyReadiness });
+        const result = await callback({
+          clientRequestId,
+          config,
+          escrowAsset,
+          passkeyReadiness,
+        });
 
         await updateTransactionStatus({
           clientRequestId,
@@ -284,7 +293,7 @@ export function useMilestoneEscrowActions({
             clientRequestId,
             ...(failedTxHash ? { txHash: failedTxHash } : {}),
             ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-            status: "failed",
+            status: isPendingStellarTransactionError(error) ? "pending" : "failed",
             errorMessage,
           });
         } catch {
@@ -315,50 +324,54 @@ export function useMilestoneEscrowActions({
   );
 
   const createEscrow = useCallback(async () => {
-    return await runEscrowAction("create_escrow", async ({ config, escrowAsset }) => {
-      if (milestone.status !== "assigned" || escrow) {
-        throw new Error("Milestone escrow can only be created after assignment.");
-      }
+    return await runEscrowAction(
+      "create_escrow",
+      async ({ clientRequestId, config, escrowAsset }) => {
+        if (milestone.status !== "assigned" || escrow) {
+          throw new Error("Milestone escrow can only be created after assignment.");
+        }
 
-      const milestoneHash = await toBytesN32Hash(
-        createMilestoneHash({
-          jobId: job._id,
-          milestoneId: milestone._id,
-          order: milestone.order,
-          title: milestone.title,
-        }),
-      );
-      const result = await createEscrowOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress!,
-        signTransaction,
-        walletType: activeWalletType,
-        client: job.clientWallet,
-        freelancer: milestone.assignedFreelancerWallet!,
-        asset: escrowAsset.tokenContractId,
-        amount: milestone.amount,
-        assetDecimals: escrowAsset.decimals,
-        jobHash: milestoneHash,
-      });
+        const milestoneHash = await toBytesN32Hash(
+          createMilestoneHash({
+            jobId: job._id,
+            milestoneId: milestone._id,
+            order: milestone.order,
+            title: milestone.title,
+          }),
+        );
+        const result = await createEscrowOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          escrowContractId: config.escrowContractId,
+          sourceAddress: activeWalletAddress!,
+          signTransaction,
+          walletType: activeWalletType,
+          operationId: clientRequestId,
+          client: job.clientWallet,
+          freelancer: milestone.assignedFreelancerWallet!,
+          asset: escrowAsset.tokenContractId,
+          amount: milestone.amount,
+          assetDecimals: escrowAsset.decimals,
+          jobHash: milestoneHash,
+        });
 
-      await createMilestoneEscrowRecord({
-        jobId: job._id as TConvexId<"jobs">,
-        milestoneId: milestone._id as TConvexId<"milestones">,
-        escrowId: result.escrowId,
-        clientWallet: job.clientWallet,
-        freelancerWallet: milestone.assignedFreelancerWallet!,
-        amount: milestone.amount,
-        asset: escrowAsset.tokenContractId,
-        createTxHash: result.txHash,
-      });
+        await createMilestoneEscrowRecord({
+          jobId: job._id as TConvexId<"jobs">,
+          milestoneId: milestone._id as TConvexId<"milestones">,
+          escrowId: result.escrowId,
+          clientWallet: job.clientWallet,
+          freelancerWallet: milestone.assignedFreelancerWallet!,
+          amount: milestone.amount,
+          asset: escrowAsset.tokenContractId,
+          createTxHash: result.txHash,
+        });
 
-      return {
-        txHash: result.txHash,
-        success: `Milestone escrow #${result.escrowId} created on Stellar.`,
-      };
-    });
+        return {
+          txHash: result.txHash,
+          success: `Milestone escrow #${result.escrowId} created on Stellar.`,
+        };
+      },
+    );
   }, [
     activeWalletAddress,
     activeWalletType,
@@ -371,53 +384,57 @@ export function useMilestoneEscrowActions({
   ]);
 
   const fundEscrow = useCallback(async () => {
-    return await runEscrowAction("fund_escrow", async ({ config, escrowAsset }) => {
-      const escrowId = getEscrowIdOrThrow(escrow);
-      if (escrow?.status !== "created") {
-        throw new Error("Milestone escrow must be created before it can be funded.");
-      }
+    return await runEscrowAction(
+      "fund_escrow",
+      async ({ clientRequestId, config, escrowAsset }) => {
+        const escrowId = getEscrowIdOrThrow(escrow);
+        if (escrow?.status !== "created") {
+          throw new Error("Milestone escrow must be created before it can be funded.");
+        }
 
-      const requiredBalance = parseEscrowAssetAmount(escrowAsset, milestone.amount);
-      const escrowTokenBalance = await getTokenBalanceOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        tokenContractId: escrowAsset.tokenContractId,
-        sourceAddress:
-          activeWalletType === "passkey_smart_account"
-            ? getSmartAccountKit().deployerPublicKey
-            : activeWalletAddress!,
-        walletAddress: activeWalletAddress!,
-      });
+        const requiredBalance = parseEscrowAssetAmount(escrowAsset, milestone.amount);
+        const escrowTokenBalance = await getTokenBalanceOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          tokenContractId: escrowAsset.tokenContractId,
+          sourceAddress:
+            activeWalletType === "passkey_smart_account"
+              ? getSmartAccountKit().deployerPublicKey
+              : activeWalletAddress!,
+          walletAddress: activeWalletAddress!,
+        });
 
-      if (escrowTokenBalance < requiredBalance) {
-        throw new Error(
-          activeWalletType === "passkey_smart_account"
-            ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
-            : `You do not have enough ${escrowAsset.symbol} to fund this milestone.`,
-        );
-      }
+        if (escrowTokenBalance < requiredBalance) {
+          throw new Error(
+            activeWalletType === "passkey_smart_account"
+              ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
+              : `You do not have enough ${escrowAsset.symbol} to fund this milestone.`,
+          );
+        }
 
-      const result = await fundEscrowOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress!,
-        signTransaction,
-        walletType: activeWalletType,
-        client: job.clientWallet,
-        escrowId,
-      });
+        const result = await fundEscrowOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          escrowContractId: config.escrowContractId,
+          sourceAddress: activeWalletAddress!,
+          signTransaction,
+          walletType: activeWalletType,
+          operationId: clientRequestId,
+          client: job.clientWallet,
+          escrowId,
+        });
 
-      await updateMilestoneEscrowStatus({
-        milestoneId: milestone._id as TConvexId<"milestones">,
-        escrowId,
-        status: "funded",
-        txHash: result.txHash,
-        txType: "fund_escrow",
-      });
+        await updateMilestoneEscrowStatus({
+          milestoneId: milestone._id as TConvexId<"milestones">,
+          escrowId,
+          status: "funded",
+          txHash: result.txHash,
+          txType: "fund_escrow",
+        });
 
-      return { txHash: result.txHash, success: "Milestone escrow funded on Stellar." };
-    });
+        return { txHash: result.txHash, success: "Milestone escrow funded on Stellar." };
+      },
+    );
   }, [
     activeWalletAddress,
     activeWalletType,
@@ -431,7 +448,7 @@ export function useMilestoneEscrowActions({
   ]);
 
   const submitWork = useCallback(async () => {
-    return await runEscrowAction("submit_work", async ({ config }) => {
+    return await runEscrowAction("submit_work", async ({ clientRequestId, config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "funded") {
         throw new Error("Milestone escrow must be funded before work can be submitted.");
@@ -444,6 +461,7 @@ export function useMilestoneEscrowActions({
         sourceAddress: activeWalletAddress!,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         freelancer: milestone.assignedFreelancerWallet!,
         escrowId,
         proofHash: await toBytesN32Hash(`legacy-submit-work:${escrowId}:${milestone._id}`),
@@ -472,7 +490,7 @@ export function useMilestoneEscrowActions({
 
   const approveAndRelease = useCallback(
     async ({ rating, reviewText }: { rating: number; reviewText: string }) => {
-      return await runEscrowAction("release_payment", async ({ config }) => {
+      return await runEscrowAction("release_payment", async ({ clientRequestId, config }) => {
         const escrowId = getEscrowIdOrThrow(escrow);
         if (escrow?.status !== "submitted") {
           throw new Error("Milestone work must be submitted before payment can be released.");
@@ -490,6 +508,7 @@ export function useMilestoneEscrowActions({
           sourceAddress: activeWalletAddress!,
           signTransaction,
           walletType: activeWalletType,
+          operationId: clientRequestId,
           client: job.clientWallet,
           escrowId,
           rating,
@@ -540,7 +559,7 @@ export function useMilestoneEscrowActions({
   );
 
   const cancelEscrow = useCallback(async () => {
-    return await runEscrowAction("cancel_escrow", async ({ config }) => {
+    return await runEscrowAction("cancel_escrow", async ({ clientRequestId, config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "created" && escrow?.status !== "funded") {
         throw new Error("Milestone escrow can only be cancelled before work is submitted.");
@@ -553,6 +572,7 @@ export function useMilestoneEscrowActions({
         sourceAddress: activeWalletAddress!,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         client: job.clientWallet,
         escrowId,
       });
@@ -579,7 +599,7 @@ export function useMilestoneEscrowActions({
   ]);
 
   const markDisputed = useCallback(async () => {
-    return await runEscrowAction("mark_disputed", async ({ config }) => {
+    return await runEscrowAction("mark_disputed", async ({ clientRequestId, config }) => {
       const escrowId = getEscrowIdOrThrow(escrow);
       if (escrow?.status !== "funded" && escrow?.status !== "submitted") {
         throw new Error("Milestone escrow can only be disputed after funding and before release.");
@@ -592,6 +612,7 @@ export function useMilestoneEscrowActions({
         sourceAddress: activeWalletAddress!,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         caller: activeWalletAddress!,
         escrowId,
       });

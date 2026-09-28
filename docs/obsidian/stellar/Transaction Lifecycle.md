@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -21,6 +21,12 @@ The shared path in `apps/web/core/stellar/transaction.ts` is:
 7. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
 
 `simulateContractCall` is the read/preflight helper. `invokeContract` is the signed submission helper.
+
+## Optional Velo-sponsored Testnet call
+
+With the Velo flag enabled, steps 1–4 are unchanged. The wallet signs the prepared inner transaction, then the browser hands that XDR and the stable transaction operation ID to the authenticated server route. The server validates the session wallet and exact one-operation Soroban shape, calls `sponsorAndSubmit` once with an idempotency key and bounded deadline, and returns only safe execution identity/status data.
+
+`submission_unknown`, `claimed`, and `submitted` remain pending. The server persists the request ID and inner hash immediately and uses `getStatus`/`waitForResult` with identity only for recovery; it never resubmits the signed XDR after an uncertain result. A succeeded result may include both the inner transaction hash and sponsored outer fee-bump hash, and confirmation polls the outer hash when present. `actualFeeStroops` remains null until known. Failed/cancelled are terminal non-success states. This path is Testnet-only and does not apply to passkey smart-account calls.
 
 ## Passkey-smart-account call
 

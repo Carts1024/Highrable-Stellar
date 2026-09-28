@@ -87,7 +87,7 @@ export function V2WaitlistForm({ id = "waitlist-input" }: { id?: string }) {
   };
 
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-    "I just joined the @highrable waitlist — the next-gen freelance marketplace secured by Stellar smart contracts. Join here: https://highrable.work",
+    "I just joined the @highrable waitlist — a freelance marketplace where payment is ready before work begins. Join here: https://highrable.work",
   )}`;
 
   return (

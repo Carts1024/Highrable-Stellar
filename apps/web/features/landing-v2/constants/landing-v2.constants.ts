@@ -9,8 +9,8 @@ import type {
 } from "../types/landing-v2.types";
 
 export const NAV_LINKS: readonly TNavLink[] = [
-  { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
+  { label: "Features", href: "#features" },
   { label: "Why Highrable", href: "#why-highrable" },
 ];
 
