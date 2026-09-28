@@ -9,6 +9,7 @@ import {
 } from "./helpers";
 import {
   feePathValidator,
+  gasStatusValidator,
   transactionStatusValidator,
   transactionTypeValidator,
   walletTypeValidator,
@@ -114,6 +115,56 @@ export const updateTransactionStatus = mutation({
       ...(txHash !== undefined ? { txHash } : {}),
       ...(transactionHash !== undefined ? { transactionHash } : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
+    });
+
+    return transaction._id;
+  },
+});
+
+export const recordGasExecution = mutation({
+  args: {
+    walletAddress: v.string(),
+    clientRequestId: v.string(),
+    status: transactionStatusValidator,
+    gasStatus: gasStatusValidator,
+    gasRequestId: v.string(),
+    gasTransactionHash: v.string(),
+    gasOuterTransactionHash: v.optional(v.string()),
+    gasActualFeeStroops: v.optional(v.union(v.string(), v.null())),
+    gasReconciliationRequired: v.boolean(),
+    txHash: v.optional(v.string()),
+    transactionHash: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = sanitizeTransactionWallet(args.walletAddress);
+    const clientRequestId = sanitizeOptionalTransactionRef(args.clientRequestId, "clientRequestId");
+    if (!clientRequestId) {
+      throw new Error("clientRequestId is required.");
+    }
+
+    const transaction = await getTransactionByLookup(ctx, undefined, clientRequestId);
+    if (!transaction || transaction.walletAddress !== walletAddress) {
+      return null;
+    }
+
+    await ctx.db.patch(transaction._id, {
+      status: args.status,
+      updatedAt: Date.now(),
+      gasStatus: args.gasStatus,
+      gasRequestId: args.gasRequestId,
+      gasTransactionHash: args.gasTransactionHash,
+      ...(args.gasOuterTransactionHash !== undefined
+        ? { gasOuterTransactionHash: args.gasOuterTransactionHash }
+        : {}),
+      ...(args.gasActualFeeStroops !== undefined
+        ? { gasActualFeeStroops: args.gasActualFeeStroops }
+        : {}),
+      gasReconciliationRequired: args.gasReconciliationRequired,
+      ...(args.txHash !== undefined ? { txHash: args.txHash } : {}),
+      ...(args.transactionHash !== undefined ? { transactionHash: args.transactionHash } : {}),
+      ...(args.status === "success" ? { confirmedAt: Date.now() } : {}),
+      ...(args.errorMessage !== undefined ? { errorMessage: args.errorMessage } : {}),
     });
 
     return transaction._id;

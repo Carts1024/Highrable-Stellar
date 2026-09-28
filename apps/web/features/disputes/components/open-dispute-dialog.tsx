@@ -4,7 +4,10 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -207,6 +210,7 @@ export function OpenDisputeDialog({
         sourceAddress: activeWalletAddress,
         signTransaction,
         walletType: activeWalletType,
+        operationId: clientRequestId,
         caller: activeWalletAddress,
         escrowId: escrow.escrowId,
       });
@@ -254,17 +258,23 @@ export function OpenDisputeDialog({
       await updateTransactionStatus({
         clientRequestId,
         ...(failedTxHash ? { txHash: failedTxHash } : {}),
-        status: "failed",
+        status: isPendingStellarTransactionError(error) ? "pending" : "failed",
         errorMessage,
       });
-      await markFailed({
-        disputeId,
-        actorWallet: activeWalletAddress,
-        actorWalletType: walletIdentity.walletType,
-        errorMessage,
-        ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-      });
-      throw new Error("Dispute evidence was saved, but on-chain marking failed. Please retry.");
+      if (!isPendingStellarTransactionError(error)) {
+        await markFailed({
+          disputeId,
+          actorWallet: activeWalletAddress,
+          actorWalletType: walletIdentity.walletType,
+          errorMessage,
+          ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
+        });
+      }
+      throw new Error(
+        isPendingStellarTransactionError(error)
+          ? "Dispute marking is still pending. Use transaction recovery before retrying."
+          : "Dispute evidence was saved, but on-chain marking failed. Please retry.",
+      );
     }
   };
 
