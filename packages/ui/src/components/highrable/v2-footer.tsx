@@ -21,7 +21,6 @@ export type THighrableV2FooterSocialLink = {
 };
 
 export type THighrableV2FooterBrand = {
-  readonly name: string;
   readonly description: string;
   readonly logoSrc: string;
   readonly logoAlt: string;
@@ -118,18 +117,15 @@ function FooterSection({
 
 function BrandMark({ brand }: { readonly brand: THighrableV2FooterBrand }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col items-start gap-2">
       <img
         src={normalizeSafeUrl(brand.logoSrc)}
         alt={brand.logoAlt}
-        className="h-10 w-10 rounded-lg object-cover"
+        className="h-14 w-auto max-w-[220px] object-contain"
       />
-      <div>
-        <p className="text-xl font-semibold leading-none tracking-tight text-white">{brand.name}</p>
-        <p className="mt-1 font-mono text-[0.65rem] tracking-[0.08em] text-white/40 uppercase">
-          Stellar-native work
-        </p>
-      </div>
+      <p className="font-mono text-[0.65rem] tracking-[0.08em] text-white/40 uppercase">
+        Stellar-native work
+      </p>
     </div>
   );
 }

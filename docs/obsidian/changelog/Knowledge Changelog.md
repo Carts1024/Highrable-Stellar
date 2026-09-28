@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 source_of_truth: repository
 ---
 
@@ -15,6 +15,7 @@ source_of_truth: repository
 ## 2026-09-26
 
 - Documented the opt-in Velo Gas Station Testnet boundary: pinned SDK, authenticated server handoff, Convex recovery identity, safe response fields, status-only recovery, and operator prerequisites.
+- Documented landing-page responsive behavior: fluid root scale on large displays, `V2SnapGuard`-driven snap relaxation for oversized sections, and reduced reveal travel on phones (see [[frontend/Frontend Overview]]).
 
 ## 2026-09-21
 

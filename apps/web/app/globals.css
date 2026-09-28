@@ -6,6 +6,93 @@ body {
   min-height: 100vh;
 }
 
+/* Landing page: snap the viewport to one full-height section at a time. Scoped
+   with :has() so other routes keep normal scrolling. Sections taller than the
+   viewport still scroll freely inside before snapping. */
+html:has(.landing-v2-page) {
+  scroll-snap-type: y mandatory;
+  /* Every rem-based size (type, spacing, max-widths) grows with large displays
+     so content stays proportionate instead of floating in empty space. It is
+     limited by whichever of width or height is tighter (so ultrawide monitors
+     do not push sections past one screen) and never drops below the user's
+     default font size. */
+  font-size: clamp(1rem, min(0.8334vw, 1.48vh), 1.75rem);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.landing-v2-page > main > section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.landing-v2-page > footer {
+  scroll-snap-align: end;
+}
+
+/* Sections taller than the screen (phones, short laptops) would have their
+   lower part skipped by mandatory snapping. V2SnapGuard sets data-snap-overflow
+   whenever that happens; the media query covers phones before it runs. Snapping
+   relaxes so all content stays reachable and sections still settle when close. */
+html[data-snap-overflow]:has(.landing-v2-page) {
+  scroll-snap-type: y proximity;
+}
+
+html[data-snap-overflow] .landing-v2-page > main > section {
+  scroll-snap-stop: normal;
+}
+
+@media (max-width: 47.99rem), (max-height: 40rem) {
+  html:has(.landing-v2-page) {
+    scroll-snap-type: y proximity;
+  }
+
+  .landing-v2-page > main > section {
+    scroll-snap-stop: normal;
+  }
+}
+
+/* Never let the marketing page scroll sideways. */
+.landing-v2-page {
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 ::selection {
   background: rgb(255 112 3 / 18%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .landing-v2-page {
+    color-scheme: dark;
+    --background: #171717;
+    --foreground: #fafafa;
+    --card: #1f1f1f;
+    --card-foreground: #fafafa;
+    --popover: #1f1f1f;
+    --popover-foreground: #fafafa;
+    --primary: #fafafa;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #fafafa;
+    --muted: #262626;
+    --muted-foreground: #d4d4d4;
+    --accent: rgb(255 112 3 / 18%);
+    --accent-foreground: #ffd0ab;
+    --border: #3a3a3a;
+    --input: #3a3a3a;
+    --ring: #ff8801;
+    --highrable-text-primary: #fafafa;
+    --highrable-text-secondary: #d4d4d4;
+    --highrable-text-muted: #a3a3a3;
+    --highrable-text-accent: #ffb067;
+    --highrable-surface-muted: #262626;
+    --highrable-surface-accent: rgb(255 112 3 / 18%);
+    --highrable-border: #3a3a3a;
+  }
 }
