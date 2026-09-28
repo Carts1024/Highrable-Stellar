@@ -47,6 +47,8 @@ The waitlist route gate is opt-in: `NEXT_PUBLIC_WAITLIST_MODE=true` redirects pr
 | `POST /api/admin/disputes/[disputeId]/status` | Changes review status. | Same admin chain plus Zod body validation. |
 | `POST /api/admin/disputes/[disputeId]/note` | Adds moderator note. | Same admin chain plus Zod body validation. |
 | `POST /api/admin/disputes/[disputeId]/resolve` | Records started/succeeded/failed settlement phase. | Same admin chain plus bps/status/body validation. |
+| `POST /api/stellar/gas/submit` | Validates one wallet-signed Soroban inner XDR, performs the idempotent Velo Testnet sponsorship handoff, and persists safe recovery state. | Signed wallet session, transaction-row ownership, bounded body, server-only Velo config. |
+| `POST /api/stellar/gas/status` | Performs status-only Velo recovery from the stored request/inner-hash identity. | Same wallet session and transaction-row ownership; signed XDR is not accepted. |
 
 The listed admin API route records the outcome of chain operations; the direct chain call is performed by feature/stellar code before or around the phase update. `proxy.ts` excludes API paths from waitlist redirects and is not API authorization.
 
