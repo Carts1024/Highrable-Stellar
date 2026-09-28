@@ -14,7 +14,7 @@ Give one configured platform wallet access to metrics, dispute review, moderator
 
 ## Current Status
 
-Admin dashboard and dispute console/API routes are implemented. The contract platform admin must match the configured Highrable admin wallet for on-chain escrow operations. The dispute queue and detail pages now verify the signed session through `/api/admin/session` before mounting protected content; the configured wallet is authoritative and the database user role is not used for these two routes. This is platform-operated review, not decentralized arbitration.
+Admin dashboard and dispute console/API routes are implemented. The contract platform admin must match the configured Highrable admin wallet for on-chain escrow operations. The dispute queue and detail pages now verify the signed session through `/api/admin/session` before mounting protected content; the configured wallet is authoritative and the database user role is not used for these two routes. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`; status labels/classification and Convex-derived view-model types are shared with participant routes. This is platform-operated review, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -42,7 +42,7 @@ Admin data is stored on `disputes`, `disputeEvents`, `escrows`, jobs/milestones,
 
 Signed session cookie, environment admin wallet/secret, Convex HTTP client, escrow `resolve_dispute`, and explorer URL metadata.
 
-The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses.
+The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses. Queue workload metrics render only after queue data exists, and queue/detail errors preserve invalid, not-found, forbidden, and failed-read distinctions. Network and 5xx reads are retryable; 400/401/403/404 reads are not automatically retried.
 
 ## Internal Dependencies
 
@@ -65,7 +65,9 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - The admin Convex secret must never cross into browser code.
 - `/api/admin/session` returns only the verified admin wallet and sends `Cache-Control: no-store`; it never returns the signed session token or Convex secret.
 - Dispute detail `NOT_FOUND` Convex errors map to HTTP 404 and render a return-to-queue state. Queue failures remain errors rather than becoming an empty queue.
+- The shared status contract has eight dispute statuses and four on-chain marking phases. Frontend Developer 1 owns the admin routes/features plus shared dispute types, labels/classification helpers, formatting helpers, and badges; Frontend Developer 2 consumes those exports from participant routes/components.
 - The resolution API records phases; it does not itself submit a Soroban transaction—the UI/helper execution and phase updates are separate.
+- A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety.
 - Metrics are bounded scans and can return `isTruncated`.
 
 ## Related Notes

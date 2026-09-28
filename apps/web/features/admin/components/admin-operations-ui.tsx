@@ -6,9 +6,9 @@ import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
 import Link from "next/link";
+import React, { type ReactNode } from "react";
 
 import type { IAdminDisputeListItem } from "@/features/admin/types";
-import type { ReactNode } from "react";
 
 export interface IAdminMetricItem {
   readonly label: string;
@@ -20,6 +20,7 @@ export interface IAdminBreakdownGroup {
   readonly title: string;
   readonly description: string;
   readonly values: Record<string, number>;
+  readonly formatLabel?: (label: string) => string;
 }
 
 interface IAdminSectionProps {
@@ -118,7 +119,7 @@ export function AdminBreakdownMatrix({ groups }: IAdminBreakdownMatrixProps) {
                   className="flex min-h-10 items-center justify-between gap-3 border-l border-[#e8e8e8] pl-3"
                 >
                   <dt className="text-sm text-[#5f5f5f] capitalize">
-                    {formatBreakdownLabel(label)}
+                    {group.formatLabel?.(label) ?? formatBreakdownLabel(label)}
                   </dt>
                   <dd className="font-mono text-sm font-medium text-[#0a0a0a]">{value}</dd>
                 </div>

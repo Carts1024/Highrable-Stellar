@@ -14,6 +14,12 @@ import {
 import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
+import {
+  getDisputeOnChainStatusLabel,
+  getDisputeStatusLabel,
+  isDisputeOnChainStatus,
+  isDisputeStatus,
+} from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -102,11 +108,17 @@ export function AdminDashboardPage() {
         title: "Disputes By Status",
         description: "Review queue state for open, waiting, and resolved cases.",
         values: metrics.disputes.byStatus,
+        formatLabel: (label) =>
+          isDisputeStatus(label) ? getDisputeStatusLabel(label) : formatBreakdownLabel(label),
       },
       {
         title: "Disputes By On-Chain",
         description: "On-chain marking state for dispute settlement integrity.",
         values: metrics.disputes.byOnChainStatus,
+        formatLabel: (label) =>
+          isDisputeOnChainStatus(label)
+            ? getDisputeOnChainStatusLabel(label)
+            : formatBreakdownLabel(label),
       },
     ];
   }, [metrics]);
@@ -272,4 +284,8 @@ export function AdminDashboardPage() {
       )}
     </div>
   );
+}
+
+function formatBreakdownLabel(label: string): string {
+  return label.replaceAll("_", " ");
 }

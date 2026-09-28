@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminRouteLoadingState } from "@/features/admin/admin-route-fallbacks";
 import {
   AdminSessionGate,
   ADMIN_QUERY_KEY,
@@ -13,14 +14,23 @@ import {
 import {
   AdminApiError,
   fetchAdminDisputes,
-  isAdminAccessError,
+  getAdminApiErrorMessage,
+  isAdminNetworkError,
+  shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
+import {
+  DISPUTE_ON_CHAIN_STATUS_OPTIONS,
+  DISPUTE_STATUS_OPTIONS,
+  isDisputeOnChainStatus,
+  isDisputeStatus,
+  isTerminalDisputeStatus,
+} from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import type { IAdminDisputesResponse } from "@/features/admin/types";
 import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/types";
@@ -37,30 +47,20 @@ interface IFilterOption<TValue extends string> {
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All statuses" },
-  { value: "open", label: "Open" },
-  { value: "under_review", label: "Under review" },
-  { value: "awaiting_client_response", label: "Awaiting client" },
-  { value: "awaiting_freelancer_response", label: "Awaiting freelancer" },
-  { value: "resolved_client", label: "Resolved client" },
-  { value: "resolved_freelancer", label: "Resolved freelancer" },
-  { value: "split_resolution", label: "Split resolution" },
-  { value: "cancelled", label: "Cancelled" },
+  ...DISPUTE_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TStatusFilter>[];
 
 const ON_CHAIN_FILTER_OPTIONS = [
   { value: "", label: "All on-chain states" },
-  { value: "not_marked", label: "Not marked" },
-  { value: "marking", label: "Marking" },
-  { value: "marked", label: "Marked" },
-  { value: "mark_failed", label: "Mark failed" },
+  ...DISPUTE_ON_CHAIN_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TOnChainFilter>[];
 
 function isStatusFilter(value: string): value is TStatusFilter {
-  return STATUS_FILTER_OPTIONS.some((option) => option.value === value);
+  return value === "" || isDisputeStatus(value);
 }
 
 function isOnChainFilter(value: string): value is TOnChainFilter {
-  return ON_CHAIN_FILTER_OPTIONS.some((option) => option.value === value);
+  return value === "" || isDisputeOnChainStatus(value);
 }
 
 function AdminDisputesContent() {
@@ -79,7 +79,7 @@ function AdminDisputesContent() {
         },
         { signal },
       ),
-    retry: (failureCount, error) => !isAdminAccessError(error) && failureCount < 2,
+    retry: shouldRetryAdminRead,
   });
 
   useEffect(() => {
@@ -108,12 +108,7 @@ function AdminDisputesContent() {
       },
       {
         label: "Resolved",
-        value: disputes.filter(
-          (dispute) =>
-            dispute.status === "resolved_client" ||
-            dispute.status === "resolved_freelancer" ||
-            dispute.status === "split_resolution",
-        ).length,
+        value: disputes.filter((dispute) => isTerminalDisputeStatus(dispute.status)).length,
         description: "Cases already moved into a terminal resolution state.",
       },
     ],
@@ -202,7 +197,13 @@ function AdminDisputesContent() {
         <RouteCallout tone="danger">
           {disputeQuery.error.status === 400
             ? "The dispute queue request was invalid. Check the selected filters and retry."
-            : disputeQuery.error.message}
+            : disputeQuery.error.status === 401
+              ? "Admin authentication is required before the dispute queue can be read."
+              : disputeQuery.error.status === 403
+                ? "Admin access is forbidden for this wallet."
+                : isAdminNetworkError(disputeQuery.error)
+                  ? "The dispute queue could not be reached. Check your connection and retry."
+                  : getAdminApiErrorMessage(disputeQuery.error)}
           <AppButton
             type="button"
             variant="secondary"
@@ -218,13 +219,15 @@ function AdminDisputesContent() {
 
       {!disputeQuery.isError ? (
         <>
-          <AdminSection
-            label="Queue Health"
-            title="Visible workload"
-            description="Counts are computed from the currently loaded dispute set."
-          >
-            <AdminMetricRail items={queueMetrics} />
-          </AdminSection>
+          {disputeQuery.data ? (
+            <AdminSection
+              label="Queue Health"
+              title="Visible workload"
+              description="Counts are computed from the currently loaded dispute set."
+            >
+              <AdminMetricRail items={queueMetrics} />
+            </AdminSection>
+          ) : null}
 
           <AdminSection
             label="Dispute Queue"
@@ -232,7 +235,7 @@ function AdminDisputesContent() {
             description="Open a case to inspect evidence, update review status, or record settlement."
           >
             {disputeQuery.isPending ? (
-              <RouteCallout>Loading disputes...</RouteCallout>
+              <AdminRouteLoadingState label="disputes" />
             ) : (
               <AdminDisputeQueue
                 disputes={disputes}

@@ -11,6 +11,7 @@ source_of_truth: repository
 ## 2026-09-28
 
 - Hardened `/admin/disputes` and `/admin/disputes/[disputeId]` with server-verified configured-wallet access, identity-scoped TanStack Query reads, explicit auth/loading/error/not-found states, and no-store `/api/admin/session` responses.
+- Completed C06 frontend handoff: Convex-derived shared dispute types, exhaustive status labels and terminal classification, typed admin filters/network errors, loading/error/retry regression coverage, and the frozen participant/admin ownership contract in `docs/instawards/C06-Frontend-Handoff.md`.
 
 ## 2026-09-27
 

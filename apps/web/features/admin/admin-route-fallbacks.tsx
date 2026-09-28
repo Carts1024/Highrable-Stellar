@@ -1,6 +1,5 @@
 import { RouteCallout } from "@/features/common";
-
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 export function AdminRouteLoadingState({ label }: { readonly label: string }) {
   return <RouteCallout>Loading {label}...</RouteCallout>;

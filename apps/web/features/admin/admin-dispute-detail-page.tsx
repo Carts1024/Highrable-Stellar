@@ -15,6 +15,7 @@ import {
 } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AdminRouteLoadingState } from "@/features/admin/admin-route-fallbacks";
 import {
   AdminSessionGate,
   ADMIN_QUERY_KEY,
@@ -24,10 +25,12 @@ import { AdminSection } from "@/features/admin/components/admin-operations-ui";
 import {
   AdminApiError,
   fetchAdminDispute,
-  isAdminAccessError,
+  getAdminApiErrorMessage,
+  isAdminNetworkError,
   postAdminModeratorNote,
   postAdminResolution,
   postAdminReviewStatus,
+  shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
 import {
   ProductPageHero,
@@ -37,7 +40,13 @@ import {
   showWarningToast,
 } from "@/features/common";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
-import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
+import {
+  formatDisputeDate,
+  getDisputeOnChainStatusLabel,
+  getDisputeReasonLabel,
+  getDisputeStatusLabel,
+  isTerminalDisputeStatus,
+} from "@/features/disputes/lib";
 import { api } from "@repo/convex-client";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -48,7 +57,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { ArrowLeft, ExternalLink, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import type {
   IAdminDisputeDetail,
@@ -62,15 +71,18 @@ const MAX_REVIEW_MESSAGE_LENGTH = 4000;
 const MAX_RESOLUTION_NOTE_LENGTH = 2000;
 
 const REVIEW_STATUS_OPTIONS = [
-  { value: "under_review", label: "Under review" },
-  { value: "awaiting_client_response", label: "Awaiting client response" },
-  { value: "awaiting_freelancer_response", label: "Awaiting freelancer response" },
+  { value: "under_review", label: getDisputeStatusLabel("under_review") },
+  { value: "awaiting_client_response", label: getDisputeStatusLabel("awaiting_client_response") },
+  {
+    value: "awaiting_freelancer_response",
+    label: getDisputeStatusLabel("awaiting_freelancer_response"),
+  },
 ] satisfies ReadonlyArray<{ value: TAdminReviewStatus; label: string }>;
 
 const RESOLUTION_STATUS_OPTIONS = [
-  { value: "resolved_client", label: "Resolved client" },
-  { value: "resolved_freelancer", label: "Resolved freelancer" },
-  { value: "split_resolution", label: "Split resolution" },
+  { value: "resolved_client", label: getDisputeStatusLabel("resolved_client") },
+  { value: "resolved_freelancer", label: getDisputeStatusLabel("resolved_freelancer") },
+  { value: "split_resolution", label: getDisputeStatusLabel("split_resolution") },
 ] satisfies ReadonlyArray<{ value: TAdminResolutionStatus; label: string }>;
 
 interface IAdminDisputeDetailActionsProps {
@@ -139,15 +151,6 @@ function resolveShareBps(status: TAdminResolutionStatus, currentInput: string): 
   }
 
   return parsed;
-}
-
-function isTerminalDisputeStatus(status: IAdminDisputeDetail["dispute"]["status"]): boolean {
-  return (
-    status === "resolved_client" ||
-    status === "resolved_freelancer" ||
-    status === "split_resolution" ||
-    status === "cancelled"
-  );
 }
 
 function sanitizeLimitedMultilineInput(value: string, maxLength: number): string {
@@ -563,7 +566,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   const detailQuery = useQuery<IAdminDisputeDetail, AdminApiError>({
     queryKey: [...ADMIN_QUERY_KEY, "dispute", verifiedWallet, disputeId],
     queryFn: ({ signal }) => fetchAdminDispute(disputeId, { signal }),
-    retry: (failureCount, error) => !isAdminAccessError(error) && failureCount < 2,
+    retry: shouldRetryAdminRead,
   });
   const detail = detailQuery.data ?? null;
   const loadDetail = useCallback(async () => {
@@ -950,7 +953,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   ]);
 
   if (detailQuery.isPending) {
-    return <p className="hr-text-secondary text-sm">Loading dispute detail...</p>;
+    return <AdminRouteLoadingState label="dispute detail" />;
   }
 
   if (detailQuery.isError) {
@@ -975,7 +978,14 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
     return (
       <RouteCallout tone="danger">
-        {detailQuery.error.message || "Dispute detail could not be loaded."}{" "}
+        {detailQuery.error.status === 401
+          ? "Admin authentication is required before this dispute can be read."
+          : detailQuery.error.status === 403
+            ? "Admin access is forbidden for this dispute request."
+            : isAdminNetworkError(detailQuery.error)
+              ? "The dispute detail could not be reached. Check your connection and retry."
+              : getAdminApiErrorMessage(detailQuery.error) ||
+                "Dispute detail could not be loaded."}{" "}
         <AppButton
           type="button"
           variant="secondary"
@@ -1015,10 +1025,10 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         />
 
         <div className="grid gap-5 border-l border-[#e8e8e8] py-2 pl-5 sm:grid-cols-3 lg:grid-cols-1">
-          <HighrableV2Metric label="Status" value={detail.dispute.status.replaceAll("_", " ")} />
+          <HighrableV2Metric label="Status" value={getDisputeStatusLabel(detail.dispute.status)} />
           <HighrableV2Metric
             label="On-chain"
-            value={detail.dispute.onChainStatus.replaceAll("_", " ")}
+            value={getDisputeOnChainStatusLabel(detail.dispute.onChainStatus)}
           />
           <HighrableV2Metric label="Events" value={detail.timeline.length} />
         </div>
@@ -1034,7 +1044,8 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       {canShowRetryMarkDisputed ? (
         <RouteCallout tone="danger">
           The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and sync
-          escrow status.
+          escrow status. This starts a new chain operation; the failure label alone does not
+          establish transaction retry safety.
         </RouteCallout>
       ) : null}
 

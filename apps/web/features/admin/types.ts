@@ -1,86 +1,20 @@
-import type { TConvexDoc, TConvexId } from "@repo/convex-client";
+import { api } from "@repo/convex-client";
 
-export type TAdminReviewStatus =
-  | "under_review"
-  | "awaiting_client_response"
-  | "awaiting_freelancer_response";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 
-export type TAdminResolutionStatus = "resolved_client" | "resolved_freelancer" | "split_resolution";
+export type TAdminDisputeQueueQueryResult = FunctionReturnType<typeof api.admin.listAdminDisputes>;
+export type TAdminDisputeDetailQueryResult = FunctionReturnType<typeof api.admin.getAdminDispute>;
+export type TAdminReviewStatus = FunctionArgs<typeof api.admin.changeDisputeReviewStatus>["status"];
+export type TAdminResolutionStatus = FunctionArgs<
+  typeof api.admin.recordDisputeResolutionStarted
+>["status"];
 
-export interface IAdminDisputeListItem {
-  readonly disputeId: TConvexId<"disputes">;
-  readonly disputeNumber: string;
-  readonly title: string;
-  readonly status: TConvexDoc<"disputes">["status"];
-  readonly onChainStatus: TConvexDoc<"disputes">["onChainStatus"];
-  readonly reasonCategory: TConvexDoc<"disputes">["reasonCategory"];
-  readonly clientWallet: string;
-  readonly freelancerWallet: string;
-  readonly openedAt: number;
-  readonly updatedAt: number;
-}
-
-export interface IAdminDashboardMetrics {
-  readonly generatedAt: number;
-  readonly isTruncated: boolean;
-  readonly users: {
-    readonly total: number;
-    readonly byRole: Record<"client" | "freelancer" | "admin", number>;
-  };
-  readonly jobs: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-  };
-  readonly escrows: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-  };
-  readonly disputes: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-    readonly byOnChainStatus: Record<string, number>;
-  };
-  readonly workSubmissions: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-    readonly byOnChainStatus: Record<string, number>;
-  };
-  readonly revisions: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-  };
-  readonly deadlineReminders: {
-    readonly total: number;
-    readonly byStatus: Record<string, number>;
-    readonly overdueCount: number;
-  };
-  readonly recentDisputes: IAdminDisputeListItem[];
-}
-
-export interface IAdminDisputeDetail {
-  readonly dispute: TConvexDoc<"disputes"> & {
-    readonly attachments?: Array<
-      TConvexDoc<"attachments"> & {
-        readonly url?: string | null;
-      }
-    >;
-  };
-  readonly timeline: Array<
-    TConvexDoc<"disputeEvents"> & {
-      readonly attachments?: Array<
-        TConvexDoc<"attachments"> & {
-          readonly url?: string | null;
-        }
-      >;
-    }
-  >;
-  readonly job: TConvexDoc<"jobs"> | null;
-  readonly milestone: TConvexDoc<"milestones"> | null;
-  readonly escrow: TConvexDoc<"escrows"> | null;
-}
+export type IAdminDisputeListItem = TAdminDisputeQueueQueryResult[number];
+export type IAdminDashboardMetrics = FunctionReturnType<typeof api.admin.getAdminDashboardMetrics>;
+export type IAdminDisputeDetail = TAdminDisputeDetailQueryResult;
 
 export interface IAdminDisputesResponse {
-  readonly disputes: IAdminDisputeListItem[];
+  readonly disputes: TAdminDisputeQueueQueryResult;
 }
 
 export interface IAdminSessionResponse {

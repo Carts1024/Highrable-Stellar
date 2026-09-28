@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AdminApiError, fetchAdminSession } from "./admin-api";
+import {
+  AdminApiError,
+  fetchAdminDisputes,
+  fetchAdminSession,
+  isAdminNetworkError,
+} from "./admin-api";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -43,5 +48,33 @@ describe("admin API client errors", () => {
       status: 404,
       details: { code: "NOT_FOUND" },
     });
+  });
+
+  it("normalizes network failures into the admin error boundary type", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    const error = await fetchAdminSession().catch((nextError: unknown) => nextError);
+
+    expect(isAdminNetworkError(error)).toBe(true);
+    expect(error).toMatchObject({
+      status: 0,
+      message: "Could not reach the admin API. Check your connection and retry.",
+    });
+  });
+
+  it("serializes only typed dispute filters and the bounded queue limit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ disputes: [] }, 200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchAdminDisputes({
+      status: "under_review",
+      onChainStatus: "mark_failed",
+      limit: 120,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/disputes?status=under_review&onChainStatus=mark_failed&limit=120",
+      expect.objectContaining({ credentials: "include", cache: "no-store" }),
+    );
   });
 });

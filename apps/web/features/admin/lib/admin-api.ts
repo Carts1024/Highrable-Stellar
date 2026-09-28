@@ -6,6 +6,7 @@ import type {
   TAdminResolutionRequest,
   TAdminReviewStatus,
 } from "@/features/admin/types";
+import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/types";
 
 export interface IAdminApiRequestOptions {
   readonly signal?: AbortSignal;
@@ -33,6 +34,22 @@ export function isAdminAccessError(error: unknown): error is AdminApiError {
 
 export function isAdminNotFoundError(error: unknown): error is AdminApiError {
   return isAdminApiError(error) && error.status === 404;
+}
+
+export function isAdminNetworkError(error: unknown): error is AdminApiError {
+  return isAdminApiError(error) && error.status === 0;
+}
+
+export function getAdminApiErrorMessage(error: AdminApiError): string {
+  return error.message;
+}
+
+export function isRetryableAdminReadError(error: unknown): boolean {
+  return isAdminNetworkError(error) || (isAdminApiError(error) && error.status >= 500);
+}
+
+export function shouldRetryAdminRead(failureCount: number, error: unknown): boolean {
+  return isRetryableAdminReadError(error) && failureCount < 2;
 }
 
 function buildAdminQuery(params: Record<string, string | number | undefined>): string {
@@ -93,10 +110,37 @@ async function readJsonOrThrow<TResponse>(response: Response): Promise<TResponse
   return payload as TResponse;
 }
 
+function normalizeAdminRequestError(error: unknown): AdminApiError {
+  if (isAdminApiError(error)) {
+    return error;
+  }
+
+  return new AdminApiError(
+    0,
+    "Could not reach the admin API. Check your connection and retry.",
+    error,
+  );
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+async function fetchAdminResponse(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    throw normalizeAdminRequestError(error);
+  }
+}
+
 export async function fetchAdminSession(
   options: IAdminApiRequestOptions = {},
 ): Promise<IAdminSessionResponse> {
-  const response = await fetch("/api/admin/session", {
+  const response = await fetchAdminResponse("/api/admin/session", {
     method: "GET",
     credentials: "include",
     cache: "no-store",
@@ -109,7 +153,7 @@ export async function fetchAdminSession(
 export async function fetchAdminMetrics(
   options: IAdminApiRequestOptions = {},
 ): Promise<IAdminDashboardMetrics> {
-  const response = await fetch("/api/admin/metrics", {
+  const response = await fetchAdminResponse("/api/admin/metrics", {
     method: "GET",
     credentials: "include",
     cache: "no-store",
@@ -121,13 +165,13 @@ export async function fetchAdminMetrics(
 
 export async function fetchAdminDisputes(
   params?: {
-    status?: string;
-    onChainStatus?: string;
+    status?: TDisputeStatus;
+    onChainStatus?: TDisputeOnChainStatus;
     limit?: number;
   },
   options: IAdminApiRequestOptions = {},
 ): Promise<IAdminDisputesResponse> {
-  const response = await fetch(
+  const response = await fetchAdminResponse(
     `/api/admin/disputes${buildAdminQuery({
       status: params?.status,
       onChainStatus: params?.onChainStatus,
@@ -148,25 +192,31 @@ export async function fetchAdminDispute(
   disputeId: string,
   options: IAdminApiRequestOptions = {},
 ): Promise<IAdminDisputeDetail> {
-  const response = await fetch(`/api/admin/disputes/${encodeURIComponent(disputeId)}`, {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-    signal: options.signal,
-  });
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      signal: options.signal,
+    },
+  );
 
   return await readJsonOrThrow<IAdminDisputeDetail>(response);
 }
 
 export async function postAdminModeratorNote(disputeId: string, message: string): Promise<void> {
-  const response = await fetch(`/api/admin/disputes/${encodeURIComponent(disputeId)}/note`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}/note`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ message }),
     },
-    body: JSON.stringify({ message }),
-  });
+  );
 
   await readJsonOrThrow<{ success: true }>(response);
 }
@@ -176,17 +226,20 @@ export async function postAdminReviewStatus(
   status: TAdminReviewStatus,
   message?: string,
 ): Promise<void> {
-  const response = await fetch(`/api/admin/disputes/${encodeURIComponent(disputeId)}/status`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}/status`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        status,
+        ...(message ? { message } : {}),
+      }),
     },
-    body: JSON.stringify({
-      status,
-      ...(message ? { message } : {}),
-    }),
-  });
+  );
 
   await readJsonOrThrow<{ success: true }>(response);
 }
@@ -195,14 +248,17 @@ export async function postAdminResolution(
   disputeId: string,
   payload: TAdminResolutionRequest,
 ): Promise<void> {
-  const response = await fetch(`/api/admin/disputes/${encodeURIComponent(disputeId)}/resolve`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "content-type": "application/json",
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}/resolve`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
 
   await readJsonOrThrow<{ success: true }>(response);
 }
