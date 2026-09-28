@@ -15,6 +15,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 ## Current Status
 
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts`, derives status/actor/parent fields from generated Convex documents, and publishes the frozen participant handoff at `docs/instawards/C06-Frontend-Handoff.md`. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization and creation invariants without changing public arguments, return shapes, schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -76,6 +77,20 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 - Contract settlement does not write a reputation completion record.
 - Convex public participant checks are not the same as signed-session possession proof.
 - Participant authentication remains limited: caller-supplied wallet arguments are checked by participant helpers, but participant Convex reads/mutations do not have the admin routes' signed-session possession proof.
+
+## C05 Verified Invariants
+
+- Dispute parent IDs are normalized against their expected Convex table before reads. Jobs, milestones, escrows, parent-job links, milestone-job links, escrow client ownership, and the applicable job/milestone freelancer assignment must all resolve consistently.
+- Milestone projects require a specific milestone or escrow parent. `job` is accepted as a micro-gig alias, and jobs with omitted `jobType` retain legacy micro-gig behavior. A milestone's on-chain escrow reference is checked when present, and ambiguous job/milestone escrow matches are rejected.
+- Only assigned escrows in `funded` or `submitted` status are eligible. Query eligibility and mutation creation both call `assertCanOpenDispute`; active duplicate checks query each active status index directly, so closed-history volume cannot hide an active dispute.
+- Creation and participant/audit checks share normalized client/freelancer role resolution. Opening and audit roles continue to come from backend-resolved records; a configured administrator who is not a participant cannot use the participant creation mutation. Admin review still requires the configured wallet and Convex secret.
+- C05 coverage extends the C02 in-memory harness to 40 backend tests, including all participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Caller-supplied participant wallets remain a documented limitation because this flow does not prove wallet possession.
+
+## Regression coverage
+
+C02 adds an in-memory Convex regression harness under `packages/backend/tests/`. Fixtures seed the client, assigned freelancer, unrelated wallet, configured administrator, job, and funded/submitted escrow directly, with both micro-gig and milestone parent variants. Disputes are created through `api.disputes.createDispute`; administrator review and notes use `api.admin` with synthetic test-only configuration.
+
+The verified suite locks the existing dispute/event schema values and index names/field order, proves independent client/freelancer opening with initial `open` and `not_marked` state plus an opening event, preserves `moderator` actor roles for admin events, and covers participant/parent/escrow/status/timeline lookups. Failure coverage includes unrelated participants, duplicate active disputes, invalid administrator wallets, and missing or incorrect admin secrets. The harness does not change production APIs, persisted fields, statuses, or indexes.
 
 ## Related Notes
 

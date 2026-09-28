@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -99,7 +99,7 @@ No `events().publish(...)` or equivalent event emission is present in the curren
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute tests use timestamped funded and submitted fixtures established through public contract calls. Fixture preparation uses broad authorization mocks; the dispute operation under test switches to explicit invocation-scoped mock authorization. Successful marks assert the recorded authorized address and exact `mark_disputed` arguments; rejected calls assert the scoped authorization setup, Soroban host authorization failure or typed contract error, and unchanged state. Coverage includes client, assigned freelancer, platform admin, missing authorization, mismatched outsider authorization, authenticated outsider rejection, invalid statuses, and unassigned escrows. Successful marking checks the full escrow record and client, freelancer, and escrow token balances, proving only `status` changes. These mocks exercise host authorization enforcement, but do not prove cryptographic signature or wallet integration behavior.
 
 ## Deployment Configuration
 

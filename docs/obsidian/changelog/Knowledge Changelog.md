@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -13,6 +13,10 @@ source_of_truth: repository
 - Documented the Stellar Wallets Kit JSR/npm alias pair and the narrow pnpm hoist needed by MetaMask Connect Stellar's published import.
 - Hardened `/admin/disputes` and `/admin/disputes/[disputeId]` with server-verified configured-wallet access, identity-scoped TanStack Query reads, explicit auth/loading/error/not-found states, and no-store `/api/admin/session` responses.
 - Completed C06 frontend handoff: Convex-derived shared dispute types, exhaustive status labels and terminal classification, typed admin filters/network errors, loading/error/retry regression coverage, and the frozen participant/admin ownership contract in `docs/instawards/C06-Frontend-Handoff.md`.
+- Added the C02 backend dispute regression harness with `convex-test`, deterministic fixtures, explicit Convex module loading, separate test TypeScript configuration, and verified schema/index/participant/admin/failure-path coverage without changing production dispute contracts.
+- Hardened C05 dispute creation authorization: typed parent-ID normalization, job/milestone/escrow relationship invariants, explicit escrow and `job` alias handling, legacy micro-gig compatibility, assigned `funded`/`submitted` eligibility, normalized participant roles, and status-index duplicate detection without a 50-record blind spot. Extended the in-memory suite to 40 passing backend tests and documented the unchanged admin credential boundary and wallet-possession limitation.
+- Added reusable timestamped escrow fixtures and stronger dispute lifecycle regression checks. Tests compare complete records and token balances around successful and rejected dispute marking; mocked authorization remains a lifecycle-testing boundary (see [[contracts/Escrow Contract]]).
+- Added C04 dispute authorization coverage using exact invocation-scoped mock auth after broad fixture setup, including absent/mismatched host authorization and role/status boundaries. This verifies Soroban host authorization behavior, not cryptographic signatures or wallet integration (see [[contracts/Escrow Contract]]).
 
 ## 2026-09-27
 
