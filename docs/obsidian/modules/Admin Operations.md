@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Give one configured platform wallet access to metrics, dispute review, moderator
 
 ## Current Status
 
-Admin dashboard and dispute console/API routes are implemented. The contract platform admin must match the configured Highrable admin wallet for on-chain escrow operations. This is platform-operated review, not decentralized arbitration.
+Admin dashboard and dispute console/API routes are implemented. The contract platform admin must match the configured Highrable admin wallet for on-chain escrow operations. The dispute queue and detail pages now verify the signed session through `/api/admin/session` before mounting protected content; the configured wallet is authoritative and the database user role is not used for these two routes. This is platform-operated review, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -42,6 +42,8 @@ Admin data is stored on `disputes`, `disputeEvents`, `escrows`, jobs/milestones,
 
 Signed session cookie, environment admin wallet/secret, Convex HTTP client, escrow `resolve_dispute`, and explorer URL metadata.
 
+The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses.
+
 ## Internal Dependencies
 
 Disputes, escrows, milestones, jobs, deadlines, conversations, notifications, and users.
@@ -61,6 +63,8 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 ## Risks / Gotchas
 
 - The admin Convex secret must never cross into browser code.
+- `/api/admin/session` returns only the verified admin wallet and sends `Cache-Control: no-store`; it never returns the signed session token or Convex secret.
+- Dispute detail `NOT_FOUND` Convex errors map to HTTP 404 and render a return-to-queue state. Queue failures remain errors rather than becoming an empty queue.
 - The resolution API records phases; it does not itself submit a Soroban transaction—the UI/helper execution and phase updates are separate.
 - Metrics are bounded scans and can return `isTruncated`.
 

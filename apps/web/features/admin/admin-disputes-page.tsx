@@ -1,22 +1,28 @@
 "use client";
 
-import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import {
+  AdminSessionGate,
+  ADMIN_QUERY_KEY,
+  useAdminSessionAccess,
+} from "@/features/admin/admin-session-gate";
 import {
   AdminDisputeQueue,
   AdminMetricRail,
   AdminSection,
 } from "@/features/admin/components/admin-operations-ui";
-import { fetchAdminDisputes } from "@/features/admin/lib/admin-api";
+import {
+  AdminApiError,
+  fetchAdminDisputes,
+  isAdminAccessError,
+} from "@/features/admin/lib/admin-api";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
-import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { IAdminDisputeListItem } from "@/features/admin/types";
+import type { IAdminDisputesResponse } from "@/features/admin/types";
 import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/types";
 
 const ADMIN_DISPUTE_LIMIT = 120;
@@ -57,42 +63,32 @@ function isOnChainFilter(value: string): value is TOnChainFilter {
   return ON_CHAIN_FILTER_OPTIONS.some((option) => option.value === value);
 }
 
-export function AdminDisputesPage() {
-  const { role, isLoading: isRoleLoading } = useDashboardRole();
-  const { authSession } = useWallet();
+function AdminDisputesContent() {
+  const { verifiedWallet, handleProtectedApiError } = useAdminSessionAccess();
   const [statusFilter, setStatusFilter] = useState<TStatusFilter>("");
   const [onChainFilter, setOnChainFilter] = useState<TOnChainFilter>("");
-  const [disputes, setDisputes] = useState<IAdminDisputeListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadDisputes = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetchAdminDisputes({
-        ...(statusFilter ? { status: statusFilter } : {}),
-        ...(onChainFilter ? { onChainStatus: onChainFilter } : {}),
-        limit: ADMIN_DISPUTE_LIMIT,
-      });
-      setDisputes(response.disputes);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to load disputes.");
-      setDisputes([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onChainFilter, statusFilter]);
+  const disputeQuery = useQuery<IAdminDisputesResponse, AdminApiError>({
+    queryKey: [...ADMIN_QUERY_KEY, "disputes", verifiedWallet, statusFilter, onChainFilter],
+    queryFn: ({ signal }) =>
+      fetchAdminDisputes(
+        {
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(onChainFilter ? { onChainStatus: onChainFilter } : {}),
+          limit: ADMIN_DISPUTE_LIMIT,
+        },
+        { signal },
+      ),
+    retry: (failureCount, error) => !isAdminAccessError(error) && failureCount < 2,
+  });
 
   useEffect(() => {
-    if (role !== "admin" || !authSession) {
-      return;
+    if (disputeQuery.error) {
+      handleProtectedApiError(disputeQuery.error);
     }
+  }, [disputeQuery.error, handleProtectedApiError]);
 
-    void loadDisputes();
-  }, [authSession, loadDisputes, role]);
-
+  const disputes = disputeQuery.data?.disputes ?? [];
   const queueMetrics = useMemo(
     () => [
       {
@@ -124,31 +120,6 @@ export function AdminDisputesPage() {
     [disputes],
   );
 
-  if (isRoleLoading) {
-    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
-  }
-
-  if (role === null) {
-    return (
-      <WalletRequiredNotice
-        title="Admin Dispute Console"
-        description="Connect the configured admin wallet to manage disputes."
-      />
-    );
-  }
-
-  if (role !== "admin") {
-    return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        This route is restricted to the configured admin wallet.
-      </section>
-    );
-  }
-
-  if (!authSession) {
-    return <AdminSessionGate>{null}</AdminSessionGate>;
-  }
-
   return (
     <div className="space-y-6">
       <ProductPageHero
@@ -165,8 +136,12 @@ export function AdminDisputesPage() {
         <AppButton asChild variant="secondary" size="sm">
           <Link href="/admin">Back to Admin</Link>
         </AppButton>
-        <AppButton size="sm" onClick={() => void loadDisputes()} disabled={isLoading}>
-          {isLoading ? "Refreshing..." : "Refresh"}
+        <AppButton
+          size="sm"
+          onClick={() => void disputeQuery.refetch()}
+          disabled={disputeQuery.isFetching}
+        >
+          {disputeQuery.isFetching ? "Refreshing..." : "Refresh"}
         </AppButton>
       </div>
 
@@ -223,31 +198,61 @@ export function AdminDisputesPage() {
         </div>
       </AdminSection>
 
-      <AdminSection
-        label="Queue Health"
-        title="Visible workload"
-        description="Counts are computed from the currently loaded dispute set."
-      >
-        <AdminMetricRail items={queueMetrics} />
-      </AdminSection>
+      {disputeQuery.isError ? (
+        <RouteCallout tone="danger">
+          {disputeQuery.error.status === 400
+            ? "The dispute queue request was invalid. Check the selected filters and retry."
+            : disputeQuery.error.message}
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-3"
+            onClick={() => void disputeQuery.refetch()}
+            disabled={disputeQuery.isFetching}
+          >
+            Retry
+          </AppButton>
+        </RouteCallout>
+      ) : null}
 
-      {error ? <RouteCallout tone="danger">{error}</RouteCallout> : null}
+      {!disputeQuery.isError ? (
+        <>
+          <AdminSection
+            label="Queue Health"
+            title="Visible workload"
+            description="Counts are computed from the currently loaded dispute set."
+          >
+            <AdminMetricRail items={queueMetrics} />
+          </AdminSection>
 
-      <AdminSection
-        label="Dispute Queue"
-        title="Review cases"
-        description="Open a case to inspect evidence, update review status, or record settlement."
-      >
-        {isLoading ? (
-          <RouteCallout>Loading disputes...</RouteCallout>
-        ) : (
-          <AdminDisputeQueue
-            disputes={disputes}
-            actionLabel="Review"
-            emptyState={<RouteEmptyState description="No disputes match the selected filters." />}
-          />
-        )}
-      </AdminSection>
+          <AdminSection
+            label="Dispute Queue"
+            title="Review cases"
+            description="Open a case to inspect evidence, update review status, or record settlement."
+          >
+            {disputeQuery.isPending ? (
+              <RouteCallout>Loading disputes...</RouteCallout>
+            ) : (
+              <AdminDisputeQueue
+                disputes={disputes}
+                actionLabel="Review"
+                emptyState={
+                  <RouteEmptyState description="No disputes match the selected filters." />
+                }
+              />
+            )}
+          </AdminSection>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+export function AdminDisputesPage() {
+  return (
+    <AdminSessionGate>
+      <AdminDisputesContent />
+    </AdminSessionGate>
   );
 }

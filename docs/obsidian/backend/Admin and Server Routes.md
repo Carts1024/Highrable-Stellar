@@ -2,7 +2,7 @@
 type: reference
 area: backend
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -14,6 +14,7 @@ The admin HTTP boundary is under `apps/web/app/api/admin`. `apps/web/core/admin/
 
 | Route | Purpose |
 | --- | --- |
+| `GET /api/admin/session` | Verifies the signed session and returns only the normalized configured admin wallet. Responses are not cacheable. |
 | `GET /api/admin/metrics` | Bounded admin dashboard metrics. |
 | `GET /api/admin/disputes` | Admin dispute queue. |
 | `GET /api/admin/disputes/[disputeId]` | Admin dispute detail. |
@@ -21,7 +22,7 @@ The admin HTTP boundary is under `apps/web/app/api/admin`. `apps/web/core/admin/
 | `POST /api/admin/disputes/[disputeId]/note` | Moderator note. |
 | `POST /api/admin/disputes/[disputeId]/resolve` | Resolution phase and share bookkeeping. |
 
-The admin route handlers validate request bodies with Zod and then call typed Convex server functions. The chain settlement call is performed by the product/stellar flow; the resolve route records the appropriate started/succeeded/failed phase and resolution data.
+The admin route handlers validate request bodies with Zod and then call typed Convex server functions. The chain settlement call is performed by the product/stellar flow; the resolve route records the appropriate started/succeeded/failed phase and resolution data. Structured Convex application errors preserve their codes at this boundary; `NOT_FOUND` becomes HTTP 404 for detail reads, while malformed requests remain distinct from server failures.
 
 ## Stellar authentication routes
 
@@ -42,6 +43,8 @@ The challenge/session implementation is in `apps/web/core/wallet/server/auth-sto
 2. `HIGHRABLE_ADMIN_CONVEX_SECRET` matches the supplied server secret.
 
 The duplicated check is intentional: the Next route and Convex function boundary each enforce their own side of the admin trust boundary.
+
+The `/admin/disputes` and `/admin/disputes/[disputeId]` browser routes use a shared TanStack Query gate against `/api/admin/session`. Protected queue/detail components mount only after the verified wallet matches the active external wallet. This runtime gate does not consult the database user role and removes identity-scoped protected cache on wallet changes, disconnects, or API 401/403 responses.
 
 ## Proxy and waitlist
 

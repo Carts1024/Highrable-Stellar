@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -33,6 +33,8 @@ Admin Next routes call `requireAdminRequestContext`:
 4. Pass `HIGHRABLE_ADMIN_CONVEX_SECRET` to server-only Convex admin functions.
 
 Convex admin helpers independently check the normalized admin wallet and shared secret. Admin pages and API routes cover metrics, dispute lists/detail, review status, moderator notes, and settlement phases.
+
+`GET /api/admin/session` exposes only the verified normalized admin wallet with caching disabled. The dispute queue and detail pages use this endpoint as a shared runtime gate: connecting/checking, disconnected wallet, passkey mode, authentication required/pending/failure, forbidden, retryable server failure, and wallet identity changes are explicit states. Protected content is not mounted before verification, and queue/detail TanStack queries are scoped by the verified wallet with cancellation and cache cleanup on disconnect, wallet change, or API 401/403.
 
 ## Public Convex limitation
 

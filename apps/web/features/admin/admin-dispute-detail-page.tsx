@@ -13,13 +13,18 @@ import {
   isPendingStellarTransactionError,
   normalizeStellarError,
 } from "@/core/stellar/transaction";
-import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import {
+  AdminSessionGate,
+  ADMIN_QUERY_KEY,
+  useAdminSessionAccess,
+} from "@/features/admin/admin-session-gate";
 import { AdminSection } from "@/features/admin/components/admin-operations-ui";
 import {
+  AdminApiError,
   fetchAdminDispute,
+  isAdminAccessError,
   postAdminModeratorNote,
   postAdminResolution,
   postAdminReviewStatus,
@@ -31,7 +36,6 @@ import {
   sanitizeMultilineInput,
   showWarningToast,
 } from "@/features/common";
-import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
 import { api } from "@repo/convex-client";
@@ -40,6 +44,7 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { ArrowLeft, ExternalLink, RotateCcw } from "lucide-react";
 import Link from "next/link";
@@ -530,10 +535,10 @@ async function assertWalletExecutionReady(args: {
   }
 }
 
-export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
+function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }) {
   const walletIdentity = useHighrableWalletIdentity();
-  const { role, isLoading: isRoleLoading } = useDashboardRole();
-  const { address, authSession, walletState, signTransaction } = useWallet();
+  const { verifiedWallet, handleProtectedApiError } = useAdminSessionAccess();
+  const { address, walletState, signTransaction } = useWallet();
 
   const markStarted = useMutation(api.disputes.markDisputeOnChainStarted);
   const markSucceeded = useMutation(api.disputes.markDisputeOnChainSucceeded);
@@ -543,9 +548,6 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
 
-  const [detail, setDetail] = useState<IAdminDisputeDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -558,28 +560,21 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
 
+  const detailQuery = useQuery<IAdminDisputeDetail, AdminApiError>({
+    queryKey: [...ADMIN_QUERY_KEY, "dispute", verifiedWallet, disputeId],
+    queryFn: ({ signal }) => fetchAdminDispute(disputeId, { signal }),
+    retry: (failureCount, error) => !isAdminAccessError(error) && failureCount < 2,
+  });
+  const detail = detailQuery.data ?? null;
   const loadDetail = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const next = await fetchAdminDispute(disputeId);
-      setDetail(next);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to load dispute.");
-      setDetail(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [disputeId]);
+    await detailQuery.refetch();
+  }, [detailQuery.refetch]);
 
   useEffect(() => {
-    if (role !== "admin" || !authSession) {
-      return;
+    if (detailQuery.error) {
+      handleProtectedApiError(detailQuery.error);
     }
-
-    void loadDetail();
-  }, [authSession, loadDetail, role]);
+  }, [detailQuery.error, handleProtectedApiError]);
 
   const activeWalletAddress = walletIdentity.walletAddress;
   const activeWalletType = walletIdentity.walletType;
@@ -612,11 +607,12 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("Moderator note added.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       setActionError(nextError instanceof Error ? nextError.message : "Failed to add note.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, loadDetail, moderatorNote]);
+  }, [disputeId, handleProtectedApiError, loadDetail, moderatorNote]);
 
   const handleChangeReviewStatus = useCallback(async () => {
     const sanitizedReviewMessage = sanitizeLimitedMultilineInput(
@@ -632,11 +628,12 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("Dispute review status updated.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       setActionError(nextError instanceof Error ? nextError.message : "Failed to update status.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, loadDetail, reviewMessage, reviewStatus]);
+  }, [disputeId, handleProtectedApiError, loadDetail, reviewMessage, reviewStatus]);
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
@@ -725,6 +722,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("On-chain mark_disputed retry succeeded.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
       const failedTxHash =
         typeof nextError === "object" &&
@@ -768,6 +766,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     address,
     createTransaction,
     detail,
+    handleProtectedApiError,
     loadDetail,
     markFailed,
     markStarted,
@@ -880,6 +879,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("Dispute resolution succeeded on-chain and in backend records.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
       try {
         await updateTransactionStatus({
@@ -937,6 +937,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     createTransaction,
     detail,
     disputeId,
+    handleProtectedApiError,
     loadDetail,
     resolutionNote,
     resolutionShareInput,
@@ -948,38 +949,52 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     walletState.isTestnet,
   ]);
 
-  if (isRoleLoading) {
-    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
-  }
-
-  if (role === null) {
-    return (
-      <WalletRequiredNotice
-        title="Admin Dispute Review"
-        description="Connect the configured admin wallet to review disputes."
-      />
-    );
-  }
-
-  if (role !== "admin") {
-    return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        This route is restricted to the configured admin wallet.
-      </section>
-    );
-  }
-
-  if (!authSession) {
-    return <AdminSessionGate>{null}</AdminSessionGate>;
-  }
-
-  if (isLoading) {
+  if (detailQuery.isPending) {
     return <p className="hr-text-secondary text-sm">Loading dispute detail...</p>;
   }
 
-  if (error || !detail) {
+  if (detailQuery.isError) {
+    if (detailQuery.error.status === 404) {
+      return (
+        <RouteCallout tone="warning">
+          <span>Dispute not found.</span>{" "}
+          <Link className="underline" href="/admin/disputes">
+            Return to the dispute queue
+          </Link>
+        </RouteCallout>
+      );
+    }
+
+    if (detailQuery.error.status === 400) {
+      return (
+        <RouteCallout tone="danger">
+          This dispute request is invalid. Check the dispute ID and return to the queue.
+        </RouteCallout>
+      );
+    }
+
     return (
-      <RouteCallout tone="danger">{error ?? "Dispute detail could not be loaded."}</RouteCallout>
+      <RouteCallout tone="danger">
+        {detailQuery.error.message || "Dispute detail could not be loaded."}{" "}
+        <AppButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="ml-3"
+          onClick={() => void detailQuery.refetch()}
+          disabled={detailQuery.isFetching}
+        >
+          Retry
+        </AppButton>
+      </RouteCallout>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <RouteCallout tone="danger">
+        Dispute detail could not be loaded. Retry the request or return to the queue.
+      </RouteCallout>
     );
   }
 
@@ -1065,5 +1080,13 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
 
       <AdminTimeline detail={detail} />
     </div>
+  );
+}
+
+export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
+  return (
+    <AdminSessionGate>
+      <AdminDisputeDetailContent disputeId={disputeId} />
+    </AdminSessionGate>
   );
 }

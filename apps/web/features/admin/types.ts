@@ -83,6 +83,10 @@ export interface IAdminDisputesResponse {
   readonly disputes: IAdminDisputeListItem[];
 }
 
+export interface IAdminSessionResponse {
+  readonly adminWallet: string;
+}
+
 export interface IAdminResolutionRequestStarted {
   readonly phase: "started";
   readonly status: TAdminResolutionStatus;
