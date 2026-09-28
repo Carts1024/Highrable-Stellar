@@ -17,6 +17,7 @@ import {
 } from "../_shared/input";
 import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import { createSystemMessageForEvent } from "../conversations/helpers";
+import { getJobType } from "../jobs/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "./schema";
 
 const MAX_TITLE_LENGTH = 160;
@@ -84,70 +85,199 @@ export function isActiveDisputeStatus(status: string): boolean {
   return ACTIVE_DISPUTE_STATUS_SET.has(status);
 }
 
-async function getEscrowForDisputeParent(
+type TDisputeParentRecords = {
+  escrow: Doc<"escrows"> | null;
+  job: Doc<"jobs">;
+  milestone: Doc<"milestones"> | null;
+};
+
+function normalizeParentId<TableName extends "escrows" | "jobs" | "milestones">(
   ctx: QueryCtx,
-  input: { parentType: TDisputeParentType; parentId: string },
-) {
-  if (input.parentType === "escrow") {
-    return await ctx.db.get(input.parentId as Id<"escrows">);
-  }
-  if (input.parentType === "milestone") {
-    return await ctx.db
-      .query("escrows")
-      .withIndex("by_milestoneId", (q) => q.eq("milestoneId", input.parentId as Id<"milestones">))
-      .first();
-  }
-  if (input.parentType === "micro_gig" || input.parentType === "job") {
-    return await ctx.db
-      .query("escrows")
-      .withIndex("by_jobId", (q) => q.eq("jobId", input.parentId as Id<"jobs">))
-      .first();
+  tableName: TableName,
+  parentId: string,
+): Id<TableName> {
+  const normalizedId = ctx.db.normalizeId(tableName, parentId);
+  if (!normalizedId) {
+    throw new BadRequestError(`parentId must be a valid ${tableName.slice(0, -1)} ID.`);
   }
 
-  return null;
+  return normalizedId;
+}
+
+async function getUniqueEscrowByJobId(ctx: QueryCtx, jobId: Id<"jobs">) {
+  const escrows = await ctx.db
+    .query("escrows")
+    .withIndex("by_jobId", (q) => q.eq("jobId", jobId))
+    .take(2);
+
+  if (escrows.length > 1) {
+    throw new ConflictError("Multiple escrows match this job; select a specific escrow.");
+  }
+
+  return escrows[0] ?? null;
+}
+
+async function getUniqueEscrowByMilestoneId(ctx: QueryCtx, milestoneId: Id<"milestones">) {
+  const escrows = await ctx.db
+    .query("escrows")
+    .withIndex("by_milestoneId", (q) => q.eq("milestoneId", milestoneId))
+    .take(2);
+
+  if (escrows.length > 1) {
+    throw new ConflictError("Multiple escrows match this milestone; select a specific escrow.");
+  }
+
+  return escrows[0] ?? null;
+}
+
+async function getJobById(ctx: QueryCtx, jobId: Id<"jobs">) {
+  const job = await ctx.db.get(jobId);
+  if (!job) {
+    throw new NotFoundError("Parent job not found.");
+  }
+
+  return job;
+}
+
+async function getMilestoneById(ctx: QueryCtx, milestoneId: Id<"milestones">) {
+  const milestone = await ctx.db.get(milestoneId);
+  if (!milestone) {
+    throw new NotFoundError("Milestone not found.");
+  }
+
+  return milestone;
+}
+
+async function getDisputeParentRecords(
+  ctx: QueryCtx,
+  input: { parentType: TDisputeParentType; parentId: string },
+): Promise<TDisputeParentRecords> {
+  const parentId = requireNonEmptyString(input.parentId, "parentId");
+
+  if (input.parentType === "escrow") {
+    const escrowId = normalizeParentId(ctx, "escrows", parentId);
+    const escrow = await ctx.db.get(escrowId);
+    if (!escrow) {
+      throw new NotFoundError("Escrow not found.");
+    }
+
+    const storedJobId = ctx.db.normalizeId("jobs", escrow.jobId);
+    if (!storedJobId) {
+      throw new BadRequestError("This escrow has an invalid parent job ID.");
+    }
+    const job = await getJobById(ctx, storedJobId);
+    let milestone: Doc<"milestones"> | null = null;
+    if (escrow.milestoneId !== undefined) {
+      const storedMilestoneId = ctx.db.normalizeId("milestones", escrow.milestoneId);
+      if (!storedMilestoneId) {
+        throw new BadRequestError("This escrow has an invalid milestone ID.");
+      }
+      milestone = await getMilestoneById(ctx, storedMilestoneId);
+    }
+
+    return { escrow, job, milestone };
+  }
+
+  if (input.parentType === "milestone") {
+    const milestoneId = normalizeParentId(ctx, "milestones", parentId);
+    const milestone = await getMilestoneById(ctx, milestoneId);
+    const storedJobId = ctx.db.normalizeId("jobs", milestone.jobId);
+    if (!storedJobId) {
+      throw new BadRequestError("This milestone has an invalid parent job ID.");
+    }
+    const job = await getJobById(ctx, storedJobId);
+    const escrow = await getUniqueEscrowByMilestoneId(ctx, milestone._id);
+    return { escrow, job, milestone };
+  }
+
+  const jobId = normalizeParentId(ctx, "jobs", parentId);
+  const job = await getJobById(ctx, jobId);
+  if (getJobType(job) === "milestone_project") {
+    throw new BadRequestError(
+      "Milestone projects must be disputed by selecting a specific milestone or escrow.",
+    );
+  }
+
+  const escrow = await getUniqueEscrowByJobId(ctx, job._id);
+  let milestone: Doc<"milestones"> | null = null;
+  if (escrow?.milestoneId !== undefined) {
+    const storedMilestoneId = ctx.db.normalizeId("milestones", escrow.milestoneId);
+    if (!storedMilestoneId) {
+      throw new BadRequestError("This escrow has an invalid milestone ID.");
+    }
+    milestone = await getMilestoneById(ctx, storedMilestoneId);
+  }
+
+  return { escrow, job, milestone };
 }
 
 export async function resolveDisputeParticipants(
   ctx: QueryCtx,
   input: { parentType: TDisputeParentType; parentId: string },
 ): Promise<TResolvedDisputeParent> {
-  const parentId = requireNonEmptyString(input.parentId, "parentId");
-  const escrow = await getEscrowForDisputeParent(ctx, { parentType: input.parentType, parentId });
+  const { escrow, job, milestone } = await getDisputeParentRecords(ctx, input);
   if (!escrow) {
     throw new NotFoundError("Active escrow not found for this dispute.");
   }
   if (!escrow.escrowId) {
     throw new BadRequestError("This escrow is missing its on-chain escrow id.");
   }
-  if (!escrow.freelancerWallet) {
+
+  const jobType = getJobType(job);
+  if (jobType === "milestone_project" && !milestone) {
+    throw new BadRequestError(
+      "Milestone projects must be disputed by selecting a specific milestone or escrow.",
+    );
+  }
+  if (jobType === "micro_gig" && milestone) {
+    throw new BadRequestError("Micro-gig escrows cannot be linked to a milestone.");
+  }
+  if (escrow.jobId !== job._id) {
+    throw new BadRequestError("Escrow is not linked to its parent job.");
+  }
+  if (milestone) {
+    if (milestone.jobId !== job._id) {
+      throw new BadRequestError("Milestone does not belong to the escrow's parent job.");
+    }
+    if (escrow.milestoneId !== milestone._id) {
+      throw new BadRequestError("Escrow is not linked to the selected milestone.");
+    }
+    if (milestone.escrowId !== undefined && milestone.escrowId !== escrow.escrowId) {
+      throw new ConflictError("Milestone escrow reference does not match the selected escrow.");
+    }
+  }
+
+  if (normalizeWalletAddress(escrow.clientWallet) !== normalizeWalletAddress(job.clientWallet)) {
+    throw new ForbiddenError("Escrow client must match the parent job owner.");
+  }
+
+  const assignedFreelancerWallet =
+    milestone !== null ? milestone.assignedFreelancerWallet : job.selectedFreelancerWallet;
+  if (!assignedFreelancerWallet || !escrow.freelancerWallet) {
     throw new ForbiddenError("Only assigned escrow work can be disputed.");
   }
-
-  const job = await ctx.db.get(escrow.jobId);
-  if (!job) {
-    throw new NotFoundError("Parent job not found.");
+  if (
+    normalizeWalletAddress(escrow.freelancerWallet) !==
+    normalizeWalletAddress(assignedFreelancerWallet)
+  ) {
+    throw new ForbiddenError("Escrow freelancer must match the assigned freelancer.");
   }
-  const milestone = escrow.milestoneId !== undefined ? await ctx.db.get(escrow.milestoneId) : null;
 
   const canonicalParentType: TDisputeParentType =
-    escrow.milestoneId !== undefined
-      ? "milestone"
-      : input.parentType === "escrow"
-        ? "escrow"
-        : "micro_gig";
+    milestone !== null ? "milestone" : input.parentType === "escrow" ? "escrow" : "micro_gig";
   const canonicalParentId =
     canonicalParentType === "escrow"
       ? escrow._id
-      : escrow.milestoneId !== undefined
-        ? escrow.milestoneId
+      : milestone !== null
+        ? milestone._id
         : escrow.jobId;
 
   return {
     parentType: canonicalParentType,
     parentId: canonicalParentId,
     jobId: escrow.jobId,
-    ...(escrow.milestoneId === undefined ? { microGigId: escrow.jobId } : {}),
-    ...(escrow.milestoneId !== undefined ? { milestoneId: escrow.milestoneId } : {}),
+    ...(milestone === null ? { microGigId: escrow.jobId } : {}),
+    ...(milestone !== null ? { milestoneId: milestone._id } : {}),
     escrowId: escrow._id,
     onChainEscrowId: escrow.escrowId,
     clientWallet: normalizeWalletAddress(escrow.clientWallet),
@@ -162,8 +292,8 @@ export function getDisputeRole(
   dispute: Pick<Doc<"disputes">, "clientWallet" | "freelancerWallet">,
 ): TDisputeParticipantRole {
   const wallet = normalizeWalletAddress(walletAddress);
-  if (wallet === dispute.clientWallet) return "client";
-  if (wallet === dispute.freelancerWallet) return "freelancer";
+  if (wallet === normalizeWalletAddress(dispute.clientWallet)) return "client";
+  if (wallet === normalizeWalletAddress(dispute.freelancerWallet)) return "freelancer";
   throw new ForbiddenError("Only the client or assigned freelancer can use this dispute.");
 }
 
@@ -185,12 +315,16 @@ export function assertCanRespondToDispute(dispute: Doc<"disputes">, walletAddres
 }
 
 export async function getActiveDisputeForEscrowId(ctx: QueryCtx, escrowId: Id<"escrows">) {
-  const disputes = await ctx.db
-    .query("disputes")
-    .withIndex("by_escrow_status", (q) => q.eq("escrowId", escrowId))
-    .take(50);
+  const disputes = await Promise.all(
+    ACTIVE_DISPUTE_STATUSES.map((status) =>
+      ctx.db
+        .query("disputes")
+        .withIndex("by_escrow_status", (q) => q.eq("escrowId", escrowId).eq("status", status))
+        .first(),
+    ),
+  );
 
-  return disputes.find((dispute) => isActiveDisputeStatus(dispute.status)) ?? null;
+  return disputes.find((dispute) => dispute !== null) ?? null;
 }
 
 export async function assertNoActiveDispute(
@@ -203,11 +337,17 @@ export async function assertNoActiveDispute(
   }
 
   if (input.milestoneId !== undefined) {
-    const milestoneDisputes = await ctx.db
-      .query("disputes")
-      .withIndex("by_milestone_status", (q) => q.eq("milestoneId", input.milestoneId))
-      .take(50);
-    if (milestoneDisputes.some((dispute) => isActiveDisputeStatus(dispute.status))) {
+    const milestoneDisputes = await Promise.all(
+      ACTIVE_DISPUTE_STATUSES.map((status) =>
+        ctx.db
+          .query("disputes")
+          .withIndex("by_milestone_status", (q) =>
+            q.eq("milestoneId", input.milestoneId).eq("status", status),
+          )
+          .first(),
+      ),
+    );
+    if (milestoneDisputes.some((dispute) => dispute !== null)) {
       throw new ConflictError("This milestone already has an active dispute.");
     }
   }
@@ -223,10 +363,8 @@ export async function assertCanOpenDispute(
 ) {
   const openedByWallet = normalizeWalletAddress(input.openedByWallet);
   const parent = await resolveDisputeParticipants(ctx, input);
+  const openedByRole = getDisputeRole(openedByWallet, parent);
 
-  if (openedByWallet !== parent.clientWallet && openedByWallet !== parent.freelancerWallet) {
-    throw new ForbiddenError("Only the client or assigned freelancer can open a dispute.");
-  }
   if (parent.escrowStatus === "released") {
     throw new BadRequestError("You cannot dispute an escrow that has already been released.");
   }
@@ -234,15 +372,13 @@ export async function assertCanOpenDispute(
     throw new BadRequestError("You cannot dispute an escrow that has already been cancelled.");
   }
   if (parent.escrowStatus !== "funded" && parent.escrowStatus !== "submitted") {
-    throw new BadRequestError("Disputes require an active funded escrow.");
+    throw new BadRequestError("Disputes require an assigned escrow in funded or submitted status.");
   }
 
   await assertNoActiveDispute(ctx, {
     escrowId: parent.escrowId,
     ...(parent.milestoneId !== undefined ? { milestoneId: parent.milestoneId } : {}),
   });
-  const openedByRole: TDisputeParticipantRole =
-    openedByWallet === parent.clientWallet ? "client" : "freelancer";
 
   return {
     parent,

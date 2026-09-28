@@ -69,11 +69,6 @@ async function changeDisputeStatusInternal(
 ) {
   const dispute = await getDisputeOrThrow(ctx, args.disputeId);
   const actorWallet = normalizeWalletAddress(args.actorWallet);
-  const isParticipant =
-    actorWallet === dispute.clientWallet || actorWallet === dispute.freelancerWallet;
-  if (!isParticipant) {
-    throw new ForbiddenError("Only authorized dispute participants can update this dispute.");
-  }
   if (
     args.status === "resolved_client" ||
     args.status === "resolved_freelancer" ||
@@ -81,6 +76,7 @@ async function changeDisputeStatusInternal(
   ) {
     throw new ForbiddenError("Resolution actions require moderator tools in a future phase.");
   }
+  const actorRole = getDisputeRole(actorWallet, dispute);
 
   const oldStatus = dispute.status;
   const now = Date.now();
@@ -95,7 +91,7 @@ async function changeDisputeStatusInternal(
     type: args.status === "cancelled" ? "cancelled" : "status_changed",
     actorWallet,
     actorWalletType: args.actorWalletType,
-    actorRole: getDisputeRole(actorWallet, dispute),
+    actorRole,
     message:
       args.message !== undefined
         ? sanitizeDisputeMessage(args.message)
