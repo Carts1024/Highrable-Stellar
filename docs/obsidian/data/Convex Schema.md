@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-26
 source_of_truth: repository
 ---
 
@@ -37,7 +37,7 @@ The authoritative schema entry point is `packages/backend/convex/schema.ts`, whi
 | `disputes` | `disputes/schema.ts` | Evidence, participant responses, review, settlement, and on-chain dispute state. |
 | `disputeEvents` | `disputes/schema.ts` | Dispute timeline/moderation events. |
 | `reputationRecords` | `reputation_records/schema.ts` | Convex mirror/display record for released escrow reputation. |
-| `transactions` | `transactions/schema.ts` | Application transaction audit records and fee-path metadata. |
+| `transactions` | `transactions/schema.ts` | Application transaction audit records, fee-path metadata, and optional Velo recovery identity/status (`gasRequestId`, inner/outer hashes, actual fee, reconciliation flag). Signed XDR is not stored. |
 | `jobReports` | `reports/schema.ts` | Scam/off-platform/spam/fake-job reports. |
 | `waitlistEntries` | `waitlist/schema.ts` | Normalized waitlist email and timestamps. |
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { APP_NAME } from "@/core/constants";
 import {
   V2_BUTTON_PRIMARY_CLASS,
   V2_BUTTON_SECONDARY_CLASS,
@@ -9,15 +8,15 @@ import {
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { NAV_LINKS } from "../constants/landing-v2.constants";
 
 // Shared nav link styles — keep in sync with header.tsx
 const NAV_LINK_BASE =
-  "flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors";
-const NAV_LINK_INACTIVE = "text-[#6b6b6b] hover:text-[#FF7003]";
+  "flex items-center gap-2 rounded-lg px-3 py-2 font-mono whitespace-nowrap text-xs tracking-[0.06em] uppercase transition-colors";
+const NAV_LINK_INACTIVE = "hr-text-secondary hover:text-highrable-orange-1";
 const NAV_LINK_ACTIVE = "hr-v2-button-primary text-white";
 
 function Logo() {
@@ -29,11 +28,10 @@ function Logo() {
         className="flex items-center gap-2.5"
       >
         <img
-          src="/logo/highrable-icon.jpg"
+          src="/logo/highrable-landscape.png"
           alt="Highrable logo"
-          className="h-8 w-8 rounded-md object-cover"
+          className="h-7 w-auto max-w-[8rem] object-contain sm:h-9 sm:max-w-[9.5rem]"
         />
-        <span className="text-lg font-semibold tracking-tight text-[#0a0a0a]">{APP_NAME}</span>
       </motion.div>
     </Link>
   );
@@ -41,7 +39,7 @@ function Logo() {
 
 function NavLinks({ pathname }: { pathname: string }) {
   return (
-    <nav className="hidden items-center gap-1 md:flex">
+    <nav className="hidden items-center gap-1 lg:flex">
       {NAV_LINKS.map((link) => {
         const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
@@ -58,31 +56,31 @@ function NavLinks({ pathname }: { pathname: string }) {
   );
 }
 
-function NavActions({ waitlistMode }: { readonly waitlistMode: boolean }) {
-  if (waitlistMode) {
-    return null;
-  }
+function NavActions() {
+  const router = useRouter();
 
   return (
-    <div className="flex items-center gap-3">
-      <Link
-        href="/jobs"
-        className={`${V2_BUTTON_SECONDARY_CLASS} hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block`}
+    <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+      <button
+        type="button"
+        onClick={() => router.push("/jobs")}
+        className={`${V2_BUTTON_SECONDARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
       >
         Find Work
-      </Link>
-      <Link
-        href="/post-job"
-        className={`${V2_BUTTON_PRIMARY_CLASS} px-4 py-2 font-mono text-xs tracking-widest uppercase`}
+      </button>
+      <button
+        type="button"
+        onClick={() => router.push("/post-job")}
+        className={`${V2_BUTTON_PRIMARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
       >
         Post a Job
-      </Link>
+      </button>
     </div>
   );
 }
 
 /** Sticky top navigation bar with scroll-aware shadow transition. */
-export function V2Navbar({ waitlistMode }: { readonly waitlistMode: boolean }) {
+export function V2Navbar() {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -98,14 +96,21 @@ export function V2Navbar({ waitlistMode }: { readonly waitlistMode: boolean }) {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.35 }}
       className={cn(
-        "fixed inset-x-0 top-0 z-50 bg-white transition-shadow duration-300",
+        "fixed inset-x-0 top-0 z-50 bg-background transition-shadow duration-300",
         isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
       )}
     >
-      <div className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between")}>
+      <div
+        className={cn(
+          V2_PAGE_CONTAINER_CLASS,
+          "flex h-16 items-center justify-between gap-2 px-4 sm:px-6",
+        )}
+      >
         <Logo />
-        <NavLinks pathname={pathname} />
-        <NavActions waitlistMode={waitlistMode} />
+        <div className="ml-auto flex items-center gap-1 sm:gap-3">
+          <NavLinks pathname={pathname} />
+          <NavActions />
+        </div>
       </div>
     </motion.header>
   );

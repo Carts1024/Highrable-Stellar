@@ -1,6 +1,5 @@
 "use client";
 
-import { APP_NAME } from "@/core/constants";
 import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
@@ -63,11 +62,10 @@ export function Header() {
             className="flex items-center gap-2.5"
           >
             <img
-              src="/logo/highrable-icon.jpg"
+              src="/logo/highrable-landscape.png"
               alt="Highrable logo"
-              className="h-8 w-8 rounded-md object-cover"
+              className="h-8 w-auto max-w-[128px] object-contain"
             />
-            <span className="text-lg font-semibold tracking-tight text-[#0a0a0a]">{APP_NAME}</span>
           </motion.div>
         </Link>
 
