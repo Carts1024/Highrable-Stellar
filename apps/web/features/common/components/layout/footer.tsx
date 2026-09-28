@@ -100,10 +100,9 @@ export function Footer() {
   return (
     <HighrableV2Footer
       brand={{
-        name: APP_NAME,
         description:
           "A Stellar-native freelance marketplace for escrow-backed work, faster stablecoin payouts, and portable on-chain reputation.",
-        logoSrc: "/logo/highrable-icon.jpg",
+        logoSrc: "/logo/highrable-landscape.png",
         logoAlt: "Highrable logo",
         socialLinks: SOCIAL_LINKS,
       }}

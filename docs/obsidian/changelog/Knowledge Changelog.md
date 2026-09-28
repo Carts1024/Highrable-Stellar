@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-27
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-09-27
+
+- Documented landing-page responsive behavior: fluid root scale on large displays, `V2SnapGuard`-driven snap relaxation for oversized sections, and reduced reveal travel on phones (see [[frontend/Frontend Overview]]).
 
 ## 2026-09-21
 
