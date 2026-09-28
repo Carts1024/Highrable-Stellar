@@ -1,5 +1,6 @@
 "use client";
 
+import { env } from "@/core/config/env";
 import { StellarAuthService } from "@/core/wallet/auth/stellar-auth-service";
 import { LazyStellarWalletClient } from "@/core/wallet/clients/lazy-stellar-wallet-client";
 import { STELLAR_TESTNET_NETWORK_LABEL } from "@/core/wallet/config";
@@ -489,8 +490,35 @@ export function WalletContextProvider({
     }
   }, [wallet, walletState.walletAddress]);
 
+  const ensureWalletSession = useCallback(async (): Promise<TAuthSession> => {
+    const address = walletState.walletAddress;
+    if (!address) {
+      throw new Error("Connect wallet before authenticating the transaction.");
+    }
+
+    if (
+      authSession &&
+      authSession.address === address &&
+      new Date(authSession.expiresAt).getTime() > Date.now()
+    ) {
+      return authSession;
+    }
+
+    const challenge = await auth.createChallenge(address);
+    const signature = await wallet.signMessage(challenge.message);
+    const session = await auth.verifySignature({
+      address,
+      signature,
+      message: challenge.message,
+      nonce: challenge.nonce,
+    });
+
+    setAuthSession(session);
+    return session;
+  }, [auth, authSession, wallet, walletState.walletAddress]);
+
   const signTransaction = useCallback(
-    async (xdr: string) => {
+    async (xdr: string, options?: { requiresServerSession?: boolean }) => {
       const address = walletState.walletAddress;
 
       if (!address) {
@@ -504,6 +532,14 @@ export function WalletContextProvider({
       }));
 
       try {
+        if (
+          options?.requiresServerSession &&
+          env.NEXT_PUBLIC_ENABLE_VELO_GAS_STATION &&
+          walletState.isTestnet
+        ) {
+          await ensureWalletSession();
+        }
+
         const signedXdr = await wallet.signTransaction(xdr, address);
         setWalletState((currentValue) => ({
           ...currentValue,
@@ -519,30 +555,12 @@ export function WalletContextProvider({
         throw error;
       }
     },
-    [wallet, walletState.walletAddress],
+    [ensureWalletSession, wallet, walletState.isTestnet, walletState.walletAddress],
   );
 
   const authenticateWallet = useCallback(async () => {
-    const address = walletState.walletAddress;
-    if (!address) {
-      setWalletState((currentValue) => ({
-        ...currentValue,
-        error: "Connect wallet before authentication.",
-      }));
-      return;
-    }
-
     try {
-      const challenge = await auth.createChallenge(address);
-      const signature = await wallet.signMessage(challenge.message);
-      const session = await auth.verifySignature({
-        address,
-        signature,
-        message: challenge.message,
-        nonce: challenge.nonce,
-      });
-
-      setAuthSession(session);
+      await ensureWalletSession();
       setWalletState((currentValue) => ({ ...currentValue, error: null }));
     } catch (error) {
       setWalletState((currentValue) => ({
@@ -550,7 +568,7 @@ export function WalletContextProvider({
         error: toErrorMessage(error),
       }));
     }
-  }, [auth, wallet, walletState.walletAddress]);
+  }, [ensureWalletSession]);
 
   const logoutWallet = useCallback(() => {
     setAuthSession(null);
