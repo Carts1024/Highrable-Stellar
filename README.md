@@ -117,7 +117,7 @@ Configure the required values in the copied env files:
 - `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`
 - `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`
 - `NEXT_PUBLIC_APP_DOMAIN`
-- `NEXT_PUBLIC_WAITLIST_MODE` (`true`, omitted, or invalid keeps waitlist mode on; `false` enables the full product UI)
+- `NEXT_PUBLIC_WAITLIST_MODE` (`true` enables the waitlist route gate; `false`, omitted, or invalid keeps the full product UI available)
 - `HIGHRABLE_ADMIN_WALLET_ADDRESS`
 - `HIGHRABLE_ADMIN_CONVEX_SECRET`
 
