@@ -4,7 +4,10 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { cancelEscrowOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import { normalizeStellarError } from "@/core/stellar/transaction";
+import {
+  isPendingStellarTransactionError,
+  normalizeStellarError,
+} from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -127,6 +130,7 @@ export function useCancellationActions() {
           sourceAddress: activeWalletAddress,
           signTransaction,
           walletType: activeWalletType,
+          operationId: clientRequestId,
           client: request.clientWallet,
           escrowId: request.onChainEscrowId,
         });
@@ -172,7 +176,7 @@ export function useCancellationActions() {
           await updateTransactionStatus({
             clientRequestId,
             ...(failedTxHash ? { txHash: failedTxHash } : {}),
-            status: "failed",
+            status: isPendingStellarTransactionError(error) ? "pending" : "failed",
             errorMessage,
           });
         } catch {

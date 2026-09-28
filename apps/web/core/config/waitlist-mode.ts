@@ -13,9 +13,9 @@ const PUBLIC_METADATA_PATHS = new Set([
   "/sitemap.xml",
 ]);
 
-/** Resolves the launch flag fail-closed: only an explicit false opens the full app. */
+/** Enables the launch gate only when explicitly requested. */
 export function resolveWaitlistMode(value: unknown): boolean {
-  return typeof value !== "string" || value.trim().toLowerCase() !== "false";
+  return typeof value === "string" && value.trim().toLowerCase() === "true";
 }
 
 function normalizePathname(pathname: string): string {
