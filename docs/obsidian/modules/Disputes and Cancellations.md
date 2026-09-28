@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -71,6 +71,12 @@ Use domain helpers for participant roles and eligibility. Use admin helpers for 
 - `freelancer_share_bps == 0` becomes contract `Cancelled`; any positive share becomes `Released`, including a client-refund split.
 - Contract settlement does not write a reputation completion record.
 - Convex public participant checks are not the same as signed-session possession proof.
+
+## Regression coverage
+
+C02 adds an in-memory Convex regression harness under `packages/backend/tests/`. Fixtures seed the client, assigned freelancer, unrelated wallet, configured administrator, job, and funded/submitted escrow directly, with both micro-gig and milestone parent variants. Disputes are created through `api.disputes.createDispute`; administrator review and notes use `api.admin` with synthetic test-only configuration.
+
+The verified suite locks the existing dispute/event schema values and index names/field order, proves independent client/freelancer opening with initial `open` and `not_marked` state plus an opening event, preserves `moderator` actor roles for admin events, and covers participant/parent/escrow/status/timeline lookups. Failure coverage includes unrelated participants, duplicate active disputes, invalid administrator wallets, and missing or incorrect admin secrets. The harness does not change production APIs, persisted fields, statuses, or indexes.
 
 ## Related Notes
 

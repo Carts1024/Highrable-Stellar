@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-09-28
+
+- Added the C02 backend dispute regression harness with `convex-test`, deterministic fixtures, explicit Convex module loading, separate test TypeScript configuration, and verified schema/index/participant/admin/failure-path coverage without changing production dispute contracts.
+
 ## 2026-09-27
 
 - Updated the Velo Gas Station integration to SDK `0.1.0-alpha.4`, including the `tg_test_` Gas key requirement, corrected Testnet origin default, preferred `VELO_GAS_BASE_URL` configuration, and server-side key-shape validation.
