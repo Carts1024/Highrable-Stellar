@@ -173,6 +173,30 @@ fn dispute_token_balances(context: &TTestContext) -> DisputeTokenBalances {
     dispute_token_balances_for(context, &context.client, &context.freelancer)
 }
 
+fn assert_settlement_conservation(
+    context: &TTestContext,
+    balances_before: DisputeTokenBalances,
+    original_amount: i128,
+    expected_client_gain: i128,
+    expected_freelancer_gain: i128,
+) {
+    let balances_after = dispute_token_balances(context);
+    let (client_before, freelancer_before, contract_before) = balances_before;
+    let (client_after, freelancer_after, contract_after) = balances_after;
+    let client_gain = client_after - client_before;
+    let freelancer_gain = freelancer_after - freelancer_before;
+    let contract_balance_decrease = contract_before - contract_after;
+    let combined_participant_gains = client_gain + freelancer_gain;
+
+    assert_eq!(contract_before, original_amount);
+    assert_eq!(contract_after, 0);
+    assert_eq!(client_gain, expected_client_gain);
+    assert_eq!(freelancer_gain, expected_freelancer_gain);
+    assert_eq!(combined_participant_gains, original_amount);
+    assert_eq!(contract_balance_decrease, original_amount);
+    assert_eq!(combined_participant_gains, contract_balance_decrease);
+}
+
 fn assert_dispute_attempt_preserved_state(
     context: &TTestContext,
     escrow_id: u64,
@@ -1308,35 +1332,33 @@ fn mark_disputed_rejects_every_permitted_role_for_invalid_statuses() {
 
 #[test]
 fn resolve_dispute_refunds_client_for_zero_share() {
-    let context = setup();
+    for (index, initial_status) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+        .into_iter()
+        .enumerate()
+    {
+        let context = setup();
+        let hash_byte = 66 + index as u8 * 2;
+        let original_amount = 450;
+        let escrow_id =
+            disputed_escrow_fixture(&context, initial_status, original_amount, hash_byte);
+        let before = context.escrow_client.get_escrow(&escrow_id);
+        let balances_before = dispute_token_balances(&context);
 
-    let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 450, 66);
-    let before = context.escrow_client.get_escrow(&escrow_id);
+        assert_resolve_dispute_with_auth(
+            &context,
+            &context.platform_admin,
+            &context.platform_admin,
+            escrow_id,
+            0,
+            hash_byte + 1,
+            None,
+        );
 
-    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_550);
-    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
-
-    assert_resolve_dispute_with_auth(
-        &context,
-        &context.platform_admin,
-        &context.platform_admin,
-        escrow_id,
-        0,
-        67,
-        None,
-    );
-
-    let mut expected = before;
-    expected.status = TEscrowStatus::Cancelled;
-    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
-    assert_eq!(context.mock_usdc_client.balance(&context.client), 10_000);
-    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 0);
-    assert_eq!(
-        context
-            .mock_usdc_client
-            .balance(&context.escrow_contract_id),
-        0
-    );
+        let mut expected = before;
+        expected.status = TEscrowStatus::Cancelled;
+        assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
+        assert_settlement_conservation(&context, balances_before, original_amount, 450, 0);
+    }
 }
 
 #[test]
@@ -1534,64 +1556,70 @@ fn resolve_dispute_requires_invocation_scoped_actor_authentication() {
 
 #[test]
 fn resolve_dispute_releases_full_amount_to_freelancer_for_full_share() {
-    let context = setup();
+    for (index, initial_status) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+        .into_iter()
+        .enumerate()
+    {
+        let context = setup();
+        let hash_byte = 68 + index as u8 * 2;
+        let original_amount = 520;
+        let escrow_id =
+            disputed_escrow_fixture(&context, initial_status, original_amount, hash_byte);
+        let settlement_timestamp = 10_000 + index as u64;
+        set_timestamp(&context.env, settlement_timestamp);
+        let before = context.escrow_client.get_escrow(&escrow_id);
+        let balances_before = dispute_token_balances(&context);
 
-    let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Submitted, 520, 68);
-    let before = context.escrow_client.get_escrow(&escrow_id);
+        assert_resolve_dispute_with_auth(
+            &context,
+            &context.platform_admin,
+            &context.platform_admin,
+            escrow_id,
+            10_000,
+            hash_byte + 1,
+            None,
+        );
 
-    assert_resolve_dispute_with_auth(
-        &context,
-        &context.platform_admin,
-        &context.platform_admin,
-        escrow_id,
-        10_000,
-        69,
-        None,
-    );
-
-    let mut expected = before;
-    expected.status = TEscrowStatus::Released;
-    expected.released_at = context.env.ledger().timestamp();
-    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
-    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_480);
-    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 520);
-    assert_eq!(
-        context
-            .mock_usdc_client
-            .balance(&context.escrow_contract_id),
-        0
-    );
+        let mut expected = before;
+        expected.status = TEscrowStatus::Released;
+        expected.released_at = settlement_timestamp;
+        assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
+        assert_settlement_conservation(&context, balances_before, original_amount, 0, 520);
+    }
 }
 
 #[test]
 fn resolve_dispute_splits_amount_with_remainder_to_client() {
-    let context = setup();
+    for (index, initial_status) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+        .into_iter()
+        .enumerate()
+    {
+        let context = setup();
+        let hash_byte = 70 + index as u8 * 2;
+        let original_amount = 101;
+        let escrow_id =
+            disputed_escrow_fixture(&context, initial_status, original_amount, hash_byte);
+        let settlement_timestamp = 10_000 + index as u64;
+        set_timestamp(&context.env, settlement_timestamp);
+        let before = context.escrow_client.get_escrow(&escrow_id);
+        let balances_before = dispute_token_balances(&context);
 
-    let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 101, 70);
-    let before = context.escrow_client.get_escrow(&escrow_id);
+        assert_resolve_dispute_with_auth(
+            &context,
+            &context.platform_admin,
+            &context.platform_admin,
+            escrow_id,
+            3_333,
+            hash_byte + 1,
+            None,
+        );
 
-    assert_resolve_dispute_with_auth(
-        &context,
-        &context.platform_admin,
-        &context.platform_admin,
-        escrow_id,
-        3_333,
-        71,
-        None,
-    );
-
-    let mut expected = before;
-    expected.status = TEscrowStatus::Released;
-    expected.released_at = context.env.ledger().timestamp();
-    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
-    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_967);
-    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 33);
-    assert_eq!(
-        context
-            .mock_usdc_client
-            .balance(&context.escrow_contract_id),
-        0
-    );
+        let mut expected = before;
+        expected.status = TEscrowStatus::Released;
+        expected.released_at = settlement_timestamp;
+        assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
+        assert_settlement_conservation(&context, balances_before, original_amount, 68, 33);
+    }
 }
 
 #[test]
