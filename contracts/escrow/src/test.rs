@@ -5,10 +5,8 @@ extern crate std;
 use super::{Error, EscrowContract, EscrowContractClient, TEscrow, TEscrowStatus};
 use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
 use soroban_sdk::{
-    testutils::{
-        Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger, MockAuth, MockAuthInvoke,
-    },
-    token, Address, BytesN, Env, IntoVal, InvokeError, Symbol,
+    testutils::{Address as _, Ledger},
+    token, Address, BytesN, Env, InvokeError,
 };
 use std::boxed::Box;
 
@@ -1121,6 +1119,153 @@ fn resolve_dispute_refunds_client_for_zero_share() {
             .balance(&context.escrow_contract_id),
         0
     );
+}
+
+#[test]
+fn dispute_admin_membership_is_owner_managed_and_idempotent() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+
+    assert!(context.escrow_client.is_dispute_admin(&context.platform_admin));
+    assert!(!context.escrow_client.is_dispute_admin(&moderator));
+
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &context.platform_admin);
+
+    assert!(context.escrow_client.is_dispute_admin(&moderator));
+    assert!(context.escrow_client.is_dispute_admin(&context.platform_admin));
+
+    context
+        .escrow_client
+        .remove_dispute_admin(&context.platform_admin, &moderator);
+    context
+        .escrow_client
+        .remove_dispute_admin(&context.platform_admin, &moderator);
+    context
+        .escrow_client
+        .remove_dispute_admin(&context.platform_admin, &context.platform_admin);
+
+    assert!(!context.escrow_client.is_dispute_admin(&moderator));
+    assert!(context.escrow_client.is_dispute_admin(&context.platform_admin));
+}
+
+#[test]
+fn registered_dispute_admin_can_settle_and_unknown_actor_cannot() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    let escrow_id = create_escrow(&context, 100, 68);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    let unknown = context.escrow_client.try_resolve_dispute(
+        &context.outsider,
+        &escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 69),
+    );
+    assert_eq!(unknown, Err(Ok(Error::Unauthorized)));
+
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    context.escrow_client.resolve_dispute(
+        &moderator,
+        &escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 70),
+    );
+
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id).status, TEscrowStatus::Released);
+    assert_eq!(context.mock_usdc_client.balance(&context.freelancer), 50);
+    assert_eq!(context.mock_usdc_client.balance(&context.client), 9_950);
+}
+
+#[test]
+fn dispute_admin_actor_cannot_settle_as_an_escrow_participant() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+
+    let client_escrow_id = context.escrow_client.create_escrow(
+        &context.platform_admin,
+        &moderator,
+        &context.mock_usdc_token,
+        &100,
+        &hash_from_byte(&context.env, 72),
+    );
+    token::StellarAssetClient::new(&context.env, &context.mock_usdc_token)
+        .mint(&context.platform_admin, &100);
+    context
+        .escrow_client
+        .fund_escrow(&context.platform_admin, &client_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.platform_admin, &client_escrow_id);
+
+    let owner_conflict = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &client_escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 73),
+    );
+    assert_eq!(owner_conflict, Err(Ok(Error::Unauthorized)));
+
+    let moderator_escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &moderator,
+        &context.mock_usdc_token,
+        &100,
+        &hash_from_byte(&context.env, 74),
+    );
+    fund_escrow(&context, moderator_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &moderator_escrow_id);
+    let moderator_conflict = context.escrow_client.try_resolve_dispute(
+        &moderator,
+        &moderator_escrow_id,
+        &5_000,
+        &hash_from_byte(&context.env, 75),
+    );
+    assert_eq!(moderator_conflict, Err(Ok(Error::Unauthorized)));
+}
+
+#[test]
+fn dispute_admin_resolution_requires_actor_authentication() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    let escrow_id = create_escrow(&context, 100, 76);
+    fund_escrow(&context, escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &escrow_id);
+
+    let auth_failure = context
+        .escrow_client
+        .mock_auths(&[])
+        .try_resolve_dispute(
+            &moderator,
+            &escrow_id,
+            &5_000,
+            &hash_from_byte(&context.env, 77),
+        );
+
+    assert_eq!(auth_failure, Err(Err(InvokeError::Abort)));
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id).status, TEscrowStatus::Disputed);
 }
 
 #[test]

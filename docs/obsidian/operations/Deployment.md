@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -40,3 +40,9 @@ See [[contracts/Deployment Artifacts]], [[stellar/Network Configuration]], and [
 ## Status
 
 Status: Production hosting/release automation is not documented yet. The repository documents contract deployment scripts and readiness checks, but not a complete application CI/CD or rollback runbook.
+
+## Multiple dispute admins
+
+The current escrow deployment artifacts predate add_dispute_admin/remove_dispute_admin and participant-conflict enforcement. The new WASM requires a fresh contract deployment; do not treat a source build or the existing deployment JSON as proof that the feature is live.
+
+Initial activation must use an isolated deployment and database. Configure the matching STELLAR_NETWORK and ESCROW_CONTRACT_ID scope on that backend and point the app at the same contract. Do not switch a populated environment: escrow IDs restart per contract, and current escrow lookup/synchronization is not safe when contract ID spaces overlap. This implementation did not deploy, submit Stellar transactions, alter live configuration, or migrate existing escrows.

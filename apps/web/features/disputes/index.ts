@@ -5,4 +5,6 @@ export * from "./components/dispute-response-composer";
 export * from "./components/dispute-status-badge";
 export * from "./components/dispute-timeline";
 export * from "./components/open-dispute-button";
+export * from "./lib";
+export type * from "./types";
 export * from "./components/open-dispute-dialog";

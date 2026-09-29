@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "reputationContractId": "CBCUSD37IJLT2DR54AAXAAUX74NEMA4PDHM2S5UJIN6S25Q2UZ5NLIRE",
+  "escrowContractId": "CBM4HLBLGPW3WJXNZXWUJ6PBXMQPYXM6RUXPFYBSNLVT3JAGIQMT73NM",
+  "platformAdmin": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployerIdentity": "highrable-freighter-deployer",
+  "deployerAddress": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployedAt": "2026-09-29T01:41:27Z"
+}
