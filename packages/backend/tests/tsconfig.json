@@ -1,0 +1,12 @@
+{
+  "extends": "../convex/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["./**/*.ts", "../convex/_generated/**/*.d.ts", "../vitest.config.ts"],
+  "exclude": ["../convex"]
+}

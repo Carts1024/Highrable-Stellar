@@ -4,6 +4,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
+import { assertAdminApiSecret, isConfiguredAdminWallet } from "../_shared/adminAuth";
+import { ForbiddenError } from "../_shared/errors";
 import {
   DISPUTE_ON_CHAIN_STATUSES,
   DISPUTE_STATUSES,
@@ -14,7 +16,13 @@ import { ESCROW_STATUSES } from "../escrows/schema";
 import { JOB_STATUSES } from "../jobs/schema";
 import { REVISION_REQUEST_STATUSES } from "../revisions/schema";
 import { USER_ROLES } from "../users/schema";
-import { assertAdminContext, getDisputeOrThrow } from "./helpers";
+import {
+  assertAdminContext,
+  assertAssignedDisputeAdmin,
+  assertDisputeAdminContext,
+  getAdminScope,
+  getDisputeOrThrow,
+} from "./helpers";
 
 const USER_ROLE_VALUES = [USER_ROLES.client, USER_ROLES.freelancer, USER_ROLES.admin] as const;
 const DISPUTE_STATUS_VALUES = [
@@ -90,6 +98,8 @@ function toRecentDisputeRow(dispute: Doc<"disputes">) {
     freelancerWallet: dispute.freelancerWallet,
     updatedAt: dispute.updatedAt,
     openedAt: dispute.openedAt,
+    assignedAdminWallet: dispute.assignedAdminWallet,
+    assignedAt: dispute.assignedAt,
   };
 }
 
@@ -240,10 +250,13 @@ export const listAdminDisputes = query({
     adminApiSecret: v.string(),
     status: v.optional(disputeStatusValidator),
     onChainStatus: v.optional(disputeOnChainStatusValidator),
+    assignmentFilter: v.optional(
+      v.union(v.literal("unassigned"), v.literal("mine"), v.literal("all")),
+    ),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    assertAdminContext(args);
+    const adminWallet = await assertDisputeAdminContext(ctx, args);
 
     const limit = Math.max(1, Math.min(Math.trunc(args.limit ?? 50), 200));
     const candidateLimit = Math.max(limit * 4, 100);
@@ -262,6 +275,15 @@ export const listAdminDisputes = query({
         if (args.onChainStatus && dispute.onChainStatus !== args.onChainStatus) {
           return false;
         }
+        if (args.assignmentFilter === "unassigned" && dispute.assignedAdminWallet) {
+          return false;
+        }
+        if (
+          args.assignmentFilter === "mine" &&
+          dispute.assignedAdminWallet?.trim().toUpperCase() !== adminWallet
+        ) {
+          return false;
+        }
         return true;
       })
       .sort((left, right) => right.updatedAt - left.updatedAt)
@@ -277,25 +299,36 @@ export const getAdminDispute = query({
     disputeId: v.id("disputes"),
   },
   handler: async (ctx, args) => {
-    assertAdminContext(args);
+    await assertDisputeAdminContext(ctx, args);
 
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
 
-    const [job, milestone, escrow, timeline, evidence] = await Promise.all([
-      dispute.jobId ? ctx.db.get(dispute.jobId) : Promise.resolve(null),
-      dispute.milestoneId ? ctx.db.get(dispute.milestoneId) : Promise.resolve(null),
-      dispute.escrowId ? ctx.db.get(dispute.escrowId) : Promise.resolve(null),
-      ctx.db
-        .query("disputeEvents")
-        .withIndex("by_dispute", (q) => q.eq("disputeId", dispute._id))
-        .order("asc")
-        .take(300),
-      Promise.all(
-        dispute.evidenceAttachmentIds.map(async (attachmentId) =>
-          resolveAttachmentForAdmin(ctx, attachmentId),
+    const [job, milestone, escrow, timeline, evidence, assignmentEvents, settlementAttempts] =
+      await Promise.all([
+        dispute.jobId ? ctx.db.get(dispute.jobId) : Promise.resolve(null),
+        dispute.milestoneId ? ctx.db.get(dispute.milestoneId) : Promise.resolve(null),
+        dispute.escrowId ? ctx.db.get(dispute.escrowId) : Promise.resolve(null),
+        ctx.db
+          .query("disputeEvents")
+          .withIndex("by_dispute", (q) => q.eq("disputeId", dispute._id))
+          .order("asc")
+          .take(300),
+        Promise.all(
+          dispute.evidenceAttachmentIds.map(async (attachmentId) =>
+            resolveAttachmentForAdmin(ctx, attachmentId),
+          ),
         ),
-      ),
-    ]);
+        ctx.db
+          .query("disputeAssignmentEvents")
+          .withIndex("by_dispute", (q) => q.eq("disputeId", dispute._id))
+          .order("asc")
+          .take(100),
+        ctx.db
+          .query("settlementAttempts")
+          .withIndex("by_dispute_createdAt", (q) => q.eq("disputeId", dispute._id))
+          .order("desc")
+          .take(10),
+      ]);
 
     const timelineWithAttachments = await Promise.all(
       timeline.map(async (event) => {
@@ -318,9 +351,108 @@ export const getAdminDispute = query({
         attachments: evidence.filter((attachment) => attachment !== null),
       },
       timeline: timelineWithAttachments,
+      assignmentEvents,
+      settlementAttempts,
       job,
       milestone,
       escrow,
     };
+  },
+});
+
+export const getAdminCapabilities = query({
+  args: { adminWallet: v.string(), adminApiSecret: v.string() },
+  handler: async (ctx, args) => {
+    const wallet = args.adminWallet.trim().toUpperCase();
+    assertAdminApiSecret(args.adminApiSecret);
+    const isOwner = isConfiguredAdminWallet(wallet);
+    if (isOwner) {
+      return { adminWallet: wallet, isOwner: true, isDisputeAdmin: true };
+    }
+
+    const scope = getAdminScope();
+    const membership = await ctx.db
+      .query("disputeAdmins")
+      .withIndex("by_scope_wallet", (q) =>
+        q.eq("network", scope.network).eq("contractId", scope.contractId).eq("wallet", wallet),
+      )
+      .unique();
+    return {
+      adminWallet: wallet,
+      isOwner: false,
+      isDisputeAdmin: membership?.accessState === "active",
+    };
+  },
+});
+
+export const listDisputeAdmins = query({
+  args: { adminWallet: v.string(), adminApiSecret: v.string() },
+  handler: async (ctx, args) => {
+    assertAdminContext(args);
+    const scope = getAdminScope();
+    const [memberships, operations] = await Promise.all([
+      ctx.db
+        .query("disputeAdmins")
+        .withIndex("by_scope_access", (q) =>
+          q.eq("network", scope.network).eq("contractId", scope.contractId),
+        )
+        .take(500),
+      ctx.db
+        .query("disputeAdminOperations")
+        .withIndex("by_scope_status_createdAt", (q) =>
+          q.eq("network", scope.network).eq("contractId", scope.contractId),
+        )
+        .order("desc")
+        .take(100),
+    ]);
+
+    return {
+      scope,
+      admins: memberships.sort((a, b) => a.wallet.localeCompare(b.wallet)),
+      operations,
+    };
+  },
+});
+
+export const getDisputeAdminOperation = query({
+  args: {
+    adminWallet: v.string(),
+    adminApiSecret: v.string(),
+    operationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertAdminContext(args);
+    return await ctx.db
+      .query("disputeAdminOperations")
+      .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+      .unique();
+  },
+});
+
+export const getSettlementAttemptByOperation = query({
+  args: {
+    adminWallet: v.string(),
+    adminApiSecret: v.string(),
+    operationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const wallet = await assertDisputeAdminContext(ctx, args);
+    const attempt = await ctx.db
+      .query("settlementAttempts")
+      .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+      .unique();
+    if (!attempt) {
+      return null;
+    }
+    if (!isConfiguredAdminWallet(wallet)) {
+      const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
+      assertAssignedDisputeAdmin(wallet, dispute);
+      if (attempt.actorWallet !== wallet) {
+        throw new ForbiddenError(
+          "Only the initiating dispute admin can read this settlement operation.",
+        );
+      }
+    }
+    return attempt;
   },
 });

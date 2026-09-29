@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -12,12 +12,13 @@ This classification is based on current source, tests, manifests, deployment art
 
 ## Functional / Implemented
 
-- Soroban escrow creation, open escrow creation, create-and-fund open escrow, funding, assignment, submission, approval/release, cancellation, dispute marking, admin dispute settlement, asset allowlisting, and read/configuration methods exist in `contracts/escrow/src/lib.rs`.
+- Soroban escrow creation, open escrow creation, create-and-fund open escrow, funding, assignment, submission, approval/release, cancellation, dispute marking, owner-only settlement for existing deployments, membership-enabled admin dispute settlement in current source, asset allowlisting, and read/configuration methods exist in `contracts/escrow/src/lib.rs`.
 - Soroban reputation initialization, authorized completion recording, immutable completion lookup, existence checks, and freelancer aggregate statistics exist in `contracts/reputation/src/lib.rs`.
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
 - Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation mirrors, transactions, reports, and waitlist entries.
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
-- External-wallet challenge/verify authentication creates signed HTTP-only session cookies, and admin Next routes validate that session against the configured admin wallet and server-only Convex secret.
+- External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
+- Owner-managed dispute-admin membership, assignment history, claim workflow, and signed settlement recovery are implemented in source. Platform metrics and team/assignment management remain owner-only; app dispute work is assignment-scoped.
 - External-wallet and passkey smart-account execution both route through shared escrow helpers and a wallet-specific transaction executor.
 - Deadline reminder scanning is scheduled by Convex every 15 minutes.
 
@@ -28,6 +29,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Passkey smart-account execution includes compatibility fallbacks and runtime WASM/signer checks. The current implementation is sensitive to the configured smart-account artifact and `smart-account-kit` behavior.
 - XLM-to-USDC path-payment top-up exists for classic external wallets, but requires a USDC trustline, sufficient spendable XLM, and available path liquidity. XLM escrow is optional and requires a configured native XLM token contract.
 - Mainnet readiness checks are extensive, but they do not constitute contract, relayer, backend, monitoring, or operational audits.
+- The membership-enabled escrow source and frontend/backend workflow have not been deployed. Existing deployments retain owner-only settlement and do not enforce the new participant-conflict rule. Activation requires a fresh isolated contract/deployment database; existing ID lookup/synchronization is unsafe across overlapping escrow-ID spaces.
 - Proof and agreement records carry hashes and protection metadata, but source-file and attachment content checksum TODOs remain in backend/client paths.
 
 ## Experimental or Compatibility-Sensitive
