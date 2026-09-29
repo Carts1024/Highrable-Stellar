@@ -12,6 +12,7 @@ source_of_truth: repository
 
 - Documented owner-managed dispute-admin membership, scoped capabilities, claim/assignment rules, signed settlement recovery, and the fresh isolated deployment requirement. The new contract behavior remains undeployed.
 - Added the backend convex-test/Vitest harness and recorded focused contract/backend coverage and test commands.
+- Strengthened C08 `resolve_dispute` tests with exact invocation-scoped authorization, share/status boundaries, repeat-settlement checks, and full escrow/token-balance preservation assertions; documented mocked-auth limits and owner/registered-admin participant-conflict rules.
 
 ## 2026-09-28
 
