@@ -10,9 +10,11 @@ source_of_truth: repository
 
 ## 2026-09-29
 
+- Added C12 escrow settlement invariants for full refund, full payout, and rounded split from both funded and submitted dispute states, including full-record and balance-conservation assertions.
 - Completed C10 admin review-control hardening: loaded status initialization (`open` maps to `under_review`), validated three-target selection, centralized assigned-admin/nonparticipant/nonterminal UI eligibility, pending duplicate protection, associated review-message labeling, queue-cache invalidation across filters, detail/timeline refresh, rejected-write draft preservation, and read-only retry after successful-write refresh. Focused admin Vitest coverage passes 37 tests; review controls do not invoke Stellar execution.
 - Documented owner-managed dispute-admin membership, scoped capabilities, claim/assignment rules, signed settlement recovery, and the fresh isolated deployment requirement. The new contract behavior remains undeployed.
 - Added the backend convex-test/Vitest harness and recorded focused contract/backend coverage and test commands.
+- Strengthened C08 `resolve_dispute` tests with exact invocation-scoped authorization, share/status boundaries, repeat-settlement checks, and full escrow/token-balance preservation assertions; documented mocked-auth limits and owner/registered-admin participant-conflict rules.
 
 ## 2026-09-28
 
