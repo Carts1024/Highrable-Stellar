@@ -21,6 +21,11 @@ export type TInvokeContractParams = {
   args: xdr.ScVal[];
   signTransaction: TSignedTransactionSubmitter;
   operationId?: string;
+  onSigned?: (identity: {
+    readonly operationId?: string;
+    readonly transactionHash: string;
+    readonly transactionValidUntil: number;
+  }) => Promise<void>;
 };
 
 export type TConfirmedContractTx = {
@@ -295,6 +300,27 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
   const signedXdr = await params.signTransaction(preparedTransaction.toXDR(), {
     requiresServerSession: useVeloGas,
   });
+  const signedTransaction = TransactionBuilder.fromXDR(signedXdr, params.networkPassphrase);
+  const transactionHash = Array.from(signedTransaction.hash(), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const timeBounds = (
+    signedTransaction as unknown as {
+      timeBounds?: { maxTime?: string | number | bigint };
+    }
+  ).timeBounds;
+  const transactionValidUntil = Number(timeBounds?.maxTime ?? 0);
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new StellarTransactionError(
+      "Signed transaction did not include an expiry time.",
+      transactionHash,
+    );
+  }
+  await params.onSigned?.({
+    operationId: params.operationId,
+    transactionHash,
+    transactionValidUntil,
+  });
 
   if (useVeloGas) {
     return await submitViaVeloGas({
@@ -304,7 +330,6 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
     });
   }
 
-  const signedTransaction = TransactionBuilder.fromXDR(signedXdr, params.networkPassphrase);
   const submittedTransaction = await server.sendTransaction(signedTransaction);
 
   if (submittedTransaction.status !== "PENDING" && submittedTransaction.status !== "DUPLICATE") {

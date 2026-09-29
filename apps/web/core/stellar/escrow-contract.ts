@@ -21,6 +21,11 @@ type TBaseEscrowCallParams = {
   signTransaction?: TSignedTransactionSubmitter;
   walletType?: TWalletExecutionMode;
   operationId?: string;
+  onSigned?: (identity: {
+    readonly operationId?: string;
+    readonly transactionHash: string;
+    readonly transactionValidUntil: number;
+  }) => Promise<void>;
 };
 
 type TEscrowResult = TConfirmedContractTx;
@@ -92,6 +97,7 @@ async function executeEscrowContract(
     networkPassphrase: params.networkPassphrase,
     signTransaction: params.signTransaction,
     operationId: params.operationId,
+    onSigned: params.onSigned,
   });
 }
 
@@ -640,7 +646,7 @@ export async function markDisputedOnChain(
 
 export async function resolveDisputeOnChain(
   params: TBaseEscrowCallParams & {
-    platformAdmin: string;
+    disputeAdmin: string;
     escrowId: string;
     freelancerShareBps: number;
     resolutionHash: Uint8Array;
@@ -653,7 +659,7 @@ export async function resolveDisputeOnChain(
     escrowContractId: params.escrowContractId,
     method: "resolve_dispute",
     args: [
-      addressScVal(params.platformAdmin),
+      addressScVal(params.disputeAdmin),
       u64ScVal(params.escrowId),
       u32ScVal(params.freelancerShareBps),
       bytesN32ScVal(params.resolutionHash),
@@ -662,6 +668,60 @@ export async function resolveDisputeOnChain(
     walletType: params.walletType,
     operationId: params.operationId,
   });
+}
+
+export async function addDisputeAdminOnChain(
+  params: TBaseEscrowCallParams & { platformAdmin: string; disputeAdmin: string },
+): Promise<TEscrowResult> {
+  return await executeEscrowContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    escrowContractId: params.escrowContractId,
+    method: "add_dispute_admin",
+    args: [addressScVal(params.platformAdmin), addressScVal(params.disputeAdmin)],
+    signTransaction: params.signTransaction,
+    walletType: params.walletType,
+    operationId: params.operationId,
+    onSigned: params.onSigned,
+  });
+}
+
+export async function removeDisputeAdminOnChain(
+  params: TBaseEscrowCallParams & { platformAdmin: string; disputeAdmin: string },
+): Promise<TEscrowResult> {
+  return await executeEscrowContract({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: params.sourceAddress,
+    escrowContractId: params.escrowContractId,
+    method: "remove_dispute_admin",
+    args: [addressScVal(params.platformAdmin), addressScVal(params.disputeAdmin)],
+    signTransaction: params.signTransaction,
+    walletType: params.walletType,
+    operationId: params.operationId,
+    onSigned: params.onSigned,
+  });
+}
+
+export async function isDisputeAdminOnChain(
+  params: Omit<TBaseEscrowCallParams, "signTransaction" | "operationId" | "onSigned"> & {
+    disputeAdmin: string;
+  },
+): Promise<boolean> {
+  const result = await simulateContractCall<unknown>({
+    rpcUrl: params.rpcUrl,
+    networkPassphrase: params.networkPassphrase,
+    sourceAddress: resolveReadSourceAddress(params.sourceAddress),
+    contractId: params.escrowContractId,
+    method: "is_dispute_admin",
+    args: [addressScVal(params.disputeAdmin)],
+  });
+
+  if (typeof result !== "boolean") {
+    throw new Error("Escrow contract did not return dispute-admin membership.");
+  }
+  return result;
 }
 
 export async function getPlatformAdminOnChain(
