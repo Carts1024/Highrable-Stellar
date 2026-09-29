@@ -12,6 +12,8 @@ export type TAdminResolutionStatus = FunctionArgs<
 export type IAdminDisputeListItem = TAdminDisputeQueueQueryResult[number];
 export type IAdminDashboardMetrics = FunctionReturnType<typeof api.admin.getAdminDashboardMetrics>;
 export type IAdminDisputeDetail = TAdminDisputeDetailQueryResult;
+export type IAdminMembershipManagement = FunctionReturnType<typeof api.admin.listDisputeAdmins>;
+export type IAdminMembershipOperation = IAdminMembershipManagement["operations"][number];
 
 export interface IAdminDisputesResponse {
   readonly disputes: TAdminDisputeQueueQueryResult;
@@ -19,33 +21,54 @@ export interface IAdminDisputesResponse {
 
 export interface IAdminSessionResponse {
   readonly adminWallet: string;
+  readonly isOwner: boolean;
+  readonly isDisputeAdmin: boolean;
+}
+
+export interface IAdminMembershipOperationResponse {
+  readonly operation: IAdminMembershipOperation;
+}
+
+export interface IAdminMembershipOperationRequest {
+  readonly wallet: string;
+  readonly action: "grant" | "revoke";
+  readonly operationId: string;
 }
 
 export interface IAdminResolutionRequestStarted {
   readonly phase: "started";
   readonly status: TAdminResolutionStatus;
   readonly freelancerShareBps: number;
+  readonly operationId: string;
   readonly resolutionNote?: string;
+}
+
+export interface IAdminResolutionRequestSigned {
+  readonly phase: "signed";
+  readonly operationId: string;
+  readonly transactionHash: string;
+  readonly transactionValidUntil: number;
 }
 
 export interface IAdminResolutionRequestSucceeded {
   readonly phase: "succeeded";
-  readonly status: TAdminResolutionStatus;
-  readonly freelancerShareBps: number;
-  readonly transactionHash: string;
-  readonly stellarExpertUrl?: string;
-  readonly resolutionNote?: string;
+  readonly operationId: string;
 }
 
 export interface IAdminResolutionRequestFailed {
   readonly phase: "failed";
-  readonly status: TAdminResolutionStatus;
-  readonly freelancerShareBps: number;
+  readonly operationId: string;
   readonly errorMessage: string;
-  readonly resolutionNote?: string;
+}
+
+export interface IAdminResolutionRequestReconcile {
+  readonly phase: "reconcile" | "succeeded";
+  readonly operationId: string;
 }
 
 export type TAdminResolutionRequest =
   | IAdminResolutionRequestStarted
+  | IAdminResolutionRequestSigned
   | IAdminResolutionRequestSucceeded
-  | IAdminResolutionRequestFailed;
+  | IAdminResolutionRequestFailed
+  | IAdminResolutionRequestReconcile;

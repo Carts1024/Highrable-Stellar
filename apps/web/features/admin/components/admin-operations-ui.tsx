@@ -45,6 +45,12 @@ interface IAdminDisputeQueueProps {
   readonly emptyState: ReactNode;
   readonly actionLabel: string;
   readonly compact?: boolean;
+  readonly verifiedWallet?: string;
+  readonly isOwner?: boolean;
+  readonly activeAdminWallets?: readonly string[];
+  readonly busyDisputeId?: string | null;
+  readonly onClaim?: (disputeId: string) => void;
+  readonly onAssign?: (disputeId: string, assignedAdminWallet: string | null) => void;
 }
 
 function formatBreakdownLabel(label: string): string {
@@ -137,6 +143,12 @@ export function AdminDisputeQueue({
   emptyState,
   actionLabel,
   compact = false,
+  verifiedWallet,
+  isOwner = false,
+  activeAdminWallets = [],
+  busyDisputeId,
+  onClaim,
+  onAssign,
 }: IAdminDisputeQueueProps) {
   if (disputes.length === 0) {
     return <>{emptyState}</>;
@@ -167,6 +179,9 @@ export function AdminDisputeQueue({
                 {formatDisputeDate(compact ? dispute.updatedAt : dispute.openedAt)}
                 {!compact ? ` | Updated ${formatDisputeDate(dispute.updatedAt)}` : null}
               </p>
+              <p className="mt-1 text-xs text-[#7f7f7f]">
+                Assigned: {dispute.assignedAdminWallet ?? "Unassigned"}
+              </p>
             </div>
 
             <p className="text-sm text-[#5f5f5f]">
@@ -178,7 +193,40 @@ export function AdminDisputeQueue({
               <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
             </div>
 
-            <div className="flex justify-start lg:justify-end">
+            <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+              {!dispute.assignedAdminWallet && onClaim ? (
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={busyDisputeId === dispute.disputeId}
+                  onClick={() => onClaim(dispute.disputeId)}
+                >
+                  {busyDisputeId === dispute.disputeId ? "Claiming..." : "Claim"}
+                </AppButton>
+              ) : null}
+              {isOwner && onAssign ? (
+                <select
+                  aria-label={`Assign ${dispute.disputeNumber}`}
+                  className="h-9 max-w-44 border border-[#e8e8e8] bg-white px-2 text-xs"
+                  value={dispute.assignedAdminWallet ?? ""}
+                  disabled={busyDisputeId === dispute.disputeId}
+                  onChange={(event) => onAssign(dispute.disputeId, event.target.value || null)}
+                >
+                  <option value="">Unassigned</option>
+                  {dispute.assignedAdminWallet &&
+                  !activeAdminWallets.includes(dispute.assignedAdminWallet) ? (
+                    <option value={dispute.assignedAdminWallet}>
+                      Revoked: {dispute.assignedAdminWallet}
+                    </option>
+                  ) : null}
+                  {activeAdminWallets.map((wallet) => (
+                    <option key={wallet} value={wallet}>
+                      {wallet === verifiedWallet ? "Owner (you)" : wallet}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <AppButton asChild variant="secondary" size="sm">
                 <Link href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}>
                   {actionLabel}

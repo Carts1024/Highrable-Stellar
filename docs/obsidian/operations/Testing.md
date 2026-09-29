@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -45,3 +45,7 @@ When changing wallet or contract code, test at least:
 ## What is not automatically proven
 
 Passing local tests does not prove deployed contract IDs are wired correctly, a relayer is funded/available, production auth TODOs are resolved, or attachment/proof privacy is complete. Use [[operations/Deployment]] and [[stellar/Mainnet Readiness and Relayers]] for those checks.
+
+## Multiple dispute-admin checks
+
+The backend now has a focused Vitest 5 + convex-test harness using the edge-runtime environment. Run it with pnpm --filter @repo/backend test. Current backend cases cover secret/capability separation, profile-role isolation, grant/revoke state, concurrent claims, stale assignment actors, owner participant conflicts, active settlement locking, and idempotent completion. Rust coverage includes owner-managed contract membership, actor auth failure, multi-admin settlement, unknown actors, and participant conflicts.

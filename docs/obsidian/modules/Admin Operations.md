@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -10,11 +10,11 @@ source_of_truth: repository
 
 ## Purpose
 
-Give one configured platform wallet access to metrics, dispute review, moderator notes, and on-chain settlement bookkeeping.
+Give the configured platform owner access to platform metrics and owner controls, with a separately managed team of external-wallet dispute admins for case review and settlement.
 
 ## Current Status
 
-Admin dashboard and dispute console/API routes are implemented. The contract platform admin must match the configured Highrable admin wallet for on-chain escrow operations. The dispute queue and detail pages now verify the signed session through `/api/admin/session` before mounting protected content; the configured wallet is authoritative and the database user role is not used for these two routes. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`; status labels/classification and Convex-derived view-model types are shared with participant routes. This is platform-operated review, not decentralized arbitration.
+Admin dashboard, owner-managed dispute-admin membership, case assignment, and dispute settlement recovery are implemented in source. The current recorded contract deployments predate dispute-admin membership; the new contract behavior is undeployed and requires a fresh isolated deployment. The platform owner remains `HIGHRABLE_ADMIN_WALLET_ADDRESS`; external dispute admins are stored separately from `users.role` and scoped to the configured Stellar network and escrow contract. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`. This is platform-operated review, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -32,15 +32,15 @@ Admin dashboard and dispute console/API routes are implemented. The contract pla
 
 ## Main Entry Points
 
-Routes: `/admin`, `/admin/disputes`, `/admin/disputes/[disputeId]`; APIs: metrics, dispute list/detail, status, note, and resolve endpoints. Convex functions: `getAdminDashboardMetrics`, `listAdminDisputes`, `getAdminDispute`, `addModeratorNote`, `changeDisputeReviewStatus`, and resolution-phase mutations.
+Routes: `/admin`, `/admin/admins`, `/admin/disputes`, `/admin/disputes/[disputeId]`; APIs cover metrics, capability/session checks, membership operations/recovery, queue/detail, claim/assignment, notes/status, and settlement recovery. Convex functions include `getAdminDashboardMetrics`, `getAdminCapabilities`, `listDisputeAdmins`, `claimDispute`, `assignDispute`, `addModeratorNote`, `changeDisputeReviewStatus`, and settlement/membership operation mutations.
 
 ## Data Model
 
-Admin data is stored on `disputes`, `disputeEvents`, `escrows`, jobs/milestones, and transactions. Admin identity is a configured wallet, not a free-form role claim from the browser.
+Admin data is stored on disputes/events, scoped disputeAdmins and disputeAdminOperations, assignment audit events, settlement attempts, escrows, parent jobs/milestones, and transactions. Cases start unassigned. Admin identity comes from a verified signed wallet session; Convex independently checks the server secret and owner or active scoped membership.
 
 ## External Dependencies
 
-Signed session cookie, environment admin wallet/secret, Convex HTTP client, escrow `resolve_dispute`, and explorer URL metadata.
+Signed external-wallet session cookie, owner/secret/network/contract environment configuration, Convex HTTP client, escrow membership/settlement methods, Soroban RPC reconciliation, and explorer URL metadata.
 
 The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses. Queue workload metrics render only after queue data exists, and queue/detail errors preserve invalid, not-found, forbidden, and failed-read distinctions. Network and 5xx reads are retryable; 400/401/403/404 reads are not automatically retried.
 
@@ -51,9 +51,9 @@ Disputes, escrows, milestones, jobs, deadlines, conversations, notifications, an
 ## Important Flows
 
 ```text
-signed admin session → Next API route → Convex admin function
-admin review → on-chain resolve_dispute call → success/failure API phase
-success → patch escrow/job/milestone + dispute resolution fields/events/notifications
+owner session → membership operation → signed contract call → server RPC verification → active app membership
+active admin session → claim or owner assignment → assigned-admin review
+persist signed settlement identity → submit once → verify exact Stellar invocation → update dispute/escrow/parent + events/notifications
 ```
 
 ## Common Change Locations
@@ -63,10 +63,15 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 ## Risks / Gotchas
 
 - The admin Convex secret must never cross into browser code.
-- `/api/admin/session` returns only the verified admin wallet and sends `Cache-Control: no-store`; it never returns the signed session token or Convex secret.
+- `/api/admin/session` returns the verified wallet plus `isOwner`/`isDisputeAdmin` capabilities with `Cache-Control: no-store`; it never returns the signed session token or Convex secret.
+- The owner alone can view platform metrics, manage membership, and assign/reassign cases. Active dispute admins have dispute-console access only; `users.role` grants no admin capability.
+- App settlement is limited to the assigned active admin, with the owner able to reconcile an existing attempt. The contract intentionally permits any active, non-conflicted dispute admin to settle directly, independent of app assignment.
+- Revocation disables app access when requested, before the owner signs the on-chain revocation. Membership reconciliation verifies the saved transaction and current on-chain membership without resubmitting.
+- Settlement hashes and expiry are persisted before submission. Recovery verifies the saved invocation and cannot submit it again. Reassignment is blocked while an attempt is active or its outcome is unknown.
+- Keep the initial membership-enabled deployment/database isolated. Existing escrow ID lookup and Convex synchronization are not safe across overlapping contract ID spaces.
 - Dispute detail `NOT_FOUND` Convex errors map to HTTP 404 and render a return-to-queue state. Queue failures remain errors rather than becoming an empty queue.
 - The shared status contract has eight dispute statuses and four on-chain marking phases. Frontend Developer 1 owns the admin routes/features plus shared dispute types, labels/classification helpers, formatting helpers, and badges; Frontend Developer 2 consumes those exports from participant routes/components.
-- The resolution API records phases; it does not itself submit a Soroban transaction—the UI/helper execution and phase updates are separate.
+- The UI/shared executor submits only after the signed hash and expiry are persisted. The API verifies or reconciles the saved transaction identity and applies settlement bookkeeping; recovery never resubmits it.
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety.
 - Metrics are bounded scans and can return `isTruncated`.
 

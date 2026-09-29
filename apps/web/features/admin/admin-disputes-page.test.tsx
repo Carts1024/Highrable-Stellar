@@ -12,6 +12,8 @@ vi.mock("@/features/admin/admin-session-gate", () => ({
   AdminSessionGate: ({ children }: { readonly children: ReactNode }) => children,
   useAdminSessionAccess: () => ({
     verifiedWallet: `G${"A".repeat(55)}`,
+    isOwner: false,
+    isDisputeAdmin: true,
     handleProtectedApiError: vi.fn(),
   }),
 }));
@@ -90,6 +92,7 @@ function renderQueue() {
 }
 
 const populatedQueue = {
+  admins: [],
   disputes: [
     {
       disputeId: "dispute-1",
@@ -124,12 +127,12 @@ describe("AdminDisputesPage", () => {
     expect(screen.getByRole("alert").textContent).toContain("Loading disputes");
     expect(screen.queryByText(/Visible disputes:/)).toBeNull();
 
-    resolveResponse(response({ disputes: [] }));
+    resolveResponse(response({ disputes: [], admins: [] }));
     await screen.findByText("No disputes match the selected filters.");
   });
 
   it("renders an explicit empty queue and typed filters", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(response({ disputes: [] }));
+    const fetchMock = vi.fn().mockResolvedValue(response({ disputes: [], admins: [] }));
     vi.stubGlobal("fetch", fetchMock);
 
     renderQueue();
@@ -137,16 +140,18 @@ describe("AdminDisputesPage", () => {
     expect(await screen.findByText("No disputes match the selected filters.")).toBeTruthy();
     const selects = screen.getAllByRole("combobox");
     const statusSelect = selects[0];
-    const onChainSelect = selects[1];
-    if (!statusSelect || !onChainSelect) {
-      throw new Error("Expected both admin dispute filters.");
+    const assignmentSelect = selects[1];
+    const onChainSelect = selects[2];
+    if (!statusSelect || !assignmentSelect || !onChainSelect) {
+      throw new Error("Expected all admin dispute filters.");
     }
     fireEvent.change(statusSelect, { target: { value: "under_review" } });
+    fireEvent.change(assignmentSelect, { target: { value: "all" } });
     fireEvent.change(onChainSelect, { target: { value: "mark_failed" } });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
-        "/api/admin/disputes?status=under_review&onChainStatus=mark_failed&limit=120",
+        "/api/admin/disputes?status=under_review&onChainStatus=mark_failed&assignmentFilter=all&limit=120",
         expect.anything(),
       );
     });

@@ -26,6 +26,8 @@ export const ADMIN_QUERY_KEY = ["admin"] as const;
 
 type TAdminSessionAccessContext = {
   readonly verifiedWallet: string;
+  readonly isOwner: boolean;
+  readonly isDisputeAdmin: boolean;
   readonly handleProtectedApiError: (error: unknown) => void;
 };
 
@@ -69,7 +71,13 @@ export function useAdminSessionAccess(): TAdminSessionAccessContext {
   return context;
 }
 
-export function AdminSessionGate({ children }: { readonly children: React.ReactNode }) {
+export function AdminSessionGate({
+  children,
+  requiredCapability = "dispute",
+}: {
+  readonly children: React.ReactNode;
+  readonly requiredCapability?: "owner" | "dispute";
+}) {
   const walletIdentity = useHighrableWalletIdentity();
   const { authSession, authenticateWallet, logoutWallet, walletState } = useWallet();
   const queryClient = useQueryClient();
@@ -172,7 +180,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
       if (refreshed.error) {
         setAuthenticationError(
           refreshed.error.status === 401
-            ? "Authentication was not accepted. Sign in with the configured external admin wallet and try again."
+            ? "Authentication was not accepted. Sign in with an authorized external wallet and try again."
             : getErrorMessage(refreshed.error, "Admin authentication could not be verified."),
         );
       }
@@ -186,7 +194,8 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
   const isAuthorized =
     sessionQuery.isSuccess &&
     externalWalletAddress !== null &&
-    isMatchingWallet(sessionQuery.data.adminWallet, externalWalletAddress);
+    isMatchingWallet(sessionQuery.data.adminWallet, externalWalletAddress) &&
+    (requiredCapability === "owner" ? sessionQuery.data.isOwner : sessionQuery.data.isDisputeAdmin);
 
   if (walletState.isConnecting || walletState.status === "connecting") {
     return (
@@ -200,8 +209,8 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
   if (!isExternalWalletActive || walletIdentity.walletType === "passkey_smart_account") {
     return (
       <AdminSessionPanel
-        title="Use the external admin wallet"
-        description="Admin sessions are signed by the configured external Stellar wallet. Switch away from passkey mode and connect that external admin wallet to continue."
+        title="Use an external admin wallet"
+        description="Dispute admins sign in with an external Stellar wallet. Switch away from passkey mode and connect an authorized wallet to continue."
       />
     );
   }
@@ -209,8 +218,8 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
   if (!walletState.isConnected || !externalWalletAddress) {
     return (
       <AdminSessionPanel
-        title="Connect the admin wallet"
-        description="Connect the configured external admin wallet to access dispute operations."
+        title="Connect an admin wallet"
+        description="Connect an authorized external dispute admin wallet to access dispute operations."
       />
     );
   }
@@ -220,7 +229,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
       return (
         <AdminSessionPanel
           title="Authentication required"
-          description="The admin session expired or is no longer valid. Authenticate the external admin wallet again."
+          description="The admin session expired or is no longer valid. Authenticate the external wallet again."
         >
           <RouteCallout tone="danger">
             {authenticationError ?? forcedAccessError.message}
@@ -239,7 +248,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
     return (
       <AdminSessionPanel
         title="Admin access forbidden"
-        description="This wallet is not authorized for the protected dispute console."
+        description="This wallet is not authorized for the protected admin page."
       >
         <RouteCallout tone="danger">{forcedAccessError.message}</RouteCallout>
         <AppButton
@@ -257,7 +266,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
     return (
       <AdminSessionPanel
         title="Checking admin access"
-        description="Verifying the signed session against the configured admin wallet."
+        description="Verifying the signed session and admin capabilities."
       />
     );
   }
@@ -266,7 +275,7 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
     return (
       <AdminSessionPanel
         title={authSession ? "Admin session expired" : "Authentication required"}
-        description="Sign the Highrable session message with the configured external admin wallet before protected content is shown."
+        description="Sign the Highrable session message with your external dispute admin wallet before protected content is shown."
       >
         {authenticationError ? (
           <RouteCallout tone="danger">{authenticationError}</RouteCallout>
@@ -286,10 +295,10 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
     return (
       <AdminSessionPanel
         title="Admin access forbidden"
-        description="The verified session wallet does not match the configured admin wallet."
+        description="The verified wallet does not have the capability required for this page."
       >
         <RouteCallout tone="danger">
-          {sessionQuery.error?.message ?? "Connect the configured external admin wallet."}
+          {sessionQuery.error?.message ?? "Connect an authorized external admin wallet."}
         </RouteCallout>
         <AppButton
           type="button"
@@ -339,7 +348,12 @@ export function AdminSessionGate({ children }: { readonly children: React.ReactN
 
   return (
     <AdminSessionAccessContext.Provider
-      value={{ verifiedWallet: sessionQuery.data.adminWallet, handleProtectedApiError }}
+      value={{
+        verifiedWallet: sessionQuery.data.adminWallet,
+        isOwner: sessionQuery.data.isOwner,
+        isDisputeAdmin: sessionQuery.data.isDisputeAdmin,
+        handleProtectedApiError,
+      }}
     >
       {children}
     </AdminSessionAccessContext.Provider>

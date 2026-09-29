@@ -3,7 +3,7 @@
 import { AdminApiError } from "@/features/admin/lib/admin-api";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createElement } from "react";
+import React, { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
@@ -70,21 +70,17 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
-function renderGate() {
+function renderGate(requiredCapability: "owner" | "dispute" = "dispute") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
 
   const rendered = render(
-    createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      createElement(
-        AdminSessionGate,
-        null,
-        createElement("div", { "data-testid": "protected-content" }, "Protected dispute console"),
-      ),
-    ),
+    <QueryClientProvider client={queryClient}>
+      <AdminSessionGate requiredCapability={requiredCapability}>
+        <div data-testid="protected-content">Protected dispute console</div>
+      </AdminSessionGate>
+    </QueryClientProvider>,
   );
 
   return { ...rendered, queryClient };
@@ -119,7 +115,13 @@ describe("AdminSessionGate", () => {
     expect(screen.queryByTestId("protected-content")).toBeNull();
     expect(screen.getByRole("heading", { name: "Checking admin access" })).toBeTruthy();
 
-    pending.resolve(response(200, { adminWallet: runtime.wallet.walletState.walletAddress }));
+    pending.resolve(
+      response(200, {
+        adminWallet: runtime.wallet.walletState.walletAddress,
+        isOwner: true,
+        isDisputeAdmin: true,
+      }),
+    );
 
     await waitFor(() => expect(screen.getByTestId("protected-content")).toBeTruthy());
   });
@@ -145,7 +147,11 @@ describe("AdminSessionGate", () => {
         .fn()
         .mockResolvedValueOnce(response(401, { error: "Authentication required." }))
         .mockResolvedValueOnce(
-          response(200, { adminWallet: runtime.wallet.walletState.walletAddress }),
+          response(200, {
+            adminWallet: runtime.wallet.walletState.walletAddress,
+            isOwner: true,
+            isDisputeAdmin: true,
+          }),
         ),
     );
 
@@ -188,10 +194,22 @@ describe("AdminSessionGate", () => {
     );
 
     expect(screen.queryByTestId("protected-content")).toBeNull();
-    first.resolve(response(200, { adminWallet: `G${"A".repeat(55)}` }));
+    first.resolve(
+      response(200, {
+        adminWallet: `G${"A".repeat(55)}`,
+        isOwner: true,
+        isDisputeAdmin: true,
+      }),
+    );
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByTestId("protected-content")).toBeNull();
-    second.resolve(response(200, { adminWallet: `G${"B".repeat(55)}` }));
+    second.resolve(
+      response(200, {
+        adminWallet: `G${"B".repeat(55)}`,
+        isOwner: false,
+        isDisputeAdmin: true,
+      }),
+    );
     await waitFor(() => expect(screen.getByTestId("protected-content")).toBeTruthy());
 
     runtime.wallet.walletState = {
@@ -226,11 +244,13 @@ describe("AdminSessionGate", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          response(200, { adminWallet: runtime.wallet.walletState.walletAddress }),
-        ),
+      vi.fn().mockResolvedValue(
+        response(200, {
+          adminWallet: runtime.wallet.walletState.walletAddress,
+          isOwner: true,
+          isDisputeAdmin: true,
+        }),
+      ),
     );
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -248,5 +268,23 @@ describe("AdminSessionGate", () => {
       expect(screen.getByRole("heading", { name: "Authentication required" })).toBeTruthy(),
     );
     expect(screen.queryByRole("button", { name: "Invalidate session" })).toBeNull();
+  });
+
+  it("keeps owner-only pages closed to a dispute admin", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        response(200, {
+          adminWallet: runtime.wallet.walletState.walletAddress,
+          isOwner: false,
+          isDisputeAdmin: true,
+        }),
+      ),
+    );
+
+    renderGate("owner");
+
+    expect(await screen.findByRole("heading", { name: "Admin access forbidden" })).toBeTruthy();
+    expect(screen.queryByTestId("protected-content")).toBeNull();
   });
 });

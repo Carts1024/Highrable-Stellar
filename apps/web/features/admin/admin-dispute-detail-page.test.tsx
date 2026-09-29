@@ -32,6 +32,8 @@ vi.mock("@/features/admin/admin-session-gate", () => ({
   AdminSessionGate: ({ children }: { readonly children: ReactNode }) => children,
   useAdminSessionAccess: () => ({
     verifiedWallet: `G${"A".repeat(55)}`,
+    isOwner: false,
+    isDisputeAdmin: true,
     handleProtectedApiError: vi.fn(),
   }),
 }));
@@ -215,6 +217,8 @@ const resolvedDetail = {
     attachments: [],
   },
   timeline: [],
+  assignmentEvents: [],
+  settlementAttempts: [],
   job: null,
   milestone: null,
   escrow: null,

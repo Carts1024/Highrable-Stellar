@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -36,10 +36,16 @@ The authoritative schema entry point is `packages/backend/convex/schema.ts`, whi
 | `cancellationEvents` | `cancellations/schema.ts` | Cancellation timeline. |
 | `disputes` | `disputes/schema.ts` | Evidence, participant responses, review, settlement, and on-chain dispute state. |
 | `disputeEvents` | `disputes/schema.ts` | Dispute timeline/moderation events. |
+| `disputeAdmins` | `admin/schema.ts` | Network/contract-scoped dispute wallet membership and active/revoking/revoked access state. |
+| `disputeAdminOperations` | `admin/schema.ts` | Owner-authenticated grant/revoke operation identity, status, transaction hash/expiry, and recovery timestamps. |
+| `disputeAssignmentEvents` | `admin/schema.ts` | Audit log for case claims, releases, and owner reassignment. |
+| `settlementAttempts` | `admin/schema.ts` | Settlement identity, actor, immutable resolution terms, transaction, and phase; one active attempt per escrow. |
 | `reputationRecords` | `reputation_records/schema.ts` | Convex mirror/display record for released escrow reputation. |
 | `transactions` | `transactions/schema.ts` | Application transaction audit records, fee-path metadata, and optional Velo recovery identity/status (`gasRequestId`, inner/outer hashes, actual fee, reconciliation flag). Signed XDR is not stored. |
 | `jobReports` | `reports/schema.ts` | Scam/off-platform/spam/fake-job reports. |
 | `waitlistEntries` | `waitlist/schema.ts` | Normalized waitlist email and timestamps. |
+
+The disputes table has optional assignee wallet/time/actor fields and the `by_assignedAdmin_updatedAt` index. Existing rows remain valid without assignment fields.
 
 ## Common schema conventions
 

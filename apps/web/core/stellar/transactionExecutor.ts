@@ -19,6 +19,11 @@ export interface IExecuteHighrableContractCallParams {
   readonly networkPassphrase: string;
   readonly signTransaction?: TSignedTransactionSubmitter;
   readonly operationId?: string;
+  readonly onSigned?: (identity: {
+    readonly operationId?: string;
+    readonly transactionHash: string;
+    readonly transactionValidUntil: number;
+  }) => Promise<void>;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
@@ -39,6 +44,7 @@ export async function executeHighrableContractCall(
       args: [...params.args],
       signTransaction: params.signTransaction,
       operationId: params.operationId,
+      onSigned: params.onSigned,
     });
   }
 

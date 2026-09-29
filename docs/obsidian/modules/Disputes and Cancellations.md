@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -14,8 +14,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts`, derives status/actor/parent fields from generated Convex documents, and publishes the frozen participant handoff at `docs/instawards/C06-Frontend-Handoff.md`. This remains a platform-reviewed workflow, not decentralized arbitration.
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization and creation invariants without changing public arguments, return shapes, schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -31,15 +30,16 @@ Convex participant/admin workflow and Soroban dispute marking/settlement are imp
 - Open disputes with reason, evidence, related submissions/revisions/messages/deadlines, and agreement context.
 - Let participants respond, add evidence, and track `mark_disputed` transaction phases.
 - Model cancellation eligibility, freelancer response, expiration, on-chain cancel state, and event history.
-- Let the configured admin review, add notes, change review status, and record settlement phases.
+- Let active dispute admins claim unassigned nonterminal cases; only the assigned admin may add notes, change review status, or start settlement. The owner manages membership and assignment.
+- Keep settlement attempts single-active per escrow, preserve the acting wallet and terms, and reconcile the signed transaction before applying terminal parent-state updates.
 
 ## Main Entry Points
 
-Disputes: `createDispute`, `markDisputeOnChainStarted/Succeeded/Failed`, `addDisputeEvidence`, `addDisputeResponse`, `changeDisputeStatus`, `recordDisputeResolution`, and timeline/permission queries. Cancellations: `createCancellationRequest`, `respondToCancellationRequest`, `markCancellationApproved`, `markCancelOnChainStarted/Succeeded/Failed`, `expireCancellationRequest`, and eligibility queries. Admin settlement routes call `recordDisputeResolutionStarted/Succeeded/Failed`. Participant query-result and mutation-argument aliases are exported from `features/disputes/types.ts`; status labels, filter options, and terminal classification are exported from `features/disputes/lib.ts`.
+Disputes: `createDispute`, `markDisputeOnChainStarted/Succeeded/Failed`, `addDisputeEvidence`, `addDisputeResponse`, `changeDisputeStatus`, `recordDisputeResolution`, and timeline/permission queries. Cancellations: `createCancellationRequest`, `respondToCancellationRequest`, `markCancellationApproved`, `markCancelOnChainStarted/Succeeded/Failed`, `expireCancellationRequest`, and eligibility queries. Admin settlement routes use `recordDisputeResolutionStarted/Signed/SubmissionUnknown/Succeeded/Failed`. Participant query-result and mutation-argument aliases are exported from `features/disputes/types.ts`; status labels, filter options, and terminal classification are exported from `features/disputes/lib.ts`.
 
 ## Data Model
 
-`disputes` stores participants, parent links, evidence/related records, status, on-chain status, tx hashes, split basis points, payout/refund amounts, resolution note, and timestamps. `disputeEvents` is the timeline. `cancellationRequests` and `cancellationEvents` use a separate policy/status model.
+`disputes` stores optional assignee wallet/time/actor fields in addition to participants, parent links, evidence, status, on-chain status, settlement, and timestamps. `disputeAssignmentEvents` records claims, release, and owner reassignment. `settlementAttempts` fixes the actor, share, note, operation ID, signed hash/expiry, scope, and phase. `disputeAdmins` and `disputeAdminOperations` hold owner-managed network/contract-scoped membership and recovery state. `disputeEvents` remains the dispute timeline; cancellations use their separate policy/status model.
 
 ## External Dependencies
 
@@ -55,9 +55,11 @@ Escrows, jobs, milestones, work submissions, revisions, agreements, conversation
 participant opens dispute
   → Convex evidence/timeline
   → on-chain mark disputed (retryable if failed)
-  → admin review
-  → 0/partial/10000 bps contract resolution
-  → Convex settlement record and parent terminal-state patch
+  → active admin claim or owner assignment
+  → assigned admin review
+  → persist signed transaction identity before submission
+  → server verifies contract/escrow/actor/split and current escrow state
+  → idempotent Convex settlement record and parent terminal-state patch
 ```
 
 Cancellation is blocked by submitted proof or active disputes according to its eligibility helpers. Contract cancellation is only valid for `Created` or `Funded`; a `Submitted` escrow must use dispute/review paths.
@@ -73,6 +75,9 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 ## Risks / Gotchas
 
 - `resolve_dispute` stores no resolution hash despite accepting the argument.
+- App case assignment is enforced by Convex. As selected, the contract permits any active, non-conflicted dispute admin to settle directly without checking app assignment.
+- Existing cases are unassigned. Owner assignment/release is blocked during a pending or submission-unknown settlement. A revoked admin's assignment remains visible for owner reassignment.
+- The new membership and contract conflict rules are not present in currently recorded deployments; activate only with a fresh isolated deployment/database. Existing ID lookup/synchronization is not safe across overlapping contract ID spaces.
 - `freelancer_share_bps == 0` becomes contract `Cancelled`; any positive share becomes `Released`, including a client-refund split.
 - Contract settlement does not write a reputation completion record.
 - Convex public participant checks are not the same as signed-session possession proof.

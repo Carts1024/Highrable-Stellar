@@ -2,11 +2,16 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-09-29
+
+- Documented owner-managed dispute-admin membership, scoped capabilities, claim/assignment rules, signed settlement recovery, and the fresh isolated deployment requirement. The new contract behavior remains undeployed.
+- Added the backend convex-test/Vitest harness and recorded focused contract/backend coverage and test commands.
 
 ## 2026-09-28
 

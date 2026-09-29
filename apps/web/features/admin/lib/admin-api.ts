@@ -2,6 +2,9 @@ import type {
   IAdminDashboardMetrics,
   IAdminDisputeDetail,
   IAdminDisputesResponse,
+  IAdminMembershipManagement,
+  IAdminMembershipOperationRequest,
+  IAdminMembershipOperationResponse,
   IAdminSessionResponse,
   TAdminResolutionRequest,
   TAdminReviewStatus,
@@ -11,6 +14,8 @@ import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/
 export interface IAdminApiRequestOptions {
   readonly signal?: AbortSignal;
 }
+
+export type TAdminAssignmentFilter = "unassigned" | "mine" | "all";
 
 export class AdminApiError extends Error {
   readonly status: number;
@@ -163,10 +168,80 @@ export async function fetchAdminMetrics(
   return await readJsonOrThrow<IAdminDashboardMetrics>(response);
 }
 
+export async function fetchAdminMembershipManagement(
+  options: IAdminApiRequestOptions = {},
+): Promise<IAdminMembershipManagement> {
+  const response = await fetchAdminResponse("/api/admin/admins", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    signal: options.signal,
+  });
+  return await readJsonOrThrow<IAdminMembershipManagement>(response);
+}
+
+export async function startAdminMembershipOperation(
+  input: IAdminMembershipOperationRequest,
+): Promise<IAdminMembershipOperationResponse> {
+  const response = await fetchAdminResponse("/api/admin/admins", {
+    method: "POST",
+    credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return await readJsonOrThrow<IAdminMembershipOperationResponse>(response);
+}
+
+export async function recordAdminMembershipSignedTransaction(
+  operationId: string,
+  transactionHash: string,
+  transactionValidUntil: number,
+): Promise<IAdminMembershipOperationResponse> {
+  const response = await fetchAdminResponse(
+    `/api/admin/admins/${encodeURIComponent(operationId)}/signed`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ transactionHash, transactionValidUntil }),
+    },
+  );
+  return await readJsonOrThrow<IAdminMembershipOperationResponse>(response);
+}
+
+export async function recoverAdminMembershipOperation(
+  operationId: string,
+): Promise<IAdminMembershipOperationResponse & { readonly status?: "pending" }> {
+  const response = await fetchAdminResponse(
+    `/api/admin/admins/${encodeURIComponent(operationId)}/recover`,
+    { method: "POST", credentials: "include" },
+  );
+  return await readJsonOrThrow<IAdminMembershipOperationResponse & { status?: "pending" }>(
+    response,
+  );
+}
+
+export async function failAdminMembershipOperationBeforeSubmission(
+  operationId: string,
+  errorMessage: string,
+): Promise<IAdminMembershipOperationResponse> {
+  const response = await fetchAdminResponse(
+    `/api/admin/admins/${encodeURIComponent(operationId)}/fail`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ errorMessage }),
+    },
+  );
+  return await readJsonOrThrow<IAdminMembershipOperationResponse>(response);
+}
+
 export async function fetchAdminDisputes(
   params?: {
     status?: TDisputeStatus;
     onChainStatus?: TDisputeOnChainStatus;
+    assignmentFilter?: TAdminAssignmentFilter;
     limit?: number;
   },
   options: IAdminApiRequestOptions = {},
@@ -175,6 +250,7 @@ export async function fetchAdminDisputes(
     `/api/admin/disputes${buildAdminQuery({
       status: params?.status,
       onChainStatus: params?.onChainStatus,
+      assignmentFilter: params?.assignmentFilter,
       limit: params?.limit,
     })}`,
     {
@@ -186,6 +262,30 @@ export async function fetchAdminDisputes(
   );
 
   return await readJsonOrThrow<IAdminDisputesResponse>(response);
+}
+
+export async function postAdminClaimDispute(disputeId: string): Promise<void> {
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}/claim`,
+    { method: "POST", credentials: "include" },
+  );
+  await readJsonOrThrow<{ assignedAdminWallet: string }>(response);
+}
+
+export async function postAdminAssignDispute(
+  disputeId: string,
+  assignedAdminWallet: string | null,
+): Promise<void> {
+  const response = await fetchAdminResponse(
+    `/api/admin/disputes/${encodeURIComponent(disputeId)}/assignment`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ assignedAdminWallet }),
+    },
+  );
+  await readJsonOrThrow<{ assignedAdminWallet: string | null }>(response);
 }
 
 export async function fetchAdminDispute(
