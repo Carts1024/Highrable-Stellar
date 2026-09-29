@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -20,7 +20,7 @@ Hold an allowlisted token amount for a client/freelancer work escrow, enforce li
 
 ## Current Status
 
-Implemented and deployed artifacts are recorded for testnet/mainnet escrow contracts. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
+The membership-enabled source is implemented and builds. Tracked testnet/mainnet deployment artifacts still refer to prior contract versions; this source has not been deployed and requires a fresh isolated deployment. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
 
 ## Public Interface
 
@@ -31,6 +31,8 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 | `create_open_escrow(client, asset, amount, job_hash)` | Creates `Created` escrow with no freelancer; client auth. |
 | `create_and_fund_open_escrow(client, asset, amount, job_hash)` | Creates `Funded` open escrow and transfers asset from client to contract atomically. |
 | `add_allowed_asset(platform_admin, asset)` / `remove_allowed_asset(...)` | Admin-managed instance allowlist and count. |
+| `add_dispute_admin(platform_admin, dispute_admin)` / `remove_dispute_admin(...)` | Owner-authenticated, idempotent dispute-admin membership management; the owner is implicit and cannot be removed. |
+| `is_dispute_admin(dispute_admin)` | Returns true for the owner or an explicitly registered dispute admin. |
 | `is_allowed_asset(asset)` / `get_allowed_asset_count()` | Allowlist reads. |
 | `fund_escrow(client, escrow_id)` | `Created → Funded`; client auth and client-to-contract token transfer. |
 | `assign_freelancer(client, escrow_id, freelancer)` | Assigns once while `Created` or `Funded`; client auth. |
@@ -38,7 +40,7 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 | `approve_and_release(client, escrow_id, rating, review_hash)` | `Submitted → Released`; client auth; pays freelancer and calls reputation. |
 | `cancel_escrow(client, escrow_id)` | `Created → Cancelled` or `Funded → Cancelled` with funded refund; client auth. |
 | `mark_disputed(caller, escrow_id)` | `Funded/Submitted → Disputed`; client, assigned freelancer, or platform admin auth. |
-| `resolve_dispute(platform_admin, escrow_id, freelancer_share_bps, resolution_hash)` | Admin-only settlement of `Disputed`; splits/refunds funds and sets `Cancelled` for zero share or `Released` for positive share. |
+| `resolve_dispute(dispute_admin, escrow_id, freelancer_share_bps, resolution_hash)` | Requires the actor's auth and owner/registered membership; rejects client/freelancer actors; settles `Disputed` with existing split/refund behavior. |
 | `get_escrow(escrow_id)` | Read `TEscrow`; unwraps missing record and therefore can fail rather than return `Result`. |
 | `get_next_escrow_id()` | Read next ID. |
 | `get_reputation_contract()` / `get_platform_admin()` | Read stored configuration. |
@@ -46,7 +48,7 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 
 ## Storage
 
-Instance keys: `Initialized`, `ReputationContract`, `PlatformAdmin`, `NextEscrowId`, `AllowedAsset(Address)`, `AllowedAssetCount`.
+Instance keys: `Initialized`, `ReputationContract`, `PlatformAdmin`, `NextEscrowId`, `AllowedAsset(Address)`, `AllowedAssetCount`, and appended `DisputeAdmin(Address)`. The existing key variants and escrow record shape remain unchanged.
 
 Persistent key: `Escrow(u64)` containing `TEscrow`:
 
@@ -75,7 +77,8 @@ Assignment is allowed once from `Created`/`Funded` when no freelancer exists. Di
 - Client methods: client address must require auth and match stored client where applicable.
 - `submit_work`: freelancer address must require auth and match assigned freelancer.
 - `mark_disputed`: caller must require auth and match client, assigned freelancer, or stored admin.
-- Admin methods: supplied platform admin must require auth and equal stored admin.
+- Owner methods: supplied platform admin must require auth and equal stored admin.
+- Dispute-admin membership methods and `resolve_dispute` extend dispute-only authority. The owner is implicitly a member; settlement rejects either escrow participant as actor. Asset allowlisting and all unrelated owner-only operations remain owner-only.
 - Read methods require initialization except `is_initialized` and can still extend instance TTL.
 
 ## Token Transfers
@@ -99,7 +102,7 @@ No `events().publish(...)` or equivalent event emission is present in the curren
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute tests use timestamped funded and submitted fixtures established through public contract calls. Fixture preparation uses broad authorization mocks; the dispute operation under test switches to explicit invocation-scoped mock authorization. Successful marks assert the recorded authorized address and exact `mark_disputed` arguments; rejected calls assert the scoped authorization setup, Soroban host authorization failure or typed contract error, and unchanged state. Coverage includes client, assigned freelancer, platform admin, missing authorization, mismatched outsider authorization, authenticated outsider rejection, invalid statuses, and unassigned escrows. Successful marking checks the full escrow record and client, freelancer, and escrow token balances, proving only `status` changes. These mocks exercise host authorization enforcement, but do not prove cryptographic signature or wallet integration behavior.
 
 ## Deployment Configuration
 
@@ -108,6 +111,7 @@ Deployment scripts build and initialize reputation before/around escrow wiring, 
 ## Known Constraints
 
 - `resolve_dispute` accepts `_resolution_hash` but does not store it.
+- Contract membership and participant-conflict enforcement are available only after deploying the new WASM. Existing deployments keep their prior owner-only settlement logic.
 - Zero share becomes `Cancelled`; positive share becomes `Released`, even if the client receives most/all of the refund.
 - No escrow expiration/timeout is enforced on chain.
 - No on-chain events or contract-side metadata beyond the structure above.

@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -13,9 +13,18 @@ source_of_truth: repository
 | Layer | Command/location | Scope |
 | --- | --- | --- |
 | Web unit/component tests | `pnpm --filter web test` | Vitest suite under `apps/web`. |
+| Backend Convex tests | `pnpm --filter @repo/backend test` | In-memory `convex-test` regression suite under `packages/backend/tests/`, using the real schema and explicit Convex module map. |
 | Type/lint/build checks | `pnpm build`, `pnpm lint:fix` | Next build, TypeScript, oxlint/oxfmt through package scripts. |
 | Soroban contract tests | `cd contracts && cargo test` | Escrow/reputation behavior using Soroban test utilities. |
 | Deployment verification | `pnpm contracts:verify:testnet` | Live testnet wiring/admin/allowlist checks; requires Stellar CLI identity and network access. |
+
+## Backend dispute regression harness
+
+The C02 backend harness uses `convex-test` with the real composed schema from `packages/backend/convex/schema.ts`, an explicit module map, Vitest 2, and the Edge Runtime environment. Tests and fixtures live outside deployable Convex functions in `packages/backend/tests/`; `tests/tsconfig.json` type-checks them separately from `convex/tsconfig.json`.
+
+Dispute fixtures seed users, a client, an assigned freelancer, an unrelated wallet, a configured administrator, a job, and a funded or submitted escrow directly. They support both micro-gig and milestone parents. Tests then create disputes through `api.disputes.createDispute` and exercise administrator paths through `api.admin` with synthetic test-only environment values. Each test receives a fresh in-memory database and deterministic clock; environment and timer stubs are restored after each test. No network calls, live credentials, or mocked authorization/dispute helpers are used.
+
+Verified C02 coverage includes schema enum/type/ID rejection contracts, every existing dispute/event index and field order, participant opening and persisted opening events, administrator review/moderator-note events, participant filtering, parent/escrow/status lookup, chronological timelines, duplicate active disputes, unrelated participants, and invalid administrator credentials.
 
 ## Contract coverage to preserve
 
@@ -36,3 +45,7 @@ When changing wallet or contract code, test at least:
 ## What is not automatically proven
 
 Passing local tests does not prove deployed contract IDs are wired correctly, a relayer is funded/available, production auth TODOs are resolved, or attachment/proof privacy is complete. Use [[operations/Deployment]] and [[stellar/Mainnet Readiness and Relayers]] for those checks.
+
+## Multiple dispute-admin checks
+
+The backend now has a focused Vitest 5 + convex-test harness using the edge-runtime environment. Run it with pnpm --filter @repo/backend test. Current backend cases cover secret/capability separation, profile-role isolation, grant/revoke state, concurrent claims, stale assignment actors, owner participant conflicts, active settlement locking, and idempotent completion. Rust coverage includes owner-managed contract membership, actor auth failure, multi-admin settlement, unknown actors, and participant conflicts.

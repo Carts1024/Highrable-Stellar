@@ -1,5 +1,11 @@
 import { defineSchema } from "convex/server";
 
+import {
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
+} from "./admin/schema";
 import applications from "./applications/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
@@ -48,4 +54,8 @@ export default defineSchema({
   deadlineAuditEvents,
   disputes,
   disputeEvents,
+  disputeAdmins,
+  disputeAdminOperations,
+  disputeAssignmentEvents,
+  settlementAttempts,
 });
