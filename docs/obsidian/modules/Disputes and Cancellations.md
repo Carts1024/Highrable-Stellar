@@ -14,7 +14,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization and C09 hardens related-record validation and the opening audit without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -90,6 +90,13 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 - Only assigned escrows in `funded` or `submitted` status are eligible. Query eligibility and mutation creation both call `assertCanOpenDispute`; active duplicate checks query each active status index directly, so closed-history volume cannot hide an active dispute.
 - Creation and participant/audit checks share normalized client/freelancer role resolution. Opening and audit roles continue to come from backend-resolved records; a configured administrator who is not a participant cannot use the participant creation mutation. Admin review still requires the configured wallet and Convex secret.
 - C05 coverage extends the C02 in-memory harness to 40 backend tests, including all participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Caller-supplied participant wallets remain a documented limitation because this flow does not prove wallet possession.
+
+## C09 Verified Invariants
+
+- Every supplied evidence, submission, revision, message, and deadline reference is count-checked before deduplication, normalized against its expected Convex table, and validated before agreement-version creation or any dispute write. Submissions and revisions must resolve to the selected work, normalized client/freelancer identities, and non-conflicting job, milestone, escrow, and on-chain escrow links; omitted legacy links remain valid when the typed parent is sufficient. Revision-linked submissions are validated too.
+- Message evidence requires a sent message, an existing conversation, matching message/conversation parent links, and membership for both dispute participants. Selected escrow/milestone threads, explicitly related submission threads, prior same-work dispute threads, and shared parent-job threads are accepted; direct, unrelated, and sibling-milestone threads are rejected. Deadline evidence must point to the exact selected milestone or micro-gig parent.
+- Evidence remains active, caller-owned, and unlinked before opening. Raw evidence counts are checked before deduplication, and the deduplicated IDs are used consistently on the dispute, attachment reassignment, and single `dispute_opened` event. Creation remains atomic with canonical participants/parent links, backend-derived actor role, normalized actor wallet, sanitized description, opening timestamp, agreement context, notification, and best-effort system-message behavior.
+- C09 adds deterministic in-memory coverage for aliases, funded/submitted micro-gigs and milestones, both wallet-type values, legacy links, shared conversations, previous disputes, limits, invalid references, participant/link conflicts, hidden messages, exact deadline parents, agreement context, evidence reassignment, notification recipients, and rollback. The suite now has 49 passing backend tests. Caller-supplied participant wallets remain a documented authentication limitation.
 
 ## Regression coverage
 

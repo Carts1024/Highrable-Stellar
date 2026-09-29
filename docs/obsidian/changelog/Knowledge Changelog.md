@@ -10,8 +10,7 @@ source_of_truth: repository
 
 ## 2026-09-29
 
-- Documented owner-managed dispute-admin membership, scoped capabilities, claim/assignment rules, signed settlement recovery, and the fresh isolated deployment requirement. The new contract behavior remains undeployed.
-- Added the backend convex-test/Vitest harness and recorded focused contract/backend coverage and test commands.
+- Completed C09 dispute creation hardening: typed and deduplicated related-record validation now covers submissions, revisions and their referenced submissions, messages/conversations, exact deadline parents, and active caller-owned evidence before agreement-version or dispute writes. Opening remains atomic with canonical participants, one deduplicated `dispute_opened` audit event, agreement context, notification, and best-effort system messages. Added deterministic coverage for aliases, legacy links, shared job conversations, previous disputes, invalid/conflicting references, count boundaries, evidence reassignment, and rollback; backend tests pass 49/49.
 
 ## 2026-09-28
 
