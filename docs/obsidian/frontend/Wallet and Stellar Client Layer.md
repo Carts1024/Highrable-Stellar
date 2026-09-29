@@ -2,7 +2,7 @@
 type: architecture
 area: frontend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -18,6 +18,10 @@ source_of_truth: repository
 - `apps/web/core/stellar/transactionExecutor.ts`: dispatches by wallet mode.
 - `apps/web/core/stellar/escrow-contract.ts`: argument encoding and escrow method wrappers.
 - `apps/web/core/stellar/payment-assets.ts`, `stablecoin-config.ts`, `path-payments.ts`, `trustline.ts`: payment asset/readiness logic.
+
+## Wallet kit package names
+
+The app installs the JSR kit as `@creit-tech/stellar-wallets-kit`. MetaMask Connect Stellar's published module imports the older npm scope, `@creit.tech/stellar-wallets-kit`, so the web package aliases the same JSR version under that name and pnpm public-hoists only that alias for isolated resolution. Keep both aliases aligned when updating the wallet kit.
 
 ## Execution dispatcher
 

@@ -13,6 +13,7 @@
   "dependencies": {
     "@carts1024/velo-sdk": "0.1.0-alpha.4",
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
+    "@creit.tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@heroicons/react": "^2.2.0",
     "@hookstate/core": "^4.0.2",
     "@hookstate/devtools": "^4.0.3",
@@ -32,9 +33,11 @@
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
+    "jsdom": "^30.1.1",
     "typescript": "5.9.2",
     "vitest": "^2.1.9"
   }

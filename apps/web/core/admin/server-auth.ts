@@ -4,15 +4,6 @@ import { TStellarPublicKeySchema } from "@/core/wallet/validation";
 
 import type { NextRequest } from "next/server";
 
-function getConfiguredAdminWalletAddress(): string | null {
-  const configuredAddress = env.HIGHRABLE_ADMIN_WALLET_ADDRESS;
-  if (!configuredAddress) {
-    return null;
-  }
-
-  return TStellarPublicKeySchema.parse(configuredAddress).toUpperCase();
-}
-
 export class AdminAccessError extends Error {
   readonly status: number;
 
@@ -26,29 +17,6 @@ export class AdminAccessError extends Error {
 export interface IAdminRequestContext {
   readonly adminWallet: string;
   readonly adminApiSecret: string;
-}
-
-export function isConfiguredAdminWallet(walletAddress: string): boolean {
-  const configuredAdminWallet = getConfiguredAdminWalletAddress();
-  if (!configuredAdminWallet) {
-    return false;
-  }
-
-  const normalizedWallet = TStellarPublicKeySchema.parse(walletAddress).toUpperCase();
-  return normalizedWallet === configuredAdminWallet;
-}
-
-export function assertConfiguredAdminWallet(walletAddress: string): string {
-  const normalizedWallet = TStellarPublicKeySchema.parse(walletAddress).toUpperCase();
-
-  if (!isConfiguredAdminWallet(normalizedWallet)) {
-    throw new AdminAccessError(
-      "Admin access is restricted to the configured platform wallet.",
-      403,
-    );
-  }
-
-  return normalizedWallet;
 }
 
 export function assertAdminApiSecret(secret: string): string {
@@ -71,7 +39,7 @@ export function requireAdminRequestContext(request: NextRequest): IAdminRequestC
     throw new AdminAccessError(verification.error ?? "Invalid session token.", 401);
   }
 
-  const adminWallet = assertConfiguredAdminWallet(verification.session.sub);
+  const adminWallet = TStellarPublicKeySchema.parse(verification.session.sub).toUpperCase();
   const adminApiSecret = assertAdminApiSecret(env.HIGHRABLE_ADMIN_CONVEX_SECRET ?? "");
 
   return {

@@ -2,7 +2,7 @@
 type: contract
 area: deployment
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -38,6 +38,10 @@ The web readiness code expects public metadata such as account WASM hash, verifi
 ## Production distinction
 
 Recorded contract IDs, configured environment, readiness checks, and a successful deployment are separate claims. None alone proves audited production infrastructure, funded relayer operation, or safe mainnet passkey escrow.
+
+## Dispute-admin contract version
+
+The tracked testnet/mainnet escrow IDs are the existing deployments; they were not replaced by the membership-enabled source build. The new contract's membership storage and participant-conflict checks require a fresh deployment. Initial activation must use an isolated deployment/database and matching network/escrow scope. No deployment artifact or live environment was changed for the multiple-admin implementation.
 
 ## Related Notes
 
