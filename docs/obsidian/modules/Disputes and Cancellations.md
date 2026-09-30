@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. C15 keeps the participant list scoped to the active wallet, renders readable actor and status transitions from Convex dispute events, and isolates timeline read errors so the dispute detail remains visible with a timeline retry. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
