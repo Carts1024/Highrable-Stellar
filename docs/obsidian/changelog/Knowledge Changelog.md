@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-09-30
+
+- Implemented C16 versioned Soroban events for successful dispute marking and resolution. The escrow event handoff records exact topics and named payload fields; the resolution hash is emitted but not persisted. Focused escrow tests and the full contracts workspace pass, and both WASM contracts build. Existing deployments lack the events; no indexer or backend ingestion was added, and reputation events remain absent.
 
 ## 2026-09-29
 

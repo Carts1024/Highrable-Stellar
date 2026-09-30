@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -20,7 +20,7 @@ Hold an allowlisted token amount for a client/freelancer work escrow, enforce li
 
 ## Current Status
 
-The membership-enabled source is implemented and builds. Tracked testnet/mainnet deployment artifacts still refer to prior contract versions; this source has not been deployed and requires a fresh isolated deployment. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
+The membership-enabled source and C16 versioned dispute events are implemented and build. Tracked testnet/mainnet deployment artifacts still refer to prior contract versions; this source has not been deployed and requires a fresh isolated deployment. Existing deployments do not emit the C16 events. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
 
 ## Public Interface
 
@@ -98,11 +98,18 @@ Amounts must be positive `i128`; the contract does not attach token decimals to 
 
 ## Events
 
-No `events().publish(...)` or equivalent event emission is present in the current source.
+The source publishes one versioned named payload after each successful dispute state write:
+
+| Operation | Topics | Payload |
+| --- | --- | --- |
+| Mark | `(dispute, marked, escrow_id: u64)` | `DisputeMarkedEvent { version: u32, actor: Address, status: TEscrowStatus }`; version is `1`, status is `Disputed`. |
+| Resolve | `(dispute, resolved, escrow_id: u64)` | `DisputeResolvedEvent` with version, actor, resulting status, supplied 32-byte resolution hash, asset, client, freelancer, share basis points, and actual freelancer/client amounts. |
+
+Resolution amounts are raw token base units (`i128`); the client amount includes the rounding remainder. The resolution hash is emitted but is not stored in `TEscrow`. Contract address, transaction identity, and ledger metadata come from the event envelope. Escrow IDs are scoped to the emitting contract and network. The full frozen interface and backend boundary are in [C16-Dispute-Event-Handoff](../../instawards/C16-Dispute-Event-Handoff.md). No indexer consumes these events yet.
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute marking and settlement tests prepare timestamped funded or submitted escrows through public contract calls. For settlement, invocation-scoped mock authorization covers the actor and all four `resolve_dispute` arguments; successful calls immediately assert the exact authorized invocation. Settlement coverage accepts `0`, `3_333`, and `10_000` basis points with payout and terminal-status assertions; full refund, full payout, and rounded split outcomes each run from isolated `Funded` and `Submitted` dispute fixtures. They compare the complete escrow record, verify the settlement timestamp for positive shares, and assert expected participant gains and contract balance conservation from the pre-settlement balances. Settlement rejects `10_001` and `u32::MAX`, authenticated outsiders, missing or wrong-actor authorization, `Created`/`Funded`/`Submitted`/`Released`/`Cancelled` statuses, and repeat settlement attempts. Rejected settlements compare the complete escrow record and client, freelancer, and contract token balances before and after. Registered-admin settlement and participant-conflict regressions remain covered. Dispute-marking tests also assert exact invocation authorization and preserved state for rejected calls. These mocks exercise Soroban host authorization enforcement, but do not prove cryptographic signatures or wallet integration behavior.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute marking and settlement tests prepare timestamped funded or submitted escrows through public contract calls. For settlement, invocation-scoped mock authorization covers the actor and all four `resolve_dispute` arguments; successful calls immediately assert the exact authorized invocation. Settlement coverage accepts `0`, `3_333`, and `10_000` basis points with payout and terminal-status assertions; full refund, full payout, and rounded split outcomes each run from isolated `Funded` and `Submitted` dispute fixtures. They compare the complete escrow record, verify the settlement timestamp for positive shares, and assert expected participant gains and contract balance conservation from the pre-settlement balances. Settlement rejects `10_001` and `u32::MAX`, authenticated outsiders, missing or wrong-actor authorization, `Created`/`Funded`/`Submitted`/`Released`/`Cancelled` statuses, and repeat settlement attempts. Rejected settlements compare the complete escrow record and client, freelancer, and contract token balances before and after. Registered-admin settlement and participant-conflict regressions remain covered. Dispute event assertions verify emitter, exact topics, typed named payload fields and values, one event on success, and no new dispute event on rejection; token-transfer events are checked under the token emitter. A failing second settlement transfer verifies rollback and no resolution event. These mocks exercise Soroban host authorization enforcement, but do not prove cryptographic signatures or wallet integration behavior.
 
 ## Deployment Configuration
 
@@ -110,11 +117,12 @@ Deployment scripts build and initialize reputation before/around escrow wiring, 
 
 ## Known Constraints
 
-- `resolve_dispute` accepts `_resolution_hash` but does not store it.
+- `resolve_dispute` accepts `_resolution_hash` and emits it in `DisputeResolvedEvent`, but does not persist it in escrow storage.
 - Contract membership and participant-conflict enforcement are available only after deploying the new WASM. Existing deployments keep their prior owner-only settlement logic.
+- Existing deployments also lack C16 dispute event emission until replaced with a WASM that contains the event interface; the reputation contract still emits no events.
 - Zero share becomes `Cancelled`; positive share becomes `Released`, even if the client receives most/all of the refund.
 - No escrow expiration/timeout is enforced on chain.
-- No on-chain events or contract-side metadata beyond the structure above.
+- No contract-event indexer or backend ingestion is implemented.
 - `get_escrow` unwraps missing storage and may fail.
 
 ## Related Notes
