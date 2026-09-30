@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization and C09 hardens related-record validation and the opening audit without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, and C13 hardens idempotent on-chain marking callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -62,6 +62,8 @@ participant opens dispute
   → idempotent Convex settlement record and parent terminal-state patch
 ```
 
+On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking`; a start in `mark_failed` is retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
+
 Cancellation is blocked by submitted proof or active disputes according to its eligibility helpers. Contract cancellation is only valid for `Created` or `Funded`; a `Submitted` escrow must use dispute/review paths.
 
 ## Common Change Locations
@@ -103,6 +105,15 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 C02 adds an in-memory Convex regression harness under `packages/backend/tests/`. Fixtures seed the client, assigned freelancer, unrelated wallet, configured administrator, job, and funded/submitted escrow directly, with both micro-gig and milestone parent variants. Disputes are created through `api.disputes.createDispute`; administrator review and notes use `api.admin` with synthetic test-only configuration.
 
 The verified suite locks the existing dispute/event schema values and index names/field order, proves independent client/freelancer opening with initial `open` and `not_marked` state plus an opening event, preserves `moderator` actor roles for admin events, and covers participant/parent/escrow/status/timeline lookups. Failure coverage includes unrelated participants, duplicate active disputes, invalid administrator wallets, and missing or incorrect admin secrets. The harness does not change production APIs, persisted fields, statuses, or indexes.
+
+## C13 Verified Invariants
+
+- The three on-chain marking mutations keep their frozen arguments, return booleans, and preserve the existing `not_marked`, `marking`, `marked`, and `mark_failed` values plus existing event types.
+- Input normalization and participant/configured-admin authorization happen before every accepted transition or idempotent return. Caller-supplied wallet possession remains a documented limitation.
+- Duplicate starts, successes, and failures do not repeat audit events, system messages, notifications, or timestamps. A retry-start adds one existing `on_chain_mark_started` event with retry wording; it does not create another dispute or opening event.
+- Micro-gig and milestone fixtures cover client, freelancer, configured-admin, unrelated-wallet, external-wallet, and passkey-smart-account paths, including late success, stale failure, conflicting hashes, blank inputs, missing disputes, terminal review guards, and rejected-record preservation. The focused C13 suite passes 18 deterministic tests.
+
+Known-hash failures remain blocked pending reconciliation. Hashless retries and callback ordering across separate browser submissions remain intentionally limited: this task does not add attempt IDs, signed-session authentication, frontend controls, a reconciliation service, or contract changes.
 
 ## Related Notes
 

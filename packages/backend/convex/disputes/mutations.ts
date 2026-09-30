@@ -6,7 +6,7 @@ import type { TWalletType } from "../users/schema";
 
 import { mutation } from "../_generated/server";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
-import { BadRequestError, ForbiddenError, NotFoundError } from "../_shared/errors";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
 import { walletTypeValidator } from "../users/schema";
 import {
@@ -24,14 +24,19 @@ import {
   createDisputeEvent,
   createDisputeNotification,
   createDisputeSystemMessage,
+  assertDisputeTransactionHashDoesNotConflict,
+  clearDisputeOnChainMarkError,
   getDisputeReasonLabel,
   getDisputeRole,
   getStellarExpertUrl,
   isActiveDisputeStatus,
+  isTerminalDisputeStatus,
   sanitizeDisputeDescription,
   sanitizeDisputeMessage,
+  sanitizeOptionalDisputeTransactionHash,
   sanitizeDisputeTitle,
   sanitizeOptionalProofHash,
+  setDisputeOnChainMarkError,
   validateDisputeDeadlineEventIds,
   validateDisputeAttachmentIds,
   validateDisputeMessageIds,
@@ -339,24 +344,47 @@ export const markDisputeOnChainStarted = mutation({
     actorWallet: v.string(),
     actorWalletType: walletTypeValidator,
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
+    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet: args.actorWallet,
+      actorWallet,
       dispute,
     });
+
+    if (isTerminalDisputeStatus(dispute.status)) {
+      throw new ConflictError("Terminal disputes cannot start on-chain marking.");
+    }
+
+    if (dispute.onChainStatus === "marking") {
+      return true;
+    }
+    if (dispute.onChainStatus === "marked") {
+      throw new ConflictError("A confirmed on-chain dispute cannot be reopened.");
+    }
+    if (dispute.onChainStatus === "mark_failed" && dispute.transactionHash !== undefined) {
+      throw new ConflictError(
+        "A failed on-chain mark with a recorded transaction hash requires reconciliation before retrying.",
+      );
+    }
+
+    const isRetry = dispute.onChainStatus === "mark_failed";
 
     await ctx.db.patch(dispute._id, {
       onChainStatus: "marking",
       updatedAt: Date.now(),
+      ...(isRetry ? { metadata: clearDisputeOnChainMarkError(dispute.metadata) } : {}),
     });
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_started",
-      actorWallet: args.actorWallet,
+      actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message: "On-chain dispute marking started.",
+      message: isRetry
+        ? "On-chain dispute marking retry started."
+        : "On-chain dispute marking started.",
     });
     return true;
   },
@@ -370,31 +398,52 @@ export const markDisputeOnChainSucceeded = mutation({
     transactionHash: v.string(),
     stellarExpertUrl: v.optional(v.string()),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
+    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet: args.actorWallet,
+      actorWallet,
       dispute,
     });
-    const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
+    const transactionHash = sanitizeOptionalDisputeTransactionHash(args.transactionHash);
     if (!transactionHash) {
       throw new BadRequestError("transactionHash is required.");
     }
+    const stellarExpertUrl = optionalNonEmptyString(args.stellarExpertUrl, "stellarExpertUrl");
+    assertDisputeTransactionHashDoesNotConflict(dispute.transactionHash, transactionHash);
+
+    if (dispute.onChainStatus === "marked") {
+      if (dispute.transactionHash !== transactionHash) {
+        throw new ConflictError(
+          "A confirmed on-chain dispute can only accept its recorded transaction hash.",
+        );
+      }
+      return true;
+    }
+    if (isTerminalDisputeStatus(dispute.status)) {
+      throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
+    }
+    if (dispute.onChainStatus === "not_marked") {
+      throw new ConflictError("On-chain dispute marking must start before it can succeed.");
+    }
+
     const now = Date.now();
-    const stellarExpertUrl = args.stellarExpertUrl ?? getStellarExpertUrl(transactionHash);
+    const resolvedStellarExpertUrl = stellarExpertUrl ?? getStellarExpertUrl(transactionHash);
 
     await ctx.db.patch(dispute._id, {
       onChainStatus: "marked",
-      transactionHash,
-      stellarExpertUrl,
+      ...(dispute.transactionHash === undefined ? { transactionHash } : {}),
+      stellarExpertUrl: resolvedStellarExpertUrl,
       markedDisputedAt: now,
       updatedAt: now,
+      metadata: clearDisputeOnChainMarkError(dispute.metadata),
     });
 
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_succeeded",
-      actorWallet: args.actorWallet,
+      actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
       message: "On-chain update: Escrow was marked as disputed.",
@@ -435,35 +484,54 @@ export const markDisputeOnChainFailed = mutation({
     errorMessage: v.string(),
     transactionHash: v.optional(v.string()),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
+    const actorWallet = normalizeWalletAddress(args.actorWallet);
     const actorRole = resolveOnChainMarkActorRole({
-      actorWallet: args.actorWallet,
+      actorWallet,
       dispute,
     });
-    const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash");
+    const transactionHash = sanitizeOptionalDisputeTransactionHash(args.transactionHash);
+    const errorMessage = sanitizeDisputeMessage(args.errorMessage);
+    assertDisputeTransactionHashDoesNotConflict(dispute.transactionHash, transactionHash);
+
+    if (dispute.onChainStatus === "marked") {
+      return true;
+    }
+    if (dispute.onChainStatus === "mark_failed") {
+      if (dispute.transactionHash === undefined && transactionHash !== undefined) {
+        if (isTerminalDisputeStatus(dispute.status)) {
+          throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
+        }
+        await ctx.db.patch(dispute._id, { transactionHash });
+      }
+      return true;
+    }
+    if (isTerminalDisputeStatus(dispute.status)) {
+      throw new ConflictError("Terminal disputes cannot change on-chain marking state.");
+    }
+    if (dispute.onChainStatus === "not_marked") {
+      throw new ConflictError("On-chain dispute marking must start before it can fail.");
+    }
+
     await ctx.db.patch(dispute._id, {
       onChainStatus: "mark_failed",
       ...(transactionHash !== undefined ? { transactionHash } : {}),
       updatedAt: Date.now(),
-      metadata: {
-        ...(typeof dispute.metadata === "object" && dispute.metadata !== null
-          ? dispute.metadata
-          : {}),
-        onChainMarkError: sanitizeDisputeMessage(args.errorMessage),
-      },
+      metadata: setDisputeOnChainMarkError(dispute.metadata, errorMessage),
     });
 
     await createDisputeEvent(ctx, {
       disputeId: dispute._id,
       type: "on_chain_mark_failed",
-      actorWallet: args.actorWallet,
+      actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
       message:
         "Dispute evidence was saved, but on-chain escrow dispute marking failed. Retry required.",
       ...(transactionHash !== undefined ? { transactionHash } : {}),
-      metadata: { errorMessage: sanitizeDisputeMessage(args.errorMessage) },
+      metadata: { errorMessage },
     });
     const updated = await getDisputeOrThrow(ctx, args.disputeId);
     await createDisputeSystemMessage(ctx, {
