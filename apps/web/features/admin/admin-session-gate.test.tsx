@@ -138,6 +138,45 @@ describe("AdminSessionGate", () => {
     expect(screen.queryByTestId("protected-content")).toBeNull();
   });
 
+  it("authenticates the connected wallet when the signed session belongs to another wallet", async () => {
+    const connectedWallet = runtime.wallet.walletState.walletAddress;
+    const previousWallet = `G${"B".repeat(55)}`;
+    runtime.wallet.authenticateWallet.mockResolvedValue();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          response(200, {
+            adminWallet: previousWallet,
+            isOwner: true,
+            isDisputeAdmin: true,
+          }),
+        )
+        .mockResolvedValueOnce(
+          response(200, {
+            adminWallet: connectedWallet,
+            isOwner: false,
+            isDisputeAdmin: true,
+          }),
+        ),
+    );
+
+    renderGate();
+
+    expect(
+      await screen.findByText(
+        "The signed session belongs to a different wallet. Authenticate the connected external wallet to check its admin access.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId("protected-content")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Authenticate Wallet" }));
+
+    await waitFor(() => expect(screen.getByTestId("protected-content")).toBeTruthy());
+    expect(runtime.wallet.authenticateWallet).toHaveBeenCalledTimes(1);
+  });
+
   it("disables duplicate authentication and rechecks access after authentication", async () => {
     const authenticate = createDeferred<void>();
     runtime.wallet.authenticateWallet.mockReturnValue(authenticate.promise);

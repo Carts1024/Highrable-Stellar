@@ -42,7 +42,7 @@ Admin data is stored on disputes/events, scoped disputeAdmins and disputeAdminOp
 
 Signed external-wallet session cookie, owner/secret/network/contract environment configuration, Convex HTTP client, escrow membership/settlement methods, Soroban RPC reconciliation, and explorer URL metadata.
 
-The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses. Queue workload metrics render only after queue data exists, and queue/detail errors preserve invalid, not-found, forbidden, and failed-read distinctions. Network and 5xx reads are retryable; 400/401/403/404 reads are not automatically retried.
+The dispute pages use an identity-scoped TanStack Query access gate. Queue/detail reads stay unmounted until the server-verified wallet matches the active external wallet; if the signed cookie belongs to another wallet, the gate offers authentication for the connected wallet and checks its capability before mounting protected content. Passkey mode is instructed to switch to the external admin wallet. Protected query cache is cancelled/removed on wallet changes, disconnects, and API 401/403 responses. Queue workload metrics render only after queue data exists, and queue/detail errors preserve invalid, not-found, forbidden, and failed-read distinctions. Network and 5xx reads are retryable; 400/401/403/404 reads are not automatically retried.
 
 ## Internal Dependencies
 
@@ -73,6 +73,8 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - The shared status contract has eight dispute statuses and four on-chain marking phases. Frontend Developer 1 owns the admin routes/features plus shared dispute types, labels/classification helpers, formatting helpers, and badges; Frontend Developer 2 consumes those exports from participant routes/components.
 - The UI/shared executor submits only after the signed hash and expiry are persisted. The API verifies or reconciles the saved transaction identity and applies settlement bookkeeping; recovery never resubmits it.
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety.
+- Review controls are limited to the three nonterminal review targets `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`. An `open` case initializes the selector to `under_review`; loaded review status is reapplied when the case or server status changes, while unsaved selection remains local until submission.
+- The UI enables review controls only when the server-verified wallet is the assigned admin, is neither participant, and the case is nonterminal. Convex remains authoritative. A successful status write clears the message draft, invalidates that wallet's queue caches across filters, and refetches detail/timeline without optimistic status changes; rejected writes preserve drafts, while a failed post-write refresh offers a read retry without resubmitting.
 - Metrics are bounded scans and can return `isTruncated`.
 
 ## Related Notes
