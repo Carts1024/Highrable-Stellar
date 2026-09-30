@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -22,9 +22,9 @@ The contract enum is `Created`, `Funded`, `Submitted`, `Released`, `Cancelled`, 
 | approve/release | `Submitted` | escrow client; transfers contract → freelancer and records reputation |
 | cancel | `Created` or `Funded` | escrow client; funded cancellation refunds client |
 | mark disputed | `Funded` or `Submitted` | client, assigned freelancer, or platform admin |
-| resolve dispute | `Disputed` | platform admin; split basis points and transfers contract funds |
+| resolve dispute | `Disputed` | authenticated platform owner or registered dispute admin, unless that actor is the escrow client or freelancer; split basis points and transfers contract funds |
 
-`resolve_dispute` maps a zero freelancer share to `Cancelled`; any positive share maps to `Released`. It does not store the provided resolution hash or record reputation.
+`resolve_dispute` requires actor authorization and owner/registered-admin membership, then rejects either escrow participant as the settlement actor. A zero freelancer share maps to `Cancelled`; any positive share maps to `Released`. It does not store the provided resolution hash or record reputation.
 
 ## Convex job/escrow mirror
 

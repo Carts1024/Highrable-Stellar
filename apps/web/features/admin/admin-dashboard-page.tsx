@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminDashboardMetrics } from "@/features/admin/types";
 
-function AdminDashboardContent() {
+export function AdminDashboardContent() {
   const { isOwner } = useAdminSessionAccess();
   const [metrics, setMetrics] = useState<IAdminDashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
