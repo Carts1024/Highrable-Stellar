@@ -5,6 +5,7 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
 import Link from "next/link";
+import React from "react";
 
 import type { TDisputeReasonCategory } from "../types";
 
@@ -28,7 +29,9 @@ export function DisputeList() {
 
   if (disputes === undefined) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm">Loading disputes...</p>
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+        Loading disputes...
+      </p>
     );
   }
 

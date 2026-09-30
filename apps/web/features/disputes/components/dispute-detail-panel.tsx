@@ -17,7 +17,7 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import { useState } from "react";
+import React, { useState } from "react";
 
 import type { TDisputeReasonCategory } from "../types";
 import type { TConvexId } from "@repo/convex-client";
@@ -45,9 +45,18 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   const updateMilestoneEscrowStatus = useMutation(api.milestones.updateMilestoneEscrowStatus);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
+  const permission = useQuery(
+    api.disputes.canViewDispute,
+    walletIdentity.walletAddress
+      ? {
+          disputeId: disputeId as TConvexId<"disputes">,
+          viewerWallet: walletIdentity.walletAddress,
+        }
+      : "skip",
+  );
   const dispute = useQuery(
     api.disputes.getDispute,
-    walletIdentity.walletAddress
+    walletIdentity.walletAddress && permission?.allowed
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
           viewerWallet: walletIdentity.walletAddress,
@@ -56,7 +65,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   );
   const timeline = useQuery(
     api.disputes.getDisputeTimeline,
-    walletIdentity.walletAddress
+    walletIdentity.walletAddress && permission?.allowed
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
           viewerWallet: walletIdentity.walletAddress,
@@ -65,7 +74,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   );
   const agreementContext = useQuery(
     api.work_agreements.getAgreementContextForDispute,
-    walletIdentity.walletAddress
+    walletIdentity.walletAddress && permission?.allowed
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
           viewerWallet: walletIdentity.walletAddress,
@@ -229,16 +238,42 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
     );
   }
 
+  if (permission === undefined) {
+    return (
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+        Loading dispute...
+      </p>
+    );
+  }
+
+  if (!permission.allowed) {
+    return (
+      <p
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        role="alert"
+      >
+        {permission.reason === "Dispute not found."
+          ? "Dispute not found."
+          : "You do not have access to this dispute."}
+      </p>
+    );
+  }
+
   if (dispute === undefined) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm">Loading dispute...</p>
+      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+        Loading dispute...
+      </p>
     );
   }
 
   if (dispute === null) {
     return (
-      <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Dispute not found or you do not have access.
+      <p
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        role="alert"
+      >
+        Dispute not found.
       </p>
     );
   }
