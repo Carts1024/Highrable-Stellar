@@ -291,6 +291,32 @@ export function AdminSessionGate({
     );
   }
 
+  if (
+    sessionQuery.data &&
+    !sessionQuery.error &&
+    externalWalletAddress !== null &&
+    !isMatchingWallet(sessionQuery.data.adminWallet, externalWalletAddress)
+  ) {
+    return (
+      <AdminSessionPanel
+        title="Authenticate connected admin wallet"
+        description="The current session belongs to a different wallet. Verify the connected external wallet before continuing."
+      >
+        <RouteCallout tone="danger">
+          The signed session belongs to a different wallet. Authenticate the connected external
+          wallet to check its admin access.
+        </RouteCallout>
+        <AppButton
+          type="button"
+          onClick={() => void handleAuthenticate()}
+          disabled={isAuthenticating}
+        >
+          {isAuthenticating ? "Authenticating..." : "Authenticate Wallet"}
+        </AppButton>
+      </AdminSessionPanel>
+    );
+  }
+
   if (sessionQuery.error?.status === 403 || (sessionQuery.data && !isAuthorized)) {
     return (
       <AdminSessionPanel

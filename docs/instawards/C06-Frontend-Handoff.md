@@ -2,7 +2,7 @@
 type: handoff
 area: frontend
 status: frozen
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -120,6 +120,12 @@ Admin browser code does not call the admin Convex functions directly. It consume
 | Resolved/read-only | Render terminal status and timeline/evidence without write controls | Hide review/settlement controls for terminal statuses; keep timeline and transaction links readable |
 
 Retrying a data read means refetching the same Convex/API query. Retrying a chain operation means constructing/signing/submitting a new Stellar operation and separately recording its phase. A `mark_failed` label alone does not establish transaction retry safety; the existing retry path uses a new client request ID and must continue to respect wallet/network readiness and transaction uncertainty handling. No C06 test submits a transaction or expands settlement behavior.
+
+## Admin review-control clarification
+
+C10 completes the existing admin review control without changing the frozen HTTP or generated Convex interfaces. The detail selector exposes exactly `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`; an `open` case maps to `under_review`, and the selector resets from the returned backend status when changing cases or when that status changes. Same-status submissions and transitions among these review states remain allowed by the backend.
+
+The UI renders and submits review controls only when the verified wallet matches the assigned admin, is neither dispute participant, and the case is nonterminal. A status write clears the submitted review message, invalidates the verified wallet's queue caches across every filter combination, and refetches detail/timeline. The UI does not optimistically change the returned status. Rejected writes keep drafts; a successful write followed by a failed refresh presents a read retry and never repeats the mutation. Review-control actions do not execute Stellar operations.
 
 ## Ownership and coordination
 
