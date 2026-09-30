@@ -27,13 +27,15 @@ import {
 } from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import Link from "next/link";
+import React, { useId, useMemo, useRef, useState } from "react";
 
 import type { TDisputeParentType, TDisputeReasonCategory } from "../types";
 import type { TDraftAttachment } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
-import { DISPUTE_REASON_OPTIONS, getDisputeReasonLabel } from "../lib";
+import { DISPUTE_REASON_OPTIONS, formatDisputeDate } from "../lib";
+import { validateDisputeDraft } from "./open-dispute-validation";
 
 type TOpenDisputeDialogProps = {
   readonly isOpen: boolean;
@@ -134,13 +136,21 @@ export function OpenDisputeDialog({
   );
   const [reasonCategory, setReasonCategory] =
     useState<TDisputeReasonCategory>("work_quality_issue");
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [includeLatestSubmission, setIncludeLatestSubmission] = useState(true);
+  const [selectedRevisionIds, setSelectedRevisionIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionPhase, setSubmissionPhase] = useState<"idle" | "creating" | "marking">("idle");
+  const [createdDisputeId, setCreatedDisputeId] = useState<TConvexId<"disputes"> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submissionFailed, setSubmissionFailed] = useState(false);
+  const submissionInFlight = useRef(false);
 
+  const isSubmitting = submissionPhase !== "idle";
   const activeWalletAddress = walletIdentity.walletAddress;
   const reasonSelectId = useId();
+  const titleId = useId();
   const descriptionId = useId();
   const activeWalletType = walletIdentity.walletType ?? "external_wallet";
   const ownerRole = useMemo(() => {
@@ -149,15 +159,16 @@ export function OpenDisputeDialog({
       ? "client"
       : "freelancer";
   }, [activeWalletAddress, escrow.clientWallet]);
-  const hasUploadingAttachment = attachments.some(
-    (attachment) => attachment.status === "uploading",
-  );
+  const relatedRevisions = (revisions ?? []).filter((revision) => revision.escrowId === escrow._id);
+  const selectedSubmissionId = includeLatestSubmission ? (latestSubmission?._id ?? null) : null;
+  const relatedDataReady = latestSubmission !== undefined && revisions !== undefined;
   const canSubmit =
     Boolean(activeWalletAddress) &&
     Boolean(walletIdentity.walletType) &&
-    description.trim().length > 0 &&
-    !hasUploadingAttachment &&
-    canOpenDispute?.allowed !== false;
+    canOpenDispute?.allowed === true &&
+    relatedDataReady &&
+    !isSubmitting &&
+    !createdDisputeId;
 
   const runOnChainMark = async (disputeId: TConvexId<"disputes">) => {
     const config = getRequiredEscrowActionConfig();
@@ -279,6 +290,7 @@ export function OpenDisputeDialog({
   };
 
   const handleSubmit = async () => {
+    if (submissionInFlight.current || createdDisputeId) return;
     const setWarning = (message: string) => {
       setError(message);
       showWarningToast(message);
@@ -288,17 +300,31 @@ export function OpenDisputeDialog({
       setWarning("Missing wallet identity.");
       return;
     }
-    if (!description.trim()) {
-      setWarning("Add a reason and description before opening a dispute.");
-      return;
-    }
-    if (hasUploadingAttachment) {
-      setWarning("Wait for evidence uploads to finish.");
+    const validationError = validateDisputeDraft({
+      title,
+      reasonCategory,
+      description,
+      eligibility: canOpenDispute,
+      escrowId: escrow._id,
+      onChainEscrowId: escrow.escrowId,
+      escrowStatus: escrow.status,
+      relatedDataReady,
+      selectedSubmissionId,
+      availableSubmissionId: latestSubmission?._id ?? null,
+      selectedRevisionIds,
+      availableRevisionIds: relatedRevisions.map((revision) => revision._id),
+      attachments,
+    });
+    if (validationError) {
+      setWarning(validationError);
       return;
     }
 
-    setIsSubmitting(true);
+    submissionInFlight.current = true;
+    setSubmissionPhase("creating");
     setError(null);
+    setSubmissionFailed(false);
+    let savedDisputeId: TConvexId<"disputes"> | null = null;
     try {
       const disputeId = await createDispute({
         parentType,
@@ -306,24 +332,40 @@ export function OpenDisputeDialog({
         openedByWallet: activeWalletAddress,
         openedByWalletType: walletIdentity.walletType,
         reasonCategory,
-        title: getDisputeReasonLabel(reasonCategory),
-        description,
+        title: title.trim().replace(/\s+/g, " "),
+        description: description.trim(),
         evidenceAttachmentIds: getReadyAttachmentIds(attachments),
-        ...(latestSubmission?._id ? { relatedWorkSubmissionIds: [latestSubmission._id] } : {}),
-        ...(latestSubmission?.proofHash ? { proofHash: latestSubmission.proofHash } : {}),
-        ...(revisions && revisions.length > 0
-          ? { relatedRevisionRequestIds: revisions.map((revision) => revision._id).slice(0, 5) }
+        ...(selectedSubmissionId
+          ? { relatedWorkSubmissionIds: [selectedSubmissionId as TConvexId<"workSubmissions">] }
+          : {}),
+        ...(selectedSubmissionId && latestSubmission?.proofHash
+          ? { proofHash: latestSubmission.proofHash }
+          : {}),
+        ...(selectedRevisionIds.length > 0
+          ? { relatedRevisionRequestIds: selectedRevisionIds as TConvexId<"revisionRequests">[] }
           : {}),
         escrowContractId: getRequiredEscrowActionConfig().escrowContractId,
       });
+      savedDisputeId = disputeId;
+      setCreatedDisputeId(disputeId);
+      setSubmissionPhase("marking");
       await runOnChainMark(disputeId);
+      setTitle("");
       setDescription("");
+      setSelectedRevisionIds([]);
       setAttachments([]);
+      setCreatedDisputeId(null);
       onOpenChange(false);
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Dispute could not be opened."));
+      setSubmissionFailed(!savedDisputeId);
+      setError(
+        savedDisputeId
+          ? getReadableAttachmentError(error, "Dispute was saved, but escrow marking failed.")
+          : getReadableAttachmentError(error, "Dispute could not be opened. Please retry."),
+      );
     } finally {
-      setIsSubmitting(false);
+      submissionInFlight.current = false;
+      setSubmissionPhase("idle");
     }
   };
 
@@ -356,13 +398,40 @@ export function OpenDisputeDialog({
             </p>
           ) : null}
 
+          {activeWalletAddress && canOpenDispute === undefined ? (
+            <p role="status" className="text-sm text-[#5f5f5f]">
+              Checking dispute eligibility...
+            </p>
+          ) : null}
+
+          {canOpenDispute?.allowed && !relatedDataReady ? (
+            <p role="status" className="text-sm text-[#5f5f5f]">
+              Loading related work records...
+            </p>
+          ) : null}
+
           <div className="grid gap-4">
+            <label className="grid gap-2" htmlFor={titleId}>
+              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Title</span>
+              <input
+                id={titleId}
+                type="text"
+                value={title}
+                maxLength={160}
+                required
+                disabled={isSubmitting || Boolean(createdDisputeId)}
+                onChange={(event) => setTitle(event.target.value)}
+                className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
+                placeholder="Briefly summarize the dispute"
+              />
+            </label>
+
             <label className="grid gap-2" htmlFor={reasonSelectId}>
               <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
               <DisputeReasonSelect
                 id={reasonSelectId}
                 value={reasonCategory}
-                disabled={isSubmitting}
+                disabled={isSubmitting || Boolean(createdDisputeId)}
                 onChange={setReasonCategory}
               />
             </label>
@@ -372,24 +441,89 @@ export function OpenDisputeDialog({
               <Textarea
                 id={descriptionId}
                 value={description}
-                disabled={isSubmitting}
+                maxLength={10_000}
+                required
+                disabled={isSubmitting || Boolean(createdDisputeId)}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Describe what happened, what has already been tried, and what evidence matters."
                 className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
               />
             </label>
 
+            {latestSubmission ? (
+              <label className="flex items-start gap-2 text-sm text-[#3f3f3f]">
+                <input
+                  type="checkbox"
+                  checked={includeLatestSubmission}
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={(event) => setIncludeLatestSubmission(event.target.checked)}
+                />
+                Include latest work submission ({formatDisputeDate(latestSubmission.createdAt)})
+              </label>
+            ) : null}
+
+            {relatedRevisions.length > 0 ? (
+              <fieldset className="space-y-2">
+                <legend className="font-mono text-xs text-[#5f5f5f] uppercase">
+                  Related revision requests (up to 20)
+                </legend>
+                {relatedRevisions.map((revision) => (
+                  <label
+                    key={revision._id}
+                    className="flex items-start gap-2 text-sm text-[#3f3f3f]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRevisionIds.includes(revision._id)}
+                      disabled={isSubmitting || Boolean(createdDisputeId)}
+                      onChange={(event) =>
+                        setSelectedRevisionIds((current) =>
+                          event.target.checked
+                            ? [...current, revision._id]
+                            : current.filter((id) => id !== revision._id),
+                        )
+                      }
+                    />
+                    Revision {revision.revisionNumber}: {revision.reason}
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+
             <AttachmentUploader
               value={attachments}
               onChange={setAttachments}
-              disabled={isSubmitting}
+              disabled={isSubmitting || Boolean(createdDisputeId)}
               ownerRole={ownerRole}
             />
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
               {error}
+            </p>
+          ) : null}
+
+          {isSubmitting ? (
+            <p role="status" className="text-sm text-[#5f5f5f]">
+              {submissionPhase === "creating" ? "Saving dispute..." : "Marking escrow disputed..."}
+            </p>
+          ) : null}
+
+          {createdDisputeId ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Your dispute was saved.{" "}
+              <Link
+                href={`/disputes/${createdDisputeId}`}
+                className="underline"
+                onClick={() => onOpenChange(false)}
+              >
+                View the dispute and its on-chain status
+              </Link>
+              .
             </p>
           ) : null}
 
@@ -402,14 +536,22 @@ export function OpenDisputeDialog({
             >
               Cancel
             </AppButton>
-            <AppButton
-              type="button"
-              disabled={!canSubmit || isSubmitting}
-              onClick={() => void handleSubmit()}
-              className="disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Opening Dispute..." : "Open Dispute"}
-            </AppButton>
+            {!createdDisputeId ? (
+              <AppButton
+                type="button"
+                disabled={!canSubmit}
+                onClick={() => void handleSubmit()}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submissionPhase === "creating"
+                  ? "Saving Dispute..."
+                  : submissionPhase === "marking"
+                    ? "Marking Escrow..."
+                    : submissionFailed
+                      ? "Retry Opening Dispute"
+                      : "Open Dispute"}
+              </AppButton>
+            ) : null}
           </div>
         </ResponsiveDialogBody>
       </ResponsiveDialogContent>
