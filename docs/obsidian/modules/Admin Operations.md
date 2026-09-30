@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Give the configured platform owner access to platform metrics and owner controls
 
 ## Current Status
 
-Admin dashboard, owner-managed dispute-admin membership, case assignment, and dispute settlement recovery are implemented in source. The current recorded contract deployments predate dispute-admin membership; the new contract behavior is undeployed and requires a fresh isolated deployment. The platform owner remains `HIGHRABLE_ADMIN_WALLET_ADDRESS`; external dispute admins are stored separately from `users.role` and scoped to the configured Stellar network and escrow contract. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`. This is platform-operated review, not decentralized arbitration.
+Admin dashboard, owner-managed dispute-admin membership, case assignment, and dispute settlement recovery are implemented in source. C14 adds frontend settlement hardening: resolution input is strict and text-preserving, fixed outcomes map to 0/10000 bps, split input accepts whole-number 1–9999 bps, and the optional note remains capped at 2,000 characters. Settlement is enabled only for an assigned, nonparticipant admin using the verified, connected, signing-capable external wallet on the configured network, for one of the four nonterminal review statuses, with `marked` dispute state, an on-chain escrow ID, a `disputed` escrow mirror, and no active settlement attempt or concurrent action. The current recorded contract deployments predate dispute-admin membership; the new contract behavior is undeployed and requires a fresh isolated deployment. The platform owner remains `HIGHRABLE_ADMIN_WALLET_ADDRESS`; external dispute admins are stored separately from `users.role` and scoped to the configured Stellar network and escrow contract. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`. This is platform-operated review, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -29,6 +29,7 @@ Admin dashboard, owner-managed dispute-admin membership, case assignment, and di
 - List and inspect disputes with filters.
 - Add moderator notes and move review status.
 - Track settlement started/succeeded/failed with bps, payout/refund amounts, note, tx hash, and parent terminal-state patches.
+- Keep settlement controls accessible with inline input errors and a specific unavailable-state explanation; revalidate local eligibility, signed-session wallet identity, on-chain membership, simulation, and persisted signed-hash recovery before execution.
 
 ## Main Entry Points
 
@@ -75,6 +76,7 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - The shared status contract has eight dispute statuses and four on-chain marking phases. Frontend Developer 1 owns the admin routes/features plus shared dispute types, labels/classification helpers, formatting helpers, and badges; Frontend Developer 2 consumes those exports from participant routes/components.
 - The UI/shared executor submits only after the signed hash and expiry are persisted. The API verifies or reconciles the saved transaction identity and applies settlement bookkeeping; recovery never resubmits it.
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety.
+- C14 settlement eligibility accepts `open`, `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`, but requires `marked` dispute state plus a `disputed` escrow mirror. Invalid bps text is retained for correction, and active settlement attempts disable new settlement while preserving reconciliation controls. Stellar simulation remains authoritative when the local mirror is stale.
 - Review controls are limited to the three nonterminal review targets `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`. An `open` case initializes the selector to `under_review`; loaded review status is reapplied when the case or server status changes, while unsaved selection remains local until submission.
 - The UI enables review controls only when the server-verified wallet is the assigned admin, is neither participant, and the case is nonterminal. Convex remains authoritative. A successful status write clears the message draft, invalidates that wallet's queue caches across filters, and refetches detail/timeline without optimistic status changes; rejected writes preserve drafts, while a failed post-write refresh offers a read retry without resubmitting.
 - Metrics are bounded scans and can return `isTruncated`.

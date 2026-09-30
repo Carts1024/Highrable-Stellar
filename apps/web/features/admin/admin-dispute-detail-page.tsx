@@ -36,6 +36,13 @@ import {
   shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
 import {
+  deriveSettlementEligibility,
+  getResolutionShareDisplayValue,
+  isActiveSettlementAttemptStatus,
+  resolveShareBps,
+  validateResolutionShare,
+} from "@/features/admin/lib/settlement-validation";
+import {
   ProductPageHero,
   RouteCallout,
   RouteEmptyState,
@@ -136,7 +143,10 @@ interface IAdminModeratorWorkspaceProps {
 interface IAdminResolutionWorkspaceProps {
   readonly resolutionStatus: TAdminResolutionStatus;
   readonly resolutionShareInput: string;
+  readonly resolutionShareError: string | null;
   readonly resolutionNote: string;
+  readonly settlementBlockingReason: string | null;
+  readonly canSettle: boolean;
   readonly isSubmitting: boolean;
   readonly onResolutionStatusChange: (value: TAdminResolutionStatus) => void;
   readonly onResolutionShareInputChange: (value: string) => void;
@@ -169,44 +179,8 @@ function createSettlementOperationId(disputeId: string): string {
   return `resolve_dispute:${disputeId}:${uniqueId}`;
 }
 
-function resolveShareBps(status: TAdminResolutionStatus, currentInput: string): number {
-  if (status === "resolved_client") {
-    return 0;
-  }
-
-  if (status === "resolved_freelancer") {
-    return 10_000;
-  }
-
-  const parsed = Number.parseInt(currentInput, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 10_000) {
-    throw new Error("Split resolution requires freelancer share between 1 and 9999 bps.");
-  }
-
-  return parsed;
-}
-
 function sanitizeLimitedMultilineInput(value: string, maxLength: number): string {
   return sanitizeMultilineInput(value).slice(0, maxLength);
-}
-
-function sanitizeBasisPointInput(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 4);
-}
-
-function getResolutionShareDisplayValue(
-  status: TAdminResolutionStatus,
-  resolutionShareInput: string,
-): string {
-  if (status === "resolved_client") {
-    return "0";
-  }
-
-  if (status === "resolved_freelancer") {
-    return "10000";
-  }
-
-  return resolutionShareInput;
 }
 
 function DefinitionItem({ label, children }: IDefinitionItemProps) {
@@ -495,7 +469,10 @@ function AdminModeratorWorkspace({
 function AdminResolutionWorkspace({
   resolutionStatus,
   resolutionShareInput,
+  resolutionShareError,
   resolutionNote,
+  settlementBlockingReason,
+  canSettle,
   isSubmitting,
   onResolutionStatusChange,
   onResolutionShareInputChange,
@@ -537,14 +514,25 @@ function AdminResolutionWorkspace({
           <AppInput
             id="resolution-share-bps"
             aria-label="Freelancer share in basis points"
-            type="number"
-            min={1}
-            max={9999}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={getResolutionShareDisplayValue(resolutionStatus, resolutionShareInput)}
             onChange={(event) => onResolutionShareInputChange(event.target.value)}
             disabled={isSubmitting || resolutionStatus !== "split_resolution"}
+            aria-invalid={resolutionShareError !== null}
+            aria-describedby={resolutionShareError ? "resolution-share-bps-error" : undefined}
             className="h-11 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30 disabled:opacity-60"
           />
+          {resolutionShareError ? (
+            <p
+              id="resolution-share-bps-error"
+              className="text-xs leading-relaxed text-red-700"
+              role="alert"
+            >
+              {resolutionShareError}
+            </p>
+          ) : null}
         </label>
 
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-note">
@@ -565,14 +553,21 @@ function AdminResolutionWorkspace({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e8e8] pt-5">
-        <p className="max-w-2xl text-sm leading-relaxed text-[#5f5f5f]">
-          Split values are validated as basis points. Client and freelancer resolutions are locked
-          to 0 and 10000 respectively.
-        </p>
+        <div className="max-w-2xl space-y-1 text-sm leading-relaxed text-[#5f5f5f]">
+          <p>
+            Split values are validated as basis points. Client and freelancer resolutions are locked
+            to 0 and 10000 respectively.
+          </p>
+          {settlementBlockingReason ? (
+            <p className="text-amber-800" role="status" aria-live="polite">
+              {settlementBlockingReason}
+            </p>
+          ) : null}
+        </div>
         <AppButton
           type="button"
           onClick={onResolveOnChain}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !canSettle || resolutionShareError !== null}
           className="rounded-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Resolving..." : "Resolve On-Chain"}
@@ -669,6 +664,14 @@ async function assertWalletExecutionReady(args: {
   }
 }
 
+function getConfiguredAdminNetwork(): string | null {
+  try {
+    return getRequiredAdminContractConfig().network;
+  } catch {
+    return null;
+  }
+}
+
 function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }) {
   const walletIdentity = useHighrableWalletIdentity();
   const { verifiedWallet, isOwner, handleProtectedApiError } = useAdminSessionAccess();
@@ -731,6 +734,9 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   useEffect(() => {
     setModeratorNote("");
     setReviewMessage("");
+    setResolutionStatus("resolved_client");
+    setResolutionShareInput("5000");
+    setResolutionNote("");
     setReviewStatusRefreshFailed(false);
   }, [disputeId]);
 
@@ -748,6 +754,19 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
   const activeWalletAddress = walletIdentity.walletAddress;
   const activeWalletType = walletIdentity.walletType;
+  const settlementEligibility = deriveSettlementEligibility({
+    detail,
+    verifiedWallet,
+    activeWalletAddress,
+    activeWalletType,
+    connectedWalletAddress: address,
+    isConnected: walletState.isConnected,
+    canWriteContracts: walletState.canWriteContracts,
+    isTestnet: walletState.isTestnet,
+    configuredNetwork: getConfiguredAdminNetwork(),
+    isActionRunning: isSubmitting,
+  });
+  const resolutionShareValidation = validateResolutionShare(resolutionStatus, resolutionShareInput);
 
   const handleClaimCase = useCallback(async () => {
     setIsSubmitting(true);
@@ -1050,7 +1069,31 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
   const handleResolveOnChain = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
-      const nextWarning = "Missing dispute or wallet context for settlement.";
+      const nextWarning =
+        settlementEligibility.blockingReason ?? "Missing dispute or wallet context for settlement.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
+
+    if (!settlementEligibility.canSettle) {
+      const nextWarning =
+        settlementEligibility.blockingReason ?? "Settlement is unavailable for this case.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
+
+    if (activeWalletType !== "external_wallet") {
+      const nextWarning = "Connect a signing-capable external Stellar wallet to settle.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
+
+    const shareValidation = validateResolutionShare(resolutionStatus, resolutionShareInput);
+    if (!shareValidation.isValid) {
+      const nextWarning = shareValidation.error ?? "Enter a valid freelancer share.";
       setActionError(nextWarning);
       showWarningToast(nextWarning);
       return;
@@ -1186,6 +1229,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     resolutionNote,
     resolutionShareInput,
     resolutionStatus,
+    settlementEligibility,
     signTransaction,
     verifiedWallet,
     walletState.canWriteContracts,
@@ -1321,7 +1365,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       />
 
       {detail.settlementAttempts.some((attempt) =>
-        ["started", "signed", "submission_unknown", "submitted"].includes(attempt.status),
+        isActiveSettlementAttemptStatus(attempt.status),
       ) ? (
         <AdminSection
           label="Settlement Recovery"
@@ -1330,9 +1374,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         >
           <div className="space-y-3">
             {detail.settlementAttempts
-              .filter((attempt) =>
-                ["started", "signed", "submission_unknown", "submitted"].includes(attempt.status),
-              )
+              .filter((attempt) => isActiveSettlementAttemptStatus(attempt.status))
               .map((attempt) => (
                 <div
                   key={attempt._id}
@@ -1388,22 +1430,27 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
             onAddModeratorNote={() => void handleAddModeratorNote()}
             onChangeReviewStatus={() => void handleChangeReviewStatus()}
           />
-
-          <AdminResolutionWorkspace
-            resolutionStatus={resolutionStatus}
-            resolutionShareInput={resolutionShareInput}
-            resolutionNote={resolutionNote}
-            isSubmitting={isSubmitting}
-            onResolutionStatusChange={setResolutionStatus}
-            onResolutionShareInputChange={(value) =>
-              setResolutionShareInput(sanitizeBasisPointInput(value))
-            }
-            onResolutionNoteChange={(value) =>
-              setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
-            }
-            onResolveOnChain={() => void handleResolveOnChain()}
-          />
         </>
+      ) : null}
+
+      {!isReadOnlyDispute ? (
+        <AdminResolutionWorkspace
+          resolutionStatus={resolutionStatus}
+          resolutionShareInput={resolutionShareInput}
+          resolutionShareError={resolutionShareValidation.error}
+          resolutionNote={resolutionNote}
+          settlementBlockingReason={settlementEligibility.blockingReason}
+          canSettle={settlementEligibility.canSettle}
+          isSubmitting={isSubmitting}
+          onResolutionStatusChange={(value) => {
+            setResolutionStatus(value);
+          }}
+          onResolutionShareInputChange={setResolutionShareInput}
+          onResolutionNoteChange={(value) =>
+            setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
+          }
+          onResolveOnChain={() => void handleResolveOnChain()}
+        />
       ) : null}
 
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}

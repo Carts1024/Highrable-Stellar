@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-09-30
+
+- Completed C14 frontend administrator-resolution hardening: strict text-preserving bps validation, accessible inline errors, four-status settlement eligibility, external-wallet/session/network and escrow-context guards, active-attempt blocking with recovery retained, case-switch draft resets, and regression coverage. The membership-enabled contract behavior remains undeployed.
+
 ## 2026-09-29
 
 - Added C12 escrow settlement invariants for full refund, full payout, and rounded split from both funded and submitted dispute states, including full-record and balance-conservation assertions.
