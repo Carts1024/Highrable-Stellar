@@ -157,6 +157,56 @@ describe("AdminDisputesPage", () => {
     });
   });
 
+  it("keeps all eight dispute statuses and four on-chain marking phases selectable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ disputes: [], admins: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderQueue();
+
+    await screen.findByText("No disputes match the selected filters.");
+    const selects = screen.getAllByRole("combobox");
+    const statusSelect = selects[0];
+    const assignmentSelect = selects[1];
+    const onChainSelect = selects[2];
+    if (
+      !(statusSelect instanceof HTMLSelectElement) ||
+      !(assignmentSelect instanceof HTMLSelectElement) ||
+      !(onChainSelect instanceof HTMLSelectElement)
+    ) {
+      throw new Error("Expected all admin dispute filters.");
+    }
+
+    expect(Array.from(statusSelect.options).map((option) => option.value)).toEqual([
+      "",
+      "open",
+      "under_review",
+      "awaiting_client_response",
+      "awaiting_freelancer_response",
+      "resolved_client",
+      "resolved_freelancer",
+      "split_resolution",
+      "cancelled",
+    ]);
+    expect(Array.from(onChainSelect.options).map((option) => option.value)).toEqual([
+      "",
+      "not_marked",
+      "marking",
+      "marked",
+      "mark_failed",
+    ]);
+
+    fireEvent.change(statusSelect, { target: { value: "cancelled" } });
+    fireEvent.change(onChainSelect, { target: { value: "marking" } });
+    fireEvent.change(assignmentSelect, { target: { value: "mine" } });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/admin/disputes?status=cancelled&onChainStatus=marking&assignmentFilter=mine&limit=120",
+        expect.anything(),
+      );
+    });
+  });
+
   it("renders populated rows with detail links", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(populatedQueue)));
 

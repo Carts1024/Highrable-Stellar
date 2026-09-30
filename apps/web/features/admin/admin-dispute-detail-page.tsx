@@ -67,6 +67,7 @@ import type {
   TAdminResolutionStatus,
   TAdminReviewStatus,
 } from "@/features/admin/types";
+import type { TDisputeStatus } from "@/features/disputes/types";
 import type { ReactNode } from "react";
 
 const MAX_MODERATOR_NOTE_LENGTH = 4000;
@@ -81,6 +82,27 @@ const REVIEW_STATUS_OPTIONS = [
     label: getDisputeStatusLabel("awaiting_freelancer_response"),
   },
 ] satisfies ReadonlyArray<{ value: TAdminReviewStatus; label: string }>;
+
+function isAdminReviewStatus(value: string): value is TAdminReviewStatus {
+  return REVIEW_STATUS_OPTIONS.some((option) => option.value === value);
+}
+
+function getReviewStatusForDispute(status: TDisputeStatus): TAdminReviewStatus {
+  return isAdminReviewStatus(status) ? status : "under_review";
+}
+
+function canAdminReviewDispute(detail: IAdminDisputeDetail, verifiedWallet: string): boolean {
+  const normalizedWallet = verifiedWallet.trim().toUpperCase();
+  const isParticipant =
+    normalizedWallet === detail.dispute.clientWallet.trim().toUpperCase() ||
+    normalizedWallet === detail.dispute.freelancerWallet.trim().toUpperCase();
+
+  return (
+    detail.dispute.assignedAdminWallet?.trim().toUpperCase() === normalizedWallet &&
+    !isParticipant &&
+    !isTerminalDisputeStatus(detail.dispute.status)
+  );
+}
 
 const RESOLUTION_STATUS_OPTIONS = [
   { value: "resolved_client", label: getDisputeStatusLabel("resolved_client") },
@@ -420,7 +442,12 @@ function AdminModeratorWorkspace({
           <NativeSelect
             id="review-status"
             value={reviewStatus}
-            onChange={(event) => onReviewStatusChange(event.target.value as TAdminReviewStatus)}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              if (isAdminReviewStatus(nextValue)) {
+                onReviewStatusChange(nextValue);
+              }
+            }}
             className="h-11 w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
             disabled={isSubmitting}
           >
@@ -430,7 +457,14 @@ function AdminModeratorWorkspace({
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          <label
+            htmlFor="review-message"
+            className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
+          >
+            Optional review message
+          </label>
           <Textarea
+            id="review-message"
             value={reviewMessage}
             onChange={(event) => onReviewMessageChange(event.target.value)}
             className="min-h-24 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
@@ -660,6 +694,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     useState<TAdminResolutionStatus>("resolved_client");
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [reviewStatusRefreshFailed, setReviewStatusRefreshFailed] = useState(false);
 
   const detailQuery = useQuery<IAdminDisputeDetail, AdminApiError>({
     queryKey: [...ADMIN_QUERY_KEY, "dispute", verifiedWallet, disputeId],
@@ -673,9 +708,31 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     retry: shouldRetryAdminRead,
   });
   const detail = detailQuery.data ?? null;
+  const canReviewCurrentDispute = detail ? canAdminReviewDispute(detail, verifiedWallet) : false;
   const loadDetail = useCallback(async () => {
-    await detailQuery.refetch();
+    const result = await detailQuery.refetch();
+    if (result.error) {
+      throw result.error;
+    }
   }, [detailQuery.refetch]);
+
+  const invalidateAdminDisputeQueue = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: [...ADMIN_QUERY_KEY, "disputes", verifiedWallet],
+    });
+  }, [queryClient, verifiedWallet]);
+
+  useEffect(() => {
+    if (detail) {
+      setReviewStatus(getReviewStatusForDispute(detail.dispute.status));
+    }
+  }, [detail?.dispute._id, detail?.dispute.status]);
+
+  useEffect(() => {
+    setModeratorNote("");
+    setReviewMessage("");
+    setReviewStatusRefreshFailed(false);
+  }, [disputeId]);
 
   useEffect(() => {
     if (detailQuery.error) {
@@ -698,7 +755,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     try {
       await postAdminClaimDispute(disputeId);
       await loadDetail();
-      await queryClient.invalidateQueries({ queryKey: [...ADMIN_QUERY_KEY, "disputes"] });
+      await invalidateAdminDisputeQueue();
       setActionSuccess("Case claimed.");
     } catch (error) {
       handleProtectedApiError(error);
@@ -706,7 +763,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, handleProtectedApiError, loadDetail, queryClient]);
+  }, [disputeId, handleProtectedApiError, invalidateAdminDisputeQueue, loadDetail]);
 
   const handleAssignCase = useCallback(
     async (assignedAdminWallet: string | null) => {
@@ -715,7 +772,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       try {
         await postAdminAssignDispute(disputeId, assignedAdminWallet);
         await loadDetail();
-        await queryClient.invalidateQueries({ queryKey: [...ADMIN_QUERY_KEY, "disputes"] });
+        await invalidateAdminDisputeQueue();
         setActionSuccess(assignedAdminWallet ? "Case assignment updated." : "Case unassigned.");
       } catch (error) {
         handleProtectedApiError(error);
@@ -726,7 +783,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         setIsSubmitting(false);
       }
     },
-    [disputeId, handleProtectedApiError, loadDetail, queryClient],
+    [disputeId, handleProtectedApiError, invalidateAdminDisputeQueue, loadDetail],
   );
 
   const handleReconcileSettlement = useCallback(
@@ -784,6 +841,18 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   }, [disputeId, handleProtectedApiError, loadDetail, moderatorNote]);
 
   const handleChangeReviewStatus = useCallback(async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (!detail || !canReviewCurrentDispute) {
+      const nextWarning =
+        "Assign this nonterminal case to your verified admin wallet before changing review status.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
+
     const sanitizedReviewMessage = sanitizeLimitedMultilineInput(
       reviewMessage,
       MAX_REVIEW_MESSAGE_LENGTH,
@@ -792,17 +861,47 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
+    setReviewStatusRefreshFailed(false);
+    let statusWriteSucceeded = false;
     try {
       await postAdminReviewStatus(disputeId, reviewStatus, sanitizedReviewMessage || undefined);
-      setActionSuccess("Dispute review status updated.");
+      statusWriteSucceeded = true;
+      setReviewMessage("");
+      await invalidateAdminDisputeQueue();
       await loadDetail();
+      setActionSuccess("Dispute review status updated.");
     } catch (nextError) {
       handleProtectedApiError(nextError);
-      setActionError(nextError instanceof Error ? nextError.message : "Failed to update status.");
+      if (statusWriteSucceeded) {
+        setReviewStatusRefreshFailed(true);
+        setActionError(
+          "Review status was saved, but the detail could not be refreshed. Retry the read; the status mutation will not be repeated.",
+        );
+      } else {
+        setActionError(nextError instanceof Error ? nextError.message : "Failed to update status.");
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, handleProtectedApiError, loadDetail, reviewMessage, reviewStatus]);
+  }, [
+    canReviewCurrentDispute,
+    detail,
+    disputeId,
+    handleProtectedApiError,
+    invalidateAdminDisputeQueue,
+    isSubmitting,
+    loadDetail,
+    reviewMessage,
+    reviewStatus,
+  ]);
+
+  const handleRetryDetailRead = useCallback(async () => {
+    const result = await detailQuery.refetch();
+    if (!result.error) {
+      setReviewStatusRefreshFailed(false);
+      setActionError(null);
+    }
+  }, [detailQuery.refetch]);
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
@@ -1099,7 +1198,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   }
 
   if (detailQuery.isError) {
-    if (detailQuery.error.status === 404) {
+    if (!reviewStatusRefreshFailed && detailQuery.error.status === 404) {
       return (
         <RouteCallout tone="warning">
           <span>Dispute not found.</span>{" "}
@@ -1110,7 +1209,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       );
     }
 
-    if (detailQuery.error.status === 400) {
+    if (!reviewStatusRefreshFailed && detailQuery.error.status === 400) {
       return (
         <RouteCallout tone="danger">
           This dispute request is invalid. Check the dispute ID and return to the queue.
@@ -1124,16 +1223,18 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           ? "Admin authentication is required before this dispute can be read."
           : detailQuery.error.status === 403
             ? "Admin access is forbidden for this dispute request."
-            : isAdminNetworkError(detailQuery.error)
-              ? "The dispute detail could not be reached. Check your connection and retry."
-              : getAdminApiErrorMessage(detailQuery.error) ||
-                "Dispute detail could not be loaded."}{" "}
+            : reviewStatusRefreshFailed
+              ? "Review status was saved, but the detail refresh failed. Retry the read; the status mutation will not be repeated."
+              : isAdminNetworkError(detailQuery.error)
+                ? "The dispute detail could not be reached. Check your connection and retry."
+                : getAdminApiErrorMessage(detailQuery.error) ||
+                  "Dispute detail could not be loaded."}{" "}
         <AppButton
           type="button"
           variant="secondary"
           size="sm"
           className="ml-3"
-          onClick={() => void detailQuery.refetch()}
+          onClick={() => void handleRetryDetailRead()}
           disabled={detailQuery.isFetching}
         >
           Retry
@@ -1152,12 +1253,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
   const isReadOnlyDispute = isTerminalDisputeStatus(detail.dispute.status);
   const canShowRetryMarkDisputed = canRetryMarkDisputed && !isReadOnlyDispute;
-  const currentWalletIsParticipant =
-    verifiedWallet === detail.dispute.clientWallet.toUpperCase() ||
-    verifiedWallet === detail.dispute.freelancerWallet.toUpperCase();
-  const isAssignedAdmin =
-    detail.dispute.assignedAdminWallet?.toUpperCase() === verifiedWallet &&
-    !currentWalletIsParticipant;
+  const isAssignedAdmin = canReviewCurrentDispute;
   const activeAdminWallets = [
     verifiedWallet,
     ...(membershipQuery.data?.admins

@@ -2,8 +2,14 @@ html {
   scroll-behavior: smooth;
 }
 
+:root {
+  --font-geist-sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-geist-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+
 body {
   min-height: 100vh;
+  font-family: var(--font-geist-sans);
 }
 
 /* Landing page: snap the viewport to one full-height section at a time. Scoped

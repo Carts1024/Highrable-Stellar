@@ -8,22 +8,9 @@ import {
 } from "@/core/seo";
 import { AppShell } from "@/features/common";
 import "@repo/ui/globals.css";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
-
 import type { Metadata } from "next";
 
 import "./globals.css";
-
-const sansFont = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-});
-
-const monoFont = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-geist-mono",
-});
 
 export const metadata: Metadata = {
   metadataBase: SEO_CONFIG.siteUrl,
@@ -64,7 +51,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${sansFont.variable} ${monoFont.variable}`}>
+      <body>
         <AppProviders>
           <SeoJsonLd id="website-json-ld" data={buildWebsiteJsonLd()} />
           <SeoJsonLd id="organization-json-ld" data={buildOrganizationJsonLd()} />

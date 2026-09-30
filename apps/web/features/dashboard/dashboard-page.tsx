@@ -1,7 +1,7 @@
 "use client";
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
-import { AdminDashboardPage } from "@/features/admin";
+import { AdminDashboardEntry } from "@/features/admin";
 import { ProductPageHero, RouteCallout } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
@@ -255,7 +255,7 @@ export function DashboardPage() {
   }
 
   if (!isRoleLoading && role === "admin") {
-    return <AdminDashboardPage />;
+    return <AdminDashboardEntry />;
   }
 
   return (
