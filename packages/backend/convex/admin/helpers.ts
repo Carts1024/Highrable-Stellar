@@ -126,10 +126,49 @@ export function sanitizeResolutionNote(note: string | undefined): string | undef
   return optionalNonEmptyString(note, "resolutionNote")?.slice(0, 2000);
 }
 
+const STELLAR_TRANSACTION_HASH_PATTERN = /^[0-9a-f]{64}$/i;
+
+export function normalizeSettlementOperationId(operationId: string): string {
+  return optionalNonEmptyString(operationId, "operationId")!;
+}
+
+export function normalizeSettlementTransactionHash(
+  transactionHash: string,
+  fieldName = "transactionHash",
+): string {
+  const normalizedHash = optionalNonEmptyString(transactionHash, fieldName);
+  if (!normalizedHash || !STELLAR_TRANSACTION_HASH_PATTERN.test(normalizedHash)) {
+    throw new BadRequestError(`${fieldName} must be a 64-character hexadecimal hash.`);
+  }
+
+  return normalizedHash.toLowerCase();
+}
+
+export function normalizeOptionalSettlementTransactionHash(
+  transactionHash: string | undefined,
+  fieldName = "transactionHash",
+): string | undefined {
+  return transactionHash === undefined
+    ? undefined
+    : normalizeSettlementTransactionHash(transactionHash, fieldName);
+}
+
+export function requireSettlementExpiry(transactionValidUntil: number): number {
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new BadRequestError("transactionValidUntil must be a positive safe integer.");
+  }
+
+  return transactionValidUntil;
+}
+
 export function resolveFreelancerShareBps(
   status: TAdminResolutionStatus,
   freelancerShareBps: number,
 ): number {
+  if (!Number.isSafeInteger(freelancerShareBps)) {
+    throw new BadRequestError("freelancerShareBps must be an integer.");
+  }
+
   const normalizedShare = requireRangeNumber(freelancerShareBps, "freelancerShareBps", 0, 10_000);
 
   if (status === "resolved_client" && normalizedShare !== 0) {

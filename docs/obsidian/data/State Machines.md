@@ -58,6 +58,20 @@ Convex review statuses are `open`, `under_review`, `awaiting_client_response`, `
 
 New starts and state-changing callbacks are rejected for terminal review statuses. Participant and configured-admin authorization, caller-supplied wallet limitations, original audit actors/wallet types, and historical failure events remain unchanged.
 
+## Administrator settlement attempts
+
+Settlement attempts are single-active per escrow and use `started → signed → submission_unknown → succeeded` or `failed` (with `submitted` retained for compatibility). A start requires an assigned, non-conflicted admin, a nonterminal dispute, and a disputed escrow. Resolution terms are exact integer basis points: client `0`, freelancer `10_000`, or split `1–9999`.
+
+| Callback | Required current state | Result |
+| --- | --- | --- |
+| started | assigned admin; nonterminal dispute; disputed escrow; no other active attempt | Persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
+| signed | initiating assigned admin; active attempt | Persist one 64-hex hash and positive safe expiry; matching replay preserves phase/timestamps/errors, including `submission_unknown`; conflicting identity or failed attempt rejects. |
+| submission unknown | saved hash and expiry; active attempt | Keep attempt and transaction pending/locked; first uncertainty details win; duplicate callbacks and terminal attempts do not write. |
+| succeeded | saved hash and expiry; server-verified exact settlement | Atomically map dispute/escrow/parent/transaction to terminal state and emit existing audit/notification effects once; authorized matching replay is harmless. |
+| failed | active unsigned attempt, or saved hash with matching reconciliation hash | Preserve the first error and known hash; duplicate failures and nonconflicting stale failures after success do not write. |
+
+The mapping is `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. Optional legacy dispute contract/escrow references remain optional, but any populated conflicting reference is rejected. The UI/RPC verification layer and payment arithmetic are outside C17; payout bookkeeping still truncates whole units pending a token-precision follow-up.
+
 ## Cancellations
 
 Requests track `draft`, `pending_freelancer_response`, `approved_for_cancel`, `rejected_by_freelancer`, `cancel_pending_on_chain`, `cancelled_on_chain`, `cancel_failed`, `blocked`, `expired`, and `withdrawn`. On-chain state is `not_required`, `not_submitted`, `pending`, `confirmed`, or `failed`.

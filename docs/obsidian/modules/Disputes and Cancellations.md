@@ -14,7 +14,7 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, and C13 hardens idempotent on-chain marking callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, C13 hardens idempotent on-chain marking callbacks, and C17 hardens all five administrator settlement callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
 
 ## Primary Locations
 
@@ -114,6 +114,17 @@ The verified suite locks the existing dispute/event schema values and index name
 - Micro-gig and milestone fixtures cover client, freelancer, configured-admin, unrelated-wallet, external-wallet, and passkey-smart-account paths, including late success, stale failure, conflicting hashes, blank inputs, missing disputes, terminal review guards, and rejected-record preservation. The focused C13 suite passes 18 deterministic tests.
 
 Known-hash failures remain blocked pending reconciliation. Hashless retries and callback ordering across separate browser submissions remain intentionally limited: this task does not add attempt IDs, signed-session authentication, frontend controls, a reconciliation service, or contract changes.
+
+## C17 Verified Invariants
+
+- Settlement starts require a non-conflicted assigned admin, a nonterminal dispute, a disputed escrow, integer basis points (`0`, `10_000`, or `1–9999` for the three resolution shapes), and a normalized non-empty operation ID. One active attempt is allowed per escrow; matching active replays are no-ops, while failed attempts require a new operation ID.
+- Every callback checks the server secret, current scoped capability, assignment/attempt ownership, participant conflicts, and persisted escrow/network/contract identity before an idempotent return. Owner recovery remains available for an existing attempt and terminal attribution remains the initiating administrator.
+- Signed callbacks accept only 64-hex transaction hashes and positive safe-integer expiries, persist the pair once, and preserve the current phase, timestamps, and first error across matching replays, including after `submission_unknown`. Unknown callbacks require the saved pair, keep the transaction pending/locked, and preserve the first uncertainty details.
+- Success requires the persisted signed identity and the existing server-side chain verification boundary. It applies escrow, dispute, parent, transaction, audit, system-message, and notification updates atomically once; authorized matching replays are harmless. Failure supports unsigned failure or reconciliation with the matching saved hash, preserves the first failure and known hash, and suppresses duplicate or stale-success side effects.
+- Explicit populated dispute/attempt contract and escrow references must match the configured scope and escrow. Legacy records may omit those optional dispute fields and continue using the linked escrow and current scope. Resolution audit metadata includes the operation ID; failure events include known hashes without adding event types.
+- Terminal mappings remain `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. `packages/backend/tests/disputes/c17.settlement.test.ts` covers both parent types, all mappings, malformed/conflicting inputs, authorization/replay paths, uncertainty recovery, atomic updates, and side-effect counts.
+
+Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit truncation (`Math.trunc`) before the client refund is derived. Token-precision arithmetic is a separate follow-up and must be designed with asset decimals before changing settlement amounts.
 
 ## Related Notes
 

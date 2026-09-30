@@ -21,6 +21,7 @@ This classification is based on current source, tests, manifests, deployment art
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
 - External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
 - Owner-managed dispute-admin membership, assignment history, claim workflow, and signed settlement recovery are implemented in source. Platform metrics and team/assignment management remain owner-only; app dispute work is assignment-scoped.
+- Administrator settlement records are C17-hardened across started, signed, submission-unknown, succeeded, and failed callbacks. Current source validates integer basis points, normalized operation IDs, 64-hex hashes, positive safe expiries, scoped capability/assignment/attempt ownership, explicit persisted escrow references, and atomic terminal bookkeeping with replay-safe audit/notification behavior. C17 adds 14 deterministic in-memory tests; the full backend suite passes 81 tests.
 - External-wallet and passkey smart-account execution both route through shared escrow helpers and a wallet-specific transaction executor.
 - Deadline reminder scanning is scheduled by Convex every 15 minutes.
 
@@ -33,6 +34,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Mainnet readiness checks are extensive, but they do not constitute contract, relayer, backend, monitoring, or operational audits.
 - The membership-enabled escrow source and frontend/backend workflow have not been deployed. Existing deployments retain owner-only settlement and do not enforce the new participant-conflict rule. Activation requires a fresh isolated contract/deployment database; existing ID lookup/synchronization is unsafe across overlapping escrow-ID spaces.
 - Proof and agreement records carry hashes and protection metadata, but source-file and attachment content checksum TODOs remain in backend/client paths.
+- Settlement payout bookkeeping still truncates whole units before calculating the client refund. Token-precision arithmetic is deliberately deferred to a separate follow-up; C17 does not change payment amounts.
 
 ## Experimental or Compatibility-Sensitive
 
