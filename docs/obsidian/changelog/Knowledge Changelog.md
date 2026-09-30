@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-09-30
 
+- Completed C18 administrator settlement execution and recovery hardening: phase-aware Stellar execution, typed resolve outcomes, case/wallet-scoped settlement coordination, signed-hash preservation, manual status-only reconciliation, pending/failed presentation, explorer-linked progress, and read-only retry after post-settlement detail refresh failures.
 - Completed C14 frontend administrator-resolution hardening: strict text-preserving bps validation, accessible inline errors, four-status settlement eligibility, external-wallet/session/network and escrow-context guards, active-attempt blocking with recovery retained, case-switch draft resets, and regression coverage. The membership-enabled contract behavior remains undeployed.
 
 ## 2026-09-29

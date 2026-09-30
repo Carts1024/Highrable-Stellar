@@ -1,13 +1,8 @@
 "use client";
 
 import { getRequiredAdminContractConfig } from "@/core/config/stellar-contracts";
-import {
-  isDisputeAdminOnChain,
-  markDisputedOnChain,
-  resolveDisputeOnChain,
-} from "@/core/stellar/escrow-contract";
+import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import {
   isPendingStellarTransactionError,
@@ -22,6 +17,7 @@ import {
   useAdminSessionAccess,
 } from "@/features/admin/admin-session-gate";
 import { AdminSection } from "@/features/admin/components/admin-operations-ui";
+import { useAdminSettlement } from "@/features/admin/hooks/use-admin-settlement";
 import {
   AdminApiError,
   fetchAdminDispute,
@@ -31,7 +27,6 @@ import {
   postAdminModeratorNote,
   postAdminAssignDispute,
   postAdminClaimDispute,
-  postAdminResolution,
   postAdminReviewStatus,
   shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
@@ -39,7 +34,6 @@ import {
   deriveSettlementEligibility,
   getResolutionShareDisplayValue,
   isActiveSettlementAttemptStatus,
-  resolveShareBps,
   validateResolutionShare,
 } from "@/features/admin/lib/settlement-validation";
 import {
@@ -169,14 +163,6 @@ function createClientRequestId(escrowId: string): string {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return `mark_disputed:retry:${escrowId}:${uniqueId}`;
-}
-
-function createSettlementOperationId(disputeId: string): string {
-  const uniqueId =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `resolve_dispute:${disputeId}:${uniqueId}`;
 }
 
 function sanitizeLimitedMultilineInput(value: string, maxLength: number): string {
@@ -637,6 +623,66 @@ function AdminTimeline({ detail }: IAdminTimelineProps) {
   );
 }
 
+interface IAdminSettlementProgressProps {
+  readonly phase: string;
+  readonly phaseLabel: string;
+  readonly isExecuting: boolean;
+  readonly operationId: string | null;
+  readonly transactionHash: string | null;
+  readonly transactionExplorerUrl: string | null;
+  readonly error: string | null;
+  readonly success: string | null;
+}
+
+function AdminSettlementProgress({
+  phase,
+  phaseLabel,
+  isExecuting,
+  operationId,
+  transactionHash,
+  transactionExplorerUrl,
+  error,
+  success,
+}: IAdminSettlementProgressProps) {
+  if (phase === "idle" && !operationId && !error && !success) {
+    return null;
+  }
+
+  return (
+    <AdminSection label="Settlement status" title={phaseLabel}>
+      <div className="space-y-2 text-sm text-[#5f5f5f]" role="status" aria-live="polite">
+        <p>{isExecuting ? `${phaseLabel}…` : phaseLabel}</p>
+        {operationId ? (
+          <p className="font-mono text-xs break-all text-[#777]">Operation: {operationId}</p>
+        ) : null}
+        {transactionHash ? (
+          <p className="font-mono text-xs break-all text-[#777]">
+            Transaction:{" "}
+            {transactionExplorerUrl ? (
+              <a
+                href={transactionExplorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                {transactionHash}
+              </a>
+            ) : (
+              transactionHash
+            )}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="text-red-700" role="alert">
+            {phaseLabel}: {error}
+          </p>
+        ) : null}
+        {success ? <p className="text-emerald-700">{success}</p> : null}
+      </div>
+    </AdminSection>
+  );
+}
+
 async function assertWalletExecutionReady(args: {
   walletType: "external_wallet" | "passkey_smart_account";
   address: string | null;
@@ -767,6 +813,31 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     isActionRunning: isSubmitting,
   });
   const resolutionShareValidation = validateResolutionShare(resolutionStatus, resolutionShareInput);
+  const settlement = useAdminSettlement({
+    disputeId,
+    detail,
+    verifiedWallet,
+    activeWalletAddress,
+    activeWalletType,
+    connectedWalletAddress: address,
+    isWalletConnected: walletState.isConnected,
+    isTestnet: walletState.isTestnet,
+    canWriteContracts: walletState.canWriteContracts,
+    signTransaction,
+    resolutionStatus,
+    freelancerShareBps: resolutionShareValidation.freelancerShareBps,
+    resolutionNote: sanitizeLimitedMultilineInput(resolutionNote, MAX_RESOLUTION_NOTE_LENGTH),
+    canSettle: settlementEligibility.canSettle,
+    blockingReason: settlementEligibility.blockingReason,
+    loadDetail,
+    invalidateAdminDisputeQueue,
+    handleProtectedApiError,
+  });
+  const isAnyActionRunning = isSubmitting || settlement.isExecuting;
+  const canSettle = settlementEligibility.canSettle && !settlement.blocksNewAttempt;
+  const settlementBlockingReason = settlement.blocksNewAttempt
+    ? "Settlement requires reconciliation before another attempt can start."
+    : settlementEligibility.blockingReason;
 
   const handleClaimCase = useCallback(async () => {
     setIsSubmitting(true);
@@ -803,25 +874,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       }
     },
     [disputeId, handleProtectedApiError, invalidateAdminDisputeQueue, loadDetail],
-  );
-
-  const handleReconcileSettlement = useCallback(
-    async (operationId: string) => {
-      setIsSubmitting(true);
-      setActionError(null);
-      setActionSuccess(null);
-      try {
-        await postAdminResolution(disputeId, { phase: "reconcile", operationId });
-        setActionSuccess("Settlement reconciliation checked the saved Stellar transaction.");
-        await loadDetail();
-      } catch (error) {
-        handleProtectedApiError(error);
-        setActionError(error instanceof Error ? error.message : "Could not reconcile settlement.");
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [disputeId, handleProtectedApiError, loadDetail],
   );
 
   const canRetryMarkDisputed =
@@ -918,9 +970,10 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     const result = await detailQuery.refetch();
     if (!result.error) {
       setReviewStatusRefreshFailed(false);
+      settlement.clearRefreshError();
       setActionError(null);
     }
-  }, [detailQuery.refetch]);
+  }, [detailQuery.refetch, settlement]);
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
@@ -1067,182 +1120,16 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     walletState.isTestnet,
   ]);
 
-  const handleResolveOnChain = useCallback(async () => {
-    if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
-      const nextWarning =
-        settlementEligibility.blockingReason ?? "Missing dispute or wallet context for settlement.";
-      setActionError(nextWarning);
-      showWarningToast(nextWarning);
-      return;
-    }
-
-    if (!settlementEligibility.canSettle) {
-      const nextWarning =
-        settlementEligibility.blockingReason ?? "Settlement is unavailable for this case.";
-      setActionError(nextWarning);
-      showWarningToast(nextWarning);
-      return;
-    }
-
-    if (activeWalletType !== "external_wallet") {
-      const nextWarning = "Connect a signing-capable external Stellar wallet to settle.";
-      setActionError(nextWarning);
-      showWarningToast(nextWarning);
-      return;
-    }
-
-    const shareValidation = validateResolutionShare(resolutionStatus, resolutionShareInput);
-    if (!shareValidation.isValid) {
-      const nextWarning = shareValidation.error ?? "Enter a valid freelancer share.";
-      setActionError(nextWarning);
-      showWarningToast(nextWarning);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setActionError(null);
-    setActionSuccess(null);
-    const operationId = createSettlementOperationId(detail.dispute._id);
-    let settlementStarted = false;
-    let signedIdentityPersisted = false;
-
-    try {
-      const config = getRequiredAdminContractConfig();
-      await assertWalletExecutionReady({
-        walletType: activeWalletType,
-        address,
-        isConnected: walletState.isConnected,
-        isTestnet: walletState.isTestnet,
-        network: config.network,
-        canWriteContracts: walletState.canWriteContracts,
-      });
-
-      const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
-      const sanitizedResolutionNote = sanitizeLimitedMultilineInput(
-        resolutionNote,
-        MAX_RESOLUTION_NOTE_LENGTH,
-      );
-      const connectedWallet = activeWalletAddress.trim().toUpperCase();
-      if (connectedWallet !== verifiedWallet) {
-        throw new Error("The connected wallet changed after this admin session was verified.");
-      }
-      if (
-        connectedWallet === detail.dispute.clientWallet.toUpperCase() ||
-        connectedWallet === detail.dispute.freelancerWallet.toUpperCase()
-      ) {
-        throw new Error("A dispute participant cannot settle their own case.");
-      }
-      if (detail.dispute.assignedAdminWallet?.toUpperCase() !== connectedWallet) {
-        throw new Error("Claim or receive assignment to this case before starting settlement.");
-      }
-
-      const isOnChainDisputeAdmin = await isDisputeAdminOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress,
-        disputeAdmin: connectedWallet,
-      });
-      if (!isOnChainDisputeAdmin) {
-        throw new Error("The connected wallet is not an active on-chain dispute admin.");
-      }
-
-      await postAdminResolution(disputeId, {
-        phase: "started",
-        status: resolutionStatus,
-        freelancerShareBps,
-        operationId,
-        ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
-      });
-      settlementStarted = true;
-
-      const resolutionHash = await toBytesN32Hash(
-        `dispute:${detail.dispute._id}:status:${resolutionStatus}:bps:${freelancerShareBps}:note:${sanitizedResolutionNote}`,
-      );
-
-      await resolveDisputeOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: connectedWallet,
-        signTransaction,
-        walletType: activeWalletType,
-        operationId,
-        disputeAdmin: connectedWallet,
-        escrowId: detail.dispute.onChainEscrowId,
-        freelancerShareBps,
-        resolutionHash,
-        onSigned: async ({ transactionHash, transactionValidUntil }) => {
-          await postAdminResolution(disputeId, {
-            phase: "signed",
-            operationId,
-            transactionHash,
-            transactionValidUntil,
-          });
-          signedIdentityPersisted = true;
-        },
-      });
-
-      await postAdminResolution(disputeId, {
-        phase: "succeeded",
-        operationId,
-      });
-
-      setActionSuccess("Dispute settlement was verified on Stellar and recorded.");
-      await loadDetail();
-    } catch (nextError) {
-      handleProtectedApiError(nextError);
-      const normalizedError = normalizeStellarError(nextError);
-      if (settlementStarted) {
-        try {
-          if (signedIdentityPersisted || isPendingStellarTransactionError(nextError)) {
-            await postAdminResolution(disputeId, { phase: "reconcile", operationId });
-          } else {
-            await postAdminResolution(disputeId, {
-              phase: "failed",
-              operationId,
-              errorMessage: normalizedError,
-            });
-          }
-        } catch {
-          if (!signedIdentityPersisted) {
-            await postAdminResolution(disputeId, { phase: "reconcile", operationId }).catch(
-              () => undefined,
-            );
-          }
-        }
-      }
-
-      setActionError(normalizedError);
-      await loadDetail();
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [
-    activeWalletAddress,
-    activeWalletType,
-    address,
-    detail,
-    disputeId,
-    handleProtectedApiError,
-    loadDetail,
-    resolutionNote,
-    resolutionShareInput,
-    resolutionStatus,
-    settlementEligibility,
-    signTransaction,
-    verifiedWallet,
-    walletState.canWriteContracts,
-    walletState.isConnected,
-    walletState.isTestnet,
-  ]);
-
   if (detailQuery.isPending) {
     return <AdminRouteLoadingState label="dispute detail" />;
   }
 
   if (detailQuery.isError) {
-    if (!reviewStatusRefreshFailed && detailQuery.error.status === 404) {
+    if (
+      !reviewStatusRefreshFailed &&
+      !settlement.refreshError &&
+      detailQuery.error.status === 404
+    ) {
       return (
         <RouteCallout tone="warning">
           <span>Dispute not found.</span>{" "}
@@ -1253,7 +1140,11 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       );
     }
 
-    if (!reviewStatusRefreshFailed && detailQuery.error.status === 400) {
+    if (
+      !reviewStatusRefreshFailed &&
+      !settlement.refreshError &&
+      detailQuery.error.status === 400
+    ) {
       return (
         <RouteCallout tone="danger">
           This dispute request is invalid. Check the dispute ID and return to the queue.
@@ -1269,10 +1160,12 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
             ? "Admin access is forbidden for this dispute request."
             : reviewStatusRefreshFailed
               ? "Review status was saved, but the detail refresh failed. Retry the read; the status mutation will not be repeated."
-              : isAdminNetworkError(detailQuery.error)
-                ? "The dispute detail could not be reached. Check your connection and retry."
-                : getAdminApiErrorMessage(detailQuery.error) ||
-                  "Dispute detail could not be loaded."}{" "}
+              : settlement.refreshError
+                ? settlement.refreshError
+                : isAdminNetworkError(detailQuery.error)
+                  ? "The dispute detail could not be reached. Check your connection and retry."
+                  : getAdminApiErrorMessage(detailQuery.error) ||
+                    "Dispute detail could not be loaded."}{" "}
         <AppButton
           type="button"
           variant="secondary"
@@ -1339,7 +1232,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       <AdminDisputeDetailActions
         detail={detail}
         canRetryMarkDisputed={canShowRetryMarkDisputed}
-        isSubmitting={isSubmitting}
+        isSubmitting={isAnyActionRunning}
         onRetryMarkDisputed={() => void handleRetryMarkDisputed()}
       />
 
@@ -1359,7 +1252,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         isOwner={isOwner}
         activeAdminWallets={activeAdminWallets}
         assignedAdminAccessState={assignedAdminAccessState}
-        isSubmitting={isSubmitting}
+        isSubmitting={isAnyActionRunning}
         onClaim={() => void handleClaimCase()}
         onAssign={(wallet) => void handleAssignCase(wallet)}
       />
@@ -1394,11 +1287,14 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
                     size="sm"
                     variant="secondary"
                     disabled={
-                      isSubmitting || (!attempt.transactionHash && attempt.status !== "started")
+                      isAnyActionRunning ||
+                      (!attempt.transactionHash && attempt.status !== "started")
                     }
-                    onClick={() => void handleReconcileSettlement(attempt.operationId)}
+                    onClick={() =>
+                      void settlement.reconcile(attempt.operationId, attempt.transactionHash)
+                    }
                   >
-                    {isSubmitting ? "Checking…" : "Reconcile"}
+                    {isAnyActionRunning ? "Checking…" : "Reconcile"}
                   </AppButton>
                 </div>
               ))}
@@ -1419,7 +1315,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
             moderatorNote={moderatorNote}
             reviewMessage={reviewMessage}
             reviewStatus={reviewStatus}
-            isSubmitting={isSubmitting}
+            isSubmitting={isAnyActionRunning}
             onModeratorNoteChange={(value) =>
               setModeratorNote(value.slice(0, MAX_MODERATOR_NOTE_LENGTH))
             }
@@ -1439,9 +1335,9 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           resolutionShareInput={resolutionShareInput}
           resolutionShareError={resolutionShareValidation.error}
           resolutionNote={resolutionNote}
-          settlementBlockingReason={settlementEligibility.blockingReason}
-          canSettle={settlementEligibility.canSettle}
-          isSubmitting={isSubmitting}
+          settlementBlockingReason={settlementBlockingReason}
+          canSettle={canSettle}
+          isSubmitting={isAnyActionRunning}
           onResolutionStatusChange={(value) => {
             setResolutionStatus(value);
           }}
@@ -1449,9 +1345,20 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           onResolutionNoteChange={(value) =>
             setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
           }
-          onResolveOnChain={() => void handleResolveOnChain()}
+          onResolveOnChain={() => void settlement.resolve()}
         />
       ) : null}
+
+      <AdminSettlementProgress
+        phase={settlement.phase}
+        phaseLabel={settlement.phaseLabel}
+        isExecuting={settlement.isExecuting}
+        operationId={settlement.attempt?.operationId ?? null}
+        transactionHash={settlement.attempt?.transactionHash ?? null}
+        transactionExplorerUrl={settlement.transactionExplorerUrl}
+        error={settlement.error}
+        success={settlement.success}
+      />
 
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout tone="success">{actionSuccess}</RouteCallout> : null}
