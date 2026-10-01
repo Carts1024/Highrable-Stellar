@@ -26,6 +26,12 @@ const MAX_EVENT_MESSAGE_LENGTH = 4_000;
 const MAX_ATTACHMENTS = 25;
 const MAX_RELATED_RECORDS = 20;
 const ACTIVE_DISPUTE_STATUS_SET = new Set<string>(ACTIVE_DISPUTE_STATUSES);
+const TERMINAL_DISPUTE_STATUS_SET = new Set<string>([
+  "resolved_client",
+  "resolved_freelancer",
+  "split_resolution",
+  "cancelled",
+]);
 
 export type TDisputeParticipantRole = "client" | "freelancer";
 
@@ -83,6 +89,53 @@ export function getDisputeReasonLabel(reason: TDisputeReasonCategory): string {
 
 export function isActiveDisputeStatus(status: string): boolean {
   return ACTIVE_DISPUTE_STATUS_SET.has(status);
+}
+
+export function isTerminalDisputeStatus(status: string): boolean {
+  return TERMINAL_DISPUTE_STATUS_SET.has(status);
+}
+
+export function sanitizeOptionalDisputeTransactionHash(
+  transactionHash?: string,
+): string | undefined {
+  return optionalNonEmptyString(transactionHash, "transactionHash");
+}
+
+export function assertDisputeTransactionHashDoesNotConflict(
+  recordedHash: string | undefined,
+  incomingHash: string | undefined,
+) {
+  if (recordedHash !== undefined && incomingHash !== undefined && recordedHash !== incomingHash) {
+    throw new ConflictError("A different transaction hash is already recorded for this dispute.");
+  }
+}
+
+function getDisputeMetadataObject(metadata: unknown): Record<string, unknown> | null {
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    return null;
+  }
+
+  return { ...(metadata as Record<string, unknown>) };
+}
+
+export function clearDisputeOnChainMarkError(metadata: unknown): unknown {
+  const metadataObject = getDisputeMetadataObject(metadata);
+  if (metadataObject === null) {
+    return metadata;
+  }
+
+  delete metadataObject.onChainMarkError;
+  return Object.keys(metadataObject).length > 0 ? metadataObject : undefined;
+}
+
+export function setDisputeOnChainMarkError(
+  metadata: unknown,
+  errorMessage: string,
+): Record<string, unknown> {
+  return {
+    ...(getDisputeMetadataObject(metadata) ?? {}),
+    onChainMarkError: errorMessage,
+  };
 }
 
 type TDisputeParentRecords = {

@@ -389,3 +389,18 @@ export async function countRecords(
 ): Promise<number> {
   return await t.run(async (ctx) => (await ctx.db.query(table).collect()).length);
 }
+
+export async function assignDisputeFixture(
+  t: BackendTest,
+  disputeId: Id<"disputes">,
+  adminWallet: string,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    await ctx.db.patch(disputeId, {
+      assignedAdminWallet: adminWallet,
+      assignedAt: Date.now(),
+      assignedByWallet: adminWallet,
+      updatedAt: Date.now(),
+    });
+  });
+}
