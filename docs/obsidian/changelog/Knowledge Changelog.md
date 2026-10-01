@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-01
+
+- Completed C22 administrator regression evidence: added real-gate protected queue/detail integration coverage for verification, wallet identity changes, disconnects, 401/403 cache eviction, stale responses, and retryable reads; extended settlement detail tests through deferred execution phases, signing/simulation retry, uncertainty reconciliation, verified failure retry, bps boundaries, explorer feedback, and read-only refresh recovery. Focused administrator coverage passes 135 tests and the full web suite passes 211 tests. Evidence is mocked component/integration coverage, not live Testnet end-to-end evidence.
+
 ## 2026-09-30
 
 - Completed C18 administrator settlement execution and recovery hardening: phase-aware Stellar execution, typed resolve outcomes, case/wallet-scoped settlement coordination, signed-hash preservation, manual status-only reconciliation, pending/failed presentation, explorer-linked progress, and read-only retry after post-settlement detail refresh failures.

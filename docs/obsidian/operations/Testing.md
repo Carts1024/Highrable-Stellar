@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -49,3 +49,9 @@ Passing local tests does not prove deployed contract IDs are wired correctly, a 
 ## Multiple dispute-admin checks
 
 The backend now has a focused Vitest 5 + convex-test harness using the edge-runtime environment. Run it with pnpm --filter @repo/backend test. Current backend cases cover secret/capability separation, profile-role isolation, grant/revoke state, concurrent claims, stale assignment actors, owner participant conflicts, active settlement locking, and idempotent completion. Rust coverage includes owner-managed contract membership, actor auth failure, multi-admin settlement, unknown actors, and participant conflicts.
+
+## C22 administrator regression coverage
+
+C22 adds a protected-page integration suite at `apps/web/features/admin/admin-protected-pages.integration.test.tsx` using the real `AdminSessionGate`, TanStack Query, and admin HTTP client with mocked wallet infrastructure and HTTP responses. It covers pre-verification read blocking, wallet mismatch, passkey mode, page-level 401/403 cache eviction, wallet changes, disconnects, stale-response isolation, and retryable reads without writes.
+
+`apps/web/features/admin/admin-dispute-detail-page.test.tsx` now drives the real settlement coordinator with deferred phase and signed-identity callbacks. It covers preparation through final recording, duplicate-click protection, explorer links, signing/simulation retry, verified failure retry, signed/submission/confirmation/final-recording uncertainty, pending/reconciliation failure, read-only refresh retry, and 0/1/9999/10000-bps submission boundaries. The focused administrator suite passes 135 tests; the full web suite passes 211 tests. These are mocked component/integration tests, not live Testnet end-to-end evidence.
