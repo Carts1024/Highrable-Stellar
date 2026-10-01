@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -13,6 +13,7 @@ This classification is based on current source, tests, manifests, deployment art
 ## Functional / Implemented
 
 - Soroban escrow creation, open escrow creation, create-and-fund open escrow, funding, assignment, submission, approval/release, cancellation, dispute marking, owner-only settlement for existing deployments, membership-enabled admin dispute settlement in current source, asset allowlisting, and read/configuration methods exist in `contracts/escrow/src/lib.rs`.
+- The current escrow source emits versioned `dispute/marked` and `dispute/resolved` events after successful state writes; C16 handoff and payload schemas are documented. Resolution hashes are emitted but remain absent from persistent escrow records.
 - Soroban reputation initialization, authorized completion recording, immutable completion lookup, existence checks, and freelancer aggregate statistics exist in `contracts/reputation/src/lib.rs`.
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
 - Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation mirrors, transactions, reports, and waitlist entries.
@@ -30,7 +31,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Passkey smart-account execution includes compatibility fallbacks and runtime WASM/signer checks. The current implementation is sensitive to the configured smart-account artifact and `smart-account-kit` behavior.
 - XLM-to-USDC path-payment top-up exists for classic external wallets, but requires a USDC trustline, sufficient spendable XLM, and available path liquidity. XLM escrow is optional and requires a configured native XLM token contract.
 - Mainnet readiness checks are extensive, but they do not constitute contract, relayer, backend, monitoring, or operational audits.
-- The membership-enabled escrow source and frontend/backend workflow have not been deployed. Existing deployments retain owner-only settlement and do not enforce the new participant-conflict rule. Activation requires a fresh isolated contract/deployment database; existing ID lookup/synchronization is unsafe across overlapping escrow-ID spaces.
+- The membership-enabled escrow source, C16 dispute event emission, and frontend/backend workflow have not been deployed. Existing deployments retain owner-only settlement, do not enforce the new participant-conflict rule, and do not emit C16 events. Activation requires a fresh isolated contract/deployment database; existing ID lookup/synchronization is unsafe across overlapping escrow-ID spaces.
 - Proof and agreement records carry hashes and protection metadata, but source-file and attachment content checksum TODOs remain in backend/client paths.
 
 ## Experimental or Compatibility-Sensitive
@@ -48,7 +49,7 @@ This classification is based on current source, tests, manifests, deployment art
 ## Planned / Not Implemented
 
 - Historical wallet transaction synchronization/indexing (`syncWalletTransactions` is marked post-MVP).
-- Soroban event emission in the current escrow and reputation contracts.
+- Reputation-contract event emission; the contract-event indexer and backend event ingestion remain absent.
 - Strong signed-session enforcement across every public Convex mutation.
 - Complete file-content hashing for agreement source uploads and work-submission attachments.
 - A production-hardened, audited relayer and broader production operations around passkey fee sponsorship.
