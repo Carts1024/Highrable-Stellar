@@ -495,6 +495,7 @@ export function OpenDisputeDialog({
               onChange={setAttachments}
               disabled={isSubmitting || Boolean(createdDisputeId)}
               ownerRole={ownerRole}
+              context="dispute"
             />
           </div>
 

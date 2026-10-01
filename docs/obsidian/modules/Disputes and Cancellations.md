@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -76,6 +76,8 @@ Use domain helpers for participant roles and eligibility. Use admin helpers for 
 ## Frontend Contract and Limits
 
 Participant reads remain identity-scoped at the UI layer and use the generated Convex API contract. Current bounded reads are 50 client plus 50 freelancer disputes before deduplication, 20 parent disputes, 200 timeline events, and 50 each for context submissions, revisions, and deadline events. Admin queue/detail limits and the complete participant function/argument matrix are frozen in `docs/instawards/C06-Frontend-Handoff.md`. Admin HTTP errors remain separate from participant Convex errors; both use explicit loading, empty, invalid/not-found, forbidden, and failed-read presentation.
+
+C19 adds separate participant evidence and response composers to permitted dispute details. Both wait for `canRespondToDispute`, use its returned participant role for uploads, require ready attachments within the 25-file mutation limit, and retain drafts after rejected writes. Evidence requires an attachment; responses require a message. Participant detail and timeline read serialized attachments through the dispute queries, while protected previews and download attempts use backend attachment access functions. The backend still validates actor role, active status, attachment ownership, and case association for every write; caller-supplied wallet possession remains unproven.
 
 ## Risks / Gotchas
 

@@ -127,6 +127,7 @@ interface IAttachmentUploaderProps {
   readonly onChange: Dispatch<SetStateAction<TDraftAttachment[]>>;
   readonly disabled?: boolean;
   readonly ownerRole?: "client" | "freelancer";
+  readonly context?: "job" | "dispute";
 }
 
 function getAttachmentLabel(type: TAttachmentType): string {
@@ -540,6 +541,7 @@ export function AttachmentUploader({
   onChange,
   disabled,
   ownerRole = "client",
+  context = "job",
 }: IAttachmentUploaderProps) {
   const walletIdentity = useHighrableWalletIdentity();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
@@ -734,11 +736,19 @@ export function AttachmentUploader({
         <div className="flex items-center gap-1.5">
           <HighrableV2IconNotice
             label="Attachment storage notice"
-            message="Attachments are stored off-chain and linked to the job after the post is created."
+            message={
+              context === "dispute"
+                ? "Evidence is stored off-chain and linked to this dispute after submission."
+                : "Attachments are stored off-chain and linked to the job after the post is created."
+            }
           />
           <HighrableV2IconNotice
             label="Attachment visibility notice"
-            message="Job attachments become visible on the public job detail page after they are linked."
+            message={
+              context === "dispute"
+                ? "Dispute evidence is available to case participants and authorized reviewers after it is linked."
+                : "Job attachments become visible on the public job detail page after they are linked."
+            }
           />
           {!walletIdentity.walletAddress ? (
             <HighrableV2IconNotice

@@ -23,7 +23,7 @@ import type { TDisputeReasonCategory } from "../types";
 import type { TConvexId } from "@repo/convex-client";
 
 import { formatDisputeDate, getDisputeReasonLabel } from "../lib";
-import { DisputeResponseComposer } from "./dispute-response-composer";
+import { DisputeParticipantActions } from "./dispute-participant-actions";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "./dispute-status-badge";
 import { ParticipantDisputeTimeline } from "./dispute-timeline";
 
@@ -349,7 +349,10 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         </div>
       </section>
 
-      <DisputeResponseComposer dispute={dispute} />
+      <DisputeParticipantActions
+        disputeId={dispute._id}
+        viewerWallet={walletIdentity.walletAddress}
+      />
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

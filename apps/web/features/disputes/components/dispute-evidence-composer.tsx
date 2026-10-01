@@ -16,7 +16,7 @@ import {
   validateParticipantSubmission,
 } from "./participant-submission";
 
-export function DisputeResponseComposer({
+export function DisputeEvidenceComposer({
   disputeId,
   walletAddress,
   walletType,
@@ -27,7 +27,7 @@ export function DisputeResponseComposer({
   readonly walletType: TWalletType;
   readonly role: "client" | "freelancer";
 }) {
-  const addResponse = useMutation(api.disputes.addDisputeResponse);
+  const addEvidence = useMutation(api.disputes.addDisputeEvidence);
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +36,7 @@ export function DisputeResponseComposer({
 
   const handleSubmit = async () => {
     if (submitting.current) return;
-    const validationError = validateParticipantSubmission("response", message, attachments);
+    const validationError = validateParticipantSubmission("evidence", message, attachments);
     if (validationError) {
       setError(validationError);
       return;
@@ -45,18 +45,18 @@ export function DisputeResponseComposer({
     setIsSubmitting(true);
     setError(null);
     try {
-      await addResponse({
+      await addEvidence({
         disputeId,
-        responderWallet: walletAddress,
-        responderWalletType: walletType,
-        message: message.trim(),
+        actorWallet: walletAddress,
+        actorWalletType: walletType,
         attachmentIds: getParticipantAttachmentIds(attachments),
+        ...(message.trim() ? { message: message.trim() } : {}),
       });
       setMessage("");
       setAttachments([]);
     } catch (caughtError) {
       setError(
-        getReadableAttachmentError(caughtError, "Response could not be added. Please retry."),
+        getReadableAttachmentError(caughtError, "Evidence could not be added. Please retry."),
       );
     } finally {
       submitting.current = false;
@@ -65,13 +65,13 @@ export function DisputeResponseComposer({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4">
-      <h2 className="font-mono text-xs text-[#5f5f5f] uppercase">Add response</h2>
-      <label htmlFor="dispute-response-message" className="block text-sm text-[#3f3f3f]">
-        Response
+    <section className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4">
+      <h2 className="font-mono text-xs text-[#5f5f5f] uppercase">Add evidence</h2>
+      <label className="block text-sm text-[#3f3f3f]" htmlFor="dispute-evidence-message">
+        Note (optional)
       </label>
       <Textarea
-        id="dispute-response-message"
+        id="dispute-evidence-message"
         value={message}
         maxLength={4_000}
         disabled={isSubmitting}
@@ -79,8 +79,7 @@ export function DisputeResponseComposer({
           setMessage(event.target.value);
           setError(null);
         }}
-        className="min-h-28 rounded-lg border-[#d8d8d8]"
-        placeholder="Add a concise response for the dispute timeline."
+        placeholder="Explain why these files or links matter."
       />
       <AttachmentUploader
         value={attachments}
@@ -100,10 +99,9 @@ export function DisputeResponseComposer({
           isSubmitting || attachments.some((attachment) => attachment.status === "uploading")
         }
         onClick={() => void handleSubmit()}
-        className="disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Adding..." : "Add Response"}
+        {isSubmitting ? "Adding evidence..." : "Add Evidence"}
       </AppButton>
-    </div>
+    </section>
   );
 }
