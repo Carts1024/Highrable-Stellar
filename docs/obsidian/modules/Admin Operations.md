@@ -34,6 +34,8 @@ Admin dashboard, owner-managed dispute-admin membership, case assignment, C13-id
 
 Routes: `/admin`, `/admin/admins`, `/admin/disputes`, `/admin/disputes/[disputeId]`; APIs cover metrics, capability/session checks, membership operations/recovery, queue/detail, claim/assignment, notes/status, and settlement recovery. Convex functions include `getAdminDashboardMetrics`, `getAdminCapabilities`, `listDisputeAdmins`, `claimDispute`, `assignDispute`, `addModeratorNote`, `changeDisputeReviewStatus`, and settlement/membership operation mutations.
 
+The `/dashboard` admin-profile branch uses the verified capability response as an entry router. The shared dispute-capability session gate must first verify the connected external wallet; verified owners render the existing platform dashboard, while verified dispute admins without owner capability are redirected with history replacement to `/admin/disputes`. The profile-role selection remains the entry condition and is not an authorization source.
+
 ## Data Model
 
 Admin data is stored on disputes/events, scoped disputeAdmins and disputeAdminOperations, assignment audit events, settlement attempts, escrows, parent jobs/milestones, and transactions. Cases start unassigned. Admin identity comes from a verified signed wallet session; Convex independently checks the server secret and owner or active scoped membership.

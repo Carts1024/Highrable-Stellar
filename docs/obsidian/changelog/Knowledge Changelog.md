@@ -15,6 +15,7 @@ source_of_truth: repository
 
 - Completed C13 idempotent dispute chain-phase hardening. `markDisputeOnChainStarted`, `Succeeded`, and `Failed` now guard legal transitions, preserve the first known transaction hash and failure history, clear only the current mark error on accepted retry/success, and suppress duplicate events, messages, notifications, and timestamp writes. Frozen arguments, boolean returns, schema values, event types, authorization boundary, and parent/transaction orchestration remain unchanged.
 - Added 18 deterministic Convex tests for micro-gigs and milestones covering success/failure/retry paths, duplicate callbacks, late/stale/conflicting hashes, known-hash reconciliation guards, blank/missing inputs, terminal review states, client/freelancer/configured-admin/unrelated-wallet authorization, both wallet types, and rejected-record preservation. The focused C13 suite passes 18/18; the full backend run passes 64 tests and retains three pre-existing admin assignment/configuration failures outside C13.
+- Implemented C16 versioned Soroban events for successful dispute marking and resolution. The escrow event handoff records exact topics and named payload fields; the resolution hash is emitted but not persisted. Focused escrow tests and the full contracts workspace pass, and both WASM contracts build. Existing deployments lack the events; no indexer or backend ingestion was added, and reputation events remain absent.
 
 ## 2026-09-29
 

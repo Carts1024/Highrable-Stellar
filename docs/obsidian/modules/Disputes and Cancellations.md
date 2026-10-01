@@ -15,6 +15,8 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 ## Current Status
 
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, C13 hardens idempotent on-chain marking callbacks, and C17 hardens all five administrator settlement callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C16 adds versioned Soroban `dispute/marked` and `dispute/resolved` events to the escrow source; their frozen interface is in `docs/instawards/C16-Dispute-Event-Handoff.md`. No indexer or backend event ingestion consumes them, and existing deployments do not emit them. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. This remains a platform-reviewed workflow, not decentralized arbitration.
+
 
 ## Primary Locations
 
@@ -68,7 +70,7 @@ Cancellation is blocked by submitted proof or active disputes according to its e
 
 ## Common Change Locations
 
-Use domain helpers for participant roles and eligibility. Use admin helpers for status/settlement mapping. Update both event/system-message/notification side effects and parent escrow/job/milestone patches when changing a terminal flow.
+Use domain helpers for participant roles and eligibility. Use admin helpers for status/settlement mapping. Update application dispute timeline/system-message/notification side effects and parent escrow/job/milestone patches when changing a terminal flow. The Soroban events are a separate future-consumption interface and currently do not populate the Convex dispute timeline.
 
 ## Frontend Contract and Limits
 
@@ -76,10 +78,11 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 
 ## Risks / Gotchas
 
-- `resolve_dispute` stores no resolution hash despite accepting the argument.
+- `resolve_dispute` emits the supplied resolution hash in its Soroban event but does not store it in the escrow record.
 - App case assignment is enforced by Convex. As selected, the contract permits any active, non-conflicted dispute admin to settle directly without checking app assignment.
 - Existing cases are unassigned. Owner assignment/release is blocked during a pending or submission-unknown settlement. A revoked admin's assignment remains visible for owner reassignment.
 - The new membership and contract conflict rules are not present in currently recorded deployments; activate only with a fresh isolated deployment/database. Existing ID lookup/synchronization is not safe across overlapping contract ID spaces.
+- C16 event emission is present only in current source, not existing deployments; reputation events and event indexing/ingestion remain absent.
 - `freelancer_share_bps == 0` becomes contract `Cancelled`; any positive share becomes `Released`, including a client-refund split.
 - Contract settlement does not write a reputation completion record.
 - Convex public participant checks are not the same as signed-session possession proof.

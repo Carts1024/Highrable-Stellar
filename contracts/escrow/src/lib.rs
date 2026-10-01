@@ -49,6 +49,29 @@ pub struct TEscrow {
     pub released_at: u64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct DisputeMarkedEvent {
+    pub version: u32,
+    pub actor: Address,
+    pub status: TEscrowStatus,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct DisputeResolvedEvent {
+    pub version: u32,
+    pub actor: Address,
+    pub status: TEscrowStatus,
+    pub resolution_hash: BytesN<32>,
+    pub asset: Address,
+    pub client: Address,
+    pub freelancer: Address,
+    pub freelancer_share_bps: u32,
+    pub freelancer_amount: i128,
+    pub client_amount: i128,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 #[contracterror]
@@ -488,6 +511,18 @@ impl EscrowContract {
         }
 
         write_escrow(&env, &escrow);
+        env.events().publish(
+            (
+                Symbol::new(&env, "dispute"),
+                Symbol::new(&env, "marked"),
+                escrow_id,
+            ),
+            DisputeMarkedEvent {
+                version: 1,
+                actor: caller,
+                status: escrow.status.clone(),
+            },
+        );
 
         Ok(())
     }
@@ -536,6 +571,25 @@ impl EscrowContract {
         }
 
         write_escrow(&env, &escrow);
+        env.events().publish(
+            (
+                Symbol::new(&env, "dispute"),
+                Symbol::new(&env, "resolved"),
+                escrow_id,
+            ),
+            DisputeResolvedEvent {
+                version: 1,
+                actor: dispute_admin,
+                status: escrow.status.clone(),
+                resolution_hash: _resolution_hash,
+                asset: escrow.asset.clone(),
+                client: escrow.client.clone(),
+                freelancer,
+                freelancer_share_bps,
+                freelancer_amount,
+                client_amount,
+            },
+        );
 
         Ok(())
     }

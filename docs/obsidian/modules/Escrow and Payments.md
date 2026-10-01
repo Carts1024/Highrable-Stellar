@@ -2,7 +2,7 @@
 type: module
 area: escrow
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -14,7 +14,7 @@ Coordinate product-level jobs/milestones with token-backed Soroban escrow calls 
 
 ## Current Status
 
-Core escrow lifecycle is implemented in both the Rust contract and web execution layer. Production readiness still depends on correct deployment/configuration, asset allowlisting, wallet funding, and operational verification.
+Core escrow lifecycle is implemented in both the Rust contract and web execution layer. C16 adds versioned Soroban dispute-mark and dispute-resolution events in the escrow source; the backend does not consume them and existing deployments lack this behavior. Production readiness still depends on correct deployment/configuration, asset allowlisting, wallet funding, and operational verification.
 
 ## Primary Locations
 
@@ -59,6 +59,10 @@ funded/submitted → mark disputed → admin resolve with freelancer share bps
 
 Release transfers the configured token from the escrow contract to the freelancer and calls reputation. Dispute settlement splits/refunds escrow funds but does not call reputation.
 
+## Soroban Dispute Events
+
+Successful `mark_disputed` and `resolve_dispute` calls each emit one versioned named payload after writing the resulting escrow state. Topics are `(dispute, marked|resolved, escrow_id: u64)`. Resolution payloads include the supplied 32-byte hash, settlement share, resulting status, and actual client/freelancer token amounts in raw `i128` base units; the client amount includes integer-division remainder. The hash is emitted but is not persisted in `TEscrow`. See [C16-Dispute-Event-Handoff](../../instawards/C16-Dispute-Event-Handoff.md) for the exact schema. Event address, transaction identity, and ledger metadata are carried by the Soroban envelope. Escrow IDs are scoped to the emitting contract and network. This interface is not yet indexed or ingested by Convex.
+
 ## Common Change Locations
 
 Contract behavior belongs in Rust first. Frontend call arguments/fee paths belong in `core/stellar/escrow-contract.ts` and the executors. Convex mirror transitions belong in `escrows/mutations.ts`, `milestones/helpers.ts`, and `syncMutations.ts`.
@@ -68,7 +72,8 @@ Contract behavior belongs in Rust first. Frontend call arguments/fee paths belon
 - The contract enforces an allowlist only once at least one allowed asset exists; deployment scripts add configured assets.
 - Amounts are human units in UI/Convex inputs but token raw units (`i128`) on chain.
 - Convex status updates are not the same as chain confirmation; retain tx hashes and sync metadata.
-- `resolve_dispute` accepts a resolution hash argument but the current contract names it `_resolution_hash` and does not store it.
+- `resolve_dispute` accepts `_resolution_hash` and emits it in the resolution event, but does not store it.
+- Existing deployments lack C16 event emission; reputation events also remain absent.
 
 ## Related Notes
 
