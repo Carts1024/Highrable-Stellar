@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-01
+
+- Completed C21 dispute retry/reconciliation coverage. Added deterministic Convex integration tests for marking retries and known-hash recovery, partial parent/callback ordering, settlement retry and uncertainty, all micro-gig/milestone outcomes, sibling aggregation, sync terminal boundaries, callback integrity, and atomic missing-parent rollback. Added test-only scoped-admin and sibling-milestone fixtures; full backend coverage now passes 99 tests. No production backend defect was reproduced and no runtime/schema/generated-file change was needed.
+
 ## 2026-09-30
 
 - Completed C18 administrator settlement execution and recovery hardening: phase-aware Stellar execution, typed resolve outcomes, case/wallet-scoped settlement coordination, signed-hash preservation, manual status-only reconciliation, pending/failed presentation, explorer-linked progress, and read-only retry after post-settlement detail refresh failures.

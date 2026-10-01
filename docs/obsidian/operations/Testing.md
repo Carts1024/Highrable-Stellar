@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -49,3 +49,9 @@ Passing local tests does not prove deployed contract IDs are wired correctly, a 
 ## Multiple dispute-admin checks
 
 The backend now has a focused Vitest 5 + convex-test harness using the edge-runtime environment. Run it with pnpm --filter @repo/backend test. Current backend cases cover secret/capability separation, profile-role isolation, grant/revoke state, concurrent claims, stale assignment actors, owner participant conflicts, active settlement locking, and idempotent completion. Rust coverage includes owner-managed contract membership, actor auth failure, multi-admin settlement, unknown actors, and participant conflicts.
+
+## C21 reconciliation coverage
+
+`packages/backend/tests/disputes/c21.reconciliation.test.ts` adds deterministic retry/reconciliation integration coverage on top of the existing C13 and C17 suites. It exercises dispute creation, marking callbacks, `escrows.updateEscrowStatus`/`milestones.updateMilestoneEscrowStatus`, administrator settlement callbacks, `syncMutations`, parent-job aggregation, transaction records, and dispute side effects. The suite covers micro-gigs, milestones, sibling isolation, all three settlement outcomes, callback conflicts/replays, settlement retry/uncertainty, and atomic rollback. Test-only helpers provide scoped admin membership and sibling milestones; no generated Convex files are edited.
+
+The focused C21 run and full backend run both pass 99 tests. Backend source and test TypeScript projects, scoped oxlint, and oxfmt checks also pass. These tests prove local Convex bookkeeping only; they do not prove live Stellar RPC reads, transaction execution, or deployed-contract behavior.
