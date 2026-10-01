@@ -1,6 +1,10 @@
 import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 
-import type { TConfirmedContractTx, TSignedTransactionSubmitter } from "./transaction";
+import type {
+  TConfirmedContractTx,
+  TSignedTransactionSubmitter,
+  TStellarExecutionPhase,
+} from "./transaction";
 import type { TWalletExecutionMode } from "./transactionExecutor";
 
 import { toTokenUnits } from "./amounts";
@@ -26,6 +30,7 @@ type TBaseEscrowCallParams = {
     readonly transactionHash: string;
     readonly transactionValidUntil: number;
   }) => Promise<void>;
+  onPhase?: (phase: TStellarExecutionPhase) => void;
 };
 
 type TEscrowResult = TConfirmedContractTx;
@@ -98,6 +103,7 @@ async function executeEscrowContract(
     signTransaction: params.signTransaction,
     operationId: params.operationId,
     onSigned: params.onSigned,
+    onPhase: params.onPhase,
   });
 }
 

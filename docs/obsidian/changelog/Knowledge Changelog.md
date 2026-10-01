@@ -8,6 +8,11 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-09-30
+
+- Completed C18 administrator settlement execution and recovery hardening: phase-aware Stellar execution, typed resolve outcomes, case/wallet-scoped settlement coordination, signed-hash preservation, manual status-only reconciliation, pending/failed presentation, explorer-linked progress, and read-only retry after post-settlement detail refresh failures.
+- Completed C14 frontend administrator-resolution hardening: strict text-preserving bps validation, accessible inline errors, four-status settlement eligibility, external-wallet/session/network and escrow-context guards, active-attempt blocking with recovery retained, case-switch draft resets, and regression coverage. The membership-enabled contract behavior remains undeployed.
+
 ## 2026-09-29
 
 - Completed C09 dispute creation hardening: typed and deduplicated related-record validation now covers submissions, revisions and their referenced submissions, messages/conversations, exact deadline parents, and active caller-owned evidence before agreement-version or dispute writes. Opening remains atomic with canonical participants, one deduplicated `dispute_opened` audit event, agreement context, notification, and best-effort system messages. Added deterministic coverage for aliases, legacy links, shared job conversations, previous disputes, invalid/conflicting references, count boundaries, evidence reassignment, and rollback; backend tests pass 49/49.

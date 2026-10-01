@@ -16,9 +16,10 @@ The shared path in `apps/web/core/stellar/transaction.ts` is:
 2. Build the contract invocation with the configured network passphrase and a 30-second transaction timeout.
 3. Prepare/simulate the transaction through RPC.
 4. Ask the connected wallet to sign the prepared XDR.
-5. Submit the signed transaction.
-6. Poll for confirmation up to 18 attempts with a 1.5-second delay.
-7. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
+5. Persist any signed identity through the caller's `onSigned` barrier.
+6. Submit the signed transaction.
+7. Poll for confirmation up to 18 attempts with a 1.5-second delay.
+8. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
 
 `simulateContractCall` is the read/preflight helper. `invokeContract` is the signed submission helper.
 
@@ -39,6 +40,8 @@ Product flows record phases in Convex before/after chain work. Escrows, disputes
 ## Error interpretation
 
 `normalizeStellarError` distinguishes user rejection, missing/funded-account problems, simulation failures, wrong-wallet authorization, invalid escrow status, timeouts, and failed transactions. Confirmation timeouts retain the transaction hash so an operator can check the explorer before retrying.
+
+`invokeContract`, the shared transaction executor, and escrow wrappers accept optional execution-phase notifications for simulation, signing, submission, and confirmation. These notifications are observational only. The locally computed transaction hash is retained for signed-identity persistence failures, submission transport errors, confirmation failures/timeouts, and sponsored Velo handoff/status uncertainty; admin recovery reconciles that identity without resubmitting.
 
 ## Amounts and hashes
 
