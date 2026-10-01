@@ -32,7 +32,11 @@ import {
   sanitizeDisputeMessage,
   sanitizeDisputeTitle,
   sanitizeOptionalProofHash,
+  validateDisputeDeadlineEventIds,
   validateDisputeAttachmentIds,
+  validateDisputeMessageIds,
+  validateDisputeRevisionRequestIds,
+  validateDisputeWorkSubmissionIds,
   validateRelatedIds,
 } from "./helpers";
 import {
@@ -162,16 +166,60 @@ export const createDispute = mutation({
     escrowContractId: v.optional(v.string()),
     metadata: v.optional(v.any()),
   },
+  returns: v.id("disputes"),
   handler: async (ctx, args) => {
     const title = sanitizeDisputeTitle(args.title);
     const description = sanitizeDisputeDescription(args.description);
-    const evidenceAttachmentIds = args.evidenceAttachmentIds ?? [];
+    const rawEvidenceAttachmentIds = args.evidenceAttachmentIds ?? [];
+    const relatedWorkSubmissionIds = validateRelatedIds(
+      args.relatedWorkSubmissionIds ?? [],
+      "Proof references",
+    );
+    const relatedRevisionRequestIds = validateRelatedIds(
+      args.relatedRevisionRequestIds ?? [],
+      "Revision references",
+    );
+    const relatedMessageIds =
+      args.relatedMessageIds !== undefined
+        ? validateRelatedIds(args.relatedMessageIds, "Message references")
+        : undefined;
+    const relatedDeadlineEventIds =
+      args.relatedDeadlineEventIds !== undefined
+        ? validateRelatedIds(args.relatedDeadlineEventIds, "Deadline references")
+        : undefined;
     const { parent, openedByWallet, openedByRole } = await assertCanOpenDispute(ctx, args);
 
     await validateDisputeAttachmentIds(ctx, {
-      attachmentIds: evidenceAttachmentIds,
+      attachmentIds: rawEvidenceAttachmentIds,
       walletAddress: openedByWallet,
     });
+    const evidenceAttachmentIds = Array.from(new Set(rawEvidenceAttachmentIds));
+
+    const validatedWorkSubmissionIds = await validateDisputeWorkSubmissionIds(ctx, {
+      submissionIds: relatedWorkSubmissionIds,
+      parent,
+    });
+    const validatedRevisionRequestIds = await validateDisputeRevisionRequestIds(ctx, {
+      revisionRequestIds: relatedRevisionRequestIds,
+      parent,
+    });
+    const validatedMessageIds =
+      relatedMessageIds !== undefined
+        ? await validateDisputeMessageIds(ctx, {
+            messageIds: relatedMessageIds,
+            relatedSubmissionIds: validatedWorkSubmissionIds,
+            parent,
+          })
+        : undefined;
+    const validatedDeadlineEventIds =
+      relatedDeadlineEventIds !== undefined
+        ? await validateDisputeDeadlineEventIds(ctx, {
+            deadlineEventIds: relatedDeadlineEventIds,
+            parent,
+          })
+        : undefined;
+    const proofHash = sanitizeOptionalProofHash(args.proofHash);
+    const escrowContractId = optionalNonEmptyString(args.escrowContractId, "escrowContractId");
 
     const now = Date.now();
     const agreement = parent.jobId ? await getAcceptedAgreementForJob(ctx, parent.jobId) : null;
@@ -188,9 +236,7 @@ export const createDispute = mutation({
       ...(parent.milestoneId !== undefined ? { milestoneId: parent.milestoneId } : {}),
       escrowId: parent.escrowId,
       onChainEscrowId: parent.onChainEscrowId,
-      ...(optionalNonEmptyString(args.escrowContractId, "escrowContractId") !== undefined
-        ? { escrowContractId: optionalNonEmptyString(args.escrowContractId, "escrowContractId") }
-        : {}),
+      ...(escrowContractId !== undefined ? { escrowContractId } : {}),
       clientWallet: parent.clientWallet,
       freelancerWallet: parent.freelancerWallet,
       openedByWallet,
@@ -200,33 +246,18 @@ export const createDispute = mutation({
       title,
       description,
       evidenceAttachmentIds,
-      relatedWorkSubmissionIds: validateRelatedIds(
-        args.relatedWorkSubmissionIds ?? [],
-        "Proof references",
-      ),
-      relatedRevisionRequestIds: validateRelatedIds(
-        args.relatedRevisionRequestIds ?? [],
-        "Revision references",
-      ),
+      relatedWorkSubmissionIds: validatedWorkSubmissionIds,
+      relatedRevisionRequestIds: validatedRevisionRequestIds,
       ...(agreement ? { agreementId: agreement._id } : {}),
       ...(agreementVersion ? { agreementVersionId: agreementVersion._id } : {}),
       ...((agreementVersion?.agreementHash ?? agreement?.agreementHash)
         ? { agreementHash: agreementVersion?.agreementHash ?? agreement?.agreementHash }
         : {}),
-      ...(args.relatedMessageIds !== undefined
-        ? { relatedMessageIds: validateRelatedIds(args.relatedMessageIds, "Message references") }
+      ...(validatedMessageIds !== undefined ? { relatedMessageIds: validatedMessageIds } : {}),
+      ...(validatedDeadlineEventIds !== undefined
+        ? { relatedDeadlineEventIds: validatedDeadlineEventIds }
         : {}),
-      ...(args.relatedDeadlineEventIds !== undefined
-        ? {
-            relatedDeadlineEventIds: validateRelatedIds(
-              args.relatedDeadlineEventIds,
-              "Deadline references",
-            ),
-          }
-        : {}),
-      ...(sanitizeOptionalProofHash(args.proofHash) !== undefined
-        ? { proofHash: sanitizeOptionalProofHash(args.proofHash) }
-        : {}),
+      ...(proofHash !== undefined ? { proofHash } : {}),
       status: "open",
       onChainStatus: "not_marked",
       openedAt: now,
