@@ -4,9 +4,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { queryResults, queryCalls, walletIdentity, reset } = vi.hoisted(() => ({
+const { queryResults, queryCalls, timelineProps, walletIdentity, reset } = vi.hoisted(() => ({
   queryResults: {} as Record<string, unknown>,
   queryCalls: [] as Array<{ name: string; args: unknown }>,
+  timelineProps: [] as Array<{ disputeId: string; viewerWallet: string }>,
   walletIdentity: { walletAddress: null as string | null, walletType: null as string | null },
   reset: vi.fn(),
 }));
@@ -73,7 +74,12 @@ vi.mock("./dispute-status-badge", () => ({
   DisputeStatusBadge: () => null,
   DisputeOnChainStatusBadge: () => null,
 }));
-vi.mock("./dispute-timeline", () => ({ DisputeTimeline: () => null }));
+vi.mock("./dispute-timeline", () => ({
+  ParticipantDisputeTimeline: (props: { disputeId: string; viewerWallet: string }) => {
+    timelineProps.push(props);
+    return createElement("span", null, "Timeline mounted");
+  },
+}));
 
 import DisputesError from "@/app/disputes/error";
 
@@ -87,6 +93,7 @@ describe("participant dispute route states", () => {
     walletIdentity.walletType = null;
     reset.mockReset();
     queryCalls.length = 0;
+    timelineProps.length = 0;
     for (const key of Object.keys(queryResults)) delete queryResults[key];
   });
 
@@ -106,6 +113,42 @@ describe("participant dispute route states", () => {
     expect(screen.getByText("No disputes found for this wallet.")).toBeTruthy();
   });
 
+  it("shows only cases linked to the active wallet", () => {
+    walletIdentity.walletAddress = "GCLIENT";
+    queryResults.list = [
+      {
+        _id: "mine",
+        disputeNumber: "DSP-1",
+        title: "My dispute",
+        reasonCategory: "work_quality_issue",
+        openedAt: 1,
+        status: "open",
+        onChainStatus: "not_marked",
+        clientWallet: "GCLIENT",
+        freelancerWallet: "GFREELANCER",
+      },
+      {
+        _id: "other",
+        disputeNumber: "DSP-2",
+        title: "Another wallet's dispute",
+        reasonCategory: "work_quality_issue",
+        openedAt: 1,
+        status: "open",
+        onChainStatus: "not_marked",
+        clientWallet: "GOTHER",
+        freelancerWallet: "GANOTHER",
+      },
+    ];
+
+    render(createElement(DisputeList));
+    expect(screen.getByText("My dispute")).toBeTruthy();
+    expect(screen.getByText("Your role: Client")).toBeTruthy();
+    expect(screen.queryByText("Another wallet's dispute")).toBeNull();
+    expect(queryCalls.find((call) => call.name === "list")?.args).toEqual({
+      walletAddress: "GCLIENT",
+    });
+  });
+
   it("gates detail reads and distinguishes forbidden from missing cases", () => {
     walletIdentity.walletAddress = "GCLIENT";
     const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-id" }));
@@ -119,6 +162,35 @@ describe("participant dispute route states", () => {
     queryResults.permission = { allowed: false, reason: "Dispute not found." };
     view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-id" }));
     expect(screen.getByRole("alert").textContent).toContain("Dispute not found");
+  });
+
+  it("renders a permitted case and mounts its timeline for the active wallet", () => {
+    walletIdentity.walletAddress = "GFREELANCER";
+    queryResults.permission = { allowed: true, reason: null, role: "freelancer" };
+    queryResults.detail = {
+      _id: "dispute-id",
+      disputeNumber: "DSP-100",
+      title: "Work quality dispute",
+      reasonCategory: "work_quality_issue",
+      status: "under_review",
+      onChainStatus: "marked",
+      openedAt: 1,
+      clientWallet: "GCLIENT",
+      freelancerWallet: "GFREELANCER",
+      description: "The work needs review.",
+      attachments: [],
+    };
+
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-id" }));
+    expect(screen.getByRole("heading", { name: "Work quality dispute" })).toBeTruthy();
+    expect(timelineProps).toContainEqual({
+      disputeId: "dispute-id",
+      viewerWallet: "GFREELANCER",
+    });
+    expect(queryCalls.find((call) => call.name === "detail")?.args).toEqual({
+      disputeId: "dispute-id",
+      viewerWallet: "GFREELANCER",
+    });
   });
 
   it("offers an explicit retry after a route read error", () => {
