@@ -34,6 +34,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 
+import type { TStellarExecutionPhase } from "./transaction";
 import type { ContextRule, ContextRuleType, ContractSigner } from "smart-account-kit";
 
 export type TPasskeyExecutionStatus = "success" | "failed";
@@ -54,6 +55,7 @@ export interface IPasskeySmartAccountExecutionParams {
   readonly args: readonly xdr.ScVal[];
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
+  readonly onPhase?: (phase: TStellarExecutionPhase) => void;
 }
 
 export type TPasskeyFeePath = "relayer" | "classic_source_account" | "missing";
@@ -233,6 +235,17 @@ function toReadablePasskeyError(error: unknown): string {
   }
 
   return message;
+}
+
+function notifyPasskeyExecutionPhase(
+  onPhase: ((phase: TStellarExecutionPhase) => void) | undefined,
+  phase: TStellarExecutionPhase,
+): void {
+  try {
+    onPhase?.(phase);
+  } catch {
+    // Phase reporting is observational and must never alter smart-account routing.
+  }
 }
 
 function normalizeWasmHash(value: string): string {
@@ -840,6 +853,7 @@ async function signAuthEntryWithAuthPayload(
 
 async function signAndSubmitWithAuthPayload(
   assembledTransaction: stellarContract.AssembledTransaction<xdr.ScVal>,
+  onPhase?: (phase: TStellarExecutionPhase) => void,
 ): Promise<{ readonly success: boolean; readonly hash: string; readonly error?: string }> {
   const kit = getSmartAccountKit() as unknown as TLegacyCompatibleSmartAccountKit;
   const config = getSmartAccountConfig();
@@ -868,6 +882,7 @@ async function signAndSubmitWithAuthPayload(
   }
 
   const rules = await readConnectedContextRules(kit, config);
+  notifyPasskeyExecutionPhase(onPhase, "signing");
   const signedAuthEntries = await Promise.all(
     authEntries.map((authEntry) =>
       signAuthEntryWithAuthPayload(kit, authEntry, rules, kit.credentialId!),
@@ -913,6 +928,8 @@ async function signAndSubmitWithAuthPayload(
     preparedTx.sign(kit.deployerKeypair);
   }
 
+  notifyPasskeyExecutionPhase(onPhase, "submission");
+  notifyPasskeyExecutionPhase(onPhase, "confirmation");
   return await kit.sendAndPoll(preparedTx, submissionOptions);
 }
 
@@ -1452,6 +1469,7 @@ export async function executeWithPasskeySmartAccount(
       "Classic source account",
     );
 
+    notifyPasskeyExecutionPhase(params.onPhase, "simulation");
     const assembledTransaction = await buildSmartAccountExecuteTransaction({
       smartAccountAddress,
       contractId,
@@ -1462,7 +1480,7 @@ export async function executeWithPasskeySmartAccount(
       networkPassphrase: params.networkPassphrase,
     });
 
-    const result = await signAndSubmitWithAuthPayload(assembledTransaction);
+    const result = await signAndSubmitWithAuthPayload(assembledTransaction, params.onPhase);
     if (!result.success) {
       return {
         txHash: result.hash,

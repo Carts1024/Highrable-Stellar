@@ -2,7 +2,7 @@
 type: handoff
 area: frontend
 status: frozen
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -120,6 +120,8 @@ Admin browser code does not call the admin Convex functions directly. It consume
 | Resolved/read-only | Render terminal status and timeline/evidence without write controls | Hide review/settlement controls for terminal statuses; keep timeline and transaction links readable |
 
 Retrying a data read means refetching the same Convex/API query. Retrying a chain operation means constructing/signing/submitting a new Stellar operation and separately recording its phase. A `mark_failed` label alone does not establish transaction retry safety; the existing retry path uses a new client request ID and must continue to respect wallet/network readiness and transaction uncertainty handling. No C06 test submits a transaction or expands settlement behavior.
+
+C13 preserves this handoff's mutation arguments and boolean results while making the backend callbacks idempotent. A duplicate start while `marking` succeeds without a write; a `mark_failed` case may be retried only when no transaction hash is recorded, and the retry clears the current failure message while retaining the historical failure event. A recorded failed hash requires reconciliation and must not be reopened. Success is accepted from `marking` or `mark_failed` only for a nonconflicting hash; repeating the same success after `marked` is harmless and produces no additional timeline, message, notification, or timestamp. Failure is recorded once from `marking`, repeated failures do not repeat side effects, and a stale failure after `marked` is ignored unless its hash conflicts. Terminal review cases reject new state-changing callbacks. Participant/admin UI code should continue to use the returned phase and refresh after a chain operation; no frontend controls or authentication changes were added by C13.
 
 ## Admin review-control clarification
 

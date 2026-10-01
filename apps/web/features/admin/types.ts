@@ -8,6 +8,21 @@ export type TAdminReviewStatus = FunctionArgs<typeof api.admin.changeDisputeRevi
 export type TAdminResolutionStatus = FunctionArgs<
   typeof api.admin.recordDisputeResolutionStarted
 >["status"];
+export type TAdminResolutionStartedResult = FunctionReturnType<
+  typeof api.admin.recordDisputeResolutionStarted
+>;
+export type TAdminResolutionSignedResult = FunctionReturnType<
+  typeof api.admin.recordDisputeResolutionSigned
+>;
+export type TAdminResolutionFailedResult = FunctionReturnType<
+  typeof api.admin.recordDisputeResolutionFailed
+>;
+export type TAdminResolutionSubmissionUnknownResult = FunctionReturnType<
+  typeof api.admin.recordDisputeResolutionSubmissionUnknown
+>;
+export type TAdminResolutionSucceededResult = FunctionReturnType<
+  typeof api.admin.recordDisputeResolutionSucceeded
+>;
 
 export type IAdminDisputeListItem = TAdminDisputeQueueQueryResult[number];
 export type IAdminDashboardMetrics = FunctionReturnType<typeof api.admin.getAdminDashboardMetrics>;
@@ -72,3 +87,47 @@ export type TAdminResolutionRequest =
   | IAdminResolutionRequestSucceeded
   | IAdminResolutionRequestFailed
   | IAdminResolutionRequestReconcile;
+
+export interface IAdminResolutionStartedResponse {
+  readonly success: true;
+  readonly phase: "started";
+  readonly result: TAdminResolutionStartedResult;
+}
+
+export interface IAdminResolutionSignedResponse {
+  readonly success: true;
+  readonly phase: "signed";
+  readonly result: TAdminResolutionSignedResult;
+}
+
+export interface IAdminResolutionFailedResponse {
+  readonly success: true;
+  readonly phase: "failed";
+  readonly result: TAdminResolutionFailedResult;
+}
+
+export interface IAdminResolutionPendingResponse {
+  readonly status: "pending";
+  readonly result: TAdminResolutionSubmissionUnknownResult;
+}
+
+export interface IAdminResolutionSucceededResponse {
+  readonly status: "succeeded";
+  readonly result: TAdminResolutionSucceededResult;
+}
+
+export interface IAdminResolutionVerifiedFailedResponse {
+  readonly status: "failed";
+  readonly result: TAdminResolutionFailedResult;
+}
+
+export type TAdminResolutionOutcomeResponse =
+  | IAdminResolutionPendingResponse
+  | IAdminResolutionSucceededResponse
+  | IAdminResolutionVerifiedFailedResponse;
+
+export type TAdminResolutionResponse =
+  | IAdminResolutionStartedResponse
+  | IAdminResolutionSignedResponse
+  | IAdminResolutionFailedResponse
+  | TAdminResolutionOutcomeResponse;
