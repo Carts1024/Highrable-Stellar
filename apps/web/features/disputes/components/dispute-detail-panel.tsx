@@ -25,7 +25,7 @@ import type { TConvexId } from "@repo/convex-client";
 import { formatDisputeDate, getDisputeReasonLabel } from "../lib";
 import { DisputeResponseComposer } from "./dispute-response-composer";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "./dispute-status-badge";
-import { DisputeTimeline } from "./dispute-timeline";
+import { ParticipantDisputeTimeline } from "./dispute-timeline";
 
 function createClientRequestId(escrowId: string): string {
   const uniqueId =
@@ -56,15 +56,6 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   );
   const dispute = useQuery(
     api.disputes.getDispute,
-    walletIdentity.walletAddress && permission?.allowed
-      ? {
-          disputeId: disputeId as TConvexId<"disputes">,
-          viewerWallet: walletIdentity.walletAddress,
-        }
-      : "skip",
-  );
-  const timeline = useQuery(
-    api.disputes.getDisputeTimeline,
     walletIdentity.walletAddress && permission?.allowed
       ? {
           disputeId: disputeId as TConvexId<"disputes">,
@@ -367,7 +358,10 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             <Link href="/disputes">All Disputes</Link>
           </AppButton>
         </div>
-        <DisputeTimeline events={timeline} isLoading={timeline === undefined} />
+        <ParticipantDisputeTimeline
+          disputeId={dispute._id}
+          viewerWallet={walletIdentity.walletAddress}
+        />
       </section>
     </div>
   );

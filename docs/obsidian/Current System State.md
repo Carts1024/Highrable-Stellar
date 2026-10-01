@@ -18,9 +18,11 @@ This classification is based on current source, tests, manifests, deployment art
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
 - Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation mirrors, transactions, reports, and waitlist entries.
 - Convex dispute creation preserves C05 parent/participant authorization and now validates all related submissions, revisions, messages, deadline events, and evidence before writes; opening is canonical, deduplicated, atomic, and audited with one `dispute_opened` event while agreement context and notification/system-message side effects remain intact.
+- Convex dispute marking callbacks are C13-hardened and idempotent: accepted phase transitions preserve hashes and historical failure events, duplicate callbacks avoid repeated audit/message/notification side effects, terminal review cases cannot be reopened, and same-hash success/stale-failure replays are harmless. The frozen callback arguments, boolean returns, schema, statuses, event types, and participant/configured-admin wallet boundary remain unchanged.
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
 - External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
 - Owner-managed dispute-admin membership, assignment history, claim workflow, and signed settlement recovery are implemented in source. Platform metrics and team/assignment management remain owner-only; app dispute work is assignment-scoped.
+- Administrator settlement records are C17-hardened across started, signed, submission-unknown, succeeded, and failed callbacks. Current source validates integer basis points, normalized operation IDs, 64-hex hashes, positive safe expiries, scoped capability/assignment/attempt ownership, explicit persisted escrow references, and atomic terminal bookkeeping with replay-safe audit/notification behavior. C17 adds 14 deterministic in-memory tests; the full backend suite passes 81 tests.
 - External-wallet and passkey smart-account execution both route through shared escrow helpers and a wallet-specific transaction executor.
 - Deadline reminder scanning is scheduled by Convex every 15 minutes.
 
@@ -33,6 +35,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Mainnet readiness checks are extensive, but they do not constitute contract, relayer, backend, monitoring, or operational audits.
 - The membership-enabled escrow source, C16 dispute event emission, and frontend/backend workflow have not been deployed. Existing deployments retain owner-only settlement, do not enforce the new participant-conflict rule, and do not emit C16 events. Activation requires a fresh isolated contract/deployment database; existing ID lookup/synchronization is unsafe across overlapping escrow-ID spaces.
 - Proof and agreement records carry hashes and protection metadata, but source-file and attachment content checksum TODOs remain in backend/client paths.
+- Settlement payout bookkeeping still truncates whole units before calculating the client refund. Token-precision arithmetic is deliberately deferred to a separate follow-up; C17 does not change payment amounts.
 
 ## Experimental or Compatibility-Sensitive
 

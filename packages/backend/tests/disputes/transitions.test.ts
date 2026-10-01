@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
 import { modules } from "../convexModules";
 import {
+  assignDisputeFixture,
   countRecords,
   seedDisputeFixture,
   TEST_ADMIN_SECRET,
@@ -104,6 +105,7 @@ describe("dispute participant and administrator transitions", () => {
       title: "Administrator fixture dispute",
       description: "Administrator fixture description.",
     });
+    await assignDisputeFixture(t, disputeId, fixture.adminWallet);
 
     await t.mutation(api.admin.changeDisputeReviewStatus, {
       adminWallet: fixture.adminWallet,
@@ -195,7 +197,7 @@ describe("dispute failure paths", () => {
       label: "invalid wallet",
       adminWallet: TEST_WALLETS.unrelated,
       adminApiSecret: TEST_ADMIN_SECRET,
-      expectedMessage: /configured platform wallet/,
+      expectedMessage: /Active dispute admin access is required/,
     },
     {
       label: "missing secret",
@@ -228,6 +230,8 @@ describe("dispute failure paths", () => {
 
       vi.stubEnv("HIGHRABLE_ADMIN_WALLET_ADDRESS", TEST_WALLETS.admin);
       vi.stubEnv("HIGHRABLE_ADMIN_CONVEX_SECRET", TEST_ADMIN_SECRET);
+      vi.stubEnv("STELLAR_NETWORK", "testnet");
+      vi.stubEnv("ESCROW_CONTRACT_ID", "c02-test-contract");
       if (adminApiSecret === "") {
         vi.stubEnv("HIGHRABLE_ADMIN_CONVEX_SECRET", "");
       }
