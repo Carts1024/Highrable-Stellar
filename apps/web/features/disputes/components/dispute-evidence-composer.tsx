@@ -6,7 +6,7 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
-import React, { useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 
 import type { TDraftAttachment, TWalletType } from "@/features/attachments/types";
 import type { TConvexId } from "@repo/convex-client";
@@ -33,6 +33,7 @@ export function DisputeEvidenceComposer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
+  const errorId = useId();
 
   const handleSubmit = async () => {
     if (submitting.current) return;
@@ -65,7 +66,14 @@ export function DisputeEvidenceComposer({
   };
 
   return (
-    <section className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4">
+    <form
+      className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4"
+      aria-describedby={error ? errorId : undefined}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
+    >
       <h2 className="font-mono text-xs text-[#5f5f5f] uppercase">Add evidence</h2>
       <label className="block text-sm text-[#3f3f3f]" htmlFor="dispute-evidence-message">
         Note (optional)
@@ -75,6 +83,10 @@ export function DisputeEvidenceComposer({
         value={message}
         maxLength={4_000}
         disabled={isSubmitting}
+        aria-describedby={
+          error === "Keep the message within 4,000 characters." ? errorId : undefined
+        }
+        aria-invalid={error === "Keep the message within 4,000 characters."}
         onChange={(event) => {
           setMessage(event.target.value);
           setError(null);
@@ -89,19 +101,18 @@ export function DisputeEvidenceComposer({
         context="dispute"
       />
       {error ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p id={errorId} role="alert" className="text-sm text-red-700">
           {error}
         </p>
       ) : null}
       <AppButton
-        type="button"
+        type="submit"
         disabled={
           isSubmitting || attachments.some((attachment) => attachment.status === "uploading")
         }
-        onClick={() => void handleSubmit()}
       >
         {isSubmitting ? "Adding evidence..." : "Add Evidence"}
       </AppButton>
-    </section>
+    </form>
   );
 }

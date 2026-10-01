@@ -46,7 +46,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useId, useRef, useState } from "react";
 
 import type {
   TAttachmentProtectionSummary,
@@ -383,6 +383,7 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
 // Link attachment input
 
 export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputProps) {
+  const urlId = useId();
   const [url, setUrl] = useState("");
   const [type, setType] = useState<"link" | "video_link">("link");
   const [error, setError] = useState<string | null>(null);
@@ -411,12 +412,12 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
 
   return (
     <div className="space-y-2">
-      <Label className="sr-only" htmlFor="link-attachment-url">
+      <Label className="sr-only" htmlFor={urlId}>
         Link URL
       </Label>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto]">
         <AppInput
-          id="link-attachment-url"
+          id={urlId}
           value={url}
           disabled={disabled || isAdding}
           onChange={(event) => {
@@ -424,7 +425,6 @@ export function LinkAttachmentInput({ disabled, onAdd }: ILinkAttachmentInputPro
             setError(null);
           }}
           placeholder="https://example.com/reference"
-          aria-label="Attachment URL"
           maxLength={MAX_EXTERNAL_URL_LENGTH}
           className="w-full"
         />
@@ -479,9 +479,14 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
   return (
     <div
       role="button"
-      tabIndex={0}
-      onClick={() => inputRef.current?.click()}
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled}
+      aria-label="Upload attachments"
+      onClick={() => {
+        if (!disabled) inputRef.current?.click();
+      }}
       onKeyDown={(event) => {
+        if (disabled) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           inputRef.current?.click();
@@ -511,7 +516,8 @@ export function AttachmentDropzone({ disabled, onFiles }: IAttachmentDropzonePro
         multiple
         accept={ACCEPTED_ATTACHMENT_TYPES}
         className="hidden"
-        aria-label="Upload attachments"
+        disabled={disabled}
+        tabIndex={-1}
         onChange={(event) => handleFiles(event.target.files)}
       />
 
@@ -543,6 +549,7 @@ export function AttachmentUploader({
   ownerRole = "client",
   context = "job",
 }: IAttachmentUploaderProps) {
+  const protectedPreviewId = useId();
   const walletIdentity = useHighrableWalletIdentity();
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const saveUploadedAttachment = useMutation(api.attachments.saveUploadedAttachment);
@@ -769,7 +776,7 @@ export function AttachmentUploader({
       {/* Protected preview toggle */}
       <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/30 px-4 py-3">
         <label
-          htmlFor="attachment-protected-preview"
+          htmlFor={protectedPreviewId}
           className="hr-text-primary flex min-w-0 cursor-pointer items-center gap-2 text-sm font-semibold"
         >
           <ShieldCheck className="h-4 w-4 shrink-0 text-highrable-text-accent" aria-hidden="true" />
@@ -781,7 +788,7 @@ export function AttachmentUploader({
             message="New uploads use protected preview, restricted download, visible watermarking, and access logging."
           />
           <AppSwitch
-            id="attachment-protected-preview"
+            id={protectedPreviewId}
             aria-label="Enable content protection controls"
             checked={useProtectedPreview}
             disabled={disabled}

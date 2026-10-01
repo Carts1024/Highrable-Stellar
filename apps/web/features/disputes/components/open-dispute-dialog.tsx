@@ -154,6 +154,7 @@ export function OpenDisputeDialog({
   const reasonSelectId = useId();
   const titleId = useId();
   const descriptionId = useId();
+  const errorId = useId();
   const activeWalletType = walletIdentity.walletType ?? "external_wallet";
   const ownerRole = useMemo(() => {
     if (!activeWalletAddress) return "client";
@@ -441,192 +442,201 @@ export function OpenDisputeDialog({
         </ResponsiveDialogHeader>
 
         <ResponsiveDialogBody>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <div className="flex gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Manual dispute review pauses release and cancellation. This MVP does not automate
-                escrow judgment or fund splitting.
-              </p>
-            </div>
-          </div>
-
-          {canOpenDispute?.allowed === false ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {canOpenDispute.reason}
-            </p>
-          ) : null}
-
-          {activeWalletAddress && canOpenDispute === undefined ? (
-            <p role="status" className="text-sm text-[#5f5f5f]">
-              Checking dispute eligibility...
-            </p>
-          ) : null}
-
-          {canOpenDispute?.allowed && !relatedDataReady ? (
-            <p role="status" className="text-sm text-[#5f5f5f]">
-              Loading related work records...
-            </p>
-          ) : null}
-
-          <div className="grid gap-4">
-            <label className="grid gap-2" htmlFor={titleId}>
-              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Title</span>
-              <input
-                id={titleId}
-                type="text"
-                value={title}
-                maxLength={160}
-                required
-                disabled={isSubmitting || Boolean(createdDisputeId)}
-                onChange={(event) => setTitle(event.target.value)}
-                className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
-                placeholder="Briefly summarize the dispute"
-              />
-            </label>
-
-            <label className="grid gap-2" htmlFor={reasonSelectId}>
-              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
-              <DisputeReasonSelect
-                id={reasonSelectId}
-                value={reasonCategory}
-                disabled={isSubmitting || Boolean(createdDisputeId)}
-                onChange={setReasonCategory}
-              />
-            </label>
-
-            <label className="grid gap-2" htmlFor={descriptionId}>
-              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
-              <Textarea
-                id={descriptionId}
-                value={description}
-                maxLength={10_000}
-                required
-                disabled={isSubmitting || Boolean(createdDisputeId)}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe what happened, what has already been tried, and what evidence matters."
-                className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
-              />
-            </label>
-
-            {latestSubmission ? (
-              <label className="flex items-start gap-2 text-sm text-[#3f3f3f]">
-                <input
-                  type="checkbox"
-                  checked={includeLatestSubmission}
-                  disabled={isSubmitting || Boolean(createdDisputeId)}
-                  onChange={(event) => setIncludeLatestSubmission(event.target.checked)}
-                />
-                Include latest work submission ({formatDisputeDate(latestSubmission.createdAt)})
-              </label>
-            ) : null}
-
-            {relatedRevisions.length > 0 ? (
-              <fieldset className="space-y-2">
-                <legend className="font-mono text-xs text-[#5f5f5f] uppercase">
-                  Related revision requests (up to 20)
-                </legend>
-                {relatedRevisions.map((revision) => (
-                  <label
-                    key={revision._id}
-                    className="flex items-start gap-2 text-sm text-[#3f3f3f]"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedRevisionIds.includes(revision._id)}
-                      disabled={isSubmitting || Boolean(createdDisputeId)}
-                      onChange={(event) =>
-                        setSelectedRevisionIds((current) =>
-                          event.target.checked
-                            ? [...current, revision._id]
-                            : current.filter((id) => id !== revision._id),
-                        )
-                      }
-                    />
-                    Revision {revision.revisionNumber}: {revision.reason}
-                  </label>
-                ))}
-              </fieldset>
-            ) : null}
-
-            <AttachmentUploader
-              value={attachments}
-              onChange={setAttachments}
-              disabled={isSubmitting || Boolean(createdDisputeId)}
-              ownerRole={ownerRole}
-              context="dispute"
-            />
-          </div>
-
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {isSubmitting ? (
-            <p role="status" className="text-sm text-[#5f5f5f]">
-              {submissionPhase === "creating"
-                ? "Saving dispute..."
-                : (markExecutionPhase ?? "Marking escrow disputed...")}
-            </p>
-          ) : null}
-
-          {createdDisputeId ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Your dispute was saved.{" "}
-              <Link
-                href={`/disputes/${createdDisputeId}`}
-                className="underline"
-                onClick={() => onOpenChange(false)}
-              >
-                View the dispute and its on-chain status
-              </Link>
-              .
-              {markTransactionHash ? (
-                <p className="mt-2">
-                  <a
-                    href={getTxExplorerUrl(markTransactionHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    View transaction on Stellar Expert
-                  </a>
+          <form
+            noValidate
+            aria-describedby={error ? errorId : undefined}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSubmit();
+            }}
+          >
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Manual dispute review pauses release and cancellation. This MVP does not automate
+                  escrow judgment or fund splitting.
                 </p>
-              ) : null}
+              </div>
             </div>
-          ) : null}
 
-          <div className="flex flex-wrap justify-end gap-2">
-            <AppButton
-              type="button"
-              variant="secondary"
-              disabled={isSubmitting}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </AppButton>
-            {!createdDisputeId ? (
+            {canOpenDispute?.allowed === false ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {canOpenDispute.reason}
+              </p>
+            ) : null}
+
+            {activeWalletAddress && canOpenDispute === undefined ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                Checking dispute eligibility...
+              </p>
+            ) : null}
+
+            {canOpenDispute?.allowed && !relatedDataReady ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                Loading related work records...
+              </p>
+            ) : null}
+
+            <div className="grid gap-4">
+              <label className="grid gap-2" htmlFor={titleId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Title</span>
+                <input
+                  id={titleId}
+                  type="text"
+                  value={title}
+                  maxLength={160}
+                  required
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
+                  placeholder="Briefly summarize the dispute"
+                />
+              </label>
+
+              <label className="grid gap-2" htmlFor={reasonSelectId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
+                <DisputeReasonSelect
+                  id={reasonSelectId}
+                  value={reasonCategory}
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={setReasonCategory}
+                />
+              </label>
+
+              <label className="grid gap-2" htmlFor={descriptionId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
+                <Textarea
+                  id={descriptionId}
+                  value={description}
+                  maxLength={10_000}
+                  required
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Describe what happened, what has already been tried, and what evidence matters."
+                  className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
+                />
+              </label>
+
+              {latestSubmission ? (
+                <label className="flex items-start gap-2 text-sm text-[#3f3f3f]">
+                  <input
+                    type="checkbox"
+                    checked={includeLatestSubmission}
+                    disabled={isSubmitting || Boolean(createdDisputeId)}
+                    onChange={(event) => setIncludeLatestSubmission(event.target.checked)}
+                  />
+                  Include latest work submission ({formatDisputeDate(latestSubmission.createdAt)})
+                </label>
+              ) : null}
+
+              {relatedRevisions.length > 0 ? (
+                <fieldset className="space-y-2">
+                  <legend className="font-mono text-xs text-[#5f5f5f] uppercase">
+                    Related revision requests (up to 20)
+                  </legend>
+                  {relatedRevisions.map((revision) => (
+                    <label
+                      key={revision._id}
+                      className="flex items-start gap-2 text-sm text-[#3f3f3f]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRevisionIds.includes(revision._id)}
+                        disabled={isSubmitting || Boolean(createdDisputeId)}
+                        onChange={(event) =>
+                          setSelectedRevisionIds((current) =>
+                            event.target.checked
+                              ? [...current, revision._id]
+                              : current.filter((id) => id !== revision._id),
+                          )
+                        }
+                      />
+                      Revision {revision.revisionNumber}: {revision.reason}
+                    </label>
+                  ))}
+                </fieldset>
+              ) : null}
+
+              <AttachmentUploader
+                value={attachments}
+                onChange={setAttachments}
+                disabled={isSubmitting || Boolean(createdDisputeId)}
+                ownerRole={ownerRole}
+                context="dispute"
+              />
+            </div>
+
+            {error ? (
+              <p
+                id={errorId}
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            {isSubmitting ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                {submissionPhase === "creating"
+                  ? "Saving dispute..."
+                  : (markExecutionPhase ?? "Marking escrow disputed...")}
+              </p>
+            ) : null}
+
+            {createdDisputeId ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Your dispute was saved.{" "}
+                <Link
+                  href={`/disputes/${createdDisputeId}`}
+                  className="underline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  View the dispute and its on-chain status
+                </Link>
+                .
+                {markTransactionHash ? (
+                  <p className="mt-2">
+                    <a
+                      href={getTxExplorerUrl(markTransactionHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      View transaction on Stellar Expert
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap justify-end gap-2">
               <AppButton
                 type="button"
-                disabled={!canSubmit}
-                onClick={() => void handleSubmit()}
-                className="disabled:cursor-not-allowed disabled:opacity-60"
+                variant="secondary"
+                disabled={isSubmitting}
+                onClick={() => onOpenChange(false)}
               >
-                {submissionPhase === "creating"
-                  ? "Saving Dispute..."
-                  : submissionPhase === "marking"
-                    ? "Marking Escrow..."
-                    : submissionFailed
-                      ? "Retry Opening Dispute"
-                      : "Open Dispute"}
+                Cancel
               </AppButton>
-            ) : null}
-          </div>
+              {!createdDisputeId ? (
+                <AppButton
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submissionPhase === "creating"
+                    ? "Saving Dispute..."
+                    : submissionPhase === "marking"
+                      ? "Marking Escrow..."
+                      : submissionFailed
+                        ? "Retry Opening Dispute"
+                        : "Open Dispute"}
+                </AppButton>
+              ) : null}
+            </div>
+          </form>
         </ResponsiveDialogBody>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

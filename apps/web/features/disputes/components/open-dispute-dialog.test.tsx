@@ -218,6 +218,19 @@ describe("OpenDisputeDialog", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
+  it("supports native form submission from the labeled opening fields", async () => {
+    renderDialog();
+    fillDraft();
+    const title = screen.getByLabelText("Title");
+    const form = title.closest("form");
+    expect(form).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Open Dispute" }).getAttribute("type")).toBe(
+      "submit",
+    );
+    fireEvent.submit(form!);
+    await waitFor(() => expect(mutations.createDispute).toHaveBeenCalledOnce());
+  });
+
   it("shows pending creation and allows retry after a failed create mutation", async () => {
     let rejectCreate!: (error: Error) => void;
     mutations.createDispute = vi

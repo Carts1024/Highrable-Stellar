@@ -6,7 +6,7 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
-import React, { useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 
 import type { TDraftAttachment, TWalletType } from "@/features/attachments/types";
 import type { TConvexId } from "@repo/convex-client";
@@ -33,6 +33,7 @@ export function DisputeResponseComposer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
+  const errorId = useId();
 
   const handleSubmit = async () => {
     if (submitting.current) return;
@@ -65,7 +66,14 @@ export function DisputeResponseComposer({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4">
+    <form
+      className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4"
+      aria-describedby={error ? errorId : undefined}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleSubmit();
+      }}
+    >
       <h2 className="font-mono text-xs text-[#5f5f5f] uppercase">Add response</h2>
       <label htmlFor="dispute-response-message" className="block text-sm text-[#3f3f3f]">
         Response
@@ -75,6 +83,14 @@ export function DisputeResponseComposer({
         value={message}
         maxLength={4_000}
         disabled={isSubmitting}
+        aria-describedby={
+          error?.startsWith("Enter a response") || error?.startsWith("Keep the message")
+            ? errorId
+            : undefined
+        }
+        aria-invalid={Boolean(
+          error?.startsWith("Enter a response") || error?.startsWith("Keep the message"),
+        )}
         onChange={(event) => {
           setMessage(event.target.value);
           setError(null);
@@ -90,20 +106,19 @@ export function DisputeResponseComposer({
         context="dispute"
       />
       {error ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p id={errorId} role="alert" className="text-sm text-red-700">
           {error}
         </p>
       ) : null}
       <AppButton
-        type="button"
+        type="submit"
         disabled={
           isSubmitting || attachments.some((attachment) => attachment.status === "uploading")
         }
-        onClick={() => void handleSubmit()}
         className="disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? "Adding..." : "Add Response"}
       </AppButton>
-    </div>
+    </form>
   );
 }

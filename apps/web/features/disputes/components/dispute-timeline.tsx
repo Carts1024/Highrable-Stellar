@@ -105,7 +105,7 @@ export function DisputeTimeline({
   }
 
   return (
-    <ol className="space-y-3">
+    <ol aria-label="Dispute evidence timeline" className="space-y-3">
       {events.map((event) => (
         <DisputeTimelineItem key={event._id} event={event} />
       ))}
