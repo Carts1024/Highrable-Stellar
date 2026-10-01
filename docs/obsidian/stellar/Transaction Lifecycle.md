@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -35,7 +35,7 @@ With the Velo flag enabled, steps 1–4 are unchanged. The wallet signs the prep
 
 ## Local bookkeeping
 
-Product flows record phases in Convex before/after chain work. Escrows, disputes, cancellations, submissions, and transaction records carry transaction hashes and pending/success/failed states where the domain needs them. A local success record is not itself proof of chain finality; the chain hash and subsequent read/sync remain important.
+Product flows record phases in Convex before/after chain work. Escrows, disputes, cancellations, submissions, and transaction records carry transaction hashes and pending/success/failed states where the domain needs them. Participant dispute marking now records the signed external-wallet hash in a pending transaction before submission and keeps uncertain or possibly submitted outcomes pending. A confirmed chain result is recorded separately from later Convex dispute, transaction, and escrow bookkeeping; a failed bookkeeping step does not create an on-chain failure event or permit a second chain submission. A local success record is not itself proof of chain finality; the chain hash and subsequent read/sync remain important.
 
 ## Error interpretation
 

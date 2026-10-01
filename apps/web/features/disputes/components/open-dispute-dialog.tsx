@@ -142,6 +142,8 @@ export function OpenDisputeDialog({
   const [selectedRevisionIds, setSelectedRevisionIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
   const [submissionPhase, setSubmissionPhase] = useState<"idle" | "creating" | "marking">("idle");
+  const [markExecutionPhase, setMarkExecutionPhase] = useState<string | null>(null);
+  const [markTransactionHash, setMarkTransactionHash] = useState<string | null>(null);
   const [createdDisputeId, setCreatedDisputeId] = useState<TConvexId<"disputes"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submissionFailed, setSubmissionFailed] = useState(false);
@@ -185,8 +187,12 @@ export function OpenDisputeDialog({
         );
       }
     } else {
-      if (!address || !walletState.isConnected) {
-        throw new Error("Connect a Stellar wallet before opening a dispute.");
+      if (
+        !address ||
+        !walletState.isConnected ||
+        address.toUpperCase() !== activeWalletAddress.toUpperCase()
+      ) {
+        throw new Error("Connect the wallet for this dispute before marking its escrow.");
       }
       if (!isWalletOnConfiguredNetwork(walletState)) {
         throw new Error(getWalletNetworkMismatchMessage("opening a dispute"));
@@ -207,14 +213,30 @@ export function OpenDisputeDialog({
       ...(milestone ? { milestoneId: milestone._id } : {}),
       status: "pending",
     });
-    await markStarted({
-      disputeId,
-      actorWallet: activeWalletAddress,
-      actorWalletType: walletIdentity.walletType,
-    });
-
     try {
-      const result = await markDisputedOnChain({
+      await markStarted({
+        disputeId,
+        actorWallet: activeWalletAddress,
+        actorWalletType: walletIdentity.walletType,
+      });
+    } catch (error) {
+      try {
+        await updateTransactionStatus({
+          clientRequestId,
+          status: "failed",
+          errorMessage: normalizeStellarError(error),
+        });
+      } catch {
+        // Keep the original start error visible.
+      }
+      throw error;
+    }
+
+    let knownHash: string | undefined;
+    let mayHaveSubmitted = false;
+    let result: { txHash: string };
+    try {
+      result = await markDisputedOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
@@ -224,14 +246,82 @@ export function OpenDisputeDialog({
         operationId: clientRequestId,
         caller: activeWalletAddress,
         escrowId: escrow.escrowId,
+        onSigned: async ({ transactionHash }) => {
+          knownHash = transactionHash;
+          setMarkTransactionHash(transactionHash);
+          await updateTransactionStatus({
+            clientRequestId,
+            txHash: transactionHash,
+            status: "pending",
+          });
+        },
+        onPhase: (phase) => {
+          setMarkExecutionPhase(
+            {
+              simulation: "Simulating transaction...",
+              signing: "Waiting for wallet signature...",
+              submission: "Submitting transaction...",
+              confirmation: "Waiting for Stellar confirmation...",
+            }[phase],
+          );
+          if (phase === "submission" || phase === "confirmation") mayHaveSubmitted = true;
+        },
       });
+    } catch (error) {
+      const errorMessage = normalizeStellarError(error);
+      const failedTxHash =
+        knownHash ??
+        (typeof error === "object" &&
+        error !== null &&
+        "txHash" in error &&
+        typeof error.txHash === "string"
+          ? error.txHash
+          : undefined);
+      const uncertain =
+        isPendingStellarTransactionError(error) || mayHaveSubmitted || Boolean(failedTxHash);
+      if (failedTxHash) setMarkTransactionHash(failedTxHash);
+      try {
+        await updateTransactionStatus({
+          clientRequestId,
+          ...(failedTxHash ? { txHash: failedTxHash } : {}),
+          status: uncertain ? "pending" : "failed",
+          errorMessage,
+        });
+      } catch {
+        // Keep the original chain error visible.
+      }
+      if (!uncertain) {
+        try {
+          await markFailed({
+            disputeId,
+            actorWallet: activeWalletAddress,
+            actorWalletType: walletIdentity.walletType,
+            errorMessage,
+          });
+        } catch {
+          throw new Error(
+            "Escrow marking failed, but its failure could not be recorded. Check the saved dispute before retrying.",
+          );
+        }
+      }
+      throw new Error(
+        uncertain
+          ? "Transaction outcome is uncertain. Check Stellar Expert or wait for reconciliation before retrying."
+          : `Dispute evidence was saved, but on-chain marking failed: ${errorMessage}`,
+      );
+    }
 
-      await updateTransactionStatus({
-        clientRequestId,
-        txHash: result.txHash,
-        status: "success",
+    setMarkTransactionHash(result.txHash);
+    setMarkExecutionPhase("Recording confirmed transaction...");
+    try {
+      await markSucceeded({
+        disputeId,
+        actorWallet: activeWalletAddress,
+        actorWalletType: walletIdentity.walletType,
+        transactionHash: result.txHash,
+        stellarExpertUrl: getTxExplorerUrl(result.txHash),
       });
-
+      await updateTransactionStatus({ clientRequestId, txHash: result.txHash, status: "success" });
       if (milestone) {
         await updateMilestoneEscrowStatus({
           milestoneId: milestone._id,
@@ -248,45 +338,12 @@ export function OpenDisputeDialog({
           txType: "mark_disputed",
         });
       }
-
-      await markSucceeded({
-        disputeId,
-        actorWallet: activeWalletAddress,
-        actorWalletType: walletIdentity.walletType,
-        transactionHash: result.txHash,
-        stellarExpertUrl: getTxExplorerUrl(result.txHash),
-      });
-      return result.txHash;
     } catch (error) {
-      const errorMessage = normalizeStellarError(error);
-      const failedTxHash =
-        typeof error === "object" &&
-        error !== null &&
-        "txHash" in error &&
-        typeof error.txHash === "string"
-          ? error.txHash
-          : undefined;
-      await updateTransactionStatus({
-        clientRequestId,
-        ...(failedTxHash ? { txHash: failedTxHash } : {}),
-        status: isPendingStellarTransactionError(error) ? "pending" : "failed",
-        errorMessage,
-      });
-      if (!isPendingStellarTransactionError(error)) {
-        await markFailed({
-          disputeId,
-          actorWallet: activeWalletAddress,
-          actorWalletType: walletIdentity.walletType,
-          errorMessage,
-          ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-        });
-      }
       throw new Error(
-        isPendingStellarTransactionError(error)
-          ? "Dispute marking is still pending. Use transaction recovery before retrying."
-          : "Dispute evidence was saved, but on-chain marking failed. Please retry.",
+        `Stellar confirmed the transaction, but Highrable could not finish recording it: ${normalizeStellarError(error)}`,
       );
     }
+    return result.txHash;
   };
 
   const handleSubmit = async () => {
@@ -322,6 +379,8 @@ export function OpenDisputeDialog({
 
     submissionInFlight.current = true;
     setSubmissionPhase("creating");
+    setMarkExecutionPhase(null);
+    setMarkTransactionHash(null);
     setError(null);
     setSubmissionFailed(false);
     let savedDisputeId: TConvexId<"disputes"> | null = null;
@@ -510,12 +569,14 @@ export function OpenDisputeDialog({
 
           {isSubmitting ? (
             <p role="status" className="text-sm text-[#5f5f5f]">
-              {submissionPhase === "creating" ? "Saving dispute..." : "Marking escrow disputed..."}
+              {submissionPhase === "creating"
+                ? "Saving dispute..."
+                : (markExecutionPhase ?? "Marking escrow disputed...")}
             </p>
           ) : null}
 
           {createdDisputeId ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               Your dispute was saved.{" "}
               <Link
                 href={`/disputes/${createdDisputeId}`}
@@ -525,7 +586,19 @@ export function OpenDisputeDialog({
                 View the dispute and its on-chain status
               </Link>
               .
-            </p>
+              {markTransactionHash ? (
+                <p className="mt-2">
+                  <a
+                    href={getTxExplorerUrl(markTransactionHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    View transaction on Stellar Expert
+                  </a>
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <div className="flex flex-wrap justify-end gap-2">

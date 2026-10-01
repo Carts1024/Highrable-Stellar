@@ -79,6 +79,8 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 
 C19 adds separate participant evidence and response composers to permitted dispute details. Both wait for `canRespondToDispute`, use its returned participant role for uploads, require ready attachments within the 25-file mutation limit, and retain drafts after rejected writes. Evidence requires an attachment; responses require a message. Participant detail and timeline read serialized attachments through the dispute queries, while protected previews and download attempts use backend attachment access functions. The backend still validates actor role, active status, attachment ownership, and case association for every write; caller-supplied wallet possession remains unproven.
 
+C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
+
 ## Risks / Gotchas
 
 - `resolve_dispute` emits the supplied resolution hash in its Soroban event but does not store it in the escrow record.

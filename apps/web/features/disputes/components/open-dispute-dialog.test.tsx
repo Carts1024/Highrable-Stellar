@@ -273,4 +273,53 @@ describe("OpenDisputeDialog", () => {
     expect(mutations.createDispute).toHaveBeenCalledOnce();
     expect(mutations.markFailed).toHaveBeenCalledOnce();
   });
+
+  it("keeps an uncertain submission pending and links its known hash without a duplicate attempt", async () => {
+    const hash = "a".repeat(64);
+    markOnChain.mockImplementationOnce(
+      async ({
+        onPhase,
+        onSigned,
+      }: {
+        onPhase: (phase: string) => void;
+        onSigned: (identity: { transactionHash: string }) => Promise<void>;
+      }) => {
+        await onSigned({ transactionHash: hash });
+        onPhase("submission");
+        throw Object.assign(new Error("RPC timeout"), { txHash: hash });
+      },
+    );
+    renderDialog();
+    fillDraft();
+    fireEvent.click(screen.getByRole("button", { name: "Open Dispute" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("outcome is uncertain"),
+    );
+    expect(mutations.markFailed).not.toHaveBeenCalled();
+    expect(mutations.updateTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ txHash: hash, status: "pending" }),
+    );
+    expect(
+      screen.getByRole("link", { name: "View transaction on Stellar Expert" }).getAttribute("href"),
+    ).toBe("https://example.test/tx");
+    expect(screen.getByRole("link", { name: /View the dispute/ }).getAttribute("href")).toBe(
+      "/disputes/dispute-1",
+    );
+    expect(screen.queryByRole("button", { name: "Open Dispute" })).toBeNull();
+  });
+
+  it("keeps a confirmed transaction distinct from a failed recording update", async () => {
+    mutations.markSucceeded!.mockRejectedValueOnce(new Error("Convex unavailable"));
+    renderDialog();
+    fillDraft();
+    fireEvent.click(screen.getByRole("button", { name: "Open Dispute" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("Stellar confirmed"),
+    );
+    expect(mutations.markFailed).not.toHaveBeenCalled();
+    expect(mutations.createDispute).toHaveBeenCalledOnce();
+    expect(markOnChain).toHaveBeenCalledOnce();
+    expect(screen.getByRole("link", { name: "View transaction on Stellar Expert" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /View the dispute/ })).toBeTruthy();
+  });
 });
