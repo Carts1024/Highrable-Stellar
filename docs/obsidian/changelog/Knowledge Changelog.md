@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-01
+
+- Added C20 Soroban dispute/terminal regression coverage: six tests exercise 84 rejected invocations and preserve escrow records, balances, reputation, and event counts under scoped mock authorization. The workspace passes 61 escrow and 9 reputation tests; both WASM contracts build using the underlying Stellar CLI command. Recorded the coverage matrix, pnpm registry-DNS limitation, and local-only evidence in the C20 evidence document and testing/contract notes. Production contract behavior and deployment status remain unchanged.
 
 ## 2026-09-30
 

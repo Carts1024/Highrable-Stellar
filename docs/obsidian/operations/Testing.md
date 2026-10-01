@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -29,6 +29,12 @@ Verified C02 coverage includes schema enum/type/ID rejection contracts, every ex
 ## Contract coverage to preserve
 
 The Rust tests cover initialization/reinitialization, authorization, amount/rating validation, duplicate reputation completion, aggregate statistics, escrow lifecycle/status guards, dispute flows, asset allowlisting, and contract wiring assumptions. Read the tests before changing a contract error or status.
+
+## C20 Soroban state regression checks
+
+Run `cd contracts && cargo test --offline -p highrable-escrow c20_` for the six C20 tests, then `cargo test` for the full contract workspace. C20 verifies 84 rejected calls across both dispute entry states and settlement/ordinary terminal outcomes, including complete escrow and balance preservation, unchanged reputation records/statistics, and no new dispute or token-transfer events. Exact invocation-scoped mocks authorize the correct actors with valid arguments so failures exercise state guards. Current verified totals are 61 escrow and 9 reputation tests.
+
+`pnpm contracts:build` may attempt workspace dependency downloads before executing its script. In the C20 environment those downloads encountered registry DNS failures; running the defined underlying command, `cd contracts && stellar contract build`, successfully built both WASM contracts without installing JavaScript dependencies. See [C20 evidence](../../instawards/C20-Dispute-State-Regression-Evidence.md) for exact results and local-only limits.
 
 ## Web/chain boundary cases
 
