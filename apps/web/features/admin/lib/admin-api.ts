@@ -5,8 +5,13 @@ import type {
   IAdminMembershipManagement,
   IAdminMembershipOperationRequest,
   IAdminMembershipOperationResponse,
+  IAdminResolutionFailedResponse,
+  IAdminResolutionSignedResponse,
+  IAdminResolutionStartedResponse,
   IAdminSessionResponse,
+  TAdminResolutionOutcomeResponse,
   TAdminResolutionRequest,
+  TAdminResolutionResponse,
   TAdminReviewStatus,
 } from "@/features/admin/types";
 import type { TDisputeOnChainStatus, TDisputeStatus } from "@/features/disputes/types";
@@ -347,7 +352,7 @@ export async function postAdminReviewStatus(
 export async function postAdminResolution(
   disputeId: string,
   payload: TAdminResolutionRequest,
-): Promise<void> {
+): Promise<TAdminResolutionResponse> {
   const response = await fetchAdminResponse(
     `/api/admin/disputes/${encodeURIComponent(disputeId)}/resolve`,
     {
@@ -360,5 +365,56 @@ export async function postAdminResolution(
     },
   );
 
-  await readJsonOrThrow<{ success: true }>(response);
+  const result = await readJsonOrThrow<unknown>(response);
+  if (payload.phase === "started" && isAdminResolutionStartedResponse(result)) {
+    return result;
+  }
+  if (payload.phase === "signed" && isAdminResolutionSignedResponse(result)) {
+    return result;
+  }
+  if (payload.phase === "failed" && isAdminResolutionFailedResponse(result)) {
+    return result;
+  }
+  if (
+    (payload.phase === "reconcile" || payload.phase === "succeeded") &&
+    isAdminResolutionOutcome(result)
+  ) {
+    return result;
+  }
+
+  throw new AdminApiError(
+    response.status,
+    "Admin API returned an unrecognized settlement outcome.",
+    result,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasResult(value: Record<string, unknown>): boolean {
+  return "result" in value;
+}
+
+function isAdminResolutionStartedResponse(
+  value: unknown,
+): value is IAdminResolutionStartedResponse {
+  return isRecord(value) && value.success === true && value.phase === "started" && hasResult(value);
+}
+
+function isAdminResolutionSignedResponse(value: unknown): value is IAdminResolutionSignedResponse {
+  return isRecord(value) && value.success === true && value.phase === "signed" && hasResult(value);
+}
+
+function isAdminResolutionFailedResponse(value: unknown): value is IAdminResolutionFailedResponse {
+  return isRecord(value) && value.success === true && value.phase === "failed" && hasResult(value);
+}
+
+function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutcomeResponse {
+  return (
+    isRecord(value) &&
+    (value.status === "pending" || value.status === "succeeded" || value.status === "failed") &&
+    hasResult(value)
+  );
 }
