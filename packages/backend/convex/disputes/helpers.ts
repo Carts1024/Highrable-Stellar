@@ -26,6 +26,12 @@ const MAX_EVENT_MESSAGE_LENGTH = 4_000;
 const MAX_ATTACHMENTS = 25;
 const MAX_RELATED_RECORDS = 20;
 const ACTIVE_DISPUTE_STATUS_SET = new Set<string>(ACTIVE_DISPUTE_STATUSES);
+const TERMINAL_DISPUTE_STATUS_SET = new Set<string>([
+  "resolved_client",
+  "resolved_freelancer",
+  "split_resolution",
+  "cancelled",
+]);
 
 export type TDisputeParticipantRole = "client" | "freelancer";
 
@@ -83,6 +89,53 @@ export function getDisputeReasonLabel(reason: TDisputeReasonCategory): string {
 
 export function isActiveDisputeStatus(status: string): boolean {
   return ACTIVE_DISPUTE_STATUS_SET.has(status);
+}
+
+export function isTerminalDisputeStatus(status: string): boolean {
+  return TERMINAL_DISPUTE_STATUS_SET.has(status);
+}
+
+export function sanitizeOptionalDisputeTransactionHash(
+  transactionHash?: string,
+): string | undefined {
+  return optionalNonEmptyString(transactionHash, "transactionHash");
+}
+
+export function assertDisputeTransactionHashDoesNotConflict(
+  recordedHash: string | undefined,
+  incomingHash: string | undefined,
+) {
+  if (recordedHash !== undefined && incomingHash !== undefined && recordedHash !== incomingHash) {
+    throw new ConflictError("A different transaction hash is already recorded for this dispute.");
+  }
+}
+
+function getDisputeMetadataObject(metadata: unknown): Record<string, unknown> | null {
+  if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+    return null;
+  }
+
+  return { ...(metadata as Record<string, unknown>) };
+}
+
+export function clearDisputeOnChainMarkError(metadata: unknown): unknown {
+  const metadataObject = getDisputeMetadataObject(metadata);
+  if (metadataObject === null) {
+    return metadata;
+  }
+
+  delete metadataObject.onChainMarkError;
+  return Object.keys(metadataObject).length > 0 ? metadataObject : undefined;
+}
+
+export function setDisputeOnChainMarkError(
+  metadata: unknown,
+  errorMessage: string,
+): Record<string, unknown> {
+  return {
+    ...(getDisputeMetadataObject(metadata) ?? {}),
+    onChainMarkError: errorMessage,
+  };
 }
 
 type TDisputeParentRecords = {
@@ -421,8 +474,10 @@ export async function validateDisputeAttachmentIds(
       throw new ForbiddenError("You cannot use evidence files owned by another wallet.");
     }
     if (
-      attachment.parentType !== "unknown" &&
-      (attachment.parentType !== "dispute" || attachment.parentId !== input.parentId)
+      input.parentId === undefined
+        ? attachment.parentType !== "unknown"
+        : attachment.parentType !== "unknown" &&
+          (attachment.parentType !== "dispute" || attachment.parentId !== input.parentId)
     ) {
       throw new BadRequestError("Attachment is already linked to another record.");
     }
@@ -449,6 +504,398 @@ export function validateRelatedIds<TId extends string>(ids: TId[], label: string
     throw new BadRequestError(`${label} can include 20 records or fewer.`);
   }
   return Array.from(new Set(ids));
+}
+
+type TDisputeRelatedTable =
+  | "attachments"
+  | "workSubmissions"
+  | "revisionRequests"
+  | "messages"
+  | "conversations"
+  | "deadlineAuditEvents"
+  | "disputes";
+
+function getRelatedTableLabel(tableName: TDisputeRelatedTable): string {
+  const labels: Record<TDisputeRelatedTable, string> = {
+    attachments: "attachment",
+    workSubmissions: "work submission",
+    revisionRequests: "revision request",
+    messages: "message",
+    conversations: "conversation",
+    deadlineAuditEvents: "deadline event",
+    disputes: "dispute",
+  };
+
+  return labels[tableName];
+}
+
+function normalizeRelatedRecordId<TableName extends TDisputeRelatedTable>(
+  ctx: QueryCtx,
+  tableName: TableName,
+  id: string,
+): Id<TableName> {
+  const normalizedId = ctx.db.normalizeId(tableName, id);
+  if (!normalizedId) {
+    throw new BadRequestError(
+      `The ${getRelatedTableLabel(tableName)} reference must be a valid ${getRelatedTableLabel(tableName)} ID.`,
+    );
+  }
+
+  return normalizedId;
+}
+
+function requireResolvedJobId(parent: TResolvedDisputeParent): Id<"jobs"> {
+  if (!parent.jobId) {
+    throw new BadRequestError("The disputed work is missing its parent job.");
+  }
+
+  return parent.jobId;
+}
+
+function assertRelatedParentId(
+  ctx: QueryCtx,
+  record: {
+    parentType: TDisputeParentType;
+    parentId: string;
+  },
+  parent: TResolvedDisputeParent,
+  label: string,
+) {
+  const jobId = requireResolvedJobId(parent);
+
+  if (record.parentType === "milestone") {
+    const milestoneId = normalizeParentId(ctx, "milestones", record.parentId);
+    if (!parent.milestoneId || milestoneId !== parent.milestoneId) {
+      throw new BadRequestError(`${label} is linked to a different milestone.`);
+    }
+    return;
+  }
+
+  if (record.parentType === "escrow") {
+    const escrowId = normalizeParentId(ctx, "escrows", record.parentId);
+    if (escrowId !== parent.escrowId) {
+      throw new BadRequestError(`${label} is linked to a different escrow.`);
+    }
+    return;
+  }
+
+  const recordJobId = normalizeParentId(ctx, "jobs", record.parentId);
+  if (parent.milestoneId !== undefined) {
+    throw new BadRequestError(`${label} does not identify the selected milestone.`);
+  }
+  if (recordJobId !== jobId) {
+    throw new BadRequestError(`${label} is linked to a different job.`);
+  }
+}
+
+function assertOptionalRelatedLink(
+  ctx: QueryCtx,
+  input: {
+    value: string | undefined;
+    tableName: "jobs" | "milestones" | "escrows";
+    expected: string | undefined;
+    label: string;
+  },
+) {
+  if (input.value === undefined) {
+    return;
+  }
+
+  const normalizedId = normalizeParentId(ctx, input.tableName, input.value);
+  if (input.expected === undefined || normalizedId !== input.expected) {
+    throw new BadRequestError(`${input.label} does not match the disputed work.`);
+  }
+}
+
+function assertRelatedWorkLinks(
+  ctx: QueryCtx,
+  record: {
+    jobId?: string;
+    milestoneId?: string;
+    escrowId?: string;
+    onChainEscrowId?: string;
+  },
+  parent: TResolvedDisputeParent,
+  label: string,
+) {
+  assertOptionalRelatedLink(ctx, {
+    value: record.jobId,
+    tableName: "jobs",
+    expected: parent.jobId,
+    label: `${label} job link`,
+  });
+  assertOptionalRelatedLink(ctx, {
+    value: record.milestoneId,
+    tableName: "milestones",
+    expected: parent.milestoneId,
+    label: `${label} milestone link`,
+  });
+  assertOptionalRelatedLink(ctx, {
+    value: record.escrowId,
+    tableName: "escrows",
+    expected: parent.escrowId,
+    label: `${label} escrow link`,
+  });
+
+  if (record.onChainEscrowId !== undefined && record.onChainEscrowId !== parent.onChainEscrowId) {
+    throw new BadRequestError(`${label} on-chain escrow link does not match the disputed work.`);
+  }
+}
+
+function assertRelatedParticipants(
+  record: { clientWallet: string; freelancerWallet: string },
+  parent: TResolvedDisputeParent,
+  label: string,
+) {
+  if (
+    normalizeWalletAddress(record.clientWallet) !== parent.clientWallet ||
+    normalizeWalletAddress(record.freelancerWallet) !== parent.freelancerWallet
+  ) {
+    throw new ForbiddenError(`${label} participants do not match the disputed work.`);
+  }
+}
+
+async function validateDisputeWorkSubmission(
+  ctx: QueryCtx,
+  input: { submissionId: string; parent: TResolvedDisputeParent },
+) {
+  const submissionId = normalizeRelatedRecordId(ctx, "workSubmissions", input.submissionId);
+  const submission = await ctx.db.get(submissionId);
+  if (!submission) {
+    throw new NotFoundError("Work submission not found.");
+  }
+
+  assertRelatedParentId(ctx, submission, input.parent, "Work submission");
+  assertRelatedWorkLinks(ctx, submission, input.parent, "Work submission");
+  assertRelatedParticipants(submission, input.parent, "Work submission");
+
+  return submission;
+}
+
+export async function validateDisputeWorkSubmissionIds(
+  ctx: QueryCtx,
+  input: { submissionIds: Id<"workSubmissions">[]; parent: TResolvedDisputeParent },
+): Promise<Id<"workSubmissions">[]> {
+  const submissionIds = input.submissionIds.map(String);
+  const normalizedIds = submissionIds.map((submissionId) =>
+    normalizeRelatedRecordId(ctx, "workSubmissions", submissionId),
+  );
+
+  for (const submissionId of normalizedIds) {
+    await validateDisputeWorkSubmission(ctx, {
+      submissionId,
+      parent: input.parent,
+    });
+  }
+
+  return normalizedIds;
+}
+
+export async function validateDisputeRevisionRequestIds(
+  ctx: QueryCtx,
+  input: { revisionRequestIds: Id<"revisionRequests">[]; parent: TResolvedDisputeParent },
+): Promise<Id<"revisionRequests">[]> {
+  const normalizedIds = input.revisionRequestIds.map((revisionRequestId) =>
+    normalizeRelatedRecordId(ctx, "revisionRequests", String(revisionRequestId)),
+  );
+
+  for (const revisionRequestId of normalizedIds) {
+    const revision = await ctx.db.get(revisionRequestId);
+    if (!revision) {
+      throw new NotFoundError("Revision request not found.");
+    }
+
+    assertRelatedParentId(ctx, revision, input.parent, "Revision request");
+    assertRelatedWorkLinks(ctx, revision, input.parent, "Revision request");
+    assertRelatedParticipants(revision, input.parent, "Revision request");
+
+    const referencedSubmissionIds = [
+      revision.workSubmissionId,
+      revision.previousSubmissionId,
+      revision.revisionSubmissionId,
+    ].filter((submissionId): submissionId is Id<"workSubmissions"> => submissionId !== undefined);
+
+    for (const submissionId of referencedSubmissionIds) {
+      await validateDisputeWorkSubmission(ctx, {
+        submissionId,
+        parent: input.parent,
+      });
+    }
+  }
+
+  return normalizedIds;
+}
+
+function assertPreviousDisputeBelongsToWork(
+  ctx: QueryCtx,
+  previousDispute: Doc<"disputes">,
+  parent: TResolvedDisputeParent,
+) {
+  assertRelatedParentId(ctx, previousDispute, parent, "Previous dispute");
+  assertRelatedWorkLinks(ctx, previousDispute, parent, "Previous dispute");
+}
+
+function assertConversationIncludesParticipants(
+  conversation: Pick<Doc<"conversations">, "participantWallets">,
+  parent: TResolvedDisputeParent,
+) {
+  const participants = new Set(conversation.participantWallets.map(normalizeWalletAddress));
+  if (!participants.has(parent.clientWallet) || !participants.has(parent.freelancerWallet)) {
+    throw new ForbiddenError("Conversation must include both dispute participants.");
+  }
+}
+
+async function assertDisputeConversationParent(
+  ctx: QueryCtx,
+  input: {
+    conversation: Doc<"conversations">;
+    relatedSubmissionIds: Id<"workSubmissions">[];
+    parent: TResolvedDisputeParent;
+  },
+) {
+  const { conversation, parent } = input;
+  const jobId = requireResolvedJobId(parent);
+
+  if (conversation.parentType === "direct") {
+    throw new BadRequestError("Direct conversations cannot be used as dispute references.");
+  }
+
+  if (conversation.parentType === "job" || conversation.parentType === "micro_gig") {
+    const conversationJobId = normalizeParentId(ctx, "jobs", conversation.parentId);
+    if (conversationJobId !== jobId) {
+      throw new BadRequestError("Conversation is linked to a different job.");
+    }
+    return;
+  }
+
+  if (conversation.parentType === "escrow") {
+    const conversationEscrowId = normalizeParentId(ctx, "escrows", conversation.parentId);
+    if (conversationEscrowId !== parent.escrowId) {
+      throw new BadRequestError("Conversation is linked to a different escrow.");
+    }
+    return;
+  }
+
+  if (conversation.parentType === "milestone") {
+    const conversationMilestoneId = normalizeParentId(ctx, "milestones", conversation.parentId);
+    if (!parent.milestoneId || conversationMilestoneId !== parent.milestoneId) {
+      throw new BadRequestError("Conversation is linked to a different milestone.");
+    }
+    return;
+  }
+
+  if (conversation.parentType === "work_submission") {
+    const conversationSubmissionId = normalizeRelatedRecordId(
+      ctx,
+      "workSubmissions",
+      conversation.parentId,
+    );
+    if (!input.relatedSubmissionIds.includes(conversationSubmissionId)) {
+      throw new BadRequestError("Conversation is not linked to a related work submission.");
+    }
+    return;
+  }
+
+  if (conversation.parentType === "dispute") {
+    const previousDisputeId = normalizeRelatedRecordId(ctx, "disputes", conversation.parentId);
+    const previousDispute = await ctx.db.get(previousDisputeId);
+    if (!previousDispute) {
+      throw new NotFoundError("Previous dispute not found.");
+    }
+    assertPreviousDisputeBelongsToWork(ctx, previousDispute, parent);
+    return;
+  }
+
+  throw new BadRequestError("Conversation is not linked to an eligible dispute parent.");
+}
+
+export async function validateDisputeMessageIds(
+  ctx: QueryCtx,
+  input: {
+    messageIds: Id<"messages">[];
+    relatedSubmissionIds: Id<"workSubmissions">[];
+    parent: TResolvedDisputeParent;
+  },
+): Promise<Id<"messages">[]> {
+  const normalizedIds = input.messageIds.map((messageId) =>
+    normalizeRelatedRecordId(ctx, "messages", String(messageId)),
+  );
+
+  for (const messageId of normalizedIds) {
+    const message = await ctx.db.get(messageId);
+    if (!message || message.status !== "sent") {
+      throw new NotFoundError("Message not found or no longer available.");
+    }
+
+    const conversationId = normalizeRelatedRecordId(
+      ctx,
+      "conversations",
+      String(message.conversationId),
+    );
+    const conversation = await ctx.db.get(conversationId);
+    if (!conversation) {
+      throw new NotFoundError("Conversation not found.");
+    }
+    if (
+      message.conversationId !== conversation._id ||
+      message.parentType !== conversation.parentType ||
+      message.parentId !== conversation.parentId
+    ) {
+      throw new BadRequestError("Message and conversation parent links do not match.");
+    }
+
+    await assertDisputeConversationParent(ctx, {
+      conversation,
+      relatedSubmissionIds: input.relatedSubmissionIds,
+      parent: input.parent,
+    });
+    assertConversationIncludesParticipants(conversation, input.parent);
+
+    if (message.senderWallet !== "system") {
+      const senderWallet = normalizeWalletAddress(message.senderWallet);
+      const conversationParticipants = new Set(
+        conversation.participantWallets.map(normalizeWalletAddress),
+      );
+      if (!conversationParticipants.has(senderWallet)) {
+        throw new ForbiddenError("Message sender is not a conversation participant.");
+      }
+    }
+  }
+
+  return normalizedIds;
+}
+
+export async function validateDisputeDeadlineEventIds(
+  ctx: QueryCtx,
+  input: { deadlineEventIds: Id<"deadlineAuditEvents">[]; parent: TResolvedDisputeParent },
+): Promise<Id<"deadlineAuditEvents">[]> {
+  const normalizedIds = input.deadlineEventIds.map((eventId) =>
+    normalizeRelatedRecordId(ctx, "deadlineAuditEvents", String(eventId)),
+  );
+  const expectedParentType = input.parent.milestoneId !== undefined ? "milestone" : "micro_gig";
+  const expectedParentId = input.parent.milestoneId ?? requireResolvedJobId(input.parent);
+
+  for (const eventId of normalizedIds) {
+    const event = await ctx.db.get(eventId);
+    if (!event) {
+      throw new NotFoundError("Deadline event not found.");
+    }
+
+    if (event.parentType !== expectedParentType) {
+      throw new BadRequestError("Deadline event is linked to a different work parent.");
+    }
+
+    const eventParentId = normalizeParentId(
+      ctx,
+      expectedParentType === "milestone" ? "milestones" : "jobs",
+      event.parentId,
+    );
+    if (eventParentId !== expectedParentId) {
+      throw new BadRequestError("Deadline event is linked to a different work parent.");
+    }
+  }
+
+  return normalizedIds;
 }
 
 export async function createDisputeEvent(

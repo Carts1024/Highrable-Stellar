@@ -35,6 +35,10 @@ import {
   assertNoActiveSettlement,
   getAdminScope,
   getDisputeOrThrow,
+  normalizeOptionalSettlementTransactionHash,
+  normalizeSettlementOperationId,
+  normalizeSettlementTransactionHash,
+  requireSettlementExpiry,
   resolveFreelancerShareBps,
   sanitizeResolutionNote,
   type TAdminResolutionStatus,
@@ -88,6 +92,35 @@ function getEscrowTxHashField(txType: TEscrowTransactionType): "releaseTxHash" |
   return txType === "release_payment" ? "releaseTxHash" : "cancelTxHash";
 }
 
+const settlementResolutionStatusValidator = v.union(
+  v.literal(ADMIN_RESOLUTION_STATUSES[0]),
+  v.literal(ADMIN_RESOLUTION_STATUSES[1]),
+  v.literal(ADMIN_RESOLUTION_STATUSES[2]),
+);
+
+const settlementStartReturnValidator = v.object({
+  operationId: v.string(),
+  freelancerShareBps: v.number(),
+});
+
+const settlementSignedReturnValidator = v.object({
+  operationId: v.string(),
+  transactionHash: v.string(),
+});
+
+const settlementSubmissionUnknownReturnValidator = v.object({
+  status: v.union(v.literal("submission_unknown"), v.literal("succeeded"), v.literal("failed")),
+});
+
+const settlementSucceededReturnValidator = v.object({
+  status: settlementResolutionStatusValidator,
+  freelancerShareBps: v.number(),
+  freelancerPayoutAmount: v.number(),
+  clientRefundAmount: v.number(),
+  resolutionTxHash: v.string(),
+  resolutionStellarExpertUrl: v.string(),
+});
+
 function computeResolutionAmounts(
   totalAmount: number,
   freelancerShareBps: number,
@@ -130,7 +163,30 @@ async function notifyParticipants(
   });
 }
 
-async function assertDisputeCanResolve(ctx: MutationCtx, dispute: Doc<"disputes">) {
+type SettlementContext = {
+  dispute: Doc<"disputes">;
+  escrow: Doc<"escrows">;
+  network: string;
+  contractId: string;
+  onChainEscrowId: string;
+};
+
+function assertOptionalSettlementReference(
+  actual: string | undefined,
+  expected: string,
+  label: string,
+): void {
+  if (actual !== undefined && actual.trim() !== expected) {
+    throw new ConflictError(`${label} does not match the persisted settlement escrow.`);
+  }
+}
+
+async function getSettlementContext(
+  ctx: MutationCtx,
+  dispute: Doc<"disputes">,
+  attempt?: Doc<"settlementAttempts">,
+): Promise<SettlementContext> {
+  const scope = getAdminScope();
   if (!dispute.escrowId) {
     throw new BadRequestError("Dispute escrow context is missing.");
   }
@@ -139,12 +195,129 @@ async function assertDisputeCanResolve(ctx: MutationCtx, dispute: Doc<"disputes"
   if (!escrow) {
     throw new NotFoundError("Escrow not found for dispute.");
   }
-
-  if (escrow.status !== "disputed") {
-    throw new BadRequestError("Escrow must be disputed before settlement.");
+  const onChainEscrowId = escrow.escrowId.trim();
+  if (!onChainEscrowId) {
+    throw new ConflictError("The persisted escrow is missing its on-chain identity.");
   }
 
-  return escrow;
+  assertOptionalSettlementReference(dispute.onChainEscrowId, onChainEscrowId, "Dispute escrow ID");
+  assertOptionalSettlementReference(
+    dispute.escrowContractId,
+    scope.contractId,
+    "Dispute escrow contract ID",
+  );
+  if (dispute.jobId !== undefined && dispute.jobId !== escrow.jobId) {
+    throw new ConflictError("Dispute job does not match the persisted settlement escrow.");
+  }
+  if (dispute.milestoneId !== undefined && dispute.milestoneId !== escrow.milestoneId) {
+    throw new ConflictError("Dispute milestone does not match the persisted settlement escrow.");
+  }
+  if (
+    dispute.clientWallet.trim().toUpperCase() !== escrow.clientWallet.trim().toUpperCase() ||
+    dispute.freelancerWallet.trim().toUpperCase() !== escrow.freelancerWallet?.trim().toUpperCase()
+  ) {
+    throw new ConflictError("Dispute participants do not match the persisted settlement escrow.");
+  }
+
+  if (attempt) {
+    if (attempt.disputeId !== dispute._id || attempt.escrowDocumentId !== escrow._id) {
+      throw new ConflictError("Settlement attempt does not match the dispute escrow.");
+    }
+    if (attempt.network.trim().toLowerCase() !== scope.network) {
+      throw new ConflictError("Settlement attempt belongs to a different Stellar network.");
+    }
+    if (attempt.contractId.trim() !== scope.contractId) {
+      throw new ConflictError("Settlement attempt belongs to a different escrow contract.");
+    }
+    if (attempt.onChainEscrowId.trim() !== onChainEscrowId) {
+      throw new ConflictError("Settlement attempt does not match the persisted escrow ID.");
+    }
+    if (
+      resolveFreelancerShareBps(attempt.resolutionStatus, attempt.freelancerShareBps) !==
+      attempt.freelancerShareBps
+    ) {
+      throw new ConflictError("Settlement attempt contains conflicting resolution terms.");
+    }
+    if (attempt.transactionHash !== undefined) {
+      normalizeSettlementTransactionHash(attempt.transactionHash);
+    }
+    if (attempt.transactionValidUntil !== undefined) {
+      requireSettlementExpiry(attempt.transactionValidUntil);
+    }
+    if (attempt.transactionId) {
+      const transaction = await ctx.db.get(attempt.transactionId);
+      if (!transaction) {
+        throw new NotFoundError("Settlement transaction record not found.");
+      }
+      if (
+        transaction.clientRequestId !== undefined &&
+        transaction.clientRequestId.trim() !== attempt.operationId.trim()
+      ) {
+        throw new ConflictError("Settlement transaction does not match the operation ID.");
+      }
+      if (transaction.type !== "resolve_dispute") {
+        throw new ConflictError("Settlement transaction has the wrong transaction type.");
+      }
+      if (
+        transaction.network !== undefined &&
+        transaction.network.trim().toLowerCase() !== scope.network
+      ) {
+        throw new ConflictError("Settlement transaction belongs to a different Stellar network.");
+      }
+      if (
+        transaction.walletAddress.trim().toUpperCase() !== attempt.actorWallet.trim().toUpperCase()
+      ) {
+        throw new ConflictError("Settlement transaction actor does not match the attempt.");
+      }
+      if (
+        transaction.sourceAccount !== undefined &&
+        transaction.sourceAccount.trim().toUpperCase() !== attempt.actorWallet.trim().toUpperCase()
+      ) {
+        throw new ConflictError("Settlement transaction actor does not match the attempt.");
+      }
+      if (transaction.escrowId !== undefined && transaction.escrowId.trim() !== onChainEscrowId) {
+        throw new ConflictError("Settlement transaction does not match the escrow ID.");
+      }
+      if (
+        transaction.onChainEscrowId !== undefined &&
+        transaction.onChainEscrowId.trim() !== onChainEscrowId
+      ) {
+        throw new ConflictError("Settlement transaction does not match the escrow ID.");
+      }
+    }
+  }
+
+  return {
+    dispute,
+    escrow,
+    network: scope.network,
+    contractId: scope.contractId,
+    onChainEscrowId,
+  };
+}
+
+function assertActiveSettlementContext(context: SettlementContext): void {
+  assertDisputeCanEnterReviewFlow(context.dispute.status);
+  if (context.escrow.status !== "disputed") {
+    throw new BadRequestError("Escrow must be disputed before settlement.");
+  }
+}
+
+function assertSettlementAttemptAccess(
+  actingWallet: string,
+  attempt: Doc<"settlementAttempts">,
+  dispute: Doc<"disputes">,
+): void {
+  assertDisputeActorIsNotParticipant(attempt.actorWallet, dispute);
+  if (isConfiguredAdminWallet(actingWallet)) {
+    assertDisputeActorIsNotParticipant(actingWallet, dispute);
+    return;
+  }
+
+  assertAssignedDisputeAdmin(actingWallet, dispute);
+  if (attempt.actorWallet.trim().toUpperCase() !== actingWallet.trim().toUpperCase()) {
+    throw new ForbiddenError("Only the initiating admin can update this settlement attempt.");
+  }
 }
 
 function isActiveSettlementStatus(status: string): boolean {
@@ -723,32 +896,37 @@ export const recordDisputeResolutionStarted = mutation({
     resolutionNote: v.optional(v.string()),
     adminWalletType: v.optional(walletTypeValidator),
   },
+  returns: settlementStartReturnValidator,
   handler: async (ctx, args) => {
     const adminWallet = await assertDisputeAdminContext(ctx, args);
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
     assertAssignedDisputeAdmin(adminWallet, dispute);
-    assertDisputeCanEnterReviewFlow(dispute.status);
-    const escrow = await assertDisputeCanResolve(ctx, dispute);
+    const context = await getSettlementContext(ctx, dispute);
+    assertActiveSettlementContext(context);
 
     const resolutionStatus: TAdminResolutionStatus = args.status;
     const freelancerShareBps = resolveFreelancerShareBps(resolutionStatus, args.freelancerShareBps);
     const resolutionNote = sanitizeResolutionNote(args.resolutionNote);
-    const operationId = optionalNonEmptyString(args.operationId, "operationId")!;
+    const operationId = normalizeSettlementOperationId(args.operationId);
     const existingAttempt = await ctx.db
       .query("settlementAttempts")
       .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
       .unique();
     if (existingAttempt) {
+      await getSettlementContext(ctx, dispute, existingAttempt);
       if (
         existingAttempt.disputeId !== dispute._id ||
-        existingAttempt.actorWallet !== adminWallet ||
+        existingAttempt.actorWallet.trim().toUpperCase() !== adminWallet ||
         existingAttempt.freelancerShareBps !== freelancerShareBps ||
         existingAttempt.resolutionStatus !== resolutionStatus ||
         existingAttempt.resolutionNote !== resolutionNote
       ) {
         throw new ConflictError("Settlement operation ID is already bound to a different attempt.");
       }
-      return { operationId: existingAttempt.operationId, freelancerShareBps };
+      if (existingAttempt.status === "failed") {
+        throw new ConflictError("Failed settlement attempts require a new operation ID.");
+      }
+      return { operationId, freelancerShareBps };
     }
 
     const activeAttempts = await Promise.all(
@@ -756,16 +934,20 @@ export const recordDisputeResolutionStarted = mutation({
         ctx.db
           .query("settlementAttempts")
           .withIndex("by_escrow_status", (q) =>
-            q.eq("escrowDocumentId", escrow._id).eq("status", status),
+            q.eq("escrowDocumentId", context.escrow._id).eq("status", status),
           )
           .first(),
       ),
+    );
+    await Promise.all(
+      activeAttempts
+        .filter((attempt): attempt is Doc<"settlementAttempts"> => attempt !== null)
+        .map((attempt) => getSettlementContext(ctx, dispute, attempt)),
     );
     if (activeAttempts.some(Boolean)) {
       throw new ConflictError("A settlement attempt is already pending for this escrow.");
     }
 
-    const scope = getAdminScope();
     const now = Date.now();
     const transactionId = await ctx.db.insert("transactions", {
       walletAddress: adminWallet,
@@ -773,20 +955,21 @@ export const recordDisputeResolutionStarted = mutation({
       type: "resolve_dispute",
       status: "pending",
       clientRequestId: operationId,
-      escrowId: dispute.onChainEscrowId ?? escrow.escrowId,
-      onChainEscrowId: dispute.onChainEscrowId ?? escrow.escrowId,
+      escrowId: context.onChainEscrowId,
+      onChainEscrowId: context.onChainEscrowId,
       ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
       ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
-      network: scope.network,
+      network: context.network,
       sourceAccount: adminWallet,
       createdAt: now,
       updatedAt: now,
     });
     await ctx.db.insert("settlementAttempts", {
       disputeId: dispute._id,
-      escrowDocumentId: escrow._id,
-      onChainEscrowId: dispute.onChainEscrowId ?? escrow.escrowId,
-      ...scope,
+      escrowDocumentId: context.escrow._id,
+      onChainEscrowId: context.onChainEscrowId,
+      network: context.network,
+      contractId: context.contractId,
       actorWallet: adminWallet,
       status: "started",
       resolutionStatus,
@@ -808,6 +991,7 @@ export const recordDisputeResolutionStarted = mutation({
         `Dispute resolution started with ${resolutionStatus.replaceAll("_", " ")} (${freelancerShareBps} bps freelancer share).`,
       ),
       metadata: {
+        operationId,
         resolutionStatus,
         freelancerShareBps,
         ...(resolutionNote !== undefined ? { resolutionNote } : {}),
@@ -839,9 +1023,12 @@ export const recordDisputeResolutionSucceeded = mutation({
     transactionHash: v.string(),
     transactionValidUntil: v.number(),
   },
+  returns: settlementSucceededReturnValidator,
   handler: async (ctx, args) => {
     const actingWallet = await assertDisputeAdminContext(ctx, args);
-    const operationId = optionalNonEmptyString(args.operationId, "operationId")!;
+    const operationId = normalizeSettlementOperationId(args.operationId);
+    const txHash = normalizeSettlementTransactionHash(args.transactionHash);
+    const transactionValidUntil = requireSettlementExpiry(args.transactionValidUntil);
     const attempt = await ctx.db
       .query("settlementAttempts")
       .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
@@ -849,57 +1036,53 @@ export const recordDisputeResolutionSucceeded = mutation({
     if (!attempt) {
       throw new NotFoundError("Settlement attempt not found.");
     }
-    const txHash = optionalNonEmptyString(args.transactionHash, "transactionHash")!;
-    if (attempt.transactionValidUntil !== args.transactionValidUntil) {
-      throw new ConflictError("Settlement expiry does not match the persisted signed operation.");
-    }
-    if (attempt.status === "succeeded") {
-      if (attempt.transactionHash !== txHash) {
-        throw new ConflictError(
-          "A later callback cannot replace the confirmed settlement transaction.",
-        );
-      }
-      return {
-        status: attempt.resolutionStatus,
-        freelancerShareBps: attempt.freelancerShareBps,
-        resolutionTxHash: txHash,
-      };
-    }
+    const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
+    const context = await getSettlementContext(ctx, dispute, attempt);
+    assertSettlementAttemptAccess(actingWallet, attempt, dispute);
+
     if (attempt.status === "failed") {
       throw new ConflictError("A definitively failed settlement attempt cannot be completed.");
     }
-    if (!attempt.transactionHash || attempt.transactionHash !== txHash) {
+    if (!attempt.transactionHash || attempt.transactionValidUntil === undefined) {
+      throw new ConflictError(
+        "Settlement requires the persisted signed transaction hash and expiry.",
+      );
+    }
+    const persistedHash = normalizeSettlementTransactionHash(attempt.transactionHash);
+    const persistedExpiry = requireSettlementExpiry(attempt.transactionValidUntil);
+    if (persistedExpiry !== transactionValidUntil) {
+      throw new ConflictError("Settlement expiry does not match the persisted signed operation.");
+    }
+    if (persistedHash !== txHash) {
       throw new ConflictError(
         "Settlement transaction does not match the persisted signed operation.",
       );
     }
 
-    const isOwner = isConfiguredAdminWallet(actingWallet);
-    const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
-    if (!isOwner) {
-      assertAssignedDisputeAdmin(actingWallet, dispute);
-      if (attempt.actorWallet !== actingWallet) {
-        throw new ForbiddenError("Only the assigned actor may complete this settlement attempt.");
-      }
+    if (attempt.status === "succeeded") {
+      const amounts = computeResolutionAmounts(context.escrow.amount, attempt.freelancerShareBps);
+      return {
+        status: attempt.resolutionStatus,
+        freelancerShareBps: attempt.freelancerShareBps,
+        freelancerPayoutAmount: amounts.freelancerPayoutAmount,
+        clientRefundAmount: amounts.clientRefundAmount,
+        resolutionTxHash: persistedHash,
+        resolutionStellarExpertUrl: getStellarExpertUrl(persistedHash),
+      };
     }
-    assertDisputeActorIsNotParticipant(attempt.actorWallet, dispute);
-    assertDisputeCanEnterReviewFlow(dispute.status);
 
-    const escrow = await assertDisputeCanResolve(ctx, dispute);
-    if (escrow._id !== attempt.escrowDocumentId) {
-      throw new ConflictError("Settlement attempt escrow no longer matches the dispute.");
-    }
+    assertActiveSettlementContext(context);
     const resolutionStatus = attempt.resolutionStatus;
     const freelancerShareBps = attempt.freelancerShareBps;
     const resolutionNote = attempt.resolutionNote;
-    const settlementUrl = getStellarExpertUrl(txHash);
-    const amounts = computeResolutionAmounts(escrow.amount, freelancerShareBps);
+    const settlementUrl = getStellarExpertUrl(persistedHash);
+    const amounts = computeResolutionAmounts(context.escrow.amount, freelancerShareBps);
     const now = Date.now();
 
     await patchEscrowAndParentForResolution({
       ctx,
       dispute,
-      escrow,
+      escrow: context.escrow,
       status: resolutionStatus,
       transactionHash: txHash,
       now,
@@ -919,6 +1102,7 @@ export const recordDisputeResolutionSucceeded = mutation({
       metadata: mergeMetadata(dispute.metadata, {
         resolution: {
           phase: "succeeded",
+          operationId,
           status: resolutionStatus,
           settledAt: now,
           freelancerShareBps,
@@ -942,6 +1126,7 @@ export const recordDisputeResolutionSucceeded = mutation({
       newStatus: resolutionStatus,
       transactionHash: txHash,
       metadata: {
+        operationId,
         freelancerShareBps,
         freelancerPayoutAmount: amounts.freelancerPayoutAmount,
         clientRefundAmount: amounts.clientRefundAmount,
@@ -962,6 +1147,7 @@ export const recordDisputeResolutionSucceeded = mutation({
       "Dispute resolved",
       `Highrable review team resolved this dispute as ${resolutionStatus.replaceAll("_", " ")}.`,
       {
+        operationId,
         freelancerShareBps,
         freelancerPayoutAmount: amounts.freelancerPayoutAmount,
         clientRefundAmount: amounts.clientRefundAmount,
@@ -1005,10 +1191,12 @@ export const recordDisputeResolutionSigned = mutation({
     transactionHash: v.string(),
     transactionValidUntil: v.number(),
   },
+  returns: settlementSignedReturnValidator,
   handler: async (ctx, args) => {
     const adminWallet = await assertDisputeAdminContext(ctx, args);
-    const operationId = optionalNonEmptyString(args.operationId, "operationId")!;
-    const transactionHash = optionalNonEmptyString(args.transactionHash, "transactionHash")!;
+    const operationId = normalizeSettlementOperationId(args.operationId);
+    const transactionHash = normalizeSettlementTransactionHash(args.transactionHash);
+    const transactionValidUntil = requireSettlementExpiry(args.transactionValidUntil);
     const attempt = await ctx.db
       .query("settlementAttempts")
       .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
@@ -1016,35 +1204,43 @@ export const recordDisputeResolutionSigned = mutation({
     if (!attempt) {
       throw new NotFoundError("Settlement attempt not found.");
     }
-    if (attempt.actorWallet !== adminWallet) {
-      throw new ForbiddenError("Only the initiating admin can persist this signed transaction.");
-    }
     const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
+    const context = await getSettlementContext(ctx, dispute, attempt);
+    assertDisputeActorIsNotParticipant(adminWallet, dispute);
     assertAssignedDisputeAdmin(adminWallet, dispute);
-    if (attempt.status === "succeeded") {
-      if (attempt.transactionHash !== transactionHash) {
-        throw new ConflictError("Settlement already succeeded with a different transaction.");
-      }
-      return { operationId, transactionHash };
+    if (attempt.actorWallet.trim().toUpperCase() !== adminWallet) {
+      throw new ForbiddenError("Only the initiating admin can persist this signed transaction.");
     }
     if (attempt.status === "failed") {
       throw new ConflictError("A failed settlement attempt cannot accept a transaction hash.");
     }
-    if (attempt.transactionHash && attempt.transactionHash !== transactionHash) {
-      throw new ConflictError("Settlement transaction identity is already fixed.");
+    if (attempt.transactionHash !== undefined) {
+      const persistedHash = normalizeSettlementTransactionHash(attempt.transactionHash);
+      if (persistedHash !== transactionHash) {
+        throw new ConflictError("Settlement transaction identity is already fixed.");
+      }
+      if (attempt.transactionValidUntil === undefined) {
+        throw new ConflictError(
+          "Settlement transaction expiry is missing from the persisted operation.",
+        );
+      }
+      if (requireSettlementExpiry(attempt.transactionValidUntil) !== transactionValidUntil) {
+        throw new ConflictError("Settlement transaction expiry is already fixed.");
+      }
+      return { operationId, transactionHash: persistedHash };
     }
-    if (
-      attempt.transactionValidUntil !== undefined &&
-      attempt.transactionValidUntil !== args.transactionValidUntil
-    ) {
-      throw new ConflictError("Settlement transaction expiry is already fixed.");
+    if (attempt.status === "submission_unknown") {
+      throw new ConflictError(
+        "An uncertain settlement must retain its persisted transaction identity.",
+      );
     }
+    assertActiveSettlementContext(context);
 
     const now = Date.now();
     await ctx.db.patch(attempt._id, {
       status: "signed",
       transactionHash,
-      transactionValidUntil: args.transactionValidUntil,
+      transactionValidUntil,
       updatedAt: now,
       errorMessage: undefined,
     });
@@ -1066,31 +1262,49 @@ export const recordDisputeResolutionSubmissionUnknown = mutation({
     operationId: v.string(),
     errorMessage: v.optional(v.string()),
   },
+  returns: settlementSubmissionUnknownReturnValidator,
   handler: async (ctx, args) => {
     const adminWallet = await assertDisputeAdminContext(ctx, args);
+    const operationId = normalizeSettlementOperationId(args.operationId);
+    const errorMessage =
+      args.errorMessage === undefined
+        ? undefined
+        : optionalNonEmptyString(args.errorMessage, "errorMessage");
     const attempt = await ctx.db
       .query("settlementAttempts")
-      .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+      .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
       .unique();
     if (!attempt) {
       throw new NotFoundError("Settlement attempt not found.");
     }
-    const ownerRecovery = isConfiguredAdminWallet(adminWallet);
-    if (!ownerRecovery) {
-      const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
-      assertAssignedDisputeAdmin(adminWallet, dispute);
-      if (attempt.actorWallet !== adminWallet) {
-        throw new ForbiddenError("Only the initiating admin can update this settlement attempt.");
+    const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
+    const context = await getSettlementContext(ctx, dispute, attempt);
+    assertSettlementAttemptAccess(adminWallet, attempt, dispute);
+    if (attempt.status === "succeeded") {
+      return { status: "succeeded" as const };
+    }
+    if (attempt.status === "failed") {
+      return { status: "failed" as const };
+    }
+    if (attempt.status === "submission_unknown") {
+      if (!attempt.transactionHash || attempt.transactionValidUntil === undefined) {
+        throw new ConflictError(
+          "An unknown submission requires a persisted transaction hash and expiry.",
+        );
       }
+      normalizeSettlementTransactionHash(attempt.transactionHash);
+      requireSettlementExpiry(attempt.transactionValidUntil);
+      return { status: "submission_unknown" as const };
     }
-    if (["succeeded", "failed"].includes(attempt.status)) {
-      return { status: attempt.status };
+    assertActiveSettlementContext(context);
+    if (!attempt.transactionHash || attempt.transactionValidUntil === undefined) {
+      throw new ConflictError(
+        "An unknown submission requires a persisted transaction hash and expiry.",
+      );
     }
-    if (!attempt.transactionHash) {
-      throw new ConflictError("An unknown submission requires a persisted transaction hash.");
-    }
+    normalizeSettlementTransactionHash(attempt.transactionHash);
+    requireSettlementExpiry(attempt.transactionValidUntil);
     const now = Date.now();
-    const errorMessage = optionalNonEmptyString(args.errorMessage, "errorMessage");
     await ctx.db.patch(attempt._id, {
       status: "submission_unknown",
       ...(errorMessage ? { errorMessage: sanitizeDisputeMessage(errorMessage) } : {}),
@@ -1115,21 +1329,31 @@ export const recordDisputeResolutionFailed = mutation({
     errorMessage: v.string(),
     transactionHash: v.optional(v.string()),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const adminWallet = await assertDisputeAdminContext(ctx, args);
+    const operationId = normalizeSettlementOperationId(args.operationId);
+    const transactionHash = normalizeOptionalSettlementTransactionHash(args.transactionHash);
+    const errorMessage = sanitizeDisputeMessage(args.errorMessage);
     const attempt = await ctx.db
       .query("settlementAttempts")
-      .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+      .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
       .unique();
     if (!attempt) {
       throw new NotFoundError("Settlement attempt not found.");
     }
-    if (!isConfiguredAdminWallet(adminWallet)) {
-      const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
-      assertAssignedDisputeAdmin(adminWallet, dispute);
-      if (attempt.actorWallet !== adminWallet) {
-        throw new ForbiddenError("Only the initiating admin can fail this settlement attempt.");
-      }
+    const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
+    const context = await getSettlementContext(ctx, dispute, attempt);
+    assertSettlementAttemptAccess(adminWallet, attempt, dispute);
+    const persistedHash = attempt.transactionHash
+      ? normalizeSettlementTransactionHash(attempt.transactionHash)
+      : undefined;
+    if (
+      persistedHash !== undefined &&
+      transactionHash !== undefined &&
+      persistedHash !== transactionHash
+    ) {
+      throw new ConflictError("Signed submissions must be reconciled with Stellar before release.");
     }
     if (attempt.status === "succeeded") {
       return true;
@@ -1137,11 +1361,25 @@ export const recordDisputeResolutionFailed = mutation({
     if (attempt.status === "failed") {
       return true;
     }
-    if (attempt.transactionHash && attempt.transactionHash !== args.transactionHash) {
-      throw new ConflictError("Signed submissions must be reconciled with Stellar before release.");
+    assertActiveSettlementContext(context);
+    if (persistedHash === undefined && transactionHash !== undefined) {
+      throw new ConflictError("A failure hash requires a previously persisted signed transaction.");
+    }
+    if (persistedHash !== undefined) {
+      if (transactionHash === undefined) {
+        throw new ConflictError(
+          "Signed submissions must be reconciled with Stellar before release.",
+        );
+      }
+      if (attempt.transactionValidUntil === undefined) {
+        throw new ConflictError(
+          "Signed settlement attempts require a persisted transaction expiry.",
+        );
+      }
+      requireSettlementExpiry(attempt.transactionValidUntil);
     }
 
-    const errorMessage = sanitizeDisputeMessage(args.errorMessage);
+    const knownHash = persistedHash;
     const now = Date.now();
 
     await ctx.db.patch(attempt._id, {
@@ -1150,12 +1388,12 @@ export const recordDisputeResolutionFailed = mutation({
       updatedAt: now,
       completedAt: now,
     });
-    const dispute = await getDisputeOrThrow(ctx, attempt.disputeId);
     await ctx.db.patch(dispute._id, { updatedAt: now });
     if (attempt.transactionId) {
       await ctx.db.patch(attempt.transactionId, {
         status: "failed",
         errorMessage,
+        ...(knownHash !== undefined ? { txHash: knownHash, transactionHash: knownHash } : {}),
         updatedAt: now,
       });
     }
@@ -1166,10 +1404,12 @@ export const recordDisputeResolutionFailed = mutation({
       actorWalletType: DEFAULT_ADMIN_WALLET_TYPE,
       actorRole: "moderator",
       message: sanitizeDisputeMessage(`Resolution attempt failed: ${errorMessage}`),
+      ...(knownHash !== undefined ? { transactionHash: knownHash } : {}),
       metadata: {
-        operationId: attempt.operationId,
+        operationId,
         resolutionStatus: attempt.resolutionStatus,
         freelancerShareBps: attempt.freelancerShareBps,
+        ...(knownHash !== undefined ? { transactionHash: knownHash } : {}),
       },
     });
 

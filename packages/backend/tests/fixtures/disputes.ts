@@ -30,6 +30,15 @@ export type DisputeFixture = {
   unrelatedWallet: string;
 };
 
+export type DisputeReferenceFixture = {
+  attachmentId: Id<"attachments">;
+  conversationId: Id<"conversations">;
+  deadlineEventId: Id<"deadlineAuditEvents">;
+  messageId: Id<"messages">;
+  revisionRequestId: Id<"revisionRequests">;
+  submissionId: Id<"workSubmissions">;
+};
+
 export type DisputeFields = Omit<Doc<"disputes">, "_id" | "_creationTime">;
 export type DisputeEventFields = Omit<Doc<"disputeEvents">, "_id" | "_creationTime">;
 
@@ -146,6 +155,183 @@ export async function seedDisputeFixture(
   });
 }
 
+export async function seedDisputeReferences(
+  t: BackendTest,
+  fixture: DisputeFixture,
+): Promise<DisputeReferenceFixture> {
+  const createdAt = 1_768_480_800_500;
+
+  return await t.run(async (ctx) => {
+    const escrow = await ctx.db.get(fixture.escrowId);
+    if (!escrow) {
+      throw new Error("Dispute fixture escrow is missing.");
+    }
+
+    const attachmentId = await ctx.db.insert("attachments", {
+      type: "file",
+      name: "dispute-evidence.txt",
+      size: 10,
+      mimeType: "text/plain",
+      uploadedByWallet: fixture.clientWallet,
+      uploadedByWalletType: "external_wallet",
+      ownerRole: "client",
+      parentType: "unknown",
+      visibility: "private",
+      status: "active",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const submissionId = await ctx.db.insert("workSubmissions", {
+      parentType: fixture.parentType,
+      parentId: fixture.parentId,
+      jobId: fixture.jobId,
+      ...(fixture.milestoneId !== undefined ? { milestoneId: fixture.milestoneId } : {}),
+      escrowId: fixture.escrowId,
+      onChainEscrowId: escrow.escrowId,
+      clientWallet: fixture.clientWallet,
+      freelancerWallet: fixture.freelancerWallet,
+      freelancerWalletType: "external_wallet",
+      submittedByWallet: fixture.freelancerWallet,
+      submittedByWalletType: "external_wallet",
+      notes: "Submitted dispute fixture proof.",
+      attachmentIds: [],
+      proofHash: "a".repeat(64),
+      hashAlgorithm: "sha256",
+      hashEncoding: "hex",
+      proofVersion: "v1",
+      status: "submitted",
+      onChainStatus: "not_submitted",
+      submittedAt: createdAt,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const revisionRequestId = await ctx.db.insert("revisionRequests", {
+      parentType: fixture.parentType,
+      parentId: fixture.parentId,
+      jobId: fixture.jobId,
+      ...(fixture.milestoneId !== undefined ? { milestoneId: fixture.milestoneId } : {}),
+      escrowId: fixture.escrowId,
+      workSubmissionId: submissionId,
+      clientWallet: fixture.clientWallet,
+      freelancerWallet: fixture.freelancerWallet,
+      requestedByWallet: fixture.clientWallet,
+      requestedByWalletType: "external_wallet",
+      revisionNumber: 1,
+      reason: "Fixture revision reason.",
+      requestedChanges: "Fixture revision changes.",
+      attachmentIds: [],
+      status: "requested",
+      requestedAt: createdAt,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const conversationParentType = fixture.parentType === "milestone" ? "milestone" : "escrow";
+    const conversationParentId =
+      fixture.parentType === "milestone" ? fixture.milestoneId! : fixture.escrowId;
+    const conversationId = await ctx.db.insert("conversations", {
+      parentType: conversationParentType,
+      parentId: conversationParentId,
+      jobId: fixture.jobId,
+      ...(fixture.milestoneId !== undefined ? { milestoneId: fixture.milestoneId } : {}),
+      escrowId: fixture.escrowId,
+      participantWallets: [fixture.clientWallet, fixture.freelancerWallet],
+      participantWalletTypes: [
+        { walletAddress: fixture.clientWallet, walletType: "external_wallet" },
+        { walletAddress: fixture.freelancerWallet, walletType: "external_wallet" },
+      ],
+      clientWallet: fixture.clientWallet,
+      freelancerWallet: fixture.freelancerWallet,
+      title: "Dispute reference fixture conversation",
+      status: "active",
+      createdByWallet: fixture.clientWallet,
+      createdByWalletType: "external_wallet",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const messageId = await ctx.db.insert("messages", {
+      conversationId,
+      parentType: conversationParentType,
+      parentId: conversationParentId,
+      senderWallet: fixture.clientWallet,
+      senderWalletType: "external_wallet",
+      senderRole: "client",
+      kind: "user",
+      body: "Fixture message for dispute evidence.",
+      attachmentIds: [],
+      status: "sent",
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const deadlineEventId = await ctx.db.insert("deadlineAuditEvents", {
+      parentType: fixture.parentType,
+      parentId: fixture.parentId,
+      newDeadlineAt: createdAt + 86_400_000,
+      changedByWallet: fixture.clientWallet,
+      changedByWalletType: "external_wallet",
+      createdAt,
+    });
+
+    return {
+      attachmentId,
+      conversationId,
+      deadlineEventId,
+      messageId,
+      revisionRequestId,
+      submissionId,
+    };
+  });
+}
+
+export async function seedAcceptedDisputeAgreement(
+  t: BackendTest,
+  fixture: DisputeFixture,
+): Promise<Id<"workAgreements">> {
+  const createdAt = 1_768_480_800_750;
+
+  return await t.run(async (ctx) => {
+    const escrow = await ctx.db.get(fixture.escrowId);
+    if (!escrow) {
+      throw new Error("Dispute fixture escrow is missing.");
+    }
+
+    return await ctx.db.insert("workAgreements", {
+      agreementNumber: `AGR-C09-${fixture.parentType}-${fixture.escrowStatus}`,
+      jobId: fixture.jobId,
+      ...(fixture.parentType === "micro_gig" ? { microGigId: fixture.jobId } : {}),
+      ...(fixture.milestoneId !== undefined ? { milestoneId: fixture.milestoneId } : {}),
+      escrowId: fixture.escrowId,
+      onChainEscrowId: escrow.escrowId,
+      clientWallet: fixture.clientWallet,
+      clientWalletType: "external_wallet",
+      freelancerWallet: fixture.freelancerWallet,
+      freelancerWalletType: "external_wallet",
+      agreementType: "highrable_generated",
+      status: "accepted",
+      title: "C09 accepted agreement",
+      version: 1,
+      contentMarkdown: "# C09 Agreement",
+      acceptedByFreelancerAt: createdAt,
+      acceptedByFreelancerWallet: fixture.freelancerWallet,
+      acceptedByFreelancerWalletType: "external_wallet",
+      clientConfirmedAt: createdAt,
+      paymentAmount: 500,
+      paymentAssetContractId: "USDC",
+      paymentAssetSymbol: "USDC",
+      paymentAssetDecimals: 6,
+      contentProtectionEnabled: true,
+      createdByWallet: fixture.clientWallet,
+      createdByWalletType: "external_wallet",
+      createdAt,
+      updatedAt: createdAt,
+    });
+  });
+}
+
 export function makeDisputeFields(
   fixture: DisputeFixture,
   overrides: Partial<DisputeFields> = {},
@@ -202,4 +388,19 @@ export async function countRecords(
   table: "disputes" | "disputeEvents",
 ): Promise<number> {
   return await t.run(async (ctx) => (await ctx.db.query(table).collect()).length);
+}
+
+export async function assignDisputeFixture(
+  t: BackendTest,
+  disputeId: Id<"disputes">,
+  adminWallet: string,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    await ctx.db.patch(disputeId, {
+      assignedAdminWallet: adminWallet,
+      assignedAt: Date.now(),
+      assignedByWallet: adminWallet,
+      updatedAt: Date.now(),
+    });
+  });
 }

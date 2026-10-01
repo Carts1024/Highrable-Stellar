@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 source_of_truth: repository
 ---
 
@@ -12,9 +12,16 @@ source_of_truth: repository
 
 - Completed C18 administrator settlement execution and recovery hardening: phase-aware Stellar execution, typed resolve outcomes, case/wallet-scoped settlement coordination, signed-hash preservation, manual status-only reconciliation, pending/failed presentation, explorer-linked progress, and read-only retry after post-settlement detail refresh failures.
 - Completed C14 frontend administrator-resolution hardening: strict text-preserving bps validation, accessible inline errors, four-status settlement eligibility, external-wallet/session/network and escrow-context guards, active-attempt blocking with recovery retained, case-switch draft resets, and regression coverage. The membership-enabled contract behavior remains undeployed.
+- Completed C17 administrator settlement-record hardening. All five settlement callbacks now validate integer basis points, normalized operation IDs, 64-hex hashes, positive safe expiries, non-empty failure messages, scoped capability/assignment/attempt ownership, and persisted escrow/contract/terms before writes or replay returns. Signed and uncertain phases preserve their first identity/error, success bookkeeping is atomic and replay-safe, failures preserve known hashes and first details, and existing event types/schema/public arguments remain unchanged.
+- Added 14 deterministic `convex-test` cases for micro-gigs and milestones, all resolution mappings, malformed/conflicting records, assignment/scope/participant authorization, duplicate/competing callbacks, uncertainty recovery, terminal guards, atomic parent/escrow/transaction updates, and side-effect idempotency. Backend suite now passes 81 tests. Whole-unit payout truncation remains documented as a token-precision follow-up.
+
+- Completed C13 idempotent dispute chain-phase hardening. `markDisputeOnChainStarted`, `Succeeded`, and `Failed` now guard legal transitions, preserve the first known transaction hash and failure history, clear only the current mark error on accepted retry/success, and suppress duplicate events, messages, notifications, and timestamp writes. Frozen arguments, boolean returns, schema values, event types, authorization boundary, and parent/transaction orchestration remain unchanged.
+- Added 18 deterministic Convex tests for micro-gigs and milestones covering success/failure/retry paths, duplicate callbacks, late/stale/conflicting hashes, known-hash reconciliation guards, blank/missing inputs, terminal review states, client/freelancer/configured-admin/unrelated-wallet authorization, both wallet types, and rejected-record preservation. The focused C13 suite passes 18/18; the full backend run passes 64 tests and retains three pre-existing admin assignment/configuration failures outside C13.
+- Implemented C16 versioned Soroban events for successful dispute marking and resolution. The escrow event handoff records exact topics and named payload fields; the resolution hash is emitted but not persisted. Focused escrow tests and the full contracts workspace pass, and both WASM contracts build. Existing deployments lack the events; no indexer or backend ingestion was added, and reputation events remain absent.
 
 ## 2026-09-29
 
+- Completed C09 dispute creation hardening: typed and deduplicated related-record validation now covers submissions, revisions and their referenced submissions, messages/conversations, exact deadline parents, and active caller-owned evidence before agreement-version or dispute writes. Opening remains atomic with canonical participants, one deduplicated `dispute_opened` audit event, agreement context, notification, and best-effort system messages. Added deterministic coverage for aliases, legacy links, shared job conversations, previous disputes, invalid/conflicting references, count boundaries, evidence reassignment, and rollback; backend tests pass 49/49.
 - Added C12 escrow settlement invariants for full refund, full payout, and rounded split from both funded and submitted dispute states, including full-record and balance-conservation assertions.
 - Completed C10 admin review-control hardening: loaded status initialization (`open` maps to `under_review`), validated three-target selection, centralized assigned-admin/nonparticipant/nonterminal UI eligibility, pending duplicate protection, associated review-message labeling, queue-cache invalidation across filters, detail/timeline refresh, rejected-write draft preservation, and read-only retry after successful-write refresh. Focused admin Vitest coverage passes 37 tests; review controls do not invoke Stellar execution.
 - Documented owner-managed dispute-admin membership, scoped capabilities, claim/assignment rules, signed settlement recovery, and the fresh isolated deployment requirement. The new contract behavior remains undeployed.
