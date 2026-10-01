@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
 import { modules } from "../convexModules";
 import {
+  assignDisputeFixture,
   type BackendTest,
   makeDisputeEventFields,
   makeDisputeFields,
@@ -152,6 +153,7 @@ describe("dispute index contracts", () => {
       milestoneFixture,
       milestoneFixture.freelancerWallet,
     );
+    await assignDisputeFixture(t, microDisputeId, TEST_WALLETS.admin);
 
     const clientDisputes = await t.query(api.disputes.getDisputesForWallet, {
       walletAddress: TEST_WALLETS.client,

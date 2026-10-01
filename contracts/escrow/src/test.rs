@@ -2,15 +2,77 @@
 
 extern crate std;
 
-use super::{Error, EscrowContract, EscrowContractClient, TEscrow, TEscrowStatus};
+use super::{
+    DisputeMarkedEvent, DisputeResolvedEvent, Error, EscrowContract, EscrowContractClient, TEscrow,
+    TEscrowStatus,
+};
 use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
 use soroban_sdk::{
+    contract, contractimpl, contracttype,
     testutils::{
-        Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger, MockAuth, MockAuthInvoke,
+        Address as _, AuthorizedFunction, AuthorizedInvocation, Events as _, Ledger, MockAuth,
+        MockAuthInvoke,
     },
-    token, Address, BytesN, Env, IntoVal, InvokeError, Symbol,
+    token, Address, BytesN, Env, IntoVal, InvokeError, Symbol, TryIntoVal, Val,
 };
 use std::boxed::Box;
+
+#[derive(Clone)]
+#[contracttype]
+enum FailingTokenKey {
+    Balance(Address),
+    FailRecipient,
+}
+
+#[contract]
+struct FailingToken;
+
+#[contractimpl]
+impl FailingToken {
+    pub fn balance(env: Env, owner: Address) -> i128 {
+        env.storage()
+            .persistent()
+            .get(&FailingTokenKey::Balance(owner))
+            .unwrap_or(0)
+    }
+
+    pub fn mint(env: Env, owner: Address, amount: i128) {
+        let key = FailingTokenKey::Balance(owner);
+        let balance = env.storage().persistent().get(&key).unwrap_or(0i128);
+        env.storage().persistent().set(&key, &(balance + amount));
+    }
+
+    pub fn fail_for_recipient(env: Env, recipient: Address) {
+        env.storage()
+            .instance()
+            .set(&FailingTokenKey::FailRecipient, &recipient);
+    }
+
+    pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
+        let fail_recipient: Option<Address> = env
+            .storage()
+            .instance()
+            .get(&FailingTokenKey::FailRecipient);
+        if fail_recipient.as_ref() == Some(&to) {
+            panic!("configured recipient transfer failure");
+        }
+
+        let from_key = FailingTokenKey::Balance(from);
+        let to_key = FailingTokenKey::Balance(to);
+        let from_balance = env.storage().persistent().get(&from_key).unwrap_or(0i128);
+        if amount <= 0 || from_balance < amount {
+            panic!("insufficient balance");
+        }
+
+        let to_balance = env.storage().persistent().get(&to_key).unwrap_or(0i128);
+        env.storage()
+            .persistent()
+            .set(&from_key, &(from_balance - amount));
+        env.storage()
+            .persistent()
+            .set(&to_key, &(to_balance + amount));
+    }
+}
 
 struct TTestContext {
     env: Env,
@@ -173,6 +235,118 @@ fn dispute_token_balances(context: &TTestContext) -> DisputeTokenBalances {
     dispute_token_balances_for(context, &context.client, &context.freelancer)
 }
 
+fn events_from_topic(
+    context: &TTestContext,
+    emitter: &Address,
+    topic: &str,
+) -> std::vec::Vec<(Address, soroban_sdk::Vec<Val>, Val)> {
+    context
+        .env
+        .events()
+        .all()
+        .iter()
+        .filter_map(|(event_emitter, topics, data)| {
+            if &event_emitter != emitter {
+                return None;
+            }
+            let first_topic: Symbol = topics.get(0)?.try_into_val(&context.env).ok()?;
+            if first_topic != Symbol::new(&context.env, topic) {
+                return None;
+            }
+            Some((event_emitter, topics, data))
+        })
+        .collect()
+}
+
+fn dispute_events(context: &TTestContext) -> std::vec::Vec<(Address, soroban_sdk::Vec<Val>, Val)> {
+    events_from_topic(context, &context.escrow_contract_id, "dispute")
+}
+
+fn dispute_event_count(context: &TTestContext) -> usize {
+    dispute_events(context).len()
+}
+
+fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address, escrow_id: u64) {
+    let records = dispute_events(context);
+    assert_eq!(records.len(), event_index + 1);
+    let (emitter, topics, data) = &records[event_index];
+    assert_eq!(emitter, &context.escrow_contract_id);
+
+    let expected_topics: soroban_sdk::Vec<Val> = (
+        Symbol::new(&context.env, "dispute"),
+        Symbol::new(&context.env, "marked"),
+        escrow_id,
+    )
+        .into_val(&context.env);
+    assert_eq!(topics, &expected_topics);
+
+    let expected_payload = DisputeMarkedEvent {
+        version: 1,
+        actor: actor.clone(),
+        status: TEscrowStatus::Disputed,
+    };
+    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
+    let expected_data_xdr: soroban_sdk::xdr::ScVal =
+        expected_data.try_into_val(&context.env).unwrap();
+    assert_eq!(actual_data_xdr, expected_data_xdr);
+    let decoded: DisputeMarkedEvent = data.try_into_val(&context.env).unwrap();
+    assert_eq!(decoded, expected_payload);
+}
+
+fn assert_resolve_event(
+    context: &TTestContext,
+    event_index: usize,
+    actor: &Address,
+    escrow_id: u64,
+    freelancer_share_bps: u32,
+    resolution_hash: BytesN<32>,
+    before: &TEscrow,
+) -> (i128, i128) {
+    let records = dispute_events(context);
+    assert_eq!(records.len(), event_index + 1);
+    let (emitter, topics, data) = &records[event_index];
+    assert_eq!(emitter, &context.escrow_contract_id);
+
+    let expected_topics: soroban_sdk::Vec<Val> = (
+        Symbol::new(&context.env, "dispute"),
+        Symbol::new(&context.env, "resolved"),
+        escrow_id,
+    )
+        .into_val(&context.env);
+    assert_eq!(topics, &expected_topics);
+
+    let freelancer = before.freelancer.clone().unwrap();
+    let freelancer_amount = (before.amount * freelancer_share_bps as i128) / 10_000;
+    let client_amount = before.amount - freelancer_amount;
+    let status = if freelancer_share_bps == 0 {
+        TEscrowStatus::Cancelled
+    } else {
+        TEscrowStatus::Released
+    };
+    let expected_payload = DisputeResolvedEvent {
+        version: 1,
+        actor: actor.clone(),
+        status,
+        resolution_hash,
+        asset: before.asset.clone(),
+        client: before.client.clone(),
+        freelancer,
+        freelancer_share_bps,
+        freelancer_amount,
+        client_amount,
+    };
+    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
+    let expected_data_xdr: soroban_sdk::xdr::ScVal =
+        expected_data.try_into_val(&context.env).unwrap();
+    assert_eq!(actual_data_xdr, expected_data_xdr);
+    let decoded: DisputeResolvedEvent = data.try_into_val(&context.env).unwrap();
+    assert_eq!(decoded, expected_payload);
+
+    (freelancer_amount, client_amount)
+}
+
 fn assert_settlement_conservation(
     context: &TTestContext,
     balances_before: DisputeTokenBalances,
@@ -292,14 +466,19 @@ fn assert_mark_disputed_with_auth(
     escrow_id: u64,
     expected_error: Option<Error>,
 ) {
+    let event_count_before = dispute_event_count(context);
     install_mock_dispute_auth(context, authorized_address, caller, escrow_id);
     let result = context.escrow_client.try_mark_disputed(caller, &escrow_id);
 
     match expected_error {
-        Some(error) => assert_eq!(result, Err(Ok(error))),
+        Some(error) => {
+            assert_eq!(result, Err(Ok(error)));
+            assert_eq!(dispute_event_count(context), event_count_before);
+        }
         None => {
             assert_dispute_auth(context, authorized_address, caller, escrow_id);
             assert_eq!(result, Ok(Ok(())));
+            assert_mark_event(context, 0, caller, escrow_id);
         }
     }
 }
@@ -434,6 +613,10 @@ fn assert_resolve_dispute_with_auth(
     hash_byte: u8,
     expected_error: Option<Error>,
 ) {
+    let event_count_before = dispute_event_count(context);
+    let escrow_before = context.escrow_client.get_escrow(&escrow_id);
+    let token_transfer_count_before =
+        events_from_topic(context, &escrow_before.asset, "transfer").len();
     install_mock_resolve_auth(
         context,
         authorized_address,
@@ -451,7 +634,14 @@ fn assert_resolve_dispute_with_auth(
     );
 
     match expected_error {
-        Some(error) => assert_eq!(result, Err(Ok(error))),
+        Some(error) => {
+            assert_eq!(result, Err(Ok(error)));
+            assert_eq!(dispute_event_count(context), event_count_before);
+            assert_eq!(
+                events_from_topic(context, &escrow_before.asset, "transfer").len(),
+                token_transfer_count_before
+            );
+        }
         None => {
             assert_resolve_dispute_auth(
                 context,
@@ -462,6 +652,21 @@ fn assert_resolve_dispute_with_auth(
                 hash_byte,
             );
             assert_eq!(result, Ok(Ok(())));
+            let (freelancer_amount, client_amount) = assert_resolve_event(
+                context,
+                0,
+                dispute_admin,
+                escrow_id,
+                freelancer_share_bps,
+                resolution_hash,
+                &escrow_before,
+            );
+            let expected_transfer_count =
+                usize::from(freelancer_amount > 0) + usize::from(client_amount > 0);
+            assert_eq!(
+                events_from_topic(context, &escrow_before.asset, "transfer").len(),
+                token_transfer_count_before + expected_transfer_count
+            );
         }
     }
     context.env.mock_all_auths();
@@ -1223,6 +1428,7 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
             );
             let missing_auth_before = context.escrow_client.get_escrow(&missing_auth_id);
             let missing_auth_balances = dispute_token_balances(&context);
+            let missing_auth_event_count = dispute_event_count(&context);
 
             context.env.set_auths(&[]);
             let missing_auth = context
@@ -1230,6 +1436,7 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
                 .try_mark_disputed(caller, &missing_auth_id);
             assert_eq!(missing_auth, Err(Err(InvokeError::Abort)));
             context.env.mock_all_auths();
+            assert_eq!(dispute_event_count(&context), missing_auth_event_count);
             assert_dispute_attempt_preserved_state(
                 &context,
                 missing_auth_id,
@@ -1244,12 +1451,14 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
             );
             let mismatched_auth_before = context.escrow_client.get_escrow(&mismatched_auth_id);
             let mismatched_auth_balances = dispute_token_balances(&context);
+            let mismatched_auth_event_count = dispute_event_count(&context);
             install_mock_dispute_auth(&context, &context.outsider, caller, mismatched_auth_id);
             let mismatched_auth = context
                 .escrow_client
                 .try_mark_disputed(caller, &mismatched_auth_id);
             assert_eq!(mismatched_auth, Err(Err(InvokeError::Abort)));
             context.env.mock_all_auths();
+            assert_eq!(dispute_event_count(&context), mismatched_auth_event_count);
             assert_dispute_attempt_preserved_state(
                 &context,
                 mismatched_auth_id,
@@ -1521,6 +1730,7 @@ fn resolve_dispute_requires_invocation_scoped_actor_authentication() {
     let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 100, 76);
     let before = context.escrow_client.get_escrow(&escrow_id);
     let balances_before = dispute_token_balances(&context);
+    let missing_auth_event_count = dispute_event_count(&context);
 
     let resolution_hash = hash_from_byte(&context.env, 77);
     let missing_auth = context.escrow_client.mock_auths(&[]).try_resolve_dispute(
@@ -1532,8 +1742,10 @@ fn resolve_dispute_requires_invocation_scoped_actor_authentication() {
 
     assert_eq!(missing_auth, Err(Err(InvokeError::Abort)));
     context.env.mock_all_auths();
+    assert_eq!(dispute_event_count(&context), missing_auth_event_count);
     assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
 
+    let wrong_actor_event_count = dispute_event_count(&context);
     install_mock_resolve_auth(
         &context,
         &context.outsider,
@@ -1551,6 +1763,7 @@ fn resolve_dispute_requires_invocation_scoped_actor_authentication() {
 
     assert_eq!(wrong_actor_auth, Err(Err(InvokeError::Abort)));
     context.env.mock_all_auths();
+    assert_eq!(dispute_event_count(&context), wrong_actor_event_count);
     assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
 }
 
@@ -1620,6 +1833,56 @@ fn resolve_dispute_splits_amount_with_remainder_to_client() {
         assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
         assert_settlement_conservation(&context, balances_before, original_amount, 68, 33);
     }
+}
+
+#[test]
+fn failed_second_settlement_transfer_rolls_back_and_emits_no_resolution_event() {
+    let context = setup();
+    let failing_token_id = context.env.register(FailingToken, ());
+    let failing_token = FailingTokenClient::new(&context.env, &failing_token_id);
+    let amount = 101;
+    failing_token.mint(&context.client, &amount);
+
+    let escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.freelancer,
+        &failing_token_id,
+        &amount,
+        &hash_from_byte(&context.env, 96),
+    );
+    context
+        .escrow_client
+        .fund_escrow(&context.client, &escrow_id);
+    assert_mark_disputed_with_auth(&context, &context.client, &context.client, escrow_id, None);
+
+    failing_token.fail_for_recipient(&context.client);
+    let escrow_before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = (
+        failing_token.balance(&context.client),
+        failing_token.balance(&context.freelancer),
+        failing_token.balance(&context.escrow_contract_id),
+    );
+    let dispute_event_count_before = dispute_event_count(&context);
+    let resolution_hash = hash_from_byte(&context.env, 97);
+
+    let result = context.escrow_client.try_resolve_dispute(
+        &context.platform_admin,
+        &escrow_id,
+        &3_333,
+        &resolution_hash,
+    );
+
+    assert!(matches!(result, Err(Err(InvokeError::Abort))));
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), escrow_before);
+    assert_eq!(
+        (
+            failing_token.balance(&context.client),
+            failing_token.balance(&context.freelancer),
+            failing_token.balance(&context.escrow_contract_id),
+        ),
+        balances_before
+    );
+    assert_eq!(dispute_event_count(&context), dispute_event_count_before);
 }
 
 #[test]
