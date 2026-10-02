@@ -1,5 +1,6 @@
 "use client";
 
+import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { AttachmentList } from "@/features/attachments/components";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
@@ -59,7 +60,15 @@ export function DisputeTimelineItem({ event }: { readonly event: TTimelineEvent 
         ) : null}
         {event.transactionHash ? (
           <p className="mt-2 font-mono text-xs break-all text-[#5f5f5f]">
-            tx: {event.transactionHash}
+            tx:{" "}
+            <a
+              href={getTxExplorerUrl(event.transactionHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              {event.transactionHash}
+            </a>
           </p>
         ) : null}
         {event.attachments && event.attachments.length > 0 ? (
@@ -96,7 +105,7 @@ export function DisputeTimeline({
   }
 
   return (
-    <ol className="space-y-3">
+    <ol aria-label="Dispute evidence timeline" className="space-y-3">
       {events.map((event) => (
         <DisputeTimelineItem key={event._id} event={event} />
       ))}

@@ -69,7 +69,7 @@ vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: ReactNode }) =>
     createElement("a", { href }, children),
 }));
-vi.mock("./dispute-response-composer", () => ({ DisputeResponseComposer: () => null }));
+vi.mock("./dispute-participant-actions", () => ({ DisputeParticipantActions: () => null }));
 vi.mock("./dispute-status-badge", () => ({
   DisputeStatusBadge: () => null,
   DisputeOnChainStatusBadge: () => null,
