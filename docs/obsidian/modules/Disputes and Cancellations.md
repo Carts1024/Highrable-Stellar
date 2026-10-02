@@ -136,6 +136,15 @@ Known-hash failures remain blocked pending reconciliation. Hashless retries and 
 
 Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit truncation (`Math.trunc`) before the client refund is derived. Token-precision arithmetic is a separate follow-up and must be designed with asset decimals before changing settlement amounts.
 
+## C21 Verified Invariants
+
+- `packages/backend/tests/disputes/c21.reconciliation.test.ts` connects the C13 marking callbacks and C17 settlement callbacks to the existing escrow, micro-gig, milestone, parent-job, transaction, audit, notification, and system-message bookkeeping mutations.
+- Hashless marking failures remain retryable; known-hash retries remain blocked until reconciliation; matching late success is accepted; conflicting callbacks and stale failures preserve confirmed records and side-effect counts.
+- Settlement failures preserve their failed attempt and transaction history. Signed and `submission_unknown` operations retain their hash/expiry and block competing attempts until the matching success callback finalizes them.
+- Client-refund, freelancer-payout, and split outcomes are covered for both parent types. Milestone settlement patches only the selected milestone and derives the parent job from remaining active, disputed, or terminal siblings.
+- Generic sync can recover an escrow mirror to `disputed` and record repeated reads/failure metadata, but it refuses to downgrade or finalize a disputed escrow. Administrator settlement owns the terminal transition.
+- The C21 suite verifies Convex transaction rollback when a required milestone parent fails during settlement. It remains an in-memory bookkeeping test and does not verify live RPC execution or deployed contract behavior.
+
 ## Related Notes
 
 [[modules/Admin Operations]], [[contracts/Escrow Contract]], [[data/State Machines]], [[backend/Admin and Server Routes]]
