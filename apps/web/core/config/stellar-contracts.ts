@@ -51,3 +51,21 @@ export function getRequiredEscrowActionConfig(): {
     stablecoinTokenContractId: stablecoin.tokenContractId,
   };
 }
+
+export function getRequiredAdminContractConfig(): {
+  rpcUrl: string;
+  network: string;
+  networkPassphrase: string;
+  escrowContractId: string;
+} {
+  const config = ensureContractConfig();
+  if (!STELLAR_RPC_URL || !STELLAR_NETWORK_PASSPHRASE || !STELLAR_NETWORK) {
+    throw new Error("Stellar network configuration is incomplete.");
+  }
+  return {
+    rpcUrl: STELLAR_RPC_URL,
+    network: STELLAR_NETWORK,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+    escrowContractId: config.escrowContractId,
+  };
+}

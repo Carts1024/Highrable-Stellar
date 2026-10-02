@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -29,10 +29,14 @@ Admin Next routes call `requireAdminRequestContext`:
 
 1. Read the signed session cookie.
 2. Verify its signature and expiry.
-3. Compare the session subject to `HIGHRABLE_ADMIN_WALLET_ADDRESS`.
+3. Normalize and use the verified session subject as the acting wallet.
 4. Pass `HIGHRABLE_ADMIN_CONVEX_SECRET` to server-only Convex admin functions.
 
-Convex admin helpers independently check the normalized admin wallet and shared secret. Admin pages and API routes cover metrics, dispute lists/detail, review status, moderator notes, and settlement phases.
+Convex admin functions independently check the shared secret and then enforce owner-only or active dispute-admin capability, network/contract scope, case assignment, and participant conflicts. `HIGHRABLE_ADMIN_WALLET_ADDRESS` identifies the platform owner. Additional wallets are authorized through the scoped `disputeAdmins` table after a verified contract grant; `users.role` does not grant access.
+
+`GET /api/admin/session` returns the verified normalized wallet and `isOwner`/`isDisputeAdmin` capabilities with caching disabled. The dispute queue/detail and owner-only pages use the shared runtime gate. Protected content is not mounted before verification, and TanStack queries are scoped by the verified wallet with cancellation and cache cleanup on disconnect, wallet change, or API 401/403. Admin sign-in remains external-wallet-only; passkey admin authentication is not supported.
+
+Membership grants become active only after the saved contract transaction succeeds and current membership is verified. Revocation blocks app access immediately and remains incomplete until the owner-signed contract change is reconciled. Settlement recovery verifies a persisted transaction hash and its exact contract invocation server-side; recovery does not submit another transaction.
 
 ## Public Convex limitation
 

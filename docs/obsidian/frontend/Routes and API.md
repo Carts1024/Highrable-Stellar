@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -31,7 +31,7 @@ source_of_truth: repository
 | `/admin/disputes/[disputeId]` | Admin dispute detail/settlement | Implemented, protected at runtime |
 | `/talent` | Planned discovery surface with preview cards | Placeholder; no live directory |
 
-Dynamic job/profile/proof pages validate route parameters for SEO/404 behavior and may use server Convex reads for metadata.
+Dynamic job/profile/proof pages validate route parameters for SEO/404 behavior and may use server Convex reads for metadata. The participant dispute detail route also validates its ID before mounting the client panel. Participant detail reads wait for wallet-scoped `canViewDispute` eligibility; the dispute route has an error fallback with Retry for failed reads. These UI states do not replace backend authorization or prove wallet possession.
 
 The waitlist route gate is opt-in: `NEXT_PUBLIC_WAITLIST_MODE=true` redirects product pages to `/`; omitted or invalid values leave routes available.
 

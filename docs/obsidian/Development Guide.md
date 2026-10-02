@@ -2,7 +2,7 @@
 type: operations
 area: development
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-09-28
 source_of_truth: repository
 ---
 
@@ -40,9 +40,13 @@ pnpm --filter web build
 pnpm --filter web lint:fix
 pnpm --filter web test
 pnpm --filter @repo/backend lint:fix
+pnpm --filter @repo/backend test
+pnpm exec tsc --project packages/backend/convex/tsconfig.json --noEmit
+pnpm exec tsc --project packages/backend/tests/tsconfig.json --noEmit
 ```
 
 `web` tests use Vitest. Backend linting also type-checks `packages/backend/convex/tsconfig.json`.
+Backend dispute tests use `convex-test` and Vitest in `packages/backend/tests/`; they run against the real composed Convex schema in an Edge Runtime in-memory database. Keep fixtures deterministic and seed prerequisite records directly rather than calling unrelated production setup functions. Use synthetic administrator environment values only inside tests.
 
 ## Contracts
 

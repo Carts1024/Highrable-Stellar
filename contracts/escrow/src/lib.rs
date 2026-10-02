@@ -18,6 +18,7 @@ pub enum DataKey {
     AllowedAsset(Address),
     AllowedAssetCount,
     Escrow(u64),
+    DisputeAdmin(Address),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -46,6 +47,29 @@ pub struct TEscrow {
     pub funded_at: u64,
     pub submitted_at: u64,
     pub released_at: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct DisputeMarkedEvent {
+    pub version: u32,
+    pub actor: Address,
+    pub status: TEscrowStatus,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct DisputeResolvedEvent {
+    pub version: u32,
+    pub actor: Address,
+    pub status: TEscrowStatus,
+    pub resolution_hash: BytesN<32>,
+    pub asset: Address,
+    pub client: Address,
+    pub freelancer: Address,
+    pub freelancer_share_bps: u32,
+    pub freelancer_amount: i128,
+    pub client_amount: i128,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -235,6 +259,48 @@ impl EscrowContract {
         touch_instance(&env);
         require_initialized(&env)?;
         Ok(get_allowed_asset_count_internal(&env))
+    }
+
+    pub fn add_dispute_admin(
+        env: Env,
+        platform_admin: Address,
+        dispute_admin: Address,
+    ) -> Result<(), Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+        require_platform_admin(&env, &platform_admin)?;
+
+        if dispute_admin != platform_admin {
+            env.storage()
+                .instance()
+                .set(&DataKey::DisputeAdmin(dispute_admin), &true);
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_dispute_admin(
+        env: Env,
+        platform_admin: Address,
+        dispute_admin: Address,
+    ) -> Result<(), Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+        require_platform_admin(&env, &platform_admin)?;
+
+        if dispute_admin != platform_admin {
+            env.storage()
+                .instance()
+                .remove(&DataKey::DisputeAdmin(dispute_admin));
+        }
+
+        Ok(())
+    }
+
+    pub fn is_dispute_admin(env: Env, dispute_admin: Address) -> Result<bool, Error> {
+        touch_instance(&env);
+        require_initialized(&env)?;
+        is_dispute_admin_internal(&env, &dispute_admin)
     }
 
     pub fn fund_escrow(env: Env, client: Address, escrow_id: u64) -> Result<(), Error> {
@@ -445,24 +511,43 @@ impl EscrowContract {
         }
 
         write_escrow(&env, &escrow);
+        env.events().publish(
+            (
+                Symbol::new(&env, "dispute"),
+                Symbol::new(&env, "marked"),
+                escrow_id,
+            ),
+            DisputeMarkedEvent {
+                version: 1,
+                actor: caller,
+                status: escrow.status.clone(),
+            },
+        );
 
         Ok(())
     }
 
     pub fn resolve_dispute(
         env: Env,
-        platform_admin: Address,
+        dispute_admin: Address,
         escrow_id: u64,
         freelancer_share_bps: u32,
         _resolution_hash: BytesN<32>,
     ) -> Result<(), Error> {
         touch_instance(&env);
         require_initialized(&env)?;
-        require_platform_admin(&env, &platform_admin)?;
+        dispute_admin.require_auth();
         validate_freelancer_share_bps(freelancer_share_bps)?;
 
         let mut escrow = read_escrow(&env, escrow_id)?;
         require_status(&escrow.status, TEscrowStatus::Disputed)?;
+
+        if dispute_admin == escrow.client
+            || escrow.freelancer.as_ref() == Some(&dispute_admin)
+            || !is_dispute_admin_internal(&env, &dispute_admin)?
+        {
+            return Err(Error::Unauthorized);
+        }
 
         let freelancer = get_assigned_freelancer(&escrow)?;
         let contract_address = env.current_contract_address();
@@ -486,6 +571,25 @@ impl EscrowContract {
         }
 
         write_escrow(&env, &escrow);
+        env.events().publish(
+            (
+                Symbol::new(&env, "dispute"),
+                Symbol::new(&env, "resolved"),
+                escrow_id,
+            ),
+            DisputeResolvedEvent {
+                version: 1,
+                actor: dispute_admin,
+                status: escrow.status.clone(),
+                resolution_hash: _resolution_hash,
+                asset: escrow.asset.clone(),
+                client: escrow.client.clone(),
+                freelancer,
+                freelancer_share_bps,
+                freelancer_amount,
+                client_amount,
+            },
+        );
 
         Ok(())
     }
@@ -630,6 +734,18 @@ fn is_platform_admin(env: &Env, wallet: &Address) -> Result<bool, Error> {
         .ok_or(Error::NotInitialized)?;
 
     Ok(&stored_admin == wallet)
+}
+
+fn is_dispute_admin_internal(env: &Env, address: &Address) -> Result<bool, Error> {
+    if is_platform_admin(env, address)? {
+        return Ok(true);
+    }
+
+    Ok(env
+        .storage()
+        .instance()
+        .get::<DataKey, bool>(&DataKey::DisputeAdmin(address.clone()))
+        .unwrap_or(false))
 }
 
 fn get_allowed_asset_count_internal(env: &Env) -> u32 {

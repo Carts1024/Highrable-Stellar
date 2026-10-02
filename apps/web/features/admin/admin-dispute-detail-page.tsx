@@ -1,29 +1,41 @@
 "use client";
 
-import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
-import {
-  getPlatformAdminOnChain,
-  markDisputedOnChain,
-  resolveDisputeOnChain,
-} from "@/core/stellar/escrow-contract";
+import { getRequiredAdminContractConfig } from "@/core/config/stellar-contracts";
+import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
-import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import {
   isPendingStellarTransactionError,
   normalizeStellarError,
 } from "@/core/stellar/transaction";
-import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { AdminSessionGate } from "@/features/admin/admin-session-gate";
-import { AdminSection } from "@/features/admin/components/admin-operations-ui";
+import { AdminRouteLoadingState } from "@/features/admin/admin-route-fallbacks";
 import {
+  AdminSessionGate,
+  ADMIN_QUERY_KEY,
+  useAdminSessionAccess,
+} from "@/features/admin/admin-session-gate";
+import { AdminSection } from "@/features/admin/components/admin-operations-ui";
+import { useAdminSettlement } from "@/features/admin/hooks/use-admin-settlement";
+import {
+  AdminApiError,
   fetchAdminDispute,
+  fetchAdminMembershipManagement,
+  getAdminApiErrorMessage,
+  isAdminNetworkError,
   postAdminModeratorNote,
-  postAdminResolution,
+  postAdminAssignDispute,
+  postAdminClaimDispute,
   postAdminReviewStatus,
+  shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
+import {
+  deriveSettlementEligibility,
+  getResolutionShareDisplayValue,
+  isActiveSettlementAttemptStatus,
+  validateResolutionShare,
+} from "@/features/admin/lib/settlement-validation";
 import {
   ProductPageHero,
   RouteCallout,
@@ -31,25 +43,32 @@ import {
   sanitizeMultilineInput,
   showWarningToast,
 } from "@/features/common";
-import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
-import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
+import {
+  formatDisputeDate,
+  getDisputeOnChainStatusLabel,
+  getDisputeReasonLabel,
+  getDisputeStatusLabel,
+  isTerminalDisputeStatus,
+} from "@/features/disputes/lib";
 import { api } from "@repo/convex-client";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { Textarea } from "@repo/ui/components/ui/textarea";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMutation } from "convex/react";
 import { ArrowLeft, ExternalLink, RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import type {
   IAdminDisputeDetail,
   TAdminResolutionStatus,
   TAdminReviewStatus,
 } from "@/features/admin/types";
+import type { TDisputeStatus } from "@/features/disputes/types";
 import type { ReactNode } from "react";
 
 const MAX_MODERATOR_NOTE_LENGTH = 4000;
@@ -57,15 +76,39 @@ const MAX_REVIEW_MESSAGE_LENGTH = 4000;
 const MAX_RESOLUTION_NOTE_LENGTH = 2000;
 
 const REVIEW_STATUS_OPTIONS = [
-  { value: "under_review", label: "Under review" },
-  { value: "awaiting_client_response", label: "Awaiting client response" },
-  { value: "awaiting_freelancer_response", label: "Awaiting freelancer response" },
+  { value: "under_review", label: getDisputeStatusLabel("under_review") },
+  { value: "awaiting_client_response", label: getDisputeStatusLabel("awaiting_client_response") },
+  {
+    value: "awaiting_freelancer_response",
+    label: getDisputeStatusLabel("awaiting_freelancer_response"),
+  },
 ] satisfies ReadonlyArray<{ value: TAdminReviewStatus; label: string }>;
 
+function isAdminReviewStatus(value: string): value is TAdminReviewStatus {
+  return REVIEW_STATUS_OPTIONS.some((option) => option.value === value);
+}
+
+function getReviewStatusForDispute(status: TDisputeStatus): TAdminReviewStatus {
+  return isAdminReviewStatus(status) ? status : "under_review";
+}
+
+function canAdminReviewDispute(detail: IAdminDisputeDetail, verifiedWallet: string): boolean {
+  const normalizedWallet = verifiedWallet.trim().toUpperCase();
+  const isParticipant =
+    normalizedWallet === detail.dispute.clientWallet.trim().toUpperCase() ||
+    normalizedWallet === detail.dispute.freelancerWallet.trim().toUpperCase();
+
+  return (
+    detail.dispute.assignedAdminWallet?.trim().toUpperCase() === normalizedWallet &&
+    !isParticipant &&
+    !isTerminalDisputeStatus(detail.dispute.status)
+  );
+}
+
 const RESOLUTION_STATUS_OPTIONS = [
-  { value: "resolved_client", label: "Resolved client" },
-  { value: "resolved_freelancer", label: "Resolved freelancer" },
-  { value: "split_resolution", label: "Split resolution" },
+  { value: "resolved_client", label: getDisputeStatusLabel("resolved_client") },
+  { value: "resolved_freelancer", label: getDisputeStatusLabel("resolved_freelancer") },
+  { value: "split_resolution", label: getDisputeStatusLabel("split_resolution") },
 ] satisfies ReadonlyArray<{ value: TAdminResolutionStatus; label: string }>;
 
 interface IAdminDisputeDetailActionsProps {
@@ -94,7 +137,10 @@ interface IAdminModeratorWorkspaceProps {
 interface IAdminResolutionWorkspaceProps {
   readonly resolutionStatus: TAdminResolutionStatus;
   readonly resolutionShareInput: string;
+  readonly resolutionShareError: string | null;
   readonly resolutionNote: string;
+  readonly settlementBlockingReason: string | null;
+  readonly canSettle: boolean;
   readonly isSubmitting: boolean;
   readonly onResolutionStatusChange: (value: TAdminResolutionStatus) => void;
   readonly onResolutionShareInputChange: (value: string) => void;
@@ -119,53 +165,8 @@ function createClientRequestId(escrowId: string): string {
   return `mark_disputed:retry:${escrowId}:${uniqueId}`;
 }
 
-function resolveShareBps(status: TAdminResolutionStatus, currentInput: string): number {
-  if (status === "resolved_client") {
-    return 0;
-  }
-
-  if (status === "resolved_freelancer") {
-    return 10_000;
-  }
-
-  const parsed = Number.parseInt(currentInput, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 10_000) {
-    throw new Error("Split resolution requires freelancer share between 1 and 9999 bps.");
-  }
-
-  return parsed;
-}
-
-function isTerminalDisputeStatus(status: IAdminDisputeDetail["dispute"]["status"]): boolean {
-  return (
-    status === "resolved_client" ||
-    status === "resolved_freelancer" ||
-    status === "split_resolution" ||
-    status === "cancelled"
-  );
-}
-
 function sanitizeLimitedMultilineInput(value: string, maxLength: number): string {
   return sanitizeMultilineInput(value).slice(0, maxLength);
-}
-
-function sanitizeBasisPointInput(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 4);
-}
-
-function getResolutionShareDisplayValue(
-  status: TAdminResolutionStatus,
-  resolutionShareInput: string,
-): string {
-  if (status === "resolved_client") {
-    return "0";
-  }
-
-  if (status === "resolved_freelancer") {
-    return "10000";
-  }
-
-  return resolutionShareInput;
 }
 
 function DefinitionItem({ label, children }: IDefinitionItemProps) {
@@ -256,6 +257,91 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
   );
 }
 
+function AdminAssignmentWorkspace({
+  detail,
+  verifiedWallet,
+  isOwner,
+  activeAdminWallets,
+  assignedAdminAccessState,
+  isSubmitting,
+  onClaim,
+  onAssign,
+}: {
+  readonly detail: IAdminDisputeDetail;
+  readonly verifiedWallet: string;
+  readonly isOwner: boolean;
+  readonly activeAdminWallets: readonly string[];
+  readonly assignedAdminAccessState?: string;
+  readonly isSubmitting: boolean;
+  readonly onClaim: () => void;
+  readonly onAssign: (wallet: string | null) => void;
+}) {
+  const assignedWallet = detail.dispute.assignedAdminWallet ?? null;
+  const isParticipant =
+    verifiedWallet === detail.dispute.clientWallet.toUpperCase() ||
+    verifiedWallet === detail.dispute.freelancerWallet.toUpperCase();
+  const canClaim =
+    !assignedWallet && !isParticipant && !isTerminalDisputeStatus(detail.dispute.status);
+
+  return (
+    <AdminSection
+      label="Case Ownership"
+      title="Assignment"
+      description="Case actions are available to the assigned active admin. The platform owner can reassign or release cases."
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs tracking-wide text-[#777] uppercase">Current assignee</p>
+          <p className="mt-1 font-mono text-sm break-all">
+            {assignedWallet ?? "Unassigned"}
+            {assignedWallet && assignedAdminAccessState && assignedAdminAccessState !== "active"
+              ? ` · ${assignedAdminAccessState}`
+              : ""}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canClaim ? (
+            <AppButton type="button" size="sm" disabled={isSubmitting} onClick={onClaim}>
+              Claim Case
+            </AppButton>
+          ) : null}
+          {isOwner ? (
+            <select
+              aria-label="Assign case to dispute admin"
+              className="h-10 max-w-72 border border-[#e8e8e8] bg-white px-3 text-sm"
+              value={assignedWallet ?? ""}
+              disabled={isSubmitting}
+              onChange={(event) => onAssign(event.target.value || null)}
+            >
+              <option value="">Unassigned</option>
+              {assignedWallet && !activeAdminWallets.includes(assignedWallet) ? (
+                <option value={assignedWallet}>Revoked: {assignedWallet}</option>
+              ) : null}
+              {activeAdminWallets.map((wallet) => (
+                <option key={wallet} value={wallet}>
+                  {wallet === verifiedWallet ? "Owner (you)" : wallet}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+      </div>
+      {detail.assignmentEvents.length ? (
+        <ol className="mt-5 space-y-2 border-t border-[#e8e8e8] pt-4">
+          {detail.assignmentEvents.map((event) => (
+            <li key={event._id} className="text-xs text-[#777]">
+              {event.type.replaceAll("_", " ")} · {event.actorWallet}
+              {event.assignedAdminWallet ? ` → ${event.assignedAdminWallet}` : ""}
+              {event.previousAdminWallet ? ` (from ${event.previousAdminWallet})` : ""}
+              {` · ${formatDisputeDate(event.createdAt)}`}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </AdminSection>
+  );
+}
+
 function AdminModeratorWorkspace({
   moderatorNote,
   reviewMessage,
@@ -316,7 +402,12 @@ function AdminModeratorWorkspace({
           <NativeSelect
             id="review-status"
             value={reviewStatus}
-            onChange={(event) => onReviewStatusChange(event.target.value as TAdminReviewStatus)}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              if (isAdminReviewStatus(nextValue)) {
+                onReviewStatusChange(nextValue);
+              }
+            }}
             className="h-11 w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
             disabled={isSubmitting}
           >
@@ -326,7 +417,14 @@ function AdminModeratorWorkspace({
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          <label
+            htmlFor="review-message"
+            className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
+          >
+            Optional review message
+          </label>
           <Textarea
+            id="review-message"
             value={reviewMessage}
             onChange={(event) => onReviewMessageChange(event.target.value)}
             className="min-h-24 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
@@ -357,7 +455,10 @@ function AdminModeratorWorkspace({
 function AdminResolutionWorkspace({
   resolutionStatus,
   resolutionShareInput,
+  resolutionShareError,
   resolutionNote,
+  settlementBlockingReason,
+  canSettle,
   isSubmitting,
   onResolutionStatusChange,
   onResolutionShareInputChange,
@@ -368,7 +469,7 @@ function AdminResolutionWorkspace({
     <AdminSection
       label="Settlement"
       title="Resolve dispute on-chain"
-      description="Settlement calls escrow resolve_dispute with the configured platform admin wallet."
+      description="Settlement calls resolve_dispute with the assigned, active dispute admin wallet."
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,220px)_minmax(0,1fr)]">
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-status">
@@ -399,14 +500,25 @@ function AdminResolutionWorkspace({
           <AppInput
             id="resolution-share-bps"
             aria-label="Freelancer share in basis points"
-            type="number"
-            min={1}
-            max={9999}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={getResolutionShareDisplayValue(resolutionStatus, resolutionShareInput)}
             onChange={(event) => onResolutionShareInputChange(event.target.value)}
             disabled={isSubmitting || resolutionStatus !== "split_resolution"}
+            aria-invalid={resolutionShareError !== null}
+            aria-describedby={resolutionShareError ? "resolution-share-bps-error" : undefined}
             className="h-11 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30 disabled:opacity-60"
           />
+          {resolutionShareError ? (
+            <p
+              id="resolution-share-bps-error"
+              className="text-xs leading-relaxed text-red-700"
+              role="alert"
+            >
+              {resolutionShareError}
+            </p>
+          ) : null}
         </label>
 
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-note">
@@ -427,14 +539,21 @@ function AdminResolutionWorkspace({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e8e8] pt-5">
-        <p className="max-w-2xl text-sm leading-relaxed text-[#5f5f5f]">
-          Split values are validated as basis points. Client and freelancer resolutions are locked
-          to 0 and 10000 respectively.
-        </p>
+        <div className="max-w-2xl space-y-1 text-sm leading-relaxed text-[#5f5f5f]">
+          <p>
+            Split values are validated as basis points. Client and freelancer resolutions are locked
+            to 0 and 10000 respectively.
+          </p>
+          {settlementBlockingReason ? (
+            <p className="text-amber-800" role="status" aria-live="polite">
+              {settlementBlockingReason}
+            </p>
+          ) : null}
+        </div>
         <AppButton
           type="button"
           onClick={onResolveOnChain}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !canSettle || resolutionShareError !== null}
           className="rounded-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Resolving..." : "Resolve On-Chain"}
@@ -504,11 +623,72 @@ function AdminTimeline({ detail }: IAdminTimelineProps) {
   );
 }
 
+interface IAdminSettlementProgressProps {
+  readonly phase: string;
+  readonly phaseLabel: string;
+  readonly isExecuting: boolean;
+  readonly operationId: string | null;
+  readonly transactionHash: string | null;
+  readonly transactionExplorerUrl: string | null;
+  readonly error: string | null;
+  readonly success: string | null;
+}
+
+function AdminSettlementProgress({
+  phase,
+  phaseLabel,
+  isExecuting,
+  operationId,
+  transactionHash,
+  transactionExplorerUrl,
+  error,
+  success,
+}: IAdminSettlementProgressProps) {
+  if (phase === "idle" && !operationId && !error && !success) {
+    return null;
+  }
+
+  return (
+    <AdminSection label="Settlement status" title={phaseLabel}>
+      <div className="space-y-2 text-sm text-[#5f5f5f]" role="status" aria-live="polite">
+        <p>{isExecuting ? `${phaseLabel}…` : phaseLabel}</p>
+        {operationId ? (
+          <p className="font-mono text-xs break-all text-[#777]">Operation: {operationId}</p>
+        ) : null}
+        {transactionHash ? (
+          <p className="font-mono text-xs break-all text-[#777]">
+            Transaction:{" "}
+            {transactionExplorerUrl ? (
+              <a
+                href={transactionExplorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline"
+              >
+                {transactionHash}
+              </a>
+            ) : (
+              transactionHash
+            )}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="text-red-700" role="alert">
+            {phaseLabel}: {error}
+          </p>
+        ) : null}
+        {success ? <p className="text-emerald-700">{success}</p> : null}
+      </div>
+    </AdminSection>
+  );
+}
+
 async function assertWalletExecutionReady(args: {
   walletType: "external_wallet" | "passkey_smart_account";
   address: string | null;
   isConnected: boolean;
   isTestnet: boolean;
+  network: string;
   canWriteContracts: boolean | undefined;
 }): Promise<void> {
   if (args.walletType === "passkey_smart_account") {
@@ -522,18 +702,27 @@ async function assertWalletExecutionReady(args: {
   if (!args.address || !args.isConnected) {
     throw new Error("Connect a Stellar wallet to continue.");
   }
-  if (!args.isTestnet) {
-    throw new Error("Switch wallet network to Stellar Testnet.");
+  if ((args.network === "testnet") !== args.isTestnet) {
+    throw new Error(`Switch wallet network to Stellar ${args.network}.`);
   }
   if (args.canWriteContracts === false) {
     throw new Error("Current wallet cannot sign escrow contract actions.");
   }
 }
 
-export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
+function getConfiguredAdminNetwork(): string | null {
+  try {
+    return getRequiredAdminContractConfig().network;
+  } catch {
+    return null;
+  }
+}
+
+function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }) {
   const walletIdentity = useHighrableWalletIdentity();
-  const { role, isLoading: isRoleLoading } = useDashboardRole();
-  const { address, authSession, walletState, signTransaction } = useWallet();
+  const { verifiedWallet, isOwner, handleProtectedApiError } = useAdminSessionAccess();
+  const { address, walletState, signTransaction } = useWallet();
+  const queryClient = useQueryClient();
 
   const markStarted = useMutation(api.disputes.markDisputeOnChainStarted);
   const markSucceeded = useMutation(api.disputes.markDisputeOnChainSucceeded);
@@ -543,9 +732,6 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
 
-  const [detail, setDetail] = useState<IAdminDisputeDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -557,32 +743,138 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     useState<TAdminResolutionStatus>("resolved_client");
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [reviewStatusRefreshFailed, setReviewStatusRefreshFailed] = useState(false);
 
+  const detailQuery = useQuery<IAdminDisputeDetail, AdminApiError>({
+    queryKey: [...ADMIN_QUERY_KEY, "dispute", verifiedWallet, disputeId],
+    queryFn: ({ signal }) => fetchAdminDispute(disputeId, { signal }),
+    retry: shouldRetryAdminRead,
+  });
+  const membershipQuery = useQuery({
+    queryKey: [...ADMIN_QUERY_KEY, "admins", verifiedWallet],
+    queryFn: ({ signal }) => fetchAdminMembershipManagement({ signal }),
+    enabled: isOwner,
+    retry: shouldRetryAdminRead,
+  });
+  const detail = detailQuery.data ?? null;
+  const canReviewCurrentDispute = detail ? canAdminReviewDispute(detail, verifiedWallet) : false;
   const loadDetail = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const next = await fetchAdminDispute(disputeId);
-      setDetail(next);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to load dispute.");
-      setDetail(null);
-    } finally {
-      setIsLoading(false);
+    const result = await detailQuery.refetch();
+    if (result.error) {
+      throw result.error;
     }
+  }, [detailQuery.refetch]);
+
+  const invalidateAdminDisputeQueue = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: [...ADMIN_QUERY_KEY, "disputes", verifiedWallet],
+    });
+  }, [queryClient, verifiedWallet]);
+
+  useEffect(() => {
+    if (detail) {
+      setReviewStatus(getReviewStatusForDispute(detail.dispute.status));
+    }
+  }, [detail?.dispute._id, detail?.dispute.status]);
+
+  useEffect(() => {
+    setModeratorNote("");
+    setReviewMessage("");
+    setResolutionStatus("resolved_client");
+    setResolutionShareInput("5000");
+    setResolutionNote("");
+    setReviewStatusRefreshFailed(false);
   }, [disputeId]);
 
   useEffect(() => {
-    if (role !== "admin" || !authSession) {
-      return;
+    if (detailQuery.error) {
+      handleProtectedApiError(detailQuery.error);
     }
+  }, [detailQuery.error, handleProtectedApiError]);
 
-    void loadDetail();
-  }, [authSession, loadDetail, role]);
+  useEffect(() => {
+    if (membershipQuery.error) {
+      handleProtectedApiError(membershipQuery.error);
+    }
+  }, [handleProtectedApiError, membershipQuery.error]);
 
   const activeWalletAddress = walletIdentity.walletAddress;
   const activeWalletType = walletIdentity.walletType;
+  const settlementEligibility = deriveSettlementEligibility({
+    detail,
+    verifiedWallet,
+    activeWalletAddress,
+    activeWalletType,
+    connectedWalletAddress: address,
+    isConnected: walletState.isConnected,
+    canWriteContracts: walletState.canWriteContracts,
+    isTestnet: walletState.isTestnet,
+    configuredNetwork: getConfiguredAdminNetwork(),
+    isActionRunning: isSubmitting,
+  });
+  const resolutionShareValidation = validateResolutionShare(resolutionStatus, resolutionShareInput);
+  const settlement = useAdminSettlement({
+    disputeId,
+    detail,
+    verifiedWallet,
+    activeWalletAddress,
+    activeWalletType,
+    connectedWalletAddress: address,
+    isWalletConnected: walletState.isConnected,
+    isTestnet: walletState.isTestnet,
+    canWriteContracts: walletState.canWriteContracts,
+    signTransaction,
+    resolutionStatus,
+    freelancerShareBps: resolutionShareValidation.freelancerShareBps,
+    resolutionNote: sanitizeLimitedMultilineInput(resolutionNote, MAX_RESOLUTION_NOTE_LENGTH),
+    canSettle: settlementEligibility.canSettle,
+    blockingReason: settlementEligibility.blockingReason,
+    loadDetail,
+    invalidateAdminDisputeQueue,
+    handleProtectedApiError,
+  });
+  const isAnyActionRunning = isSubmitting || settlement.isExecuting;
+  const canSettle = settlementEligibility.canSettle && !settlement.blocksNewAttempt;
+  const settlementBlockingReason = settlement.blocksNewAttempt
+    ? "Settlement requires reconciliation before another attempt can start."
+    : settlementEligibility.blockingReason;
+
+  const handleClaimCase = useCallback(async () => {
+    setIsSubmitting(true);
+    setActionError(null);
+    try {
+      await postAdminClaimDispute(disputeId);
+      await loadDetail();
+      await invalidateAdminDisputeQueue();
+      setActionSuccess("Case claimed.");
+    } catch (error) {
+      handleProtectedApiError(error);
+      setActionError(error instanceof Error ? error.message : "Could not claim the case.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [disputeId, handleProtectedApiError, invalidateAdminDisputeQueue, loadDetail]);
+
+  const handleAssignCase = useCallback(
+    async (assignedAdminWallet: string | null) => {
+      setIsSubmitting(true);
+      setActionError(null);
+      try {
+        await postAdminAssignDispute(disputeId, assignedAdminWallet);
+        await loadDetail();
+        await invalidateAdminDisputeQueue();
+        setActionSuccess(assignedAdminWallet ? "Case assignment updated." : "Case unassigned.");
+      } catch (error) {
+        handleProtectedApiError(error);
+        setActionError(
+          error instanceof Error ? error.message : "Could not update case assignment.",
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [disputeId, handleProtectedApiError, invalidateAdminDisputeQueue, loadDetail],
+  );
 
   const canRetryMarkDisputed =
     detail?.dispute.onChainStatus === "mark_failed" &&
@@ -612,13 +904,26 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("Moderator note added.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       setActionError(nextError instanceof Error ? nextError.message : "Failed to add note.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, loadDetail, moderatorNote]);
+  }, [disputeId, handleProtectedApiError, loadDetail, moderatorNote]);
 
   const handleChangeReviewStatus = useCallback(async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (!detail || !canReviewCurrentDispute) {
+      const nextWarning =
+        "Assign this nonterminal case to your verified admin wallet before changing review status.";
+      setActionError(nextWarning);
+      showWarningToast(nextWarning);
+      return;
+    }
+
     const sanitizedReviewMessage = sanitizeLimitedMultilineInput(
       reviewMessage,
       MAX_REVIEW_MESSAGE_LENGTH,
@@ -627,16 +932,48 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
+    setReviewStatusRefreshFailed(false);
+    let statusWriteSucceeded = false;
     try {
       await postAdminReviewStatus(disputeId, reviewStatus, sanitizedReviewMessage || undefined);
-      setActionSuccess("Dispute review status updated.");
+      statusWriteSucceeded = true;
+      setReviewMessage("");
+      await invalidateAdminDisputeQueue();
       await loadDetail();
+      setActionSuccess("Dispute review status updated.");
     } catch (nextError) {
-      setActionError(nextError instanceof Error ? nextError.message : "Failed to update status.");
+      handleProtectedApiError(nextError);
+      if (statusWriteSucceeded) {
+        setReviewStatusRefreshFailed(true);
+        setActionError(
+          "Review status was saved, but the detail could not be refreshed. Retry the read; the status mutation will not be repeated.",
+        );
+      } else {
+        setActionError(nextError instanceof Error ? nextError.message : "Failed to update status.");
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [disputeId, loadDetail, reviewMessage, reviewStatus]);
+  }, [
+    canReviewCurrentDispute,
+    detail,
+    disputeId,
+    handleProtectedApiError,
+    invalidateAdminDisputeQueue,
+    isSubmitting,
+    loadDetail,
+    reviewMessage,
+    reviewStatus,
+  ]);
+
+  const handleRetryDetailRead = useCallback(async () => {
+    const result = await detailQuery.refetch();
+    if (!result.error) {
+      setReviewStatusRefreshFailed(false);
+      settlement.clearRefreshError();
+      setActionError(null);
+    }
+  }, [detailQuery.refetch, settlement]);
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
@@ -646,19 +983,19 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       return;
     }
 
-    const config = getRequiredEscrowActionConfig();
-
     setIsSubmitting(true);
     setActionError(null);
     setActionSuccess(null);
     const clientRequestId = createClientRequestId(detail.dispute.onChainEscrowId);
 
     try {
+      const config = getRequiredAdminContractConfig();
       await assertWalletExecutionReady({
         walletType: activeWalletType,
         address,
         isConnected: walletState.isConnected,
         isTestnet: walletState.isTestnet,
+        network: config.network,
         canWriteContracts: walletState.canWriteContracts,
       });
 
@@ -725,6 +1062,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       setActionSuccess("On-chain mark_disputed retry succeeded.");
       await loadDetail();
     } catch (nextError) {
+      handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
       const failedTxHash =
         typeof nextError === "object" &&
@@ -768,6 +1106,7 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     address,
     createTransaction,
     detail,
+    handleProtectedApiError,
     loadDetail,
     markFailed,
     markStarted,
@@ -781,210 +1120,91 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
     walletState.isTestnet,
   ]);
 
-  const handleResolveOnChain = useCallback(async () => {
-    if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
-      const nextWarning = "Missing dispute or wallet context for settlement.";
-      setActionError(nextWarning);
-      showWarningToast(nextWarning);
-      return;
-    }
-
-    const config = getRequiredEscrowActionConfig();
-
-    setIsSubmitting(true);
-    setActionError(null);
-    setActionSuccess(null);
-    const clientRequestId = createClientRequestId(detail.dispute.onChainEscrowId);
-
-    try {
-      await assertWalletExecutionReady({
-        walletType: activeWalletType,
-        address,
-        isConnected: walletState.isConnected,
-        isTestnet: walletState.isTestnet,
-        canWriteContracts: walletState.canWriteContracts,
-      });
-
-      const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
-      const sanitizedResolutionNote = sanitizeLimitedMultilineInput(
-        resolutionNote,
-        MAX_RESOLUTION_NOTE_LENGTH,
-      );
-      const platformAdmin = await getPlatformAdminOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress,
-        walletType: activeWalletType,
-      });
-      const connectedWallet = activeWalletAddress.trim();
-
-      if (platformAdmin !== connectedWallet) {
-        throw new Error(
-          `Connected wallet is not the escrow platform admin. Connect ${platformAdmin} to resolve this dispute on-chain.`,
-        );
-      }
-
-      await postAdminResolution(disputeId, {
-        phase: "started",
-        status: resolutionStatus,
-        freelancerShareBps,
-        ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
-      });
-
-      await createTransaction({
-        walletAddress: activeWalletAddress,
-        walletType: activeWalletType,
-        type: "resolve_dispute",
-        clientRequestId,
-        escrowId: detail.dispute.onChainEscrowId,
-        ...(detail.dispute.jobId ? { jobId: detail.dispute.jobId } : {}),
-        ...(detail.dispute.milestoneId ? { milestoneId: detail.dispute.milestoneId } : {}),
-        status: "pending",
-      });
-
-      const resolutionHash = await toBytesN32Hash(
-        `dispute:${detail.dispute._id}:status:${resolutionStatus}:bps:${freelancerShareBps}:note:${sanitizedResolutionNote}`,
-      );
-
-      const txResult = await resolveDisputeOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: connectedWallet,
-        signTransaction,
-        walletType: activeWalletType,
-        operationId: clientRequestId,
-        platformAdmin,
-        escrowId: detail.dispute.onChainEscrowId,
-        freelancerShareBps,
-        resolutionHash,
-      });
-
-      await updateTransactionStatus({
-        clientRequestId,
-        txHash: txResult.txHash,
-        transactionHash: txResult.txHash,
-        status: "success",
-      });
-
-      await postAdminResolution(disputeId, {
-        phase: "succeeded",
-        status: resolutionStatus,
-        freelancerShareBps,
-        transactionHash: txResult.txHash,
-        stellarExpertUrl: getTxExplorerUrl(txResult.txHash),
-        ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
-      });
-
-      setActionSuccess("Dispute resolution succeeded on-chain and in backend records.");
-      await loadDetail();
-    } catch (nextError) {
-      const normalizedError = normalizeStellarError(nextError);
-      try {
-        await updateTransactionStatus({
-          clientRequestId,
-          ...(typeof nextError === "object" &&
-          nextError !== null &&
-          "txHash" in nextError &&
-          typeof nextError.txHash === "string"
-            ? { txHash: nextError.txHash, transactionHash: nextError.txHash }
-            : {}),
-          status: isPendingStellarTransactionError(nextError) ? "pending" : "failed",
-          errorMessage: normalizedError,
-        });
-      } catch {
-        // Best-effort transaction update.
-      }
-
-      if (!isPendingStellarTransactionError(nextError)) {
-        try {
-          const freelancerShareBps = resolveShareBps(resolutionStatus, resolutionShareInput);
-          const sanitizedResolutionNote = sanitizeLimitedMultilineInput(
-            resolutionNote,
-            MAX_RESOLUTION_NOTE_LENGTH,
-          );
-          await postAdminResolution(disputeId, {
-            phase: "failed",
-            status: resolutionStatus,
-            freelancerShareBps,
-            errorMessage: normalizedError,
-            ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
-          });
-        } catch {
-          // Best-effort failure recording.
-        }
-      }
-
-      setActionError(
-        normalizedError.includes("Error(Contract, #3)") ||
-          normalizedError
-            .toLowerCase()
-            .includes("connected wallet is not the escrow platform admin")
-          ? normalizedError
-          : normalizedError.includes("resolve_dispute")
-            ? "Settlement unavailable: escrow contract may not yet expose resolve_dispute."
-            : normalizedError,
-      );
-      await loadDetail();
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [
-    activeWalletAddress,
-    activeWalletType,
-    address,
-    createTransaction,
-    detail,
-    disputeId,
-    loadDetail,
-    resolutionNote,
-    resolutionShareInput,
-    resolutionStatus,
-    signTransaction,
-    updateTransactionStatus,
-    walletState.canWriteContracts,
-    walletState.isConnected,
-    walletState.isTestnet,
-  ]);
-
-  if (isRoleLoading) {
-    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
+  if (detailQuery.isPending) {
+    return <AdminRouteLoadingState label="dispute detail" />;
   }
 
-  if (role === null) {
+  if (detailQuery.isError) {
+    if (
+      !reviewStatusRefreshFailed &&
+      !settlement.refreshError &&
+      detailQuery.error.status === 404
+    ) {
+      return (
+        <RouteCallout tone="warning">
+          <span>Dispute not found.</span>{" "}
+          <Link className="underline" href="/admin/disputes">
+            Return to the dispute queue
+          </Link>
+        </RouteCallout>
+      );
+    }
+
+    if (
+      !reviewStatusRefreshFailed &&
+      !settlement.refreshError &&
+      detailQuery.error.status === 400
+    ) {
+      return (
+        <RouteCallout tone="danger">
+          This dispute request is invalid. Check the dispute ID and return to the queue.
+        </RouteCallout>
+      );
+    }
+
     return (
-      <WalletRequiredNotice
-        title="Admin Dispute Review"
-        description="Connect the configured admin wallet to review disputes."
-      />
+      <RouteCallout tone="danger">
+        {detailQuery.error.status === 401
+          ? "Admin authentication is required before this dispute can be read."
+          : detailQuery.error.status === 403
+            ? "Admin access is forbidden for this dispute request."
+            : reviewStatusRefreshFailed
+              ? "Review status was saved, but the detail refresh failed. Retry the read; the status mutation will not be repeated."
+              : settlement.refreshError
+                ? settlement.refreshError
+                : isAdminNetworkError(detailQuery.error)
+                  ? "The dispute detail could not be reached. Check your connection and retry."
+                  : getAdminApiErrorMessage(detailQuery.error) ||
+                    "Dispute detail could not be loaded."}{" "}
+        <AppButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="ml-3"
+          onClick={() => void handleRetryDetailRead()}
+          disabled={detailQuery.isFetching}
+        >
+          Retry
+        </AppButton>
+      </RouteCallout>
     );
   }
 
-  if (role !== "admin") {
+  if (!detail) {
     return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        This route is restricted to the configured admin wallet.
-      </section>
-    );
-  }
-
-  if (!authSession) {
-    return <AdminSessionGate>{null}</AdminSessionGate>;
-  }
-
-  if (isLoading) {
-    return <p className="hr-text-secondary text-sm">Loading dispute detail...</p>;
-  }
-
-  if (error || !detail) {
-    return (
-      <RouteCallout tone="danger">{error ?? "Dispute detail could not be loaded."}</RouteCallout>
+      <RouteCallout tone="danger">
+        Dispute detail could not be loaded. Retry the request or return to the queue.
+      </RouteCallout>
     );
   }
 
   const isReadOnlyDispute = isTerminalDisputeStatus(detail.dispute.status);
   const canShowRetryMarkDisputed = canRetryMarkDisputed && !isReadOnlyDispute;
+  const isAssignedAdmin = canReviewCurrentDispute;
+  const activeAdminWallets = [
+    verifiedWallet,
+    ...(membershipQuery.data?.admins
+      .filter((admin) => admin.accessState === "active")
+      .map((admin) => admin.wallet) ?? []),
+  ];
+  const assignedAdminAccessState = detail.dispute.assignedAdminWallet
+    ? (membershipQuery.data?.admins.find(
+        (admin) => admin.wallet === detail.dispute.assignedAdminWallet,
+      )?.accessState ??
+      (detail.dispute.assignedAdminWallet.toUpperCase() === verifiedWallet
+        ? "active"
+        : "not active"))
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -1000,10 +1220,10 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
         />
 
         <div className="grid gap-5 border-l border-[#e8e8e8] py-2 pl-5 sm:grid-cols-3 lg:grid-cols-1">
-          <HighrableV2Metric label="Status" value={detail.dispute.status.replaceAll("_", " ")} />
+          <HighrableV2Metric label="Status" value={getDisputeStatusLabel(detail.dispute.status)} />
           <HighrableV2Metric
             label="On-chain"
-            value={detail.dispute.onChainStatus.replaceAll("_", " ")}
+            value={getDisputeOnChainStatusLabel(detail.dispute.onChainStatus)}
           />
           <HighrableV2Metric label="Events" value={detail.timeline.length} />
         </div>
@@ -1012,26 +1232,90 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
       <AdminDisputeDetailActions
         detail={detail}
         canRetryMarkDisputed={canShowRetryMarkDisputed}
-        isSubmitting={isSubmitting}
+        isSubmitting={isAnyActionRunning}
         onRetryMarkDisputed={() => void handleRetryMarkDisputed()}
       />
 
       {canShowRetryMarkDisputed ? (
         <RouteCallout tone="danger">
           The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and sync
-          escrow status.
+          escrow status. This starts a new chain operation; the failure label alone does not
+          establish transaction retry safety.
         </RouteCallout>
       ) : null}
 
       <AdminCaseBrief detail={detail} />
 
-      {!isReadOnlyDispute ? (
+      <AdminAssignmentWorkspace
+        detail={detail}
+        verifiedWallet={verifiedWallet}
+        isOwner={isOwner}
+        activeAdminWallets={activeAdminWallets}
+        assignedAdminAccessState={assignedAdminAccessState}
+        isSubmitting={isAnyActionRunning}
+        onClaim={() => void handleClaimCase()}
+        onAssign={(wallet) => void handleAssignCase(wallet)}
+      />
+
+      {detail.settlementAttempts.some((attempt) =>
+        isActiveSettlementAttemptStatus(attempt.status),
+      ) ? (
+        <AdminSection
+          label="Settlement Recovery"
+          title="Pending transaction"
+          description="Recovery checks the persisted transaction identity and never submits it again."
+        >
+          <div className="space-y-3">
+            {detail.settlementAttempts
+              .filter((attempt) => isActiveSettlementAttemptStatus(attempt.status))
+              .map((attempt) => (
+                <div
+                  key={attempt._id}
+                  className="flex flex-wrap items-center justify-between gap-3 border border-[#e8e8e8] p-4"
+                >
+                  <div>
+                    <p className="text-sm font-medium capitalize">
+                      {attempt.status.replaceAll("_", " ")}
+                    </p>
+                    <p className="mt-1 font-mono text-xs break-all text-[#777]">
+                      {attempt.actorWallet} ·{" "}
+                      {attempt.transactionHash ?? "Awaiting signed transaction"}
+                    </p>
+                  </div>
+                  <AppButton
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      isAnyActionRunning ||
+                      (!attempt.transactionHash && attempt.status !== "started")
+                    }
+                    onClick={() =>
+                      void settlement.reconcile(attempt.operationId, attempt.transactionHash)
+                    }
+                  >
+                    {isAnyActionRunning ? "Checking…" : "Reconcile"}
+                  </AppButton>
+                </div>
+              ))}
+          </div>
+        </AdminSection>
+      ) : null}
+
+      {!isReadOnlyDispute && !isAssignedAdmin ? (
+        <RouteCallout tone="warning">
+          Assign this case to your wallet before adding moderator notes, changing review status, or
+          starting settlement.
+        </RouteCallout>
+      ) : null}
+
+      {!isReadOnlyDispute && isAssignedAdmin ? (
         <>
           <AdminModeratorWorkspace
             moderatorNote={moderatorNote}
             reviewMessage={reviewMessage}
             reviewStatus={reviewStatus}
-            isSubmitting={isSubmitting}
+            isSubmitting={isAnyActionRunning}
             onModeratorNoteChange={(value) =>
               setModeratorNote(value.slice(0, MAX_MODERATOR_NOTE_LENGTH))
             }
@@ -1042,28 +1326,52 @@ export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: stri
             onAddModeratorNote={() => void handleAddModeratorNote()}
             onChangeReviewStatus={() => void handleChangeReviewStatus()}
           />
-
-          <AdminResolutionWorkspace
-            resolutionStatus={resolutionStatus}
-            resolutionShareInput={resolutionShareInput}
-            resolutionNote={resolutionNote}
-            isSubmitting={isSubmitting}
-            onResolutionStatusChange={setResolutionStatus}
-            onResolutionShareInputChange={(value) =>
-              setResolutionShareInput(sanitizeBasisPointInput(value))
-            }
-            onResolutionNoteChange={(value) =>
-              setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
-            }
-            onResolveOnChain={() => void handleResolveOnChain()}
-          />
         </>
       ) : null}
+
+      {!isReadOnlyDispute ? (
+        <AdminResolutionWorkspace
+          resolutionStatus={resolutionStatus}
+          resolutionShareInput={resolutionShareInput}
+          resolutionShareError={resolutionShareValidation.error}
+          resolutionNote={resolutionNote}
+          settlementBlockingReason={settlementBlockingReason}
+          canSettle={canSettle}
+          isSubmitting={isAnyActionRunning}
+          onResolutionStatusChange={(value) => {
+            setResolutionStatus(value);
+          }}
+          onResolutionShareInputChange={setResolutionShareInput}
+          onResolutionNoteChange={(value) =>
+            setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
+          }
+          onResolveOnChain={() => void settlement.resolve()}
+        />
+      ) : null}
+
+      <AdminSettlementProgress
+        phase={settlement.phase}
+        phaseLabel={settlement.phaseLabel}
+        isExecuting={settlement.isExecuting}
+        operationId={settlement.attempt?.operationId ?? null}
+        transactionHash={settlement.attempt?.transactionHash ?? null}
+        transactionExplorerUrl={settlement.transactionExplorerUrl}
+        error={settlement.error}
+        success={settlement.success}
+      />
 
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout tone="success">{actionSuccess}</RouteCallout> : null}
 
       <AdminTimeline detail={detail} />
     </div>
+  );
+}
+
+export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
+  return (
+    <AdminSessionGate>
+      <AdminDisputeDetailContent disputeId={disputeId} />
+    </AdminSessionGate>
   );
 }
