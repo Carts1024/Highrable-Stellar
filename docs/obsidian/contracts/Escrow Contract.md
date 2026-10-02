@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -110,6 +110,10 @@ Resolution amounts are raw token base units (`i128`); the client amount includes
 ## Tests
 
 `contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute marking and settlement tests prepare timestamped funded or submitted escrows through public contract calls. For settlement, invocation-scoped mock authorization covers the actor and all four `resolve_dispute` arguments; successful calls immediately assert the exact authorized invocation. Settlement coverage accepts `0`, `3_333`, and `10_000` basis points with payout and terminal-status assertions; full refund, full payout, and rounded split outcomes each run from isolated `Funded` and `Submitted` dispute fixtures. They compare the complete escrow record, verify the settlement timestamp for positive shares, and assert expected participant gains and contract balance conservation from the pre-settlement balances. Settlement rejects `10_001` and `u32::MAX`, authenticated outsiders, missing or wrong-actor authorization, `Created`/`Funded`/`Submitted`/`Released`/`Cancelled` statuses, and repeat settlement attempts. Rejected settlements compare the complete escrow record and client, freelancer, and contract token balances before and after. Registered-admin settlement and participant-conflict regressions remain covered. Dispute event assertions verify emitter, exact topics, typed named payload fields and values, one event on success, and no new dispute event on rejection; token-transfer events are checked under the token emitter. A failing second settlement transfer verifies rollback and no resolution event. These mocks exercise Soroban host authorization enforcement, but do not prove cryptographic signatures or wallet integration behavior.
+
+## C20 terminal-state regression coverage
+
+Six focused Rust tests cover disputed escrows originating in both `Funded` and `Submitted`, rejecting submission, ordinary release, cancellation, and repeat marking by client, freelancer, and platform owner. Terminal matrices cover refund, split, and full-payout settlements from both origins, ordinary release, and cancellation from `Created` and `Funded`. Across 84 rejected invocations, exact invocation-scoped mock authorization and valid arguments isolate `InvalidStatus`; full escrow records, participant/contract balances, completion records, freelancer statistics, and dispute/transfer event counts are preserved. Timestamps advance and replacement hashes differ from fixture hashes. Existing positive, authorization, rounding, and rollback coverage remains intact. The full workspace passes 61 escrow and 9 reputation tests; both WASM contracts build locally. See [C20 evidence](../../instawards/C20-Dispute-State-Regression-Evidence.md) for the matrix, commands, and pnpm wrapper limitation. This does not verify deployed behavior.
 
 ## Deployment Configuration
 
