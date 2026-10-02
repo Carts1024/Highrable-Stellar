@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -13,6 +13,7 @@ This classification is based on current source, tests, manifests, deployment art
 ## Functional / Implemented
 
 - Soroban escrow creation, open escrow creation, create-and-fund open escrow, funding, assignment, submission, approval/release, cancellation, dispute marking, owner-only settlement for existing deployments, membership-enabled admin dispute settlement in current source, asset allowlisting, and read/configuration methods exist in `contracts/escrow/src/lib.rs`.
+- C20 local Soroban regression coverage is implemented: six tests exercise 84 forbidden dispute/terminal invocations from funded/submitted dispute origins and ordinary release/cancellation paths. Full records, balances, reputation, and event counts remain unchanged on rejection; the contract workspace passes 61 escrow and 9 reputation tests and both WASM contracts build. This is local evidence; deployed behavior and wider sprint acceptance remain unverified.
 - The current escrow source emits versioned `dispute/marked` and `dispute/resolved` events after successful state writes; C16 handoff and payload schemas are documented. Resolution hashes are emitted but remain absent from persistent escrow records.
 - Soroban reputation initialization, authorized completion recording, immutable completion lookup, existence checks, and freelancer aggregate statistics exist in `contracts/reputation/src/lib.rs`.
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
