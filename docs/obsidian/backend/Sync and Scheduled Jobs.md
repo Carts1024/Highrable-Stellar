@@ -2,7 +2,7 @@
 type: reference
 area: backend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -36,5 +36,7 @@ The web application can initiate chain calls through the Stellar client layer, t
 ## Explicit gap
 
 `syncWalletTransactions(walletAddress)` is marked post-MVP in `sync.ts`. The source says it will require historical Stellar transaction indexing through Horizon or a dedicated indexer. Do not claim that the `transactions` table is a complete wallet history.
+
+The C21 reconciliation suite verifies the internal sync boundary in-memory: failure metadata can recover to a confirmed `disputed` mirror, repeated reads are idempotent, disputed escrows reject generic terminal downgrades, and administrator settlement—not generic sync—owns the final released/cancelled transition. This coverage does not replace live RPC verification or add a chain indexer.
 
 See [[modules/Sync and Transactions]], [[data/State Machines]], and [[architecture/Data Flow]].

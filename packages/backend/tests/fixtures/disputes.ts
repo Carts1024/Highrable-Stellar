@@ -39,6 +39,19 @@ export type DisputeReferenceFixture = {
   submissionId: Id<"workSubmissions">;
 };
 
+export type ScopedDisputeAdminOptions = {
+  accessState?: "active" | "revoking" | "revoked";
+  contractId?: string;
+  grantedByWallet?: string;
+  network?: string;
+};
+
+export type SiblingMilestoneFixture = {
+  escrowId: Id<"escrows">;
+  milestoneId: Id<"milestones">;
+  onChainEscrowId: string;
+};
+
 export type DisputeFields = Omit<Doc<"disputes">, "_id" | "_creationTime">;
 export type DisputeEventFields = Omit<Doc<"disputeEvents">, "_id" | "_creationTime">;
 
@@ -402,5 +415,85 @@ export async function assignDisputeFixture(
       assignedByWallet: adminWallet,
       updatedAt: Date.now(),
     });
+  });
+}
+
+export async function seedScopedDisputeAdmin(
+  t: BackendTest,
+  wallet: string,
+  options: ScopedDisputeAdminOptions = {},
+): Promise<Id<"disputeAdmins">> {
+  const network = options.network ?? "testnet";
+  const contractId = options.contractId ?? "c21-escrow-contract";
+  const grantedByWallet = options.grantedByWallet ?? TEST_WALLETS.admin;
+
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("disputeAdmins", {
+      network,
+      contractId,
+      wallet,
+      accessState: options.accessState ?? "active",
+      grantedByWallet,
+      grantedAt: 1,
+      updatedAt: 1,
+    });
+  });
+}
+
+export async function seedSiblingMilestoneFixture(
+  t: BackendTest,
+  fixture: DisputeFixture,
+  options: { label?: string; escrowStatus?: EscrowFixtureStatus } = {},
+): Promise<SiblingMilestoneFixture> {
+  if (fixture.parentType !== "milestone") {
+    throw new Error("Sibling milestone fixtures require a milestone dispute fixture.");
+  }
+
+  const label = options.label ?? "sibling";
+  const escrowStatus = options.escrowStatus ?? "funded";
+  const createdAt = 1_768_480_800_250;
+  const onChainEscrowId = `escrow-${label}-sibling`;
+
+  return await t.run(async (ctx) => {
+    const milestoneId = await ctx.db.insert("milestones", {
+      jobId: fixture.jobId,
+      order: 2,
+      title: `C21 ${label} milestone`,
+      description: "Deterministic sibling milestone fixture.",
+      requiredOutput: "A sibling deliverable",
+      amount: 250,
+      asset: "USDC",
+      status: escrowStatus === "submitted" ? "submitted" : "funded",
+      assignedFreelancerWallet: fixture.freelancerWallet,
+      escrowId: onChainEscrowId,
+      createdAt,
+      updatedAt: createdAt,
+      ...(escrowStatus === "submitted" ? { submittedAt: createdAt + 100 } : {}),
+    });
+
+    const escrowId = await ctx.db.insert("escrows", {
+      jobId: fixture.jobId,
+      milestoneId,
+      escrowId: onChainEscrowId,
+      clientWallet: fixture.clientWallet,
+      freelancerWallet: fixture.freelancerWallet,
+      amount: 250,
+      asset: "USDC",
+      status: escrowStatus,
+      createTxHash: `create-tx-${label}`,
+      fundTxHash: `fund-tx-${label}`,
+      assignTxHash: `assign-tx-${label}`,
+      ...(escrowStatus === "submitted" ? { submitTxHash: `submit-tx-${label}` } : {}),
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    await ctx.db.patch(fixture.jobId, {
+      milestoneCount: 2,
+      totalBudget: 750,
+      updatedAt: createdAt,
+    });
+
+    return { escrowId, milestoneId, onChainEscrowId };
   });
 }
