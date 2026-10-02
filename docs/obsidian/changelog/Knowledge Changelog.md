@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 source_of_truth: repository
 ---
 
@@ -13,6 +13,10 @@ source_of_truth: repository
 - Completed C22 administrator regression evidence: added real-gate protected queue/detail integration coverage for verification, wallet identity changes, disconnects, 401/403 cache eviction, stale responses, and retryable reads; extended settlement detail tests through deferred execution phases, signing/simulation retry, uncertainty reconciliation, verified failure retry, bps boundaries, explorer feedback, and read-only refresh recovery. Focused administrator coverage passes 135 tests and the full web suite passes 211 tests. Evidence is mocked component/integration coverage, not live Testnet end-to-end evidence.
 - Completed C21 dispute retry/reconciliation coverage. Added deterministic Convex integration tests for marking retries and known-hash recovery, partial parent/callback ordering, settlement retry and uncertainty, all micro-gig/milestone outcomes, sibling aggregation, sync terminal boundaries, callback integrity, and atomic missing-parent rollback. Added test-only scoped-admin and sibling-milestone fixtures; full backend coverage now passes 99 tests. No production backend defect was reproduced and no runtime/schema/generated-file change was needed.
 - Added C20 Soroban dispute/terminal regression coverage: six tests exercise 84 rejected invocations and preserve escrow records, balances, reputation, and event counts under scoped mock authorization. The workspace passes 61 escrow and 9 reputation tests; both WASM contracts build using the underlying Stellar CLI command. Recorded the coverage matrix, pnpm registry-DNS limitation, and local-only evidence in the C20 evidence document and testing/contract notes. Production contract behavior and deployment status remain unchanged.
+
+## 2026-10-02
+
+- Added the [Deliverable 1 implementation review](../../instawards/Highrable-Instawards-Deliverable-1-Implementation-Review.md) and refreshed the SOW snapshot through 8eb4514. Reconciled the separate September 29 multi-admin Testnet record with the later membership and event source: its 09:41 +08 timestamp predates the 10:03 +08 membership commit and it has no code hash or deployment link, so it does not prove the exact current WASM is deployed.
 
 ## 2026-09-30
 
