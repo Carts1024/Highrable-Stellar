@@ -67,7 +67,10 @@ export function DisputeList() {
             </div>
             <div className="flex flex-wrap gap-2">
               <DisputeStatusBadge status={dispute.status} />
-              <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
+              <DisputeOnChainStatusBadge
+                status={dispute.onChainStatus}
+                transactionHash={dispute.transactionHash}
+              />
             </div>
           </div>
           <div className="mt-3 flex justify-end">

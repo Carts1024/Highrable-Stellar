@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -76,6 +76,12 @@ Use domain helpers for participant roles and eligibility. Use admin helpers for 
 ## Frontend Contract and Limits
 
 Participant reads remain identity-scoped at the UI layer and use the generated Convex API contract. Current bounded reads are 50 client plus 50 freelancer disputes before deduplication, 20 parent disputes, 200 timeline events, and 50 each for context submissions, revisions, and deadline events. Admin queue/detail limits and the complete participant function/argument matrix are frozen in `docs/instawards/C06-Frontend-Handoff.md`. Admin HTTP errors remain separate from participant Convex errors; both use explicit loading, empty, invalid/not-found, forbidden, and failed-read presentation.
+
+C19 adds separate participant evidence and response composers to permitted dispute details. Both wait for `canRespondToDispute`, use its returned participant role for uploads, require ready attachments within the 25-file mutation limit, and retain drafts after rejected writes. Evidence requires an attachment; responses require a message. Participant detail and timeline read serialized attachments through the dispute queries, while protected previews and download attempts use backend attachment access functions. The backend still validates actor role, active status, attachment ownership, and case association for every write; caller-supplied wallet possession remains unproven.
+
+C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
+
+C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
 
 ## Risks / Gotchas
 
