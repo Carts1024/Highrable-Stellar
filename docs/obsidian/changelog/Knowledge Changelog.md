@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-05
+
+- Added C01 Soroban dispute-interface compatibility coverage without changing production behavior: SDK-generated specs freeze both method signatures and return types, tests lock all status encodings and error names/codes, and event expectations use independent literal-key maps with explicit value types. Existing settlement events now lock the amount-301 examples `0 → 0/301`, `3,333 → 100/201`, and `10,000 → 301/0`. Added the [C01 handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md), including backend mappings, the separate Convex timeline boundary, and local-evidence limits. Focused compatibility/dispute/rollback checks and the 64 escrow + 9 reputation workspace tests pass; `pnpm contracts:build` builds both WASM contracts. No deployed-contract or Testnet verification was performed.
 
 ## 2026-10-01
 

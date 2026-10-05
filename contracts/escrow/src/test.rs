@@ -7,15 +7,20 @@ use super::{
     TEscrowStatus,
 };
 use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
+use soroban_sdk::xdr::{
+    Limits, ReadXdr, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeResult,
+    ScSpecTypeTuple,
+};
 use soroban_sdk::{
     contract, contractimpl, contracttype,
     testutils::{
         Address as _, AuthorizedFunction, AuthorizedInvocation, Events as _, Ledger, MockAuth,
         MockAuthInvoke,
     },
-    token, Address, BytesN, Env, IntoVal, InvokeError, Symbol, TryIntoVal, Val,
+    token, Address, BytesN, Env, IntoVal, InvokeError, Map, Symbol, TryIntoVal, Val, Vec,
 };
 use std::boxed::Box;
+use std::string::ToString;
 
 #[derive(Clone)]
 #[contracttype]
@@ -91,6 +96,41 @@ struct TTestContext {
 
 fn hash_from_byte(env: &Env, value: u8) -> BytesN<32> {
     BytesN::from_array(env, &[value; 32])
+}
+
+fn decode_spec_entry(bytes: &[u8]) -> ScSpecEntry {
+    ScSpecEntry::from_xdr(bytes, Limits::none()).unwrap()
+}
+
+fn assert_dispute_function_spec(
+    spec_bytes: &[u8],
+    expected_name: &str,
+    expected_inputs: &[(&str, ScSpecTypeDef)],
+) {
+    let ScSpecEntry::FunctionV0(spec) = decode_spec_entry(spec_bytes) else {
+        panic!("expected a function spec for {expected_name}");
+    };
+
+    assert_eq!(spec.name.to_string(), expected_name);
+    assert_eq!(spec.inputs.len(), expected_inputs.len());
+    for (actual, (expected_name, expected_type)) in spec.inputs.iter().zip(expected_inputs) {
+        assert_eq!(actual.name.to_string(), *expected_name);
+        assert_eq!(actual.type_, expected_type.clone());
+    }
+    assert_eq!(
+        spec.outputs.as_slice(),
+        &[ScSpecTypeDef::Result(Box::new(ScSpecTypeResult {
+            ok_type: Box::new(ScSpecTypeDef::Tuple(Box::new(ScSpecTypeTuple {
+                value_types: std::vec::Vec::<ScSpecTypeDef>::new().try_into().unwrap(),
+            }))),
+            error_type: Box::new(ScSpecTypeDef::Error),
+        }))]
+    );
+}
+
+fn event_status_value(env: &Env, status_name: &str) -> Val {
+    let status_symbols: Vec<Symbol> = soroban_sdk::vec![env, Symbol::new(env, status_name)];
+    status_symbols.into_val(env)
 }
 
 fn set_timestamp(env: &Env, timestamp: u64) {
@@ -272,12 +312,10 @@ fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address
     let (emitter, topics, data) = &records[event_index];
     assert_eq!(emitter, &context.escrow_contract_id);
 
-    let expected_topics: soroban_sdk::Vec<Val> = (
-        Symbol::new(&context.env, "dispute"),
-        Symbol::new(&context.env, "marked"),
-        escrow_id,
-    )
-        .into_val(&context.env);
+    let mut expected_topics: Vec<Val> = Vec::new(&context.env);
+    expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
+    expected_topics.push_back(Symbol::new(&context.env, "marked").into_val(&context.env));
+    expected_topics.push_back(escrow_id.into_val(&context.env));
     assert_eq!(topics, &expected_topics);
 
     let expected_payload = DisputeMarkedEvent {
@@ -285,7 +323,20 @@ fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address
         actor: actor.clone(),
         status: TEscrowStatus::Disputed,
     };
-    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let mut expected_data_map: Map<Symbol, Val> = Map::new(&context.env);
+    expected_data_map.set(
+        Symbol::new(&context.env, "version"),
+        1_u32.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "actor"),
+        actor.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "status"),
+        event_status_value(&context.env, "Disputed"),
+    );
+    let expected_data: Val = expected_data_map.into_val(&context.env);
     let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
     let expected_data_xdr: soroban_sdk::xdr::ScVal =
         expected_data.try_into_val(&context.env).unwrap();
@@ -308,35 +359,86 @@ fn assert_resolve_event(
     let (emitter, topics, data) = &records[event_index];
     assert_eq!(emitter, &context.escrow_contract_id);
 
-    let expected_topics: soroban_sdk::Vec<Val> = (
-        Symbol::new(&context.env, "dispute"),
-        Symbol::new(&context.env, "resolved"),
-        escrow_id,
-    )
-        .into_val(&context.env);
+    let mut expected_topics: Vec<Val> = Vec::new(&context.env);
+    expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
+    expected_topics.push_back(Symbol::new(&context.env, "resolved").into_val(&context.env));
+    expected_topics.push_back(escrow_id.into_val(&context.env));
     assert_eq!(topics, &expected_topics);
 
     let freelancer = before.freelancer.clone().unwrap();
-    let freelancer_amount = (before.amount * freelancer_share_bps as i128) / 10_000;
-    let client_amount = before.amount - freelancer_amount;
+    let (freelancer_amount, client_amount) = match (before.amount, freelancer_share_bps) {
+        (301, 0) => (0, 301),
+        (301, 3_333) => (100, 201),
+        (301, 10_000) => (301, 0),
+        (amount, share_bps) => {
+            let freelancer_amount = (amount * share_bps as i128) / 10_000;
+            (freelancer_amount, amount - freelancer_amount)
+        }
+    };
     let status = if freelancer_share_bps == 0 {
         TEscrowStatus::Cancelled
     } else {
         TEscrowStatus::Released
     };
+    let status_name = if freelancer_share_bps == 0 {
+        "Cancelled"
+    } else {
+        "Released"
+    };
     let expected_payload = DisputeResolvedEvent {
         version: 1,
         actor: actor.clone(),
         status,
-        resolution_hash,
+        resolution_hash: resolution_hash.clone(),
         asset: before.asset.clone(),
         client: before.client.clone(),
-        freelancer,
+        freelancer: freelancer.clone(),
         freelancer_share_bps,
         freelancer_amount,
         client_amount,
     };
-    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let mut expected_data_map: Map<Symbol, Val> = Map::new(&context.env);
+    expected_data_map.set(
+        Symbol::new(&context.env, "version"),
+        1_u32.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "actor"),
+        actor.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "status"),
+        event_status_value(&context.env, status_name),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "resolution_hash"),
+        resolution_hash.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "asset"),
+        before.asset.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "client"),
+        before.client.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer"),
+        freelancer.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer_share_bps"),
+        freelancer_share_bps.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer_amount"),
+        freelancer_amount.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "client_amount"),
+        client_amount.into_val(&context.env),
+    );
+    let expected_data: Val = expected_data_map.into_val(&context.env);
     let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
     let expected_data_xdr: soroban_sdk::xdr::ScVal =
         expected_data.try_into_val(&context.env).unwrap();
@@ -871,6 +973,97 @@ fn assert_c20_terminal_actions(context: &TTestContext, escrow_id: u64) {
     ] {
         assert_c20_rejected_action_preserves_state(context, escrow_id, action, actor);
     }
+}
+
+#[test]
+fn c01_dispute_method_specs_are_frozen() {
+    assert_dispute_function_spec(
+        &EscrowContract::spec_xdr_mark_disputed(),
+        "mark_disputed",
+        &[
+            ("caller", ScSpecTypeDef::Address),
+            ("escrow_id", ScSpecTypeDef::U64),
+        ],
+    );
+    assert_dispute_function_spec(
+        &EscrowContract::spec_xdr_resolve_dispute(),
+        "resolve_dispute",
+        &[
+            ("dispute_admin", ScSpecTypeDef::Address),
+            ("escrow_id", ScSpecTypeDef::U64),
+            ("freelancer_share_bps", ScSpecTypeDef::U32),
+            (
+                "_resolution_hash",
+                ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 32 }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn c01_status_names_and_symbol_vector_encoding_are_frozen() {
+    let env = Env::default();
+    let statuses = [
+        (TEscrowStatus::Created, "Created"),
+        (TEscrowStatus::Funded, "Funded"),
+        (TEscrowStatus::Submitted, "Submitted"),
+        (TEscrowStatus::Released, "Released"),
+        (TEscrowStatus::Cancelled, "Cancelled"),
+        (TEscrowStatus::Disputed, "Disputed"),
+    ];
+
+    for (status, expected_name) in statuses {
+        let actual: Val = status.into_val(&env);
+        let expected = event_status_value(&env, expected_name);
+        let actual_xdr: soroban_sdk::xdr::ScVal = actual.try_into_val(&env).unwrap();
+        let expected_xdr: soroban_sdk::xdr::ScVal = expected.try_into_val(&env).unwrap();
+        assert_eq!(actual_xdr, expected_xdr);
+    }
+}
+
+#[test]
+fn c01_contract_error_names_and_codes_are_frozen() {
+    let ScSpecEntry::UdtErrorEnumV0(spec) = decode_spec_entry(&Error::spec_xdr()) else {
+        panic!("expected the escrow contract error spec");
+    };
+    assert_eq!(spec.name.to_string(), "Error");
+
+    let expected = [
+        ("AlreadyInitialized", 1),
+        ("NotInitialized", 2),
+        ("Unauthorized", 3),
+        ("InvalidAmount", 4),
+        ("EscrowNotFound", 5),
+        ("InvalidStatus", 6),
+        ("InvalidRating", 7),
+        ("InvalidFreelancer", 8),
+        ("AssetNotAllowed", 9),
+        ("InvalidShareBps", 10),
+    ];
+    let actual = spec
+        .cases
+        .iter()
+        .map(|case| (case.name.to_string(), case.value))
+        .collect::<std::vec::Vec<_>>();
+    let expected_specs = expected
+        .iter()
+        .map(|(name, code)| ((*name).to_string(), *code))
+        .collect::<std::vec::Vec<_>>();
+    assert_eq!(actual, expected_specs);
+
+    let actual_codes = [
+        Error::AlreadyInitialized as u32,
+        Error::NotInitialized as u32,
+        Error::Unauthorized as u32,
+        Error::InvalidAmount as u32,
+        Error::EscrowNotFound as u32,
+        Error::InvalidStatus as u32,
+        Error::InvalidRating as u32,
+        Error::InvalidFreelancer as u32,
+        Error::AssetNotAllowed as u32,
+        Error::InvalidShareBps as u32,
+    ];
+    assert_eq!(actual_codes, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
