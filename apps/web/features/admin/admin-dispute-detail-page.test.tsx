@@ -93,7 +93,11 @@ vi.mock("@/core/stellar/escrow-contract", () => ({
   resolveDisputeOnChain: runtime.stellar.resolveDisputeOnChain,
 }));
 
-vi.mock("@/core/stellar/explorer", () => ({ getTxExplorerUrl: vi.fn() }));
+vi.mock("@/core/stellar/explorer", () => ({
+  getTxExplorerUrl: vi.fn(
+    (transactionHash: string) => `https://stellar.expert/testnet/tx/${transactionHash}`,
+  ),
+}));
 vi.mock("@/core/stellar/hashes", () => ({ toBytesN32Hash: vi.fn() }));
 vi.mock("@/core/stellar/passkeySmartAccountExecutor", () => ({
   getPasskeyEscrowExecutionReadiness: vi.fn(),
@@ -182,6 +186,14 @@ function response(body: unknown, status = 200): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }
 
 function renderDetail(disputeId = "dispute-1") {
@@ -798,6 +810,574 @@ describe("AdminDisputeDetailPage", () => {
       expect.objectContaining({ body: expect.stringContaining('"phase":"failed"') }),
     );
   });
+
+  it("executes a new operation after failure bookkeeping succeeds", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:attempt-1", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(response({ success: true, phase: "failed", result: true }))
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:attempt-2", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: { operationId: "resolve_dispute:attempt-2", transactionHash: "b".repeat(64) },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({ status: "succeeded", result: { status: "resolved_client" } }),
+      )
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", fetchMock);
+    runtime.stellar.resolveDisputeOnChain
+      .mockRejectedValueOnce(new Error("Transaction simulation failed."))
+      .mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({
+            transactionHash: "b".repeat(64),
+            transactionValidUntil: 123,
+          });
+          return { txHash: "b".repeat(64) };
+        },
+      );
+
+    renderDetail();
+    const resolveButton = await screen.findByRole("button", { name: "Resolve On-Chain" });
+    fireEvent.click(resolveButton);
+    expect(await screen.findByText(/Transaction simulation failed/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(2);
+    const operationIds = runtime.stellar.resolveDisputeOnChain.mock.calls.map(
+      ([args]) => (args as { readonly operationId: string }).operationId,
+    );
+    expect(operationIds[0]).toMatch(/^resolve_dispute:dispute-1:/);
+    expect(operationIds[1]).toMatch(/^resolve_dispute:dispute-1:/);
+    expect(operationIds[0]).not.toBe(operationIds[1]);
+  });
+
+  it("allows a new operation after wallet signing rejection is recorded", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const transactionHash = "b".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:sign-rejected", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(response({ success: true, phase: "failed", result: true }))
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:sign-retry", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: { operationId: "resolve_dispute:sign-retry", transactionHash },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({ status: "succeeded", result: { status: "resolved_client" } }),
+      )
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", fetchMock);
+    runtime.stellar.resolveDisputeOnChain
+      .mockRejectedValueOnce(new Error("User rejected the wallet signature."))
+      .mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+          return { txHash: transactionHash };
+        },
+      );
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    expect(await screen.findByText(/User rejected the wallet signature/)).toBeTruthy();
+    expect(fetchMock.mock.calls[2]?.[1]).toEqual(
+      expect.objectContaining({ body: expect.stringContaining('"phase":"failed"') }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(2);
+  });
+
+  it("permits a fresh chain attempt after a verified failed settlement outcome", async () => {
+    const activeDetail = createActiveDetail({ dispute: { status: "under_review" } });
+    const transactionHashOne = "1".repeat(64);
+    const transactionHashTwo = "2".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(activeDetail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:verified-failure", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: {
+            operationId: "resolve_dispute:verified-failure",
+            transactionHash: transactionHashOne,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(response({ status: "failed", result: true }))
+      .mockResolvedValueOnce(response(activeDetail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:verified-retry", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: {
+            operationId: "resolve_dispute:verified-retry",
+            transactionHash: transactionHashTwo,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({ status: "succeeded", result: { status: "resolved_client" } }),
+      )
+      .mockResolvedValueOnce(response(resolvedDetail));
+    vi.stubGlobal("fetch", fetchMock);
+    runtime.stellar.resolveDisputeOnChain
+      .mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash: transactionHashOne, transactionValidUntil: 123 });
+          return { txHash: transactionHashOne };
+        },
+      )
+      .mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash: transactionHashTwo, transactionValidUntil: 123 });
+          return { txHash: transactionHashTwo };
+        },
+      );
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    expect(await screen.findByText(/Settlement failed on Stellar/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders coordinator phases, signed identity, explorer context, and blocks duplicate clicks", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const simulation = createDeferred<void>();
+    const signing = createDeferred<void>();
+    const submission = createDeferred<void>();
+    const confirmation = createDeferred<void>();
+    const startedRecording = createDeferred<Response>();
+    const signedRecording = createDeferred<Response>();
+    const finalRecording = createDeferred<Response>();
+    const transactionHash = "c".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockReturnValueOnce(startedRecording.promise)
+      .mockReturnValueOnce(signedRecording.promise)
+      .mockReturnValueOnce(finalRecording.promise)
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", fetchMock);
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onPhase: (phase: "simulation" | "signing" | "submission" | "confirmation") => void;
+        readonly onSigned: (value: {
+          readonly transactionHash: string;
+          readonly transactionValidUntil: number;
+        }) => Promise<void>;
+      }) => {
+        args.onPhase("simulation");
+        await simulation.promise;
+        args.onPhase("signing");
+        await signing.promise;
+        await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+        args.onPhase("submission");
+        await submission.promise;
+        args.onPhase("confirmation");
+        await confirmation.promise;
+        return { txHash: transactionHash };
+      },
+    );
+
+    renderDetail();
+    const resolveButton = await screen.findByRole("button", { name: "Resolve On-Chain" });
+    fireEvent.click(resolveButton);
+    expect(await screen.findByText("Preparing settlement")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Resolving..." }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Resolving..." }));
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(0);
+    startedRecording.resolve(
+      response({
+        success: true,
+        phase: "started",
+        result: { operationId: "resolve_dispute:phase-test", freelancerShareBps: 0 },
+      }),
+    );
+    expect(await screen.findByText("Simulating transaction")).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+
+    simulation.resolve();
+    expect(await screen.findByText("Waiting for wallet signature")).toBeTruthy();
+    signing.resolve();
+    expect(await screen.findByText("Recording signed transaction")).toBeTruthy();
+    expect(await screen.findByText(transactionHash)).toBeTruthy();
+    signedRecording.resolve(
+      response({
+        success: true,
+        phase: "signed",
+        result: { operationId: "resolve_dispute:phase-test", transactionHash },
+      }),
+    );
+    expect(await screen.findByText("Submitting transaction")).toBeTruthy();
+    const transactionLink = screen.getByRole("link", { name: transactionHash });
+    expect(transactionLink.getAttribute("href")).toBe(
+      `https://stellar.expert/testnet/tx/${transactionHash}`,
+    );
+    submission.resolve();
+    expect(await screen.findByText("Waiting for Stellar confirmation")).toBeTruthy();
+    confirmation.resolve();
+
+    expect(await screen.findByText("Recording verified settlement")).toBeTruthy();
+    finalRecording.resolve(
+      response({ status: "succeeded", result: { status: "resolved_client" } }),
+    );
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+  });
+
+  it("keeps signed context when identity recording fails and reconciles without resubmitting", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const transactionHash = "d".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:signed-failure", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(response({ error: "Signed identity unavailable." }, 500))
+      .mockResolvedValueOnce(
+        response({ status: "pending", result: { status: "submission_unknown" } }, 202),
+      )
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", fetchMock);
+    const phases: string[] = [];
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onPhase: (phase: "simulation" | "signing" | "submission" | "confirmation") => void;
+        readonly onSigned: (value: {
+          readonly transactionHash: string;
+          readonly transactionValidUntil: number;
+        }) => Promise<void>;
+      }) => {
+        args.onPhase("signing");
+        phases.push("signing");
+        await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+        phases.push("submission");
+        return { txHash: transactionHash };
+      },
+    );
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(await screen.findByText(/Settlement is unresolved/)).toBeTruthy();
+    expect(screen.getByText(transactionHash)).toBeTruthy();
+    expect(phases).toEqual(["signing"]);
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[3]?.[1]).toEqual(
+      expect.objectContaining({
+        body: expect.stringContaining('"phase":"reconcile"'),
+      }),
+    );
+  });
+
+  it.each(["submission", "confirmation"] as const)(
+    "reconciles %s uncertainty with the known hash and no second chain execution",
+    async (uncertainPhase) => {
+      const detail = createActiveDetail({ dispute: { status: "under_review" } });
+      const transactionHash = "e".repeat(64);
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(response(detail))
+        .mockResolvedValueOnce(
+          response({
+            success: true,
+            phase: "started",
+            result: { operationId: "resolve_dispute:uncertain", freelancerShareBps: 0 },
+          }),
+        )
+        .mockResolvedValueOnce(
+          response({
+            success: true,
+            phase: "signed",
+            result: { operationId: "resolve_dispute:uncertain", transactionHash },
+          }),
+        )
+        .mockResolvedValueOnce(
+          response({ status: "pending", result: { status: "submission_unknown" } }, 202),
+        )
+        .mockResolvedValueOnce(response(detail));
+      vi.stubGlobal("fetch", fetchMock);
+      runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+        async (args: {
+          readonly onPhase: (
+            phase: "simulation" | "signing" | "submission" | "confirmation",
+          ) => void;
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+          args.onPhase(uncertainPhase);
+          throw Object.assign(new Error(`${uncertainPhase} timed out.`), {
+            txHash: transactionHash,
+          });
+        },
+      );
+
+      renderDetail();
+      fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+      expect(await screen.findByText(/Settlement is unresolved/)).toBeTruthy();
+      expect(screen.getByText(transactionHash)).toBeTruthy();
+      expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/resolve"))).toHaveLength(
+        3,
+      );
+      expect(fetchMock.mock.calls[3]?.[1]).toEqual(
+        expect.objectContaining({ body: expect.stringContaining('"phase":"reconcile"') }),
+      );
+    },
+  );
+
+  it("recovers final-recording failure through reconciliation and refreshes terminal detail", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const transactionHash = "f".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:final-failure", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: { operationId: "resolve_dispute:final-failure", transactionHash },
+        }),
+      )
+      .mockResolvedValueOnce(response({ error: "Final recording unavailable." }, 500))
+      .mockResolvedValueOnce(
+        response({ status: "succeeded", result: { status: "resolved_client" } }),
+      )
+      .mockResolvedValueOnce(response(resolvedDetail));
+    vi.stubGlobal("fetch", fetchMock);
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onSigned: (value: {
+          readonly transactionHash: string;
+          readonly transactionValidUntil: number;
+        }) => Promise<void>;
+      }) => {
+        await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+        return { txHash: transactionHash };
+      },
+    );
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(await screen.findByText("No timeline events yet.")).toBeTruthy();
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[4]?.[1]).toEqual(
+      expect.objectContaining({ body: expect.stringContaining('"phase":"reconcile"') }),
+    );
+  });
+
+  it("keeps reconciliation recoverable and never invokes Stellar on repeated recovery failure", async () => {
+    const detail = {
+      ...createActiveDetail(),
+      settlementAttempts: [
+        {
+          _id: "attempt-1",
+          status: "submitted",
+          actorWallet: adminWallet,
+          operationId: "resolve_dispute:recovery-failure",
+          transactionHash: "a".repeat(64),
+        },
+      ],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(response({ error: "Recovery unavailable." }, 500))
+      .mockResolvedValueOnce(response({ error: "Recovery still unavailable." }, 500));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Reconcile" }));
+    expect(await screen.findByText(/Recovery unavailable/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reconcile" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Recovery still unavailable/)).toBeTruthy();
+    });
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/resolve"))).toHaveLength(
+      2,
+    );
+  });
+
+  it.each([
+    ["resolved_client", "", 0],
+    ["resolved_freelancer", "", 10_000],
+    ["split_resolution", "1", 1],
+    ["split_resolution", "9999", 9999],
+  ] as const)(
+    "submits the settlement boundary %s at %s bps",
+    async (status, input, expectedBps) => {
+      const detail = createActiveDetail({ dispute: { status: "under_review" } });
+      const transactionHash = `${expectedBps}`.padStart(64, "0");
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(response(detail))
+        .mockResolvedValueOnce(
+          response({
+            success: true,
+            phase: "started",
+            result: { operationId: "resolve_dispute:boundary", freelancerShareBps: expectedBps },
+          }),
+        )
+        .mockResolvedValueOnce(
+          response({
+            success: true,
+            phase: "signed",
+            result: { operationId: "resolve_dispute:boundary", transactionHash },
+          }),
+        )
+        .mockResolvedValueOnce(
+          response({ status: "succeeded", result: { status, freelancerShareBps: expectedBps } }),
+        )
+        .mockResolvedValueOnce(response(detail));
+      vi.stubGlobal("fetch", fetchMock);
+      runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+        async (args: {
+          readonly freelancerShareBps: number;
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+          return { txHash: transactionHash };
+        },
+      );
+
+      renderDetail();
+      await screen.findByText("Resolve dispute on-chain");
+      if (status !== "resolved_client") {
+        fireEvent.change(screen.getByLabelText("Resolution"), { target: { value: status } });
+      }
+      if (status === "split_resolution") {
+        fireEvent.change(screen.getByLabelText("Freelancer share in basis points"), {
+          target: { value: input },
+        });
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+
+      await waitFor(() => {
+        expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledWith(
+          expect.objectContaining({ freelancerShareBps: expectedBps }),
+        );
+        expect(fetchMock.mock.calls[1]?.[1]).toEqual(
+          expect.objectContaining({
+            body: expect.stringContaining(`"freelancerShareBps":${expectedBps}`),
+          }),
+        );
+      });
+    },
+  );
 
   it("submits the selected split basis points through the existing settlement flow", async () => {
     const detail = createActiveDetail({ dispute: { status: "under_review" } });
