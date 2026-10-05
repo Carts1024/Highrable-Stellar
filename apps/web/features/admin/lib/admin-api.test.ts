@@ -6,7 +6,10 @@ import {
   fetchAdminSession,
   isAdminNetworkError,
   postAdminResolution,
+  shouldRetryAdminRead,
 } from "./admin-api";
+
+const validAdminWallet = `G${"A".repeat(55)}`;
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -61,6 +64,71 @@ describe("admin API client errors", () => {
       status: 0,
       message: "Could not reach the admin API. Check your connection and retry.",
     });
+  });
+
+  it.each([
+    { isOwner: true, isDisputeAdmin: false },
+    { isOwner: false, isDisputeAdmin: true },
+  ])("accepts a valid owner/dispute-admin session response", async (capabilities) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            adminWallet: validAdminWallet,
+            ...capabilities,
+            futureField: "preserved for compatibility",
+          },
+          200,
+        ),
+      ),
+    );
+
+    await expect(fetchAdminSession()).resolves.toMatchObject({
+      adminWallet: validAdminWallet,
+      ...capabilities,
+      futureField: "preserved for compatibility",
+    });
+  });
+
+  it.each([
+    {},
+    { adminWallet: validAdminWallet, isOwner: true },
+    { adminWallet: "not-a-stellar-wallet", isOwner: true, isDisputeAdmin: false },
+    null,
+    [],
+    { adminWallet: validAdminWallet, isOwner: "true", isDisputeAdmin: false },
+    { adminWallet: validAdminWallet, isOwner: 1, isDisputeAdmin: false },
+    { adminWallet: validAdminWallet, isOwner: false, isDisputeAdmin: "false" },
+    { adminWallet: validAdminWallet, isOwner: false, isDisputeAdmin: 0 },
+  ])("rejects malformed successful session payloads", async (payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload, 200)));
+
+    const error = await fetchAdminSession().catch((nextError: unknown) => nextError);
+
+    expect(error).toMatchObject({
+      name: "AdminApiError",
+      status: 200,
+      message: "Admin API returned an invalid session response.",
+      details: undefined,
+    });
+    expect(JSON.stringify(error)).not.toContain(JSON.stringify(payload));
+  });
+
+  it.each([
+    [0, new AdminApiError(0, "network"), true],
+    [1, new AdminApiError(0, "network"), true],
+    [2, new AdminApiError(0, "network"), false],
+    [0, new AdminApiError(500, "server"), true],
+    [1, new AdminApiError(500, "server"), true],
+    [2, new AdminApiError(500, "server"), false],
+    [0, new AdminApiError(400, "invalid"), false],
+    [0, new AdminApiError(401, "unauthorized"), false],
+    [0, new AdminApiError(403, "forbidden"), false],
+    [0, new AdminApiError(404, "missing"), false],
+    [0, new AdminApiError(200, "invalid session"), false],
+  ] as const)("retries only network/5xx reads at most twice", (failureCount, error, expected) => {
+    expect(shouldRetryAdminRead(failureCount, error)).toBe(expected);
   });
 
   it("serializes only typed dispute filters and the bounded queue limit", async () => {

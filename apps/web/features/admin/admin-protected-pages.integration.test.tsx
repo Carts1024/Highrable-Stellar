@@ -269,8 +269,8 @@ const detailResponse = {
   escrow: { status: "disputed" },
 };
 
-function sessionFor(wallet: string) {
-  return { adminWallet: wallet, isOwner: false, isDisputeAdmin: true };
+function sessionFor(wallet: string, isOwner = false) {
+  return { adminWallet: wallet, isOwner, isDisputeAdmin: true };
 }
 
 function getRequestUrl(call: readonly unknown[]): string {
@@ -337,6 +337,43 @@ describe("protected administrator pages", () => {
           ),
         ).toBe(true);
       });
+    },
+  );
+
+  it.each(["queue", "detail"] as const)(
+    "keeps protected %s reads closed for malformed sessions and restores them after manual retry",
+    async (page) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          response({
+            adminWallet: walletA,
+            isOwner: "true",
+            isDisputeAdmin: true,
+          }),
+        )
+        .mockResolvedValueOnce(response(sessionFor(walletA)))
+        .mockResolvedValueOnce(response(page === "queue" ? queueResponse : detailResponse));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderPage(page);
+
+      expect(
+        await screen.findByRole("heading", { name: "Admin access check failed" }),
+      ).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(
+        screen.queryByText(page === "queue" ? "Protected queue record" : "Protected detail record"),
+      ).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Retry access check" }));
+
+      expect(
+        await screen.findByText(
+          page === "queue" ? "Protected queue record" : "Protected detail record",
+        ),
+      ).toBeTruthy();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     },
   );
 
@@ -506,6 +543,98 @@ describe("protected administrator pages", () => {
         rendered.queryClient.getQueryData(["admin", "disputes", walletA, "", "", "all"]),
       ).toBeUndefined();
     });
+  });
+
+  it.each([401, 403] as const)(
+    "closes an owner's loaded queue when membership verification returns %s and ignores a late queue response",
+    async (status) => {
+      const lateQueue = createDeferred<Response>();
+      let disputeReads = 0;
+      let membershipReads = 0;
+      const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/admin/session") {
+          return Promise.resolve(response(sessionFor(walletA, true)));
+        }
+        if (url.startsWith("/api/admin/disputes")) {
+          disputeReads += 1;
+          return disputeReads === 1 ? Promise.resolve(response(queueResponse)) : lateQueue.promise;
+        }
+        if (url === "/api/admin/admins") {
+          membershipReads += 1;
+          return membershipReads === 1
+            ? Promise.resolve(response({ admins: [] }))
+            : Promise.resolve(response({ error: "Membership access rejected." }, status));
+        }
+        throw new Error(`Unexpected admin request: ${url}`);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const rendered = renderPage("queue");
+
+      expect(await screen.findByText("Protected queue record")).toBeTruthy();
+      await waitFor(() => expect(membershipReads).toBe(1));
+
+      const queueRefetch = rendered.queryClient.refetchQueries({
+        queryKey: ["admin", "disputes", walletA, "", "", "all"],
+      });
+      await waitFor(() => expect(disputeReads).toBe(2));
+
+      const membershipRefetch = rendered.queryClient.refetchQueries({
+        queryKey: ["admin", "admins", walletA],
+      });
+
+      expect(
+        await screen.findByRole("heading", {
+          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+        }),
+      ).toBeTruthy();
+      expect(screen.queryByText("Protected queue record")).toBeNull();
+      await waitFor(() => {
+        expect(
+          rendered.queryClient.getQueryData(["admin", "disputes", walletA, "", "", "all"]),
+        ).toBeUndefined();
+        expect(rendered.queryClient.getQueryData(["admin", "admins", walletA])).toBeUndefined();
+      });
+
+      lateQueue.resolve(
+        response({
+          disputes: [{ ...queueResponse.disputes[0], title: "Late protected queue record" }],
+        }),
+      );
+      await Promise.all([queueRefetch, membershipRefetch]);
+      expect(screen.queryByText("Late protected queue record")).toBeNull();
+      expect(
+        rendered.queryClient.getQueryData(["admin", "disputes", walletA, "", "", "all"]),
+      ).toBeUndefined();
+    },
+  );
+
+  it("keeps an owner's loaded queue open for a non-authorization membership failure", async () => {
+    let membershipReads = 0;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/session") {
+        return Promise.resolve(response(sessionFor(walletA, true)));
+      }
+      if (url.startsWith("/api/admin/disputes")) {
+        return Promise.resolve(response(queueResponse));
+      }
+      if (url === "/api/admin/admins") {
+        membershipReads += 1;
+        return Promise.resolve(response({ error: "Membership service failed." }, 500));
+      }
+      throw new Error(`Unexpected admin request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage("queue");
+
+    expect(await screen.findByText("Protected queue record")).toBeTruthy();
+    await waitFor(() => expect(membershipReads).toBe(3));
+    expect(screen.getByText("Protected queue record")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Authentication required" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Admin access forbidden" })).toBeNull();
   });
 
   it("retries only retryable queue reads and performs no writes", async () => {

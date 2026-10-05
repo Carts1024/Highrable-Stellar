@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-05
+
+- Completed Deliverable 2 C03 administrator route hardening: successful session responses now require a valid external-wallet address and strict capability booleans while tolerating additive fields; malformed responses remain behind the shared gate and are not automatically retried; and owner queue membership 401/403 failures close the protected surface, evict protected caches, and ignore late queue responses. Focused administrator coverage passes 119 tests, the full web suite passes 255 tests, and the web production build passes. This is mocked browser/API regression evidence only; no backend, contract, deployment, transaction, live-chain, Day 1, or full-sprint completion is claimed.
+
 ## 2026-10-01
 
 - Completed C22 administrator regression evidence: added real-gate protected queue/detail integration coverage for verification, wallet identity changes, disconnects, 401/403 cache eviction, stale responses, and retryable reads; extended settlement detail tests through deferred execution phases, signing/simulation retry, uncertainty reconciliation, verified failure retry, bps boundaries, explorer feedback, and read-only refresh recovery. Focused administrator coverage passes 135 tests and the full web suite passes 211 tests. Evidence is mocked component/integration coverage, not live Testnet end-to-end evidence.
