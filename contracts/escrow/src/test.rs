@@ -725,6 +725,231 @@ fn escrow_fixture_with_status(context: &TTestContext, status: TEscrowStatus, has
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum C20Action {
+    Fund,
+    Submit,
+    Release,
+    Cancel,
+    Mark,
+    Resolve,
+}
+
+fn assert_c20_rejected_action_preserves_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    action: C20Action,
+    actor: &Address,
+) {
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = dispute_token_balances(context);
+    let completion_before = context.reputation_client.get_completion(&escrow_id);
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    let dispute_events_before = dispute_event_count(context);
+    let transfers_before = events_from_topic(context, &before.asset, "transfer").len();
+
+    set_timestamp(&context.env, context.env.ledger().timestamp() + 100);
+    let hash = hash_from_byte(&context.env, 240);
+    let (fn_name, args) = match action {
+        C20Action::Fund => (
+            "fund_escrow",
+            (actor.clone(), escrow_id).into_val(&context.env),
+        ),
+        C20Action::Submit => (
+            "submit_work",
+            (actor.clone(), escrow_id, hash.clone()).into_val(&context.env),
+        ),
+        C20Action::Release => (
+            "approve_and_release",
+            (actor.clone(), escrow_id, 5u32, hash.clone()).into_val(&context.env),
+        ),
+        C20Action::Cancel => (
+            "cancel_escrow",
+            (actor.clone(), escrow_id).into_val(&context.env),
+        ),
+        C20Action::Mark => (
+            "mark_disputed",
+            (actor.clone(), escrow_id).into_val(&context.env),
+        ),
+        C20Action::Resolve => (
+            "resolve_dispute",
+            (actor.clone(), escrow_id, 5_000u32, hash.clone()).into_val(&context.env),
+        ),
+    };
+    context.env.mock_auths(&[MockAuth {
+        address: actor,
+        invoke: &MockAuthInvoke {
+            contract: &context.escrow_contract_id,
+            fn_name,
+            args,
+            sub_invokes: &[],
+        },
+    }]);
+
+    let result = match action {
+        C20Action::Fund => context.escrow_client.try_fund_escrow(actor, &escrow_id),
+        C20Action::Submit => context
+            .escrow_client
+            .try_submit_work(actor, &escrow_id, &hash),
+        C20Action::Release => context
+            .escrow_client
+            .try_approve_and_release(actor, &escrow_id, &5, &hash),
+        C20Action::Cancel => context.escrow_client.try_cancel_escrow(actor, &escrow_id),
+        C20Action::Mark => context.escrow_client.try_mark_disputed(actor, &escrow_id),
+        C20Action::Resolve => context
+            .escrow_client
+            .try_resolve_dispute(actor, &escrow_id, &5_000, &hash),
+    };
+    assert_eq!(
+        result,
+        Err(Ok(Error::InvalidStatus)),
+        "{action:?} from {:?}",
+        before.status
+    );
+    assert_eq!(dispute_event_count(context), dispute_events_before);
+    assert_eq!(
+        events_from_topic(context, &before.asset, "transfer").len(),
+        transfers_before
+    );
+    assert_dispute_attempt_preserved_state(context, escrow_id, &before, balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&escrow_id),
+        completion_before
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before
+    );
+    context.env.mock_all_auths();
+}
+
+fn assert_c20_disputed_action(action: C20Action) {
+    for initial_status in [TEscrowStatus::Funded, TEscrowStatus::Submitted] {
+        let context = setup();
+        let escrow_id = disputed_escrow_fixture(&context, initial_status, 301, 200);
+        assert_eq!(
+            context.escrow_client.get_escrow(&escrow_id).status,
+            TEscrowStatus::Disputed
+        );
+        assert_eq!(context.reputation_client.get_completion(&escrow_id), None);
+        match action {
+            C20Action::Mark => {
+                for actor in [
+                    &context.client,
+                    &context.freelancer,
+                    &context.platform_admin,
+                ] {
+                    assert_c20_rejected_action_preserves_state(&context, escrow_id, action, actor);
+                }
+            }
+            _ => {
+                let actor = if matches!(action, C20Action::Submit) {
+                    &context.freelancer
+                } else {
+                    &context.client
+                };
+                assert_c20_rejected_action_preserves_state(&context, escrow_id, action, actor);
+            }
+        }
+    }
+}
+
+fn assert_c20_terminal_actions(context: &TTestContext, escrow_id: u64) {
+    for (action, actor) in [
+        (C20Action::Fund, &context.client),
+        (C20Action::Submit, &context.freelancer),
+        (C20Action::Release, &context.client),
+        (C20Action::Cancel, &context.client),
+        (C20Action::Mark, &context.client),
+        (C20Action::Mark, &context.freelancer),
+        (C20Action::Mark, &context.platform_admin),
+        (C20Action::Resolve, &context.platform_admin),
+    ] {
+        assert_c20_rejected_action_preserves_state(context, escrow_id, action, actor);
+    }
+}
+
+#[test]
+fn c20_disputed_escrows_cannot_be_submitted() {
+    assert_c20_disputed_action(C20Action::Submit);
+}
+
+#[test]
+fn c20_disputed_escrows_cannot_be_released() {
+    assert_c20_disputed_action(C20Action::Release);
+}
+
+#[test]
+fn c20_disputed_escrows_cannot_be_cancelled() {
+    assert_c20_disputed_action(C20Action::Cancel);
+}
+
+#[test]
+fn c20_disputed_escrows_cannot_be_disputed_again() {
+    assert_c20_disputed_action(C20Action::Mark);
+}
+
+#[test]
+fn c20_settlement_terminal_outcomes_cannot_be_reentered() {
+    for initial_status in [TEscrowStatus::Funded, TEscrowStatus::Submitted] {
+        for share_bps in [0, 3_333, 10_000] {
+            let context = setup();
+            let escrow_id = disputed_escrow_fixture(&context, initial_status.clone(), 301, 210);
+            set_timestamp(&context.env, 300);
+            assert_resolve_dispute_with_auth(
+                &context,
+                &context.platform_admin,
+                &context.platform_admin,
+                escrow_id,
+                share_bps,
+                211,
+                None,
+            );
+            let expected_status = if share_bps == 0 {
+                TEscrowStatus::Cancelled
+            } else {
+                TEscrowStatus::Released
+            };
+            assert_eq!(
+                context.escrow_client.get_escrow(&escrow_id).status,
+                expected_status
+            );
+            assert_eq!(context.reputation_client.get_completion(&escrow_id), None);
+            assert_c20_terminal_actions(&context, escrow_id);
+        }
+    }
+}
+
+#[test]
+fn c20_ordinary_terminal_outcomes_cannot_be_reentered() {
+    let context = setup();
+    let released_id = escrow_fixture_with_status(&context, TEscrowStatus::Released, 220);
+    assert_eq!(
+        context.escrow_client.get_escrow(&released_id).status,
+        TEscrowStatus::Released
+    );
+    assert!(context.reputation_client.has_completion(&released_id));
+    assert_c20_terminal_actions(&context, released_id);
+
+    for initial_status in [TEscrowStatus::Created, TEscrowStatus::Funded] {
+        let context = setup();
+        let escrow_id = escrow_fixture_with_status(&context, initial_status, 230);
+        context
+            .escrow_client
+            .cancel_escrow(&context.client, &escrow_id);
+        assert_eq!(
+            context.escrow_client.get_escrow(&escrow_id).status,
+            TEscrowStatus::Cancelled
+        );
+        assert_eq!(context.reputation_client.get_completion(&escrow_id), None);
+        assert_c20_terminal_actions(&context, escrow_id);
+    }
+}
+
 #[test]
 fn initialize_works() {
     let context = setup();
