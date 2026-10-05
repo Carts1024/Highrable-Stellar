@@ -26,7 +26,13 @@ Dispute fixtures seed users, a client, an assigned freelancer, an unrelated wall
 
 The Deliverable 2 C02 extension adds parameterized parent/reason/wallet/status/event vocabulary checks, optional event-status fields, unknown/type/wrong-table rejection checks, `by_assignedAdmin_updatedAt` isolation and ordering, generated `api.disputes` export references, malformed public arguments with rejected-write preservation, participant present/missing/denied result shapes, and the legacy rejecting moderator-note/resolution placeholders. Working administrator APIs remain under `api.admin`.
 
-The focused Deliverable 2 C02 run passes 59 tests across the schema, index, and API contract files. The full current backend suite passes 154 tests across 10 files. The backend source and test TypeScript projects both type-check; local tests use deterministic in-memory Convex state and do not prove Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
+At the Deliverable 2 C02 checkpoint, the focused schema/index/API contract run passed 59 tests and the backend suite passed 154 tests across 10 files. The backend source and test TypeScript projects both type-check; local tests use deterministic in-memory Convex state and do not prove Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
+
+## Deliverable 2 C05 authorization and creation matrix
+
+`packages/backend/tests/disputes/c05.authorization.test.ts` uses the real composed schema, deterministic fixtures, and public Convex functions. The focused run passes 111 tests. It covers all supported participant/status/entry-path combinations, legacy jobs without `jobType`, canonical parent and participant derivation, one opening audit event, configured nonparticipant administrators, profile-role isolation, unassigned/non-eligible escrows, malformed/missing/wrong-table/conflicting parent graphs, explicit escrow ambiguity resolution, active duplicate statuses and aliases, independent milestone conflicts, and terminal/long-history behavior.
+
+C05 rejection cases seed valid evidence and an accepted agreement, then compare complete document snapshots before and after failure across disputes, attachments, dispute events, notifications, conversations/messages, agreement records/versions/events, and linked job/milestone/escrow records. The full backend suite passes 239 tests across 10 files; backend source/tests type-check, scoped oxlint passes, and the changed test file passes oxfmt. No production, schema, generated, frontend, contract, migration, or deployment changes were needed. This is local in-memory Convex evidence only, not live-chain or signed-session verification.
 
 ## Contract coverage to preserve
 

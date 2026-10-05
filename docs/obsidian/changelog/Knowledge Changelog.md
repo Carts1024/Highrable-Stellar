@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-05
 
+- Completed Deliverable 2 C05 dispute authorization and creation matrix coverage. Extended the real Convex regression suite to 111 focused tests across participant/status/alias/explicit-escrow paths, legacy jobs, parent-graph conflicts, active duplicate statuses, milestone-only conflicts, and terminal/long-history behavior. Rejection tests now compare complete before/after documents with seeded evidence and accepted agreement context. The full backend suite passes 239 tests across 10 files; no production, schema, generated, frontend, contract, migration, or deployment changes were made. Evidence is local in-memory Convex bookkeeping, not live-chain or signed-session verification.
 - Completed Deliverable 2 C02 backend contract coverage. Extended dispute schema vocabulary and rejection tests, covered assigned-admin index isolation/order, added generated-API/validator/result-shape compatibility tests, preserved legacy rejecting dispute exports, and published the source-verified handoff at `docs/instawards/C02-Backend-Contract-Handoff.md`. Focused coverage passes 59 tests; the full backend suite passes 154 tests across 10 files. No production, generated, frontend, contract, deployment, or migration changes were made.
 
 ## 2026-10-01
