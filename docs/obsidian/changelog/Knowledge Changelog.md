@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-05
 
+- Completed C04 participant dispute route regression coverage: keyed Convex query fixtures now exercise list, permission, detail, and agreement-read failures through the real participant route fallback, wallet changes/disconnects, permission-gated missing/revoked/navigation states, typed review/on-chain badge labels, and malformed/valid route entry. The focused dispute command passes 41 tests across 8 files, the route-entry file passes 2/2, and web TypeScript plus focused oxlint/oxfmt checks pass. This is mocked component and route-entry evidence only; no browser, live Convex, Stellar RPC, transaction, or deployed-contract verification is claimed.
 - Completed Deliverable 2 C03 administrator route hardening: successful session responses now require a valid external-wallet address and strict capability booleans while tolerating additive fields; malformed responses remain behind the shared gate and are not automatically retried; and owner queue membership 401/403 failures close the protected surface, evict protected caches, and ignore late queue responses. Focused administrator coverage passes 119 tests, the full web suite passes 255 tests, and the web production build passes. This is mocked browser/API regression evidence only; no backend, contract, deployment, transaction, live-chain, Day 1, or full-sprint completion is claimed.
 
 ## 2026-10-01

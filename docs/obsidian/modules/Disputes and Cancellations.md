@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -82,6 +82,12 @@ C19 adds separate participant evidence and response composers to permitted dispu
 C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
 
 C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
+
+## C04 participant route regression coverage
+
+`apps/web/features/disputes/components/dispute-route-states.test.tsx` now uses query fixtures keyed by Convex function and arguments, with explicit loading, result, and thrown-error states. Its 12 tests cover wallet-scoped list refresh/disconnect behavior; accessible recovery through the real participant route fallback for list, permission, detail, and agreement reads without exposing raw errors; permission-gated detail loading, missing and revoked access, dispute-ID navigation, current-wallet arguments, and suppression of evidence/actions/timeline before access; and every typed review and on-chain marking badge label while keeping the two status vocabularies separate. `apps/web/app/disputes/[disputeId]/page.test.tsx` adds 2 route-entry tests proving malformed IDs call `notFound()` before the detail panel and valid-looking IDs reach the existing participant permission flow.
+
+The requested focused command, `pnpm --filter web test features/disputes`, passes 41 tests across 8 files. The route-entry file passes 2/2 with `pnpm --filter web exec vitest run 'app/disputes/[disputeId]/page.test.tsx'`; web TypeScript, focused oxlint, and focused oxfmt checks pass. This is mocked component and route-entry regression evidence only; it does not verify browser behavior, live Convex, Stellar RPC, transactions, or deployed contracts. No production dispute API, schema, status vocabulary, wallet identity handling, or contract behavior changed.
 
 ## Risks / Gotchas
 
