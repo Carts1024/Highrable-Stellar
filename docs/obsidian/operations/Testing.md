@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -20,11 +20,13 @@ source_of_truth: repository
 
 ## Backend dispute regression harness
 
-The C02 backend harness uses `convex-test` with the real composed schema from `packages/backend/convex/schema.ts`, an explicit module map, Vitest 2, and the Edge Runtime environment. Tests and fixtures live outside deployable Convex functions in `packages/backend/tests/`; `tests/tsconfig.json` type-checks them separately from `convex/tsconfig.json`.
+The C02 backend harness uses `convex-test` with the real composed schema from `packages/backend/convex/schema.ts`, an explicit module map, Vitest 5, and the Edge Runtime environment. Tests and fixtures live outside deployable Convex functions in `packages/backend/tests/`; `tests/tsconfig.json` type-checks them separately from `convex/tsconfig.json`.
 
 Dispute fixtures seed users, a client, an assigned freelancer, an unrelated wallet, a configured administrator, a job, and a funded or submitted escrow directly. They support both micro-gig and milestone parents. Tests then create disputes through `api.disputes.createDispute` and exercise administrator paths through `api.admin` with synthetic test-only environment values. Each test receives a fresh in-memory database and deterministic clock; environment and timer stubs are restored after each test. No network calls, live credentials, or mocked authorization/dispute helpers are used.
 
-Verified C02 coverage includes schema enum/type/ID rejection contracts, every existing dispute/event index and field order, participant opening and persisted opening events, administrator review/moderator-note events, participant filtering, parent/escrow/status lookup, chronological timelines, duplicate active disputes, unrelated participants, and invalid administrator credentials.
+The Deliverable 2 C02 extension adds parameterized parent/reason/wallet/status/event vocabulary checks, optional event-status fields, unknown/type/wrong-table rejection checks, `by_assignedAdmin_updatedAt` isolation and ordering, generated `api.disputes` export references, malformed public arguments with rejected-write preservation, participant present/missing/denied result shapes, and the legacy rejecting moderator-note/resolution placeholders. Working administrator APIs remain under `api.admin`.
+
+The focused Deliverable 2 C02 run passes 59 tests across the schema, index, and API contract files. The full current backend suite passes 154 tests across 10 files. The backend source and test TypeScript projects both type-check; local tests use deterministic in-memory Convex state and do not prove Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
 
 ## Contract coverage to preserve
 

@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -115,6 +115,14 @@ C24 verifies the detail page, action gate, evidence and response forms, and time
 C02 adds an in-memory Convex regression harness under `packages/backend/tests/`. Fixtures seed the client, assigned freelancer, unrelated wallet, configured administrator, job, and funded/submitted escrow directly, with both micro-gig and milestone parent variants. Disputes are created through `api.disputes.createDispute`; administrator review and notes use `api.admin` with synthetic test-only configuration.
 
 The verified suite locks the existing dispute/event schema values and index names/field order, proves independent client/freelancer opening with initial `open` and `not_marked` state plus an opening event, preserves `moderator` actor roles for admin events, and covers participant/parent/escrow/status/timeline lookups. Failure coverage includes unrelated participants, duplicate active disputes, invalid administrator wallets, and missing or incorrect admin secrets. The harness does not change production APIs, persisted fields, statuses, or indexes.
+
+## Deliverable 2 C02 Verified Contract Handoff
+
+Deliverable 2 C02 preserves the Deliverable 1 C02 schema/index/fixture foundation and adds compatibility coverage at the remaining boundaries. `schema.contract.test.ts` parameterizes all four parent types, nine reason categories, both wallet types, four marking phases, four event actor roles, fourteen event types, and optional event `oldStatus`/`newStatus` combinations. It also rejects unknown enum members, incorrect types, and wrong-table IDs. `index.contract.test.ts` proves `by_assignedAdmin_updatedAt` isolates administrators and orders each administrator's assigned disputes by `updatedAt`.
+
+`api.contract.test.ts` references all 20 public `api.disputes` exports through the generated API, rejects missing/invalid/wrong-table/malformed arguments without changing records, locks participant present/missing/denied shapes including `null`, empty arrays, and the omitted-versus-null `canViewDispute.role` distinction, and preserves the legacy dispute moderator-note/resolution rejecting placeholders. Working review and settlement functions remain under `api.admin`. The handoff is frozen in `docs/instawards/C02-Backend-Contract-Handoff.md`.
+
+Participant wallet identity remains caller-supplied and is not signed-session possession proof. Administrator operations use the trusted signed-session plus Convex secret/capability boundary. The focused C02 run passes 59 tests and the full backend suite passes 154 tests across 10 files. These are local in-memory Convex contract/bookkeeping tests; they do not prove Stellar chain execution, deployed contract IDs, transaction signing/submission, or Soroban event ingestion.
 
 ## C13 Verified Invariants
 
