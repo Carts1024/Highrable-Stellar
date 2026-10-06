@@ -40,6 +40,12 @@ C05 rejection cases seed valid evidence and an accepted agreement, then compare 
 
 The exact focused command `pnpm --filter web test features/disputes` passes 54 tests across 9 files. `pnpm --filter web exec tsc --noEmit`, scoped oxlint, and scoped oxfmt checks pass. These are mocked local UI checks only; list, route, and status-label acceptance remains covered by the existing C04 tests, and no live Convex, wallet-possession, Stellar, deployment, or contract behavior is proven. See `docs/instawards/Deliverable-2-C10-Participant-Timeline-Evidence.md` for the acceptance map and commands.
 
+## Deliverable 2 C11 administrator evidence review
+
+The administrator detail suite covers independent case/event evidence, metadata, empty and missing references, null/unsafe/deleted/blocked attachments, safe descriptive links, refresh replacement, 404/403 removal, retryable failures, and no-write/no-Stellar refresh behavior. The real protected-page integration suite covers assigned-admin rendering through `AdminSessionGate`, wallet changes, disconnects, and late detail responses.
+
+`pnpm --filter web test features/admin` passes 173 tests across 7 files, and `pnpm --filter web test` passes 286 tests across 23 files. Web TypeScript, scoped oxlint/oxfmt, and `pnpm --filter web build` pass. These are mocked local UI/session/API checks only; live Convex, storage URL availability, Stellar, deployment, and transaction execution are not proven. See `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
+
 ## Contract coverage to preserve
 
 The Rust tests cover initialization/reinitialization, authorization, amount/rating validation, duplicate reputation completion, aggregate statistics, escrow lifecycle/status guards, dispute flows, asset allowlisting, and contract wiring assumptions. Read the tests before changing a contract error or status.

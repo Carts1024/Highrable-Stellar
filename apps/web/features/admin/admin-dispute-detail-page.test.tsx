@@ -281,6 +281,30 @@ function createActiveDetail(
   };
 }
 
+function createAttachment(
+  id: string,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    _id: id,
+    _creationTime: 1,
+    type: "pdf",
+    name: `${id}.pdf`,
+    uploadedByWallet: "GCLIENT",
+    uploadedByWalletType: "external_wallet",
+    ownerRole: "client",
+    parentType: "dispute",
+    parentId: "dispute-1",
+    visibility: "participants",
+    status: "active",
+    size: 2048,
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_000_000,
+    url: null,
+    ...overrides,
+  };
+}
+
 describe("AdminDisputeDetailPage", () => {
   afterEach(() => {
     cleanup();
@@ -613,6 +637,210 @@ describe("AdminDisputeDetailPage", () => {
     expect(screen.queryByText("Moderator workflow")).toBeNull();
     expect(screen.queryByRole("button", { name: "Resolve On-Chain" })).toBeNull();
     expect(screen.getByText(/Status: Resolved: Client/)).toBeTruthy();
+  });
+
+  it("renders case evidence independently from event evidence with descriptive links and metadata", async () => {
+    const caseFile = createAttachment("case-proof", {
+      name: "case-proof.pdf",
+      url: "https://files.example.test/case-proof.pdf",
+    });
+    const externalLink = createAttachment("case-link", {
+      name: "Design reference",
+      type: "link",
+      size: undefined,
+      externalUrl: "https://example.test/design-reference",
+    });
+    const eventFile = createAttachment("event-proof", {
+      name: "event-proof.pdf",
+      url: "https://files.example.test/event-proof.pdf",
+    });
+    const detail = createActiveDetail({
+      dispute: {
+        evidenceAttachmentIds: ["case-proof", "case-link"],
+        attachments: [caseFile, externalLink],
+      },
+      timeline: [
+        {
+          _id: "event-1",
+          message: "Evidence was added during review.",
+          createdAt: 1_700_000_200_000,
+          attachmentIds: ["event-proof"],
+          attachments: [eventFile],
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(detail)));
+
+    renderDetail();
+
+    expect(await screen.findByText("case-proof.pdf")).toBeTruthy();
+    expect(screen.getByText("Design reference")).toBeTruthy();
+    expect(screen.getByText("event-proof.pdf")).toBeTruthy();
+    expect(screen.getAllByText("Uploaded by: GCLIENT")).toHaveLength(3);
+    expect(screen.getAllByText("Size: 2 KB")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Open case-proof.pdf" }).getAttribute("href")).toBe(
+      "https://files.example.test/case-proof.pdf",
+    );
+    expect(screen.getByRole("link", { name: "Open Design reference" }).getAttribute("rel")).toBe(
+      "noopener noreferrer",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Case evidence" }).parentElement?.textContent,
+    ).toContain("case-proof.pdf");
+    expect(
+      screen.getByRole("heading", { name: "Case evidence" }).parentElement?.textContent,
+    ).not.toContain("event-proof.pdf");
+  });
+
+  it("distinguishes empty evidence from missing, unusable, deleted, and blocked evidence", async () => {
+    const detail = createActiveDetail({
+      dispute: {
+        evidenceAttachmentIds: ["missing", "null-url", "unsafe-link", "deleted", "blocked"],
+        attachments: [
+          createAttachment("null-url", { name: "No storage URL.pdf" }),
+          createAttachment("unsafe-link", {
+            name: "Unsafe reference",
+            type: "link",
+            externalUrl: "javascript:alert(1)",
+          }),
+          createAttachment("deleted", {
+            name: "Deleted evidence.pdf",
+            status: "deleted",
+            url: "https://files.example.test/deleted.pdf",
+          }),
+          createAttachment("blocked", {
+            name: "Blocked evidence.pdf",
+            status: "blocked",
+            url: "https://files.example.test/blocked.pdf",
+          }),
+        ],
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(detail)));
+
+    renderDetail();
+
+    expect(await screen.findAllByText("Evidence unavailable")).toHaveLength(5);
+    expect(screen.queryByText("No evidence attached.")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open No storage URL.pdf" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Unsafe reference" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Deleted evidence.pdf" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Blocked evidence.pdf" })).toBeNull();
+  });
+
+  it("renders an explicit empty case-evidence state", async () => {
+    const detail = createActiveDetail({
+      dispute: { evidenceAttachmentIds: [], attachments: [] },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(detail)));
+
+    renderDetail();
+
+    expect(await screen.findByText("No evidence attached.")).toBeTruthy();
+  });
+
+  it("refreshes detail evidence and status without writes or Stellar calls", async () => {
+    const initialDetail = createActiveDetail({
+      dispute: {
+        status: "under_review",
+        evidenceAttachmentIds: ["old-proof"],
+        attachments: [createAttachment("old-proof", { name: "old-proof.pdf" })],
+      },
+    });
+    const refreshedDetail = createActiveDetail({
+      dispute: {
+        status: "awaiting_client_response",
+        evidenceAttachmentIds: ["new-proof"],
+        attachments: [createAttachment("new-proof", { name: "new-proof.pdf" })],
+      },
+    });
+    const refreshed = createDeferred<Response>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(initialDetail))
+      .mockReturnValueOnce(refreshed.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    expect(await screen.findByText("old-proof.pdf")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh detail" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Refreshing..." }).getAttribute("disabled"),
+      ).not.toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Refreshing..." }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    refreshed.resolve(response(refreshedDetail));
+
+    expect(await screen.findByText("new-proof.pdf")).toBeTruthy();
+    expect(screen.queryByText("old-proof.pdf")).toBeNull();
+    expect(screen.getByText("Awaiting Client")).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.slice(1).every(([, init]) => (init as RequestInit).method === "GET"),
+    ).toBe(true);
+    expect(runtime.stellar.markDisputedOnChain).not.toHaveBeenCalled();
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [404, "Dispute not found."],
+    [403, "Admin access is forbidden for this dispute request."],
+  ] as const)(
+    "removes loaded evidence after a detail refresh returns %s",
+    async (status, message) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          response(
+            createActiveDetail({
+              dispute: {
+                evidenceAttachmentIds: ["loaded-proof"],
+                attachments: [createAttachment("loaded-proof", { name: "loaded-proof.pdf" })],
+              },
+            }),
+          ),
+        )
+        .mockResolvedValueOnce(response({ error: message }, status));
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderDetail();
+      expect(await screen.findByText("loaded-proof.pdf")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Refresh detail" }));
+
+      expect((await screen.findByRole("alert")).textContent).toContain(message);
+      expect(screen.queryByText("loaded-proof.pdf")).toBeNull();
+      if (status === 404) {
+        expect(screen.getByRole("link", { name: "Return to the dispute queue" })).toBeTruthy();
+      }
+    },
+  );
+
+  it("keeps a failed detail refresh recoverable", async () => {
+    const recoveredDetail = createActiveDetail({
+      dispute: {
+        evidenceAttachmentIds: ["recovered-proof"],
+        attachments: [createAttachment("recovered-proof", { name: "recovered-proof.pdf" })],
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(createActiveDetail()))
+      .mockResolvedValueOnce(response({ error: "Temporary detail failure." }, 500))
+      .mockResolvedValueOnce(response({ error: "Temporary detail failure." }, 500))
+      .mockResolvedValueOnce(response({ error: "Temporary detail failure." }, 500))
+      .mockResolvedValueOnce(response(recoveredDetail));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    await screen.findByText("Case evidence");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh detail" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Temporary detail failure.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("recovered-proof.pdf")).toBeTruthy();
   });
 
   it.each(["", "-1", "1.5", "1e3", "5000bps", "10000"])(

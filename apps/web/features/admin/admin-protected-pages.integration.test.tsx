@@ -269,6 +269,77 @@ const detailResponse = {
   escrow: { status: "disputed" },
 };
 
+const detailWithEvidenceResponse = {
+  ...detailResponse,
+  dispute: {
+    ...detailResponse.dispute,
+    evidenceAttachmentIds: ["case-proof", "case-link"],
+    attachments: [
+      {
+        _id: "case-proof",
+        _creationTime: 1,
+        type: "pdf",
+        name: "case-proof.pdf",
+        uploadedByWallet: "GCLIENT",
+        uploadedByWalletType: "external_wallet",
+        ownerRole: "client",
+        parentType: "dispute",
+        parentId: "dispute-1",
+        visibility: "participants",
+        status: "active",
+        size: 2048,
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
+        url: "https://files.example.test/case-proof.pdf",
+      },
+      {
+        _id: "case-link",
+        _creationTime: 2,
+        type: "link",
+        name: "Case design reference",
+        uploadedByWallet: "GCLIENT",
+        uploadedByWalletType: "external_wallet",
+        ownerRole: "client",
+        parentType: "dispute",
+        parentId: "dispute-1",
+        visibility: "participants",
+        status: "active",
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
+        url: null,
+        externalUrl: "https://example.test/case-design-reference",
+      },
+    ],
+  },
+  timeline: [
+    {
+      _id: "event-1",
+      message: "Event-specific evidence was added.",
+      createdAt: 1_700_000_200_000,
+      attachmentIds: ["event-proof"],
+      attachments: [
+        {
+          _id: "event-proof",
+          _creationTime: 3,
+          type: "document",
+          name: "event-proof.docx",
+          uploadedByWallet: "GFREELANCER",
+          uploadedByWalletType: "external_wallet",
+          ownerRole: "freelancer",
+          parentType: "dispute",
+          parentId: "dispute-1",
+          visibility: "participants",
+          status: "active",
+          size: 4096,
+          createdAt: 1_700_000_200_000,
+          updatedAt: 1_700_000_200_000,
+          url: "https://files.example.test/event-proof.docx",
+        },
+      ],
+    },
+  ],
+};
+
 function sessionFor(wallet: string, isOwner = false) {
   return { adminWallet: wallet, isOwner, isDisputeAdmin: true };
 }
@@ -339,6 +410,25 @@ describe("protected administrator pages", () => {
       });
     },
   );
+
+  it("renders assigned-admin case and event evidence through the real session gate", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(sessionFor(walletA)))
+      .mockResolvedValueOnce(response(detailWithEvidenceResponse));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderPage("detail");
+
+    expect(await screen.findByText("case-proof.pdf")).toBeTruthy();
+    expect(screen.getByText("Case design reference")).toBeTruthy();
+    expect(screen.getByText("event-proof.docx")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open case-proof.pdf" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Case design reference" })).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.slice(1).every(([, init]) => (init as RequestInit).method === "GET"),
+    ).toBe(true);
+  });
 
   it.each(["queue", "detail"] as const)(
     "keeps protected %s reads closed for malformed sessions and restores them after manual retry",
@@ -507,6 +597,103 @@ describe("protected administrator pages", () => {
     expect(
       rendered.queryClient.getQueryData(["admin", "disputes", walletA, "", "", "all"]),
     ).toBeUndefined();
+  });
+
+  it("does not restore late detail evidence from the previous wallet identity", async () => {
+    const sessionA = createDeferred<Response>();
+    const detailA = createDeferred<Response>();
+    const sessionB = createDeferred<Response>();
+    const detailB = createDeferred<Response>();
+    let sessionReads = 0;
+    let detailReads = 0;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/session") {
+        sessionReads += 1;
+        return sessionReads === 1 ? sessionA.promise : sessionB.promise;
+      }
+      if (url.startsWith("/api/admin/disputes/")) {
+        detailReads += 1;
+        return detailReads === 1 ? detailA.promise : detailB.promise;
+      }
+      throw new Error(`Unexpected admin request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rendered = renderPage("detail");
+    sessionA.resolve(response(sessionFor(walletA)));
+    await waitFor(() => expect(detailReads).toBe(1));
+
+    runtime.wallet.address = walletB;
+    runtime.wallet.walletState.walletAddress = walletB;
+    runtime.identity.walletAddress = walletB;
+    rendered.rerender(
+      createElement(
+        QueryClientProvider,
+        { client: rendered.queryClient },
+        createElement(AdminDisputeDetailPage, { disputeId: "dispute-1" }),
+      ),
+    );
+    sessionB.resolve(response(sessionFor(walletB)));
+    await waitFor(() => expect(detailReads).toBe(2));
+
+    detailA.resolve(
+      response({
+        ...detailWithEvidenceResponse,
+        dispute: { ...detailWithEvidenceResponse.dispute, title: "Stale wallet A detail" },
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("case-proof.pdf")).toBeNull());
+
+    detailB.resolve(
+      response({
+        ...detailWithEvidenceResponse,
+        dispute: {
+          ...detailWithEvidenceResponse.dispute,
+          assignedAdminWallet: walletB,
+          title: "Current wallet B detail",
+        },
+      }),
+    );
+    expect(await screen.findByText("Current wallet B detail")).toBeTruthy();
+    expect(screen.getByText("case-proof.pdf")).toBeTruthy();
+    expect(screen.queryByText("Stale wallet A detail")).toBeNull();
+  });
+
+  it("removes loaded detail evidence on disconnect", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(sessionFor(walletA)))
+      .mockResolvedValueOnce(response(detailWithEvidenceResponse));
+    vi.stubGlobal("fetch", fetchMock);
+    const rendered = renderPage("detail");
+
+    expect(await screen.findByText("case-proof.pdf")).toBeTruthy();
+    runtime.wallet.address = null;
+    runtime.wallet.walletState = {
+      status: "idle",
+      walletAddress: null,
+      isConnected: false,
+      isConnecting: false,
+      isTestnet: true,
+      canWriteContracts: true,
+    };
+    runtime.identity.walletAddress = null;
+    rendered.rerender(
+      createElement(
+        QueryClientProvider,
+        { client: rendered.queryClient },
+        createElement(AdminDisputeDetailPage, { disputeId: "dispute-1" }),
+      ),
+    );
+
+    expect(await screen.findByRole("heading", { name: "Connect an admin wallet" })).toBeTruthy();
+    expect(screen.queryByText("case-proof.pdf")).toBeNull();
+    await waitFor(() => {
+      expect(
+        rendered.queryClient.getQueryData(["admin", "dispute", walletA, "dispute-1"]),
+      ).toBeUndefined();
+    });
   });
 
   it("removes protected queue cache and content on disconnect", async () => {

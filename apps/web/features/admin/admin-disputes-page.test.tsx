@@ -213,6 +213,8 @@ describe("AdminDisputesPage", () => {
     renderQueue();
 
     expect(await screen.findByText("Missing deliverable")).toBeTruthy();
+    expect(screen.getByText("under_review")).toBeTruthy();
+    expect(screen.getByText("Chain: marked")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("href")).toBe(
       "/admin/disputes/dispute-1",
     );

@@ -10,6 +10,7 @@ import {
 } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
+import { AdminEvidenceList } from "@/features/admin/admin-evidence-list";
 import { AdminRouteLoadingState } from "@/features/admin/admin-route-fallbacks";
 import {
   AdminSessionGate,
@@ -115,6 +116,8 @@ interface IAdminDisputeDetailActionsProps {
   readonly detail: IAdminDisputeDetail;
   readonly canRetryMarkDisputed: boolean;
   readonly isSubmitting: boolean;
+  readonly isRefreshing: boolean;
+  readonly onRefresh: () => void;
   readonly onRetryMarkDisputed: () => void;
 }
 
@@ -182,10 +185,22 @@ function AdminDisputeDetailActions({
   detail,
   canRetryMarkDisputed,
   isSubmitting,
+  isRefreshing,
+  onRefresh,
   onRetryMarkDisputed,
 }: IAdminDisputeDetailActionsProps) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      <AppButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="rounded-none"
+        onClick={onRefresh}
+        disabled={isRefreshing || isSubmitting}
+      >
+        {isRefreshing ? "Refreshing..." : "Refresh detail"}
+      </AppButton>
       <AppButton asChild variant="secondary" size="sm" className="rounded-none">
         <Link href="/admin/disputes">
           <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -254,6 +269,21 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
         </DefinitionItem>
       </dl>
     </section>
+  );
+}
+
+function AdminCaseEvidence({ detail }: IAdminCaseBriefProps) {
+  return (
+    <AdminSection
+      label="Evidence review"
+      title="Case evidence"
+      description="Evidence attached to the dispute is shown independently from timeline events."
+    >
+      <AdminEvidenceList
+        attachmentIds={detail.dispute.evidenceAttachmentIds}
+        attachments={detail.dispute.attachments}
+      />
+    </AdminSection>
   );
 }
 
@@ -593,27 +623,11 @@ function AdminTimeline({ detail }: IAdminTimelineProps) {
                   {formatDisputeDate(event.createdAt)}
                 </time>
               </div>
-              {event.attachments && event.attachments.length > 0 ? (
-                <ul className="grid gap-2 text-xs text-[#5f5f5f] sm:grid-cols-2">
-                  {event.attachments.map((attachment) => (
-                    <li
-                      key={attachment._id}
-                      className="flex min-w-0 items-center justify-between gap-3 border border-[#e8e8e8] bg-[#fafafa] px-3 py-2"
-                    >
-                      <span className="truncate">{attachment.name}</span>
-                      {attachment.url ? (
-                        <a
-                          href={attachment.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 font-mono text-[0.7rem] tracking-[0.06em] text-[#B94A00] uppercase hover:text-[#E85D00]"
-                        >
-                          Open
-                        </a>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
+              {(event.attachmentIds?.length ?? 0) > 0 || (event.attachments?.length ?? 0) > 0 ? (
+                <AdminEvidenceList
+                  attachmentIds={event.attachmentIds ?? []}
+                  attachments={event.attachments ?? []}
+                />
               ) : null}
             </li>
           ))}
@@ -744,6 +758,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
   const [reviewStatusRefreshFailed, setReviewStatusRefreshFailed] = useState(false);
+  const [detailRefreshFailed, setDetailRefreshFailed] = useState(false);
 
   const detailQuery = useQuery<IAdminDisputeDetail, AdminApiError>({
     queryKey: [...ADMIN_QUERY_KEY, "dispute", verifiedWallet, disputeId],
@@ -761,8 +776,10 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   const loadDetail = useCallback(async () => {
     const result = await detailQuery.refetch();
     if (result.error) {
+      setDetailRefreshFailed(true);
       throw result.error;
     }
+    setDetailRefreshFailed(false);
   }, [detailQuery.refetch]);
 
   const invalidateAdminDisputeQueue = useCallback(async () => {
@@ -784,6 +801,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     setResolutionShareInput("5000");
     setResolutionNote("");
     setReviewStatusRefreshFailed(false);
+    setDetailRefreshFailed(false);
   }, [disputeId]);
 
   useEffect(() => {
@@ -967,13 +985,20 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   ]);
 
   const handleRetryDetailRead = useCallback(async () => {
-    const result = await detailQuery.refetch();
-    if (!result.error) {
-      setReviewStatusRefreshFailed(false);
-      settlement.clearRefreshError();
-      setActionError(null);
+    if (detailQuery.isFetching) {
+      return;
     }
-  }, [detailQuery.refetch, settlement]);
+
+    const result = await detailQuery.refetch();
+    if (result.error) {
+      setDetailRefreshFailed(true);
+      return;
+    }
+    setDetailRefreshFailed(false);
+    setReviewStatusRefreshFailed(false);
+    settlement.clearRefreshError();
+    setActionError(null);
+  }, [detailQuery.isFetching, detailQuery.refetch, settlement]);
 
   const handleRetryMarkDisputed = useCallback(async () => {
     if (!detail || !detail.dispute.onChainEscrowId || !activeWalletAddress || !activeWalletType) {
@@ -1124,12 +1149,27 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     return <AdminRouteLoadingState label="dispute detail" />;
   }
 
-  if (detailQuery.isError) {
-    if (
-      !reviewStatusRefreshFailed &&
-      !settlement.refreshError &&
-      detailQuery.error.status === 404
-    ) {
+  if (detailQuery.isError || detailRefreshFailed) {
+    const detailError = detailQuery.error;
+    if (!detailError) {
+      return (
+        <RouteCallout tone="danger">
+          Dispute detail could not be loaded. Retry the request or return to the queue.{" "}
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-3"
+            onClick={() => void handleRetryDetailRead()}
+            disabled={detailQuery.isFetching}
+          >
+            Retry
+          </AppButton>
+        </RouteCallout>
+      );
+    }
+
+    if (!reviewStatusRefreshFailed && !settlement.refreshError && detailError.status === 404) {
       return (
         <RouteCallout tone="warning">
           <span>Dispute not found.</span>{" "}
@@ -1140,11 +1180,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       );
     }
 
-    if (
-      !reviewStatusRefreshFailed &&
-      !settlement.refreshError &&
-      detailQuery.error.status === 400
-    ) {
+    if (!reviewStatusRefreshFailed && !settlement.refreshError && detailError.status === 400) {
       return (
         <RouteCallout tone="danger">
           This dispute request is invalid. Check the dispute ID and return to the queue.
@@ -1154,17 +1190,17 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
     return (
       <RouteCallout tone="danger">
-        {detailQuery.error.status === 401
+        {detailError.status === 401
           ? "Admin authentication is required before this dispute can be read."
-          : detailQuery.error.status === 403
+          : detailError.status === 403
             ? "Admin access is forbidden for this dispute request."
             : reviewStatusRefreshFailed
               ? "Review status was saved, but the detail refresh failed. Retry the read; the status mutation will not be repeated."
               : settlement.refreshError
                 ? settlement.refreshError
-                : isAdminNetworkError(detailQuery.error)
+                : isAdminNetworkError(detailError)
                   ? "The dispute detail could not be reached. Check your connection and retry."
-                  : getAdminApiErrorMessage(detailQuery.error) ||
+                  : getAdminApiErrorMessage(detailError) ||
                     "Dispute detail could not be loaded."}{" "}
         <AppButton
           type="button"
@@ -1233,6 +1269,8 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         detail={detail}
         canRetryMarkDisputed={canShowRetryMarkDisputed}
         isSubmitting={isAnyActionRunning}
+        isRefreshing={detailQuery.isFetching}
+        onRefresh={() => void handleRetryDetailRead()}
         onRetryMarkDisputed={() => void handleRetryMarkDisputed()}
       />
 
@@ -1245,6 +1283,8 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       ) : null}
 
       <AdminCaseBrief detail={detail} />
+
+      <AdminCaseEvidence detail={detail} />
 
       <AdminAssignmentWorkspace
         detail={detail}
