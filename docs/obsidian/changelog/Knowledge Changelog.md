@@ -2,11 +2,16 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-05
+
+- Added Deliverable 2 C06 Soroban dispute guard coverage without changing production behavior: removed-admin settlement denial and re-registration recovery, owner/admin participant conflicts, registered-admin marking denial, and `1`/`9_999` bps outcomes for both actors from funded/submitted disputes. Invalid shares and all five non-disputed statuses now cover both owner and registered admins with complete record, balance, and event preservation checks. The focused dispute suite passes 24 tests; `cargo test --workspace --locked` passes 67 escrow and 9 reputation tests, and `cargo fmt --all -- --check` passes. Added the [C06 evidence map](../../instawards/Deliverable-2-C06-Dispute-Guards-Evidence.md), updated escrow coverage notes, and corrected the stale Soroban architecture event statement. This is mocked local contract evidence; deployment limitations remain unchanged.
+- Added C01 Soroban dispute-interface compatibility coverage without changing production behavior: SDK-generated specs freeze both method signatures and return types, tests lock all status encodings and error names/codes, and event expectations use independent literal-key maps with explicit value types. Existing settlement events now lock the amount-301 examples `0 → 0/301`, `3,333 → 100/201`, and `10,000 → 301/0`. Added the [C01 handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md), including backend mappings, the separate Convex timeline boundary, and local-evidence limits. Focused compatibility/dispute/rollback checks and the 64 escrow + 9 reputation workspace tests pass; `pnpm contracts:build` builds both WASM contracts. No deployed-contract or Testnet verification was performed.
 
 ## 2026-10-01
 
