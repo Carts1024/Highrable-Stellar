@@ -133,6 +133,58 @@ describe("dispute index contracts", () => {
     expect(indexed.eventByDispute?._id).toBe(indexed.eventByType?._id);
   });
 
+  it("isolates administrators and orders their assigned disputes by updatedAt", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t, { label: "assigned-admin-index" });
+
+    await t.run(async (ctx) => {
+      const records = [
+        { number: "DSP-C02-admin-a-old", admin: "GADMINA", updatedAt: 1_768_480_800_100 },
+        { number: "DSP-C02-admin-a-new", admin: "GADMINA", updatedAt: 1_768_480_800_300 },
+        { number: "DSP-C02-admin-a-middle", admin: "GADMINA", updatedAt: 1_768_480_800_200 },
+        { number: "DSP-C02-admin-b-new", admin: "GADMINB", updatedAt: 1_768_480_800_400 },
+      ];
+
+      for (const record of records) {
+        await ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, {
+            disputeNumber: record.number,
+            assignedAdminWallet: record.admin,
+            assignedAt: record.updatedAt,
+            assignedByWallet: record.admin,
+            updatedAt: record.updatedAt,
+          }),
+        );
+      }
+    });
+
+    const assigned = await t.run(async (ctx) => {
+      const adminA = await ctx.db
+        .query("disputes")
+        .withIndex("by_assignedAdmin_updatedAt", (q) => q.eq("assignedAdminWallet", "GADMINA"))
+        .order("desc")
+        .collect();
+      const adminB = await ctx.db
+        .query("disputes")
+        .withIndex("by_assignedAdmin_updatedAt", (q) => q.eq("assignedAdminWallet", "GADMINB"))
+        .order("desc")
+        .collect();
+
+      return {
+        adminA: adminA.map((dispute) => dispute.disputeNumber),
+        adminB: adminB.map((dispute) => dispute.disputeNumber),
+      };
+    });
+
+    expect(assigned.adminA).toEqual([
+      "DSP-C02-admin-a-new",
+      "DSP-C02-admin-a-middle",
+      "DSP-C02-admin-a-old",
+    ]);
+    expect(assigned.adminB).toEqual(["DSP-C02-admin-b-new"]);
+  });
+
   it("supports participant filtering, parent/escrow lookup, status filtering, and chronological timelines", async () => {
     vi.stubEnv("HIGHRABLE_ADMIN_WALLET_ADDRESS", TEST_WALLETS.admin);
     vi.stubEnv("HIGHRABLE_ADMIN_CONVEX_SECRET", TEST_ADMIN_SECRET);
