@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -15,6 +15,8 @@ Give the configured platform owner access to platform metrics and owner controls
 ## Current Status
 
 Admin dashboard, owner-managed dispute-admin membership, case assignment, and dispute settlement recovery are implemented in source. C14 adds frontend settlement hardening: resolution input is strict and text-preserving, fixed outcomes map to 0/10000 bps, split input accepts whole-number 1–9999 bps, and the optional note remains capped at 2,000 characters. C18 adds an admin settlement coordinator with explicit preparation, simulation, signing, signed-identity recording, submission, confirmation, final-recording, pending, and reconciliation feedback. The executor reports phases without changing routing and preserves the locally computed hash for submission/confirmation uncertainty, including sponsored execution. Resolution API results are typed and recognized outcomes only; `pending` and verified `failed` never render success. Reconciliation is manual and status-only, while signed operation context and a configured explorer link remain visible until the server establishes an outcome. C22 adds mocked protected-page integration and deferred coordinator regression coverage; the focused administrator suite passes 135 tests and the full web suite passes 211 tests. Settlement is enabled only for an assigned, nonparticipant admin using the verified, connected, signing-capable external wallet on the configured network, for one of the four nonterminal review statuses, with `marked` dispute state, an on-chain escrow ID, a `disputed` escrow mirror, and no active settlement attempt or concurrent action. The current recorded contract deployments predate dispute-admin membership; the new contract behavior is undeployed and requires a fresh isolated deployment. The platform owner remains `HIGHRABLE_ADMIN_WALLET_ADDRESS`; external dispute admins are stored separately from `users.role` and scoped to the configured Stellar network and escrow contract. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`. This is platform-operated review, not decentralized arbitration.
+
+Deliverable 2 C03 adds runtime validation for successful admin-session payloads, limits session retries to network/5xx failures, and closes an already-loaded owner queue when its membership read returns 401/403, including protected-cache eviction against late responses. C03 validation passes 119 focused administrator tests, 255 full web tests, and the web production build. This is mocked browser/API regression evidence, not live-chain verification or completion of Day 1 or the full sprint.
 
 ## Primary Locations
 
@@ -67,7 +69,9 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 
 - The admin Convex secret must never cross into browser code.
 - `/api/admin/session` returns the verified wallet plus `isOwner`/`isDisputeAdmin` capabilities with `Cache-Control: no-store`; it never returns the signed session token or Convex secret.
+- A successful but malformed session payload is rejected with a generic client error and cannot open protected content; only a manual access-check retry can recover it.
 - The owner alone can view platform metrics, manage membership, and assign/reassign cases. Active dispute admins have dispute-console access only; `users.role` grants no admin capability.
+- Owner queue membership 401/403 responses close the protected surface and evict protected queue/membership caches; a late queue response cannot restore the removed content.
 - App settlement is limited to the assigned active admin, with the owner able to reconcile an existing attempt. The contract intentionally permits any active, non-conflicted dispute admin to settle directly, independent of app assignment.
 - Revocation disables app access when requested, before the owner signs the on-chain revocation. Membership reconciliation verifies the saved transaction and current on-chain membership without resubmitting.
 - Settlement hashes and expiry are persisted before submission. Recovery verifies the saved invocation and cannot submit it again. Reassignment is blocked while an attempt is active or its outcome is unknown.
