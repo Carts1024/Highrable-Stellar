@@ -194,11 +194,10 @@ export const createDispute = mutation({
         : undefined;
     const { parent, openedByWallet, openedByRole } = await assertCanOpenDispute(ctx, args);
 
-    await validateDisputeAttachmentIds(ctx, {
+    const evidenceAttachmentIds = await validateDisputeAttachmentIds(ctx, {
       attachmentIds: rawEvidenceAttachmentIds,
       walletAddress: openedByWallet,
     });
-    const evidenceAttachmentIds = Array.from(new Set(rawEvidenceAttachmentIds));
 
     const validatedWorkSubmissionIds = await validateDisputeWorkSubmissionIds(ctx, {
       submissionIds: relatedWorkSubmissionIds,
@@ -560,10 +559,12 @@ export const addDisputeEvidence = mutation({
     attachmentIds: v.array(v.id("attachments")),
     message: v.optional(v.string()),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
     const actorRole = assertCanRespondToDispute(dispute, args.actorWallet);
-    await validateDisputeAttachmentIds(ctx, {
+    const message = args.message !== undefined ? sanitizeDisputeMessage(args.message) : undefined;
+    const attachmentIds = await validateDisputeAttachmentIds(ctx, {
       attachmentIds: args.attachmentIds,
       walletAddress: args.actorWallet,
       parentId: dispute._id,
@@ -574,7 +575,7 @@ export const addDisputeEvidence = mutation({
     });
 
     const evidenceAttachmentIds = Array.from(
-      new Set([...dispute.evidenceAttachmentIds, ...args.attachmentIds]),
+      new Set([...dispute.evidenceAttachmentIds, ...attachmentIds]),
     );
     await ctx.db.patch(dispute._id, {
       evidenceAttachmentIds,
@@ -587,10 +588,9 @@ export const addDisputeEvidence = mutation({
       actorWallet: args.actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message: args.message
-        ? sanitizeDisputeMessage(args.message)
-        : `${actorRole === "client" ? "Client" : "Freelancer"} added dispute evidence.`,
-      attachmentIds: args.attachmentIds,
+      message:
+        message ?? `${actorRole === "client" ? "Client" : "Freelancer"} added dispute evidence.`,
+      attachmentIds,
     });
 
     const recipientWallet =
@@ -619,13 +619,14 @@ export const addDisputeResponse = mutation({
     message: v.string(),
     attachmentIds: v.optional(v.array(v.id("attachments"))),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
     const responderRole = assertCanRespondToDispute(dispute, args.responderWallet);
-    const attachmentIds = args.attachmentIds ?? [];
+    const message = sanitizeDisputeMessage(args.message);
 
-    await validateDisputeAttachmentIds(ctx, {
-      attachmentIds,
+    const attachmentIds = await validateDisputeAttachmentIds(ctx, {
+      attachmentIds: args.attachmentIds ?? [],
       walletAddress: args.responderWallet,
       parentId: dispute._id,
     });
@@ -644,7 +645,7 @@ export const addDisputeResponse = mutation({
       actorWallet: args.responderWallet,
       actorWalletType: args.responderWalletType,
       actorRole: responderRole,
-      message: sanitizeDisputeMessage(args.message),
+      message,
       attachmentIds,
     });
 

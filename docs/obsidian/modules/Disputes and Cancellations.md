@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -108,6 +108,13 @@ The requested focused command, `pnpm --filter web test features/disputes`, passe
 - Only assigned escrows in `funded` or `submitted` status are eligible. Query eligibility and mutation creation both call `assertCanOpenDispute`; active duplicate checks query each active status index directly, so closed-history volume cannot hide an active dispute.
 - Creation and participant/audit checks share normalized client/freelancer role resolution. Opening and audit roles continue to come from backend-resolved records; a configured administrator who is not a participant cannot use the participant creation mutation. Admin review still requires the configured wallet and Convex secret.
 - The original C05 coverage extends the C02 in-memory harness with participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Deliverable 2 C05 expands that matrix and preserves the caller-supplied participant wallet limitation because this flow does not prove wallet possession.
+
+## C08 Verified Invariants
+
+- `validateDisputeAttachmentIds` enforces the raw 25-item request limit before deduplicating IDs in first-seen order, validates each unique active caller-owned attachment, and returns typed attachment IDs. Creation still requires unlinked attachments; subsequent evidence/response writes accept an attachment unlinked or already attached to the same dispute.
+- `createDispute`, `addDisputeEvidence`, and `addDisputeResponse` use the returned IDs for attachment reassignment, dispute evidence arrays, and audit-event attachments. Supplied evidence/response messages are sanitized before any mutation write. The public arguments, result values, statuses, schemas, and indexes remain unchanged; the two participant mutations now declare their existing boolean result validators explicitly.
+- Related submission, revision, message, and deadline arrays retain their raw 20-item-per-array limits and first-seen deduplication. Legacy optional links, shared parent-job conversations, system messages, empty response attachments, and caller-owned attachments already on the same dispute remain compatible. Deduplication is request-scoped and does not add cross-request idempotency.
+- `packages/backend/tests/disputes/c08.evidence.test.ts` adds 23 deterministic public-mutation tests covering micro-gigs/milestones, both participant roles and wallet types, duplicate and boundary limits, attachment ownership/status/table/case checks, submission/revision/message/deadline relationships, unrelated/terminal actors, side-effect recipients, and complete rollback snapshots. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files. Backend source/test TypeScript, scoped oxlint, and scoped oxfmt checks pass. Evidence is local in-memory Convex bookkeeping, not signed-session possession, live RPC, deployed-contract, or external-service verification.
 
 ## Deliverable 2 C05 Verified Evidence
 

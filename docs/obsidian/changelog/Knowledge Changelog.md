@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-06
+
+- Completed Deliverable 2 C08 evidence association and validation hardening. Raw attachment limits now run before first-seen deduplication, and the returned unique typed IDs are shared by creation, participant evidence, and participant response attachment reassignment, dispute arrays, and audit events. Supplied evidence/response messages are sanitized before writes; public arguments, result values, statuses, schemas, indexes, legacy optional links, and wallet authorization boundaries remain unchanged. Added 23 deterministic public-mutation tests for role/parent/wallet-type acceptance, duplicate and raw 25/20 limits, invalid attachment/reference relationships, message/deadline links, unrelated/terminal actors, side-effect recipients, and complete rollback snapshots. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files; source/test TypeScript, scoped oxlint, and scoped oxfmt checks pass. No frontend, contract, deployment, migration, schema, index, generated-file, or external-service changes were made.
 
 ## 2026-10-05
 
