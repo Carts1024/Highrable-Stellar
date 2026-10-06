@@ -110,6 +110,12 @@ function AdminDisputesContent() {
     }
   }, [disputeQuery.error, handleProtectedApiError]);
 
+  useEffect(() => {
+    if (adminsQuery.error) {
+      handleProtectedApiError(adminsQuery.error);
+    }
+  }, [adminsQuery.error, handleProtectedApiError]);
+
   const disputes = disputeQuery.data?.disputes ?? [];
   const activeAdminWallets = [
     verifiedWallet,
