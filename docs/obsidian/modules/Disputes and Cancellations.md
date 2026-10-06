@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -77,6 +77,18 @@ Use domain helpers for participant roles and eligibility. Use admin helpers for 
 
 Participant reads remain identity-scoped at the UI layer and use the generated Convex API contract. Current bounded reads are 50 client plus 50 freelancer disputes before deduplication, 20 parent disputes, 200 timeline events, and 50 each for context submissions, revisions, and deadline events. Admin queue/detail limits and the complete participant function/argument matrix are frozen in `docs/instawards/C06-Frontend-Handoff.md`. Admin HTTP errors remain separate from participant Convex errors; both use explicit loading, empty, invalid/not-found, forbidden, and failed-read presentation.
 
+C19 adds separate participant evidence and response composers to permitted dispute details. Both wait for `canRespondToDispute`, use its returned participant role for uploads, require ready attachments within the 25-file mutation limit, and retain drafts after rejected writes. Evidence requires an attachment; responses require a message. Participant detail and timeline read serialized attachments through the dispute queries, while protected previews and download attempts use backend attachment access functions. The backend still validates actor role, active status, attachment ownership, and case association for every write; caller-supplied wallet possession remains unproven.
+
+C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
+
+C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
+
+## C04 participant route regression coverage
+
+`apps/web/features/disputes/components/dispute-route-states.test.tsx` now uses query fixtures keyed by Convex function and arguments, with explicit loading, result, and thrown-error states. Its 12 tests cover wallet-scoped list refresh/disconnect behavior; accessible recovery through the real participant route fallback for list, permission, detail, and agreement reads without exposing raw errors; permission-gated detail loading, missing and revoked access, dispute-ID navigation, current-wallet arguments, and suppression of evidence/actions/timeline before access; and every typed review and on-chain marking badge label while keeping the two status vocabularies separate. `apps/web/app/disputes/[disputeId]/page.test.tsx` adds 2 route-entry tests proving malformed IDs call `notFound()` before the detail panel and valid-looking IDs reach the existing participant permission flow.
+
+The requested focused command, `pnpm --filter web test features/disputes`, passes 41 tests across 8 files. The route-entry file passes 2/2 with `pnpm --filter web exec vitest run 'app/disputes/[disputeId]/page.test.tsx'`; web TypeScript, focused oxlint, and focused oxfmt checks pass. This is mocked component and route-entry regression evidence only; it does not verify browser behavior, live Convex, Stellar RPC, transactions, or deployed contracts. No production dispute API, schema, status vocabulary, wallet identity handling, or contract behavior changed.
+
 ## Risks / Gotchas
 
 - `resolve_dispute` emits the supplied resolution hash in its Soroban event but does not store it in the escrow record.
@@ -95,7 +107,15 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 - Milestone projects require a specific milestone or escrow parent. `job` is accepted as a micro-gig alias, and jobs with omitted `jobType` retain legacy micro-gig behavior. A milestone's on-chain escrow reference is checked when present, and ambiguous job/milestone escrow matches are rejected.
 - Only assigned escrows in `funded` or `submitted` status are eligible. Query eligibility and mutation creation both call `assertCanOpenDispute`; active duplicate checks query each active status index directly, so closed-history volume cannot hide an active dispute.
 - Creation and participant/audit checks share normalized client/freelancer role resolution. Opening and audit roles continue to come from backend-resolved records; a configured administrator who is not a participant cannot use the participant creation mutation. Admin review still requires the configured wallet and Convex secret.
-- C05 coverage extends the C02 in-memory harness to 40 backend tests, including all participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Caller-supplied participant wallets remain a documented limitation because this flow does not prove wallet possession.
+- The original C05 coverage extends the C02 in-memory harness with participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Deliverable 2 C05 expands that matrix and preserves the caller-supplied participant wallet limitation because this flow does not prove wallet possession.
+
+## Deliverable 2 C05 Verified Evidence
+
+The focused `packages/backend/tests/disputes/c05.authorization.test.ts` suite passes 111 deterministic `convex-test` cases. Accepted creation covers client/freelancer openings, funded/submitted escrows, micro-gig, `job`, explicit micro-gig escrow, milestone, and explicit milestone escrow paths, including legacy jobs without `jobType`; each case agrees between `canOpenDispute` and `createDispute`, persists canonical parent links and backend-derived roles, and emits exactly one opening audit event.
+
+Rejection coverage spans unrelated and configured-but-nonparticipant administrator wallets, profile-role mismatches, unassigned work, every non-eligible escrow status, malformed/missing/wrong-table/conflicting parent records, ownership and assignment mismatches, missing on-chain references, incompatible job/milestone links, ambiguous escrow selection, all active duplicate statuses and aliases, milestone-only conflicts, long closed history, and terminal-only history. Rejected writes compare complete before/after documents for disputes, evidence, audit events, notifications, conversations/messages, agreements/versions/events, and linked job/milestone/escrow records after seeding valid evidence and accepted agreement context.
+
+The full backend suite passes 239 tests across 10 files. Backend source and test TypeScript projects, scoped oxlint, and oxfmt checks pass. No production, generated, frontend, contract, migration, or deployment files changed. These are local deterministic Convex bookkeeping tests; they do not prove signed-session wallet possession, live Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
 
 ## C09 Verified Invariants
 
@@ -109,6 +129,14 @@ Participant reads remain identity-scoped at the UI layer and use the generated C
 C02 adds an in-memory Convex regression harness under `packages/backend/tests/`. Fixtures seed the client, assigned freelancer, unrelated wallet, configured administrator, job, and funded/submitted escrow directly, with both micro-gig and milestone parent variants. Disputes are created through `api.disputes.createDispute`; administrator review and notes use `api.admin` with synthetic test-only configuration.
 
 The verified suite locks the existing dispute/event schema values and index names/field order, proves independent client/freelancer opening with initial `open` and `not_marked` state plus an opening event, preserves `moderator` actor roles for admin events, and covers participant/parent/escrow/status/timeline lookups. Failure coverage includes unrelated participants, duplicate active disputes, invalid administrator wallets, and missing or incorrect admin secrets. The harness does not change production APIs, persisted fields, statuses, or indexes.
+
+## Deliverable 2 C02 Verified Contract Handoff
+
+Deliverable 2 C02 preserves the Deliverable 1 C02 schema/index/fixture foundation and adds compatibility coverage at the remaining boundaries. `schema.contract.test.ts` parameterizes all four parent types, nine reason categories, both wallet types, four marking phases, four event actor roles, fourteen event types, and optional event `oldStatus`/`newStatus` combinations. It also rejects unknown enum members, incorrect types, and wrong-table IDs. `index.contract.test.ts` proves `by_assignedAdmin_updatedAt` isolates administrators and orders each administrator's assigned disputes by `updatedAt`.
+
+`api.contract.test.ts` references all 20 public `api.disputes` exports through the generated API, rejects missing/invalid/wrong-table/malformed arguments without changing records, locks participant present/missing/denied shapes including `null`, empty arrays, and the omitted-versus-null `canViewDispute.role` distinction, and preserves the legacy dispute moderator-note/resolution rejecting placeholders. Working review and settlement functions remain under `api.admin`. The handoff is frozen in `docs/instawards/C02-Backend-Contract-Handoff.md`.
+
+Participant wallet identity remains caller-supplied and is not signed-session possession proof. Administrator operations use the trusted signed-session plus Convex secret/capability boundary. The focused C02 run passes 59 tests and the full backend suite passes 154 tests across 10 files. These are local in-memory Convex contract/bookkeeping tests; they do not prove Stellar chain execution, deployed contract IDs, transaction signing/submission, or Soroban event ingestion.
 
 ## C13 Verified Invariants
 
@@ -129,6 +157,15 @@ Known-hash failures remain blocked pending reconciliation. Hashless retries and 
 - Terminal mappings remain `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. `packages/backend/tests/disputes/c17.settlement.test.ts` covers both parent types, all mappings, malformed/conflicting inputs, authorization/replay paths, uncertainty recovery, atomic updates, and side-effect counts.
 
 Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit truncation (`Math.trunc`) before the client refund is derived. Token-precision arithmetic is a separate follow-up and must be designed with asset decimals before changing settlement amounts.
+
+## C21 Verified Invariants
+
+- `packages/backend/tests/disputes/c21.reconciliation.test.ts` connects the C13 marking callbacks and C17 settlement callbacks to the existing escrow, micro-gig, milestone, parent-job, transaction, audit, notification, and system-message bookkeeping mutations.
+- Hashless marking failures remain retryable; known-hash retries remain blocked until reconciliation; matching late success is accepted; conflicting callbacks and stale failures preserve confirmed records and side-effect counts.
+- Settlement failures preserve their failed attempt and transaction history. Signed and `submission_unknown` operations retain their hash/expiry and block competing attempts until the matching success callback finalizes them.
+- Client-refund, freelancer-payout, and split outcomes are covered for both parent types. Milestone settlement patches only the selected milestone and derives the parent job from remaining active, disputed, or terminal siblings.
+- Generic sync can recover an escrow mirror to `disputed` and record repeated reads/failure metadata, but it refuses to downgrade or finalize a disputed escrow. Administrator settlement owns the terminal transition.
+- The C21 suite verifies Convex transaction rollback when a required milestone parent fails during settlement. It remains an in-memory bookkeeping test and does not verify live RPC execution or deployed contract behavior.
 
 ## Related Notes
 
