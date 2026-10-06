@@ -7,15 +7,20 @@ use super::{
     TEscrowStatus,
 };
 use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
+use soroban_sdk::xdr::{
+    Limits, ReadXdr, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeResult,
+    ScSpecTypeTuple,
+};
 use soroban_sdk::{
     contract, contractimpl, contracttype,
     testutils::{
         Address as _, AuthorizedFunction, AuthorizedInvocation, Events as _, Ledger, MockAuth,
         MockAuthInvoke,
     },
-    token, Address, BytesN, Env, IntoVal, InvokeError, Symbol, TryIntoVal, Val,
+    token, Address, BytesN, Env, IntoVal, InvokeError, Map, Symbol, TryIntoVal, Val, Vec,
 };
 use std::boxed::Box;
+use std::string::ToString;
 
 #[derive(Clone)]
 #[contracttype]
@@ -91,6 +96,41 @@ struct TTestContext {
 
 fn hash_from_byte(env: &Env, value: u8) -> BytesN<32> {
     BytesN::from_array(env, &[value; 32])
+}
+
+fn decode_spec_entry(bytes: &[u8]) -> ScSpecEntry {
+    ScSpecEntry::from_xdr(bytes, Limits::none()).unwrap()
+}
+
+fn assert_dispute_function_spec(
+    spec_bytes: &[u8],
+    expected_name: &str,
+    expected_inputs: &[(&str, ScSpecTypeDef)],
+) {
+    let ScSpecEntry::FunctionV0(spec) = decode_spec_entry(spec_bytes) else {
+        panic!("expected a function spec for {expected_name}");
+    };
+
+    assert_eq!(spec.name.to_string(), expected_name);
+    assert_eq!(spec.inputs.len(), expected_inputs.len());
+    for (actual, (expected_name, expected_type)) in spec.inputs.iter().zip(expected_inputs) {
+        assert_eq!(actual.name.to_string(), *expected_name);
+        assert_eq!(actual.type_, expected_type.clone());
+    }
+    assert_eq!(
+        spec.outputs.as_slice(),
+        &[ScSpecTypeDef::Result(Box::new(ScSpecTypeResult {
+            ok_type: Box::new(ScSpecTypeDef::Tuple(Box::new(ScSpecTypeTuple {
+                value_types: std::vec::Vec::<ScSpecTypeDef>::new().try_into().unwrap(),
+            }))),
+            error_type: Box::new(ScSpecTypeDef::Error),
+        }))]
+    );
+}
+
+fn event_status_value(env: &Env, status_name: &str) -> Val {
+    let status_symbols: Vec<Symbol> = soroban_sdk::vec![env, Symbol::new(env, status_name)];
+    status_symbols.into_val(env)
 }
 
 fn set_timestamp(env: &Env, timestamp: u64) {
@@ -272,12 +312,10 @@ fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address
     let (emitter, topics, data) = &records[event_index];
     assert_eq!(emitter, &context.escrow_contract_id);
 
-    let expected_topics: soroban_sdk::Vec<Val> = (
-        Symbol::new(&context.env, "dispute"),
-        Symbol::new(&context.env, "marked"),
-        escrow_id,
-    )
-        .into_val(&context.env);
+    let mut expected_topics: Vec<Val> = Vec::new(&context.env);
+    expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
+    expected_topics.push_back(Symbol::new(&context.env, "marked").into_val(&context.env));
+    expected_topics.push_back(escrow_id.into_val(&context.env));
     assert_eq!(topics, &expected_topics);
 
     let expected_payload = DisputeMarkedEvent {
@@ -285,7 +323,20 @@ fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address
         actor: actor.clone(),
         status: TEscrowStatus::Disputed,
     };
-    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let mut expected_data_map: Map<Symbol, Val> = Map::new(&context.env);
+    expected_data_map.set(
+        Symbol::new(&context.env, "version"),
+        1_u32.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "actor"),
+        actor.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "status"),
+        event_status_value(&context.env, "Disputed"),
+    );
+    let expected_data: Val = expected_data_map.into_val(&context.env);
     let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
     let expected_data_xdr: soroban_sdk::xdr::ScVal =
         expected_data.try_into_val(&context.env).unwrap();
@@ -308,35 +359,86 @@ fn assert_resolve_event(
     let (emitter, topics, data) = &records[event_index];
     assert_eq!(emitter, &context.escrow_contract_id);
 
-    let expected_topics: soroban_sdk::Vec<Val> = (
-        Symbol::new(&context.env, "dispute"),
-        Symbol::new(&context.env, "resolved"),
-        escrow_id,
-    )
-        .into_val(&context.env);
+    let mut expected_topics: Vec<Val> = Vec::new(&context.env);
+    expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
+    expected_topics.push_back(Symbol::new(&context.env, "resolved").into_val(&context.env));
+    expected_topics.push_back(escrow_id.into_val(&context.env));
     assert_eq!(topics, &expected_topics);
 
     let freelancer = before.freelancer.clone().unwrap();
-    let freelancer_amount = (before.amount * freelancer_share_bps as i128) / 10_000;
-    let client_amount = before.amount - freelancer_amount;
+    let (freelancer_amount, client_amount) = match (before.amount, freelancer_share_bps) {
+        (301, 0) => (0, 301),
+        (301, 3_333) => (100, 201),
+        (301, 10_000) => (301, 0),
+        (amount, share_bps) => {
+            let freelancer_amount = (amount * share_bps as i128) / 10_000;
+            (freelancer_amount, amount - freelancer_amount)
+        }
+    };
     let status = if freelancer_share_bps == 0 {
         TEscrowStatus::Cancelled
     } else {
         TEscrowStatus::Released
     };
+    let status_name = if freelancer_share_bps == 0 {
+        "Cancelled"
+    } else {
+        "Released"
+    };
     let expected_payload = DisputeResolvedEvent {
         version: 1,
         actor: actor.clone(),
         status,
-        resolution_hash,
+        resolution_hash: resolution_hash.clone(),
         asset: before.asset.clone(),
         client: before.client.clone(),
-        freelancer,
+        freelancer: freelancer.clone(),
         freelancer_share_bps,
         freelancer_amount,
         client_amount,
     };
-    let expected_data: Val = expected_payload.clone().into_val(&context.env);
+    let mut expected_data_map: Map<Symbol, Val> = Map::new(&context.env);
+    expected_data_map.set(
+        Symbol::new(&context.env, "version"),
+        1_u32.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "actor"),
+        actor.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "status"),
+        event_status_value(&context.env, status_name),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "resolution_hash"),
+        resolution_hash.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "asset"),
+        before.asset.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "client"),
+        before.client.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer"),
+        freelancer.clone().into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer_share_bps"),
+        freelancer_share_bps.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "freelancer_amount"),
+        freelancer_amount.into_val(&context.env),
+    );
+    expected_data_map.set(
+        Symbol::new(&context.env, "client_amount"),
+        client_amount.into_val(&context.env),
+    );
+    let expected_data: Val = expected_data_map.into_val(&context.env);
     let actual_data_xdr: soroban_sdk::xdr::ScVal = data.try_into_val(&context.env).unwrap();
     let expected_data_xdr: soroban_sdk::xdr::ScVal =
         expected_data.try_into_val(&context.env).unwrap();
@@ -467,6 +569,8 @@ fn assert_mark_disputed_with_auth(
     expected_error: Option<Error>,
 ) {
     let event_count_before = dispute_event_count(context);
+    let token_transfer_count_before =
+        events_from_topic(context, &context.mock_usdc_token, "transfer").len();
     install_mock_dispute_auth(context, authorized_address, caller, escrow_id);
     let result = context.escrow_client.try_mark_disputed(caller, &escrow_id);
 
@@ -474,11 +578,19 @@ fn assert_mark_disputed_with_auth(
         Some(error) => {
             assert_eq!(result, Err(Ok(error)));
             assert_eq!(dispute_event_count(context), event_count_before);
+            assert_eq!(
+                events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
+                token_transfer_count_before
+            );
         }
         None => {
             assert_dispute_auth(context, authorized_address, caller, escrow_id);
             assert_eq!(result, Ok(Ok(())));
             assert_mark_event(context, 0, caller, escrow_id);
+            assert_eq!(
+                events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
+                token_transfer_count_before
+            );
         }
     }
 }
@@ -871,6 +983,97 @@ fn assert_c20_terminal_actions(context: &TTestContext, escrow_id: u64) {
     ] {
         assert_c20_rejected_action_preserves_state(context, escrow_id, action, actor);
     }
+}
+
+#[test]
+fn dispute_method_specs_are_frozen() {
+    assert_dispute_function_spec(
+        &EscrowContract::spec_xdr_mark_disputed(),
+        "mark_disputed",
+        &[
+            ("caller", ScSpecTypeDef::Address),
+            ("escrow_id", ScSpecTypeDef::U64),
+        ],
+    );
+    assert_dispute_function_spec(
+        &EscrowContract::spec_xdr_resolve_dispute(),
+        "resolve_dispute",
+        &[
+            ("dispute_admin", ScSpecTypeDef::Address),
+            ("escrow_id", ScSpecTypeDef::U64),
+            ("freelancer_share_bps", ScSpecTypeDef::U32),
+            (
+                "_resolution_hash",
+                ScSpecTypeDef::BytesN(ScSpecTypeBytesN { n: 32 }),
+            ),
+        ],
+    );
+}
+
+#[test]
+fn status_names_and_symbol_vector_encoding_are_frozen() {
+    let env = Env::default();
+    let statuses = [
+        (TEscrowStatus::Created, "Created"),
+        (TEscrowStatus::Funded, "Funded"),
+        (TEscrowStatus::Submitted, "Submitted"),
+        (TEscrowStatus::Released, "Released"),
+        (TEscrowStatus::Cancelled, "Cancelled"),
+        (TEscrowStatus::Disputed, "Disputed"),
+    ];
+
+    for (status, expected_name) in statuses {
+        let actual: Val = status.into_val(&env);
+        let expected = event_status_value(&env, expected_name);
+        let actual_xdr: soroban_sdk::xdr::ScVal = actual.try_into_val(&env).unwrap();
+        let expected_xdr: soroban_sdk::xdr::ScVal = expected.try_into_val(&env).unwrap();
+        assert_eq!(actual_xdr, expected_xdr);
+    }
+}
+
+#[test]
+fn contract_error_names_and_codes_are_frozen() {
+    let ScSpecEntry::UdtErrorEnumV0(spec) = decode_spec_entry(&Error::spec_xdr()) else {
+        panic!("expected the escrow contract error spec");
+    };
+    assert_eq!(spec.name.to_string(), "Error");
+
+    let expected = [
+        ("AlreadyInitialized", 1),
+        ("NotInitialized", 2),
+        ("Unauthorized", 3),
+        ("InvalidAmount", 4),
+        ("EscrowNotFound", 5),
+        ("InvalidStatus", 6),
+        ("InvalidRating", 7),
+        ("InvalidFreelancer", 8),
+        ("AssetNotAllowed", 9),
+        ("InvalidShareBps", 10),
+    ];
+    let actual = spec
+        .cases
+        .iter()
+        .map(|case| (case.name.to_string(), case.value))
+        .collect::<std::vec::Vec<_>>();
+    let expected_specs = expected
+        .iter()
+        .map(|(name, code)| ((*name).to_string(), *code))
+        .collect::<std::vec::Vec<_>>();
+    assert_eq!(actual, expected_specs);
+
+    let actual_codes = [
+        Error::AlreadyInitialized as u32,
+        Error::NotInitialized as u32,
+        Error::Unauthorized as u32,
+        Error::InvalidAmount as u32,
+        Error::EscrowNotFound as u32,
+        Error::InvalidStatus as u32,
+        Error::InvalidRating as u32,
+        Error::InvalidFreelancer as u32,
+        Error::AssetNotAllowed as u32,
+        Error::InvalidShareBps as u32,
+    ];
+    assert_eq!(actual_codes, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
@@ -1870,6 +2073,52 @@ fn registered_dispute_admin_can_settle_and_unknown_actor_cannot() {
 }
 
 #[test]
+fn c06_revoked_dispute_admin_loses_settlement_authority_until_reregistered() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+
+    let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 301, 110);
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = dispute_token_balances(&context);
+
+    context
+        .escrow_client
+        .remove_dispute_admin(&context.platform_admin, &moderator);
+    assert!(!context.escrow_client.is_dispute_admin(&moderator));
+    assert_resolve_dispute_with_auth(
+        &context,
+        &moderator,
+        &moderator,
+        escrow_id,
+        5_000,
+        111,
+        Some(Error::Unauthorized),
+    );
+    assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    assert!(context.escrow_client.is_dispute_admin(&moderator));
+    let settlement_timestamp = 12_345;
+    set_timestamp(&context.env, settlement_timestamp);
+    let before = context.escrow_client.get_escrow(&escrow_id);
+    let balances_before = dispute_token_balances(&context);
+    assert_resolve_dispute_with_auth(
+        &context, &moderator, &moderator, escrow_id, 5_000, 112, None,
+    );
+
+    let mut expected = before;
+    expected.status = TEscrowStatus::Released;
+    expected.released_at = settlement_timestamp;
+    assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
+    assert_settlement_conservation(&context, balances_before, 301, 151, 150);
+}
+
+#[test]
 fn dispute_admin_actor_cannot_settle_as_an_escrow_participant() {
     let context = setup();
     let moderator = Address::generate(&context.env);
@@ -1943,6 +2192,104 @@ fn dispute_admin_actor_cannot_settle_as_an_escrow_participant() {
         &moderator,
         moderator_balances,
     );
+
+    let owner_freelancer_escrow_id = context.escrow_client.create_escrow(
+        &context.client,
+        &context.platform_admin,
+        &context.mock_usdc_token,
+        &100,
+        &hash_from_byte(&context.env, 113),
+    );
+    fund_escrow(&context, owner_freelancer_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&context.client, &owner_freelancer_escrow_id);
+    let owner_freelancer_before = context
+        .escrow_client
+        .get_escrow(&owner_freelancer_escrow_id);
+    let owner_freelancer_balances =
+        dispute_token_balances_for(&context, &context.client, &context.platform_admin);
+    assert_resolve_dispute_with_auth(
+        &context,
+        &context.platform_admin,
+        &context.platform_admin,
+        owner_freelancer_escrow_id,
+        5_000,
+        114,
+        Some(Error::Unauthorized),
+    );
+    assert_dispute_attempt_preserved_state_for(
+        &context,
+        owner_freelancer_escrow_id,
+        &owner_freelancer_before,
+        &context.client,
+        &context.platform_admin,
+        owner_freelancer_balances,
+    );
+
+    let moderator_client_escrow_id = context.escrow_client.create_escrow(
+        &moderator,
+        &context.freelancer,
+        &context.mock_usdc_token,
+        &100,
+        &hash_from_byte(&context.env, 115),
+    );
+    token::StellarAssetClient::new(&context.env, &context.mock_usdc_token).mint(&moderator, &100);
+    context
+        .escrow_client
+        .fund_escrow(&moderator, &moderator_client_escrow_id);
+    context
+        .escrow_client
+        .mark_disputed(&moderator, &moderator_client_escrow_id);
+    let moderator_client_before = context
+        .escrow_client
+        .get_escrow(&moderator_client_escrow_id);
+    let moderator_client_balances =
+        dispute_token_balances_for(&context, &moderator, &context.freelancer);
+    assert_resolve_dispute_with_auth(
+        &context,
+        &moderator,
+        &moderator,
+        moderator_client_escrow_id,
+        5_000,
+        116,
+        Some(Error::Unauthorized),
+    );
+    assert_dispute_attempt_preserved_state_for(
+        &context,
+        moderator_client_escrow_id,
+        &moderator_client_before,
+        &moderator,
+        &context.freelancer,
+        moderator_client_balances,
+    );
+}
+
+#[test]
+fn c06_registered_dispute_admin_cannot_mark_funded_or_submitted_escrows() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+
+    for (index, status) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+        .into_iter()
+        .enumerate()
+    {
+        let escrow_id = valid_dispute_entry_fixture(&context, status, 117 + index as u8);
+        let before = context.escrow_client.get_escrow(&escrow_id);
+        let balances_before = dispute_token_balances(&context);
+
+        assert_mark_disputed_with_auth(
+            &context,
+            &moderator,
+            &moderator,
+            escrow_id,
+            Some(Error::Unauthorized),
+        );
+        assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+    }
 }
 
 #[test]
@@ -2061,6 +2408,66 @@ fn resolve_dispute_splits_amount_with_remainder_to_client() {
 }
 
 #[test]
+fn c06_dispute_settlement_boundary_shares_are_released_for_both_admin_roles_and_origins() {
+    let mut scenario = 0_u8;
+
+    for registered_admin in [false, true] {
+        for initial_status in [TEscrowStatus::Funded, TEscrowStatus::Submitted] {
+            for freelancer_share_bps in [1_u32, 9_999] {
+                let context = setup();
+                let moderator = Address::generate(&context.env);
+                if registered_admin {
+                    context
+                        .escrow_client
+                        .add_dispute_admin(&context.platform_admin, &moderator);
+                }
+                let dispute_admin = if registered_admin {
+                    &moderator
+                } else {
+                    &context.platform_admin
+                };
+                let hash_byte = 120 + scenario * 2;
+                let escrow_id =
+                    disputed_escrow_fixture(&context, initial_status.clone(), 301, hash_byte);
+                let settlement_timestamp = 20_000 + u64::from(scenario);
+                set_timestamp(&context.env, settlement_timestamp);
+                let before = context.escrow_client.get_escrow(&escrow_id);
+                let balances_before = dispute_token_balances(&context);
+
+                assert_resolve_dispute_with_auth(
+                    &context,
+                    dispute_admin,
+                    dispute_admin,
+                    escrow_id,
+                    freelancer_share_bps,
+                    hash_byte + 1,
+                    None,
+                );
+
+                let mut expected = before;
+                expected.status = TEscrowStatus::Released;
+                expected.released_at = settlement_timestamp;
+                assert_eq!(context.escrow_client.get_escrow(&escrow_id), expected);
+                let (expected_freelancer_gain, expected_client_gain) = if freelancer_share_bps == 1
+                {
+                    (0, 301)
+                } else {
+                    (300, 1)
+                };
+                assert_settlement_conservation(
+                    &context,
+                    balances_before,
+                    301,
+                    expected_client_gain,
+                    expected_freelancer_gain,
+                );
+                scenario += 1;
+            }
+        }
+    }
+}
+
+#[test]
 fn failed_second_settlement_transfer_rolls_back_and_emits_no_resolution_event() {
     let context = setup();
     let failing_token_id = context.env.register(FailingToken, ());
@@ -2133,27 +2540,40 @@ fn resolve_dispute_rejects_unauthorized_admin() {
 #[test]
 fn resolve_dispute_rejects_invalid_basis_points_without_settlement() {
     let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
     let escrow_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 300, 74);
     let before = context.escrow_client.get_escrow(&escrow_id);
     let balances_before = dispute_token_balances(&context);
 
     for (index, invalid_share) in [10_001, u32::MAX].into_iter().enumerate() {
-        assert_resolve_dispute_with_auth(
-            &context,
-            &context.platform_admin,
-            &context.platform_admin,
-            escrow_id,
-            invalid_share,
-            75 + index as u8,
-            Some(Error::InvalidShareBps),
-        );
-        assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+        for (actor_index, actor) in [&context.platform_admin, &moderator]
+            .into_iter()
+            .enumerate()
+        {
+            assert_resolve_dispute_with_auth(
+                &context,
+                actor,
+                actor,
+                escrow_id,
+                invalid_share,
+                75 + (index * 2 + actor_index) as u8,
+                Some(Error::InvalidShareBps),
+            );
+            assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+        }
     }
 }
 
 #[test]
 fn resolve_dispute_rejects_non_disputed_statuses_and_repeat_settlement() {
     let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
 
     for (index, status) in [
         TEscrowStatus::Created,
@@ -2169,16 +2589,21 @@ fn resolve_dispute_rejects_non_disputed_statuses_and_repeat_settlement() {
         let before = context.escrow_client.get_escrow(&escrow_id);
         let balances_before = dispute_token_balances(&context);
 
-        assert_resolve_dispute_with_auth(
-            &context,
-            &context.platform_admin,
-            &context.platform_admin,
-            escrow_id,
-            5_000,
-            85 + index as u8,
-            Some(Error::InvalidStatus),
-        );
-        assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+        for (actor_index, actor) in [&context.platform_admin, &moderator]
+            .into_iter()
+            .enumerate()
+        {
+            assert_resolve_dispute_with_auth(
+                &context,
+                actor,
+                actor,
+                escrow_id,
+                5_000,
+                85 + (index * 2 + actor_index) as u8,
+                Some(Error::InvalidStatus),
+            );
+            assert_dispute_attempt_preserved_state(&context, escrow_id, &before, balances_before);
+        }
     }
 
     let cancelled_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 150, 90);
@@ -2193,21 +2618,26 @@ fn resolve_dispute_rejects_non_disputed_statuses_and_repeat_settlement() {
     );
     let cancelled_before = context.escrow_client.get_escrow(&cancelled_id);
     let cancelled_balances = dispute_token_balances(&context);
-    assert_resolve_dispute_with_auth(
-        &context,
-        &context.platform_admin,
-        &context.platform_admin,
-        cancelled_id,
-        0,
-        92,
-        Some(Error::InvalidStatus),
-    );
-    assert_dispute_attempt_preserved_state(
-        &context,
-        cancelled_id,
-        &cancelled_before,
-        cancelled_balances,
-    );
+    for (index, actor) in [&context.platform_admin, &moderator]
+        .into_iter()
+        .enumerate()
+    {
+        assert_resolve_dispute_with_auth(
+            &context,
+            actor,
+            actor,
+            cancelled_id,
+            0,
+            92 + index as u8,
+            Some(Error::InvalidStatus),
+        );
+        assert_dispute_attempt_preserved_state(
+            &context,
+            cancelled_id,
+            &cancelled_before,
+            cancelled_balances,
+        );
+    }
 
     let released_id = disputed_escrow_fixture(&context, TEscrowStatus::Submitted, 150, 93);
     assert_resolve_dispute_with_auth(
@@ -2221,21 +2651,26 @@ fn resolve_dispute_rejects_non_disputed_statuses_and_repeat_settlement() {
     );
     let released_before = context.escrow_client.get_escrow(&released_id);
     let released_balances = dispute_token_balances(&context);
-    assert_resolve_dispute_with_auth(
-        &context,
-        &context.platform_admin,
-        &context.platform_admin,
-        released_id,
-        10_000,
-        95,
-        Some(Error::InvalidStatus),
-    );
-    assert_dispute_attempt_preserved_state(
-        &context,
-        released_id,
-        &released_before,
-        released_balances,
-    );
+    for (index, actor) in [&context.platform_admin, &moderator]
+        .into_iter()
+        .enumerate()
+    {
+        assert_resolve_dispute_with_auth(
+            &context,
+            actor,
+            actor,
+            released_id,
+            10_000,
+            95 + index as u8,
+            Some(Error::InvalidStatus),
+        );
+        assert_dispute_attempt_preserved_state(
+            &context,
+            released_id,
+            &released_before,
+            released_balances,
+        );
+    }
 }
 
 #[test]
