@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -82,6 +82,14 @@ C19 adds separate participant evidence and response composers to permitted dispu
 C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
 
 C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
+
+## Deliverable 2 C09 — Participant Form Recovery
+
+Participant evidence and response composers now consume an in-memory action session keyed by dispute ID, wallet address, and wallet type. The session owns separate drafts, attachment references, readable errors, pending state, and duplicate-submit locks for each form above the participant permission-query error boundary. Permission loading, denial, thrown-query recovery, and retry therefore remove or remount the forms without losing the same-case, same-wallet drafts; forms render only after `canRespondToDispute` returns an allowed participant role, which remains the upload role. Evidence and response submissions remain independent, successful writes clear only their own draft, and rejected writes preserve text and attachments.
+
+The session is intentionally ephemeral. Case navigation, wallet address or wallet-type changes, disconnect, and participant-page unmount replace or discard it; full page reloads and removal of the detail page also discard drafts. Async upload and mutation completions retain the identity of their original keyed session and cannot clear or populate a replacement session. No durable browser storage, schema, generated API, Convex signature, Stellar transaction, or contract behavior changed.
+
+Participant regression coverage is in `apps/web/features/disputes/components/dispute-participant-actions.test.tsx`, `dispute-participant-integration.test.tsx`, and `participant-submission.test.ts`. The focused participant command passes 16 tests; `pnpm --filter web test features/disputes` passes 50 tests across 9 files; web TypeScript, scoped oxlint, and scoped oxfmt checks pass. This is mocked local UI evidence only and does not verify live Convex, wallet possession, Stellar RPC, transaction signing/submission, or deployed contracts.
 
 ## C04 participant route regression coverage
 

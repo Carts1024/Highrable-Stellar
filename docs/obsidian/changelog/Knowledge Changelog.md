@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-06
+
+- **Deliverable 2 C09 — Participant Form Recovery:** moved participant evidence/response drafts, attachment references, errors, pending state, and per-form submit locks into an ephemeral session keyed by dispute and wallet identity above the permission boundary. Permission recovery preserves same-session drafts; successful and rejected writes clear or retain only their own form as appropriate, and stale async completions cannot affect replacement sessions. Focused participant coverage passes 16 tests, the full disputes suite passes 50 tests across 9 files, and web TypeScript plus scoped oxlint/oxfmt checks pass. This is mocked local UI evidence, not live Convex or Stellar verification.
 
 ## 2026-10-05
 
