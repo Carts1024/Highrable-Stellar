@@ -24,6 +24,12 @@ The protected admin detail page now renders `IAdminDisputeDetail.dispute.attachm
 
 Detail refresh uses the existing protected GET query, shows in-progress feedback, prevents duplicate refreshes, replaces returned evidence/status, and fail-closes on 404 or authorization failures while preserving recoverable network/5xx retry behavior. The focused administrator suite passes 173 tests; the full web suite passes 286 tests; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is mocked local UI/session/API evidence only; no live deployment or chain verification was performed. See `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
 
+## Deliverable 2 C12 - Admin Assignment and Review Controls
+
+Queue and detail controls now mirror the existing backend policy before issuing writes: claim requires an unassigned, nonterminal case and a verified nonparticipant admin; assignment requires a verified nonparticipant owner; review-status changes require the assigned, nonparticipant admin on a nonterminal case. Assignee wallets are normalized and deduplicated, participant wallets are excluded, inactive historical assignees remain visible only as disabled unavailable options, and owner assignment stays disabled until membership loading succeeds. Detail reassignment is disabled during active settlement attempts while preserving backend-permitted terminal-case owner reassignment.
+
+Assignment, claim, and review actions reject overlapping submissions, clear stale success feedback, preserve rejected review drafts, and invalidate every queue-filter cache plus the affected wallet-scoped detail cache after a successful write. Refreshes are explicit and non-optimistic. A successful write followed by a failed read exposes a read-only retry and never repeats the mutation; rejected writes retain the backend conflict message. The shared session gate still owns 401/403 handling and protected-cache eviction. The C12 focused administrator coverage passes 190 tests; the full web suite passes 303 tests; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is mocked local UI/session/API evidence only: backend policy, signed-session authentication, Convex authorization, audit/notification side effects, contracts, schemas, and Stellar transaction behavior were not changed or live-verified. See `docs/obsidian/evidence/C12-Administrator Assignment Review Evidence.md`.
+
 ## Primary Locations
 
 - Frontend: `apps/web/features/admin/`, `apps/web/app/admin/`

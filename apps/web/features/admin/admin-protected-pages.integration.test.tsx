@@ -554,6 +554,49 @@ describe("protected administrator pages", () => {
     },
   );
 
+  it.each([401, 403] as const)(
+    "closes the real protected detail after a review-status mutation returns %s",
+    async (status) => {
+      const fetchMock = vi
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url === "/api/admin/session") {
+            return Promise.resolve(response(sessionFor(walletA)));
+          }
+          if (url === "/api/admin/disputes/dispute-1") {
+            return Promise.resolve(response(detailResponse));
+          }
+          if (url === "/api/admin/disputes/dispute-1/status") {
+            expect(init?.method).toBe("POST");
+            expect(init?.body).toBe(JSON.stringify({ status: "under_review" }));
+            return Promise.resolve(response({ error: "Review mutation rejected." }, status));
+          }
+          throw new Error(`Unexpected admin request: ${url}`);
+        });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const rendered = renderPage("detail");
+      expect(await screen.findByText("Protected detail record")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
+
+      expect(
+        await screen.findByRole("heading", {
+          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+        }),
+      ).toBeTruthy();
+      await waitFor(() => {
+        expect(
+          rendered.queryClient.getQueryData(["admin", "dispute", walletA, "dispute-1"]),
+        ).toBeUndefined();
+      });
+      expect(
+        fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/status")),
+      ).toHaveLength(1);
+    },
+  );
+
   it("cancels and removes old-wallet queue data before a late response can restore it", async () => {
     const sessionA = createDeferred<Response>();
     const queueA = createDeferred<Response>();

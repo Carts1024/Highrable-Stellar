@@ -25,6 +25,9 @@ const runtime = vi.hoisted(() => ({
     signTransaction: vi.fn(),
   },
   protectedApiError: vi.fn(),
+  session: {
+    isOwner: false,
+  },
   stellar: {
     markDisputedOnChain: vi.fn(),
     isDisputeAdminOnChain: vi.fn().mockResolvedValue(true),
@@ -38,7 +41,7 @@ vi.mock("@/features/admin/admin-session-gate", () => ({
   AdminSessionGate: ({ children }: { readonly children: ReactNode }) => children,
   useAdminSessionAccess: () => ({
     verifiedWallet: `G${"A".repeat(55)}`,
-    isOwner: false,
+    isOwner: runtime.session.isOwner,
     isDisputeAdmin: true,
     handleProtectedApiError: runtime.protectedApiError,
   }),
@@ -267,6 +270,7 @@ function createActiveDetail(
   overrides: {
     readonly dispute?: Record<string, unknown>;
     readonly timeline?: readonly Record<string, unknown>[];
+    readonly settlementAttempts?: readonly Record<string, unknown>[];
   } = {},
 ) {
   return {
@@ -278,6 +282,24 @@ function createActiveDetail(
       ...overrides.dispute,
     },
     timeline: overrides.timeline ?? [],
+    settlementAttempts: overrides.settlementAttempts ?? [],
+  };
+}
+
+const secondAdminWallet = `G${"C".repeat(55)}`;
+const historicalAdminWallet = `G${"D".repeat(55)}`;
+
+function ownerMembership() {
+  return {
+    admins: [
+      { wallet: adminWallet.toLowerCase(), accessState: "active" },
+      { wallet: adminWallet, accessState: "active" },
+      { wallet: secondAdminWallet, accessState: "active" },
+      { wallet: historicalAdminWallet, accessState: "revoked" },
+      { wallet: "GCLIENT", accessState: "active" },
+      { wallet: "GFREELANCER", accessState: "active" },
+    ],
+    operations: [],
   };
 }
 
@@ -310,6 +332,7 @@ describe("AdminDisputeDetailPage", () => {
     cleanup();
     vi.unstubAllGlobals();
     runtime.protectedApiError.mockReset();
+    runtime.session.isOwner = false;
     runtime.stellar.markDisputedOnChain.mockReset();
     runtime.stellar.isDisputeAdminOnChain.mockReset();
     runtime.stellar.isDisputeAdminOnChain.mockResolvedValue(true);
@@ -403,6 +426,222 @@ describe("AdminDisputeDetailPage", () => {
     expect(screen.queryByText("Moderator workflow")).toBeNull();
   });
 
+  it("does not render claim for participant or terminal cases", async () => {
+    const participantDetail = createActiveDetail({
+      dispute: { assignedAdminWallet: undefined, clientWallet: adminWallet },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(participantDetail)));
+
+    renderDetail();
+
+    await screen.findByText("No timeline events yet.");
+    expect(screen.queryByRole("button", { name: "Claim Case" })).toBeNull();
+
+    cleanup();
+    const terminalDetail = createActiveDetail({
+      dispute: { assignedAdminWallet: undefined, status: "resolved_client" },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(terminalDetail)));
+    renderDetail();
+
+    await screen.findByText("No timeline events yet.");
+    expect(screen.queryByRole("button", { name: "Claim Case" })).toBeNull();
+  });
+
+  it("filters duplicate and participant assignees and disables unavailable history", async () => {
+    runtime.session.isOwner = true;
+    const detail = createActiveDetail({
+      dispute: { assignedAdminWallet: historicalAdminWallet },
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/admin/admins"
+        ? Promise.resolve(response(ownerMembership()))
+        : Promise.resolve(response(detail)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    if (!(assignment instanceof HTMLSelectElement)) {
+      throw new Error("Expected detail assignment select.");
+    }
+
+    expect(assignment.disabled).toBe(false);
+    expect(Array.from(assignment.options).map((option) => option.value)).toEqual([
+      "",
+      historicalAdminWallet,
+      adminWallet,
+      secondAdminWallet,
+    ]);
+    expect(assignment.options[1]?.disabled).toBe(true);
+    expect(
+      Array.from(assignment.options).filter((option) => option.value === adminWallet),
+    ).toHaveLength(1);
+    expect(Array.from(assignment.options).some((option) => option.value === "GCLIENT")).toBe(false);
+    expect(Array.from(assignment.options).some((option) => option.value === "GFREELANCER")).toBe(
+      false,
+    );
+  });
+
+  it("requires a successful membership read before enabling detail assignment", async () => {
+    runtime.session.isOwner = true;
+    let resolveMembership!: (value: Response) => void;
+    const membership = new Promise<Response>((resolve) => {
+      resolveMembership = resolve;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/admin/admins"
+        ? membership
+        : Promise.resolve(response(createActiveDetail())),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    expect(assignment).toHaveProperty("disabled", true);
+    expect(
+      screen.getByText(/Assignment remains disabled until membership is verified/),
+    ).toBeTruthy();
+
+    resolveMembership(response({ error: "Membership read failed." }, 500));
+    await waitFor(() => {
+      expect(screen.getByText(/Eligible dispute admins could not be loaded/)).toBeTruthy();
+    });
+    expect(assignment).toHaveProperty("disabled", true);
+  });
+
+  it.each([
+    [
+      "active settlement",
+      createActiveDetail({ settlementAttempts: [{ _id: "attempt-1", status: "submitted" }] }),
+      true,
+    ],
+    ["terminal case", createActiveDetail({ dispute: { status: "resolved_client" } }), false],
+  ])("applies assignment lock rules for %s", async (_label, detail, shouldDisable) => {
+    runtime.session.isOwner = true;
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/admin/admins"
+        ? Promise.resolve(response(ownerMembership()))
+        : Promise.resolve(response(detail)),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    expect(assignment).toHaveProperty("disabled", shouldDisable);
+    if (shouldDisable) {
+      expect(
+        screen.getByText(/Reassignment is disabled while a settlement attempt is active/),
+      ).toBeTruthy();
+    }
+  });
+
+  it("posts exact detail assignment payloads and refreshes both assignment and status data", async () => {
+    runtime.session.isOwner = true;
+    const initialDetail = createActiveDetail();
+    const updatedDetail = createActiveDetail({
+      dispute: { assignedAdminWallet: secondAdminWallet },
+    });
+    let detailRead = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/admin/admins") {
+        return Promise.resolve(response(ownerMembership()));
+      }
+      if (url.endsWith("/assignment")) {
+        expect(init?.body).toBe(JSON.stringify({ assignedAdminWallet: secondAdminWallet }));
+        return Promise.resolve(response({ assignedAdminWallet: secondAdminWallet }));
+      }
+      detailRead += 1;
+      return Promise.resolve(response(detailRead === 1 ? initialDetail : updatedDetail));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    const queryClient = runtime.queryClient;
+    if (!queryClient) {
+      throw new Error("Expected detail query client.");
+    }
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    fireEvent.change(assignment, { target: { value: secondAdminWallet } });
+
+    expect(await screen.findByText("Case assignment updated.")).toBeTruthy();
+    expect((assignment as HTMLSelectElement).value).toBe(secondAdminWallet);
+    expect(invalidateSpy).toHaveBeenNthCalledWith(1, {
+      queryKey: ["admin", "disputes", adminWallet],
+      refetchType: "none",
+    });
+    expect(invalidateSpy).toHaveBeenNthCalledWith(2, {
+      queryKey: ["admin", "dispute", adminWallet, "dispute-1"],
+      refetchType: "none",
+    });
+  });
+
+  it("preserves backend assignment conflicts and never repeats a rejected write", async () => {
+    runtime.session.isOwner = true;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/admins") {
+        return Promise.resolve(response(ownerMembership()));
+      }
+      if (url.endsWith("/assignment")) {
+        return Promise.resolve(response({ error: "A settlement attempt is active." }, 409));
+      }
+      return Promise.resolve(response(createActiveDetail()));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    fireEvent.change(assignment, { target: { value: secondAdminWallet } });
+
+    expect(await screen.findByText("A settlement attempt is active.")).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/assignment")),
+    ).toHaveLength(1);
+  });
+
+  it("offers read-only detail recovery after assignment succeeds but refresh fails", async () => {
+    runtime.session.isOwner = true;
+    let detailRead = 0;
+    const updatedDetail = createActiveDetail({
+      dispute: { assignedAdminWallet: secondAdminWallet },
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/admins") {
+        return Promise.resolve(response(ownerMembership()));
+      }
+      if (url.endsWith("/assignment")) {
+        return Promise.resolve(response({ assignedAdminWallet: secondAdminWallet }));
+      }
+      detailRead += 1;
+      return detailRead === 1
+        ? Promise.resolve(response(createActiveDetail()))
+        : detailRead === 2
+          ? Promise.resolve(response({ error: "Detail refresh failed." }, 400))
+          : Promise.resolve(response(updatedDetail));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDetail();
+    const assignment = await screen.findByLabelText("Assign case to dispute admin");
+    fireEvent.change(assignment, { target: { value: secondAdminWallet } });
+
+    expect(await screen.findByText(/assignment was saved/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(
+      ((await screen.findByLabelText("Assign case to dispute admin")) as HTMLSelectElement).value,
+    ).toBe(secondAdminWallet);
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/assignment")),
+    ).toHaveLength(1);
+  });
+
   it("resets the local review selection when the case changes", async () => {
     const firstDetail = createActiveDetail({
       dispute: { _id: "dispute-1", status: "under_review" },
@@ -494,8 +733,13 @@ describe("AdminDisputeDetailPage", () => {
     expect(await screen.findByText("Client response requested.")).toBeTruthy();
     expect(getReviewMessageInput().value).toBe("");
     expect(getReviewStatusSelect().value).toBe("awaiting_client_response");
-    expect(invalidateQueueSpy).toHaveBeenCalledWith({
+    expect(invalidateQueueSpy).toHaveBeenNthCalledWith(1, {
       queryKey: ["admin", "disputes", adminWallet],
+      refetchType: "none",
+    });
+    expect(invalidateQueueSpy).toHaveBeenNthCalledWith(2, {
+      queryKey: ["admin", "dispute", adminWallet, "dispute-1"],
+      refetchType: "none",
     });
     expect(runtime.stellar.markDisputedOnChain).not.toHaveBeenCalled();
     expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
