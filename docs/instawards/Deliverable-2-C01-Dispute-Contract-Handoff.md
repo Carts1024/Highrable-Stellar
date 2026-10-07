@@ -95,16 +95,20 @@ Successful marking and resolution emit one corresponding dispute event. Existing
 
 ## Backend mapping and ingestion boundary
 
-Backend workflow vocabulary maps from the chain state and share as follows:
+The successful-mark callback and its local projections map as follows:
 
-| Chain outcome | Backend dispute status |
+| Chain event/state or application callback | Local Convex projection |
 | --- | --- |
-| Marked `Disputed` | `disputed` |
-| Zero-share settlement: `Cancelled` | `resolved_client` |
-| Full-share settlement: `Released` | `resolved_freelancer` |
-| Intermediate-share settlement: `Released` | `split_resolution` |
+| Soroban escrow state `Disputed` / `dispute/marked` event | Escrow mirror status `disputed`; successful application callback sets dispute `onChainStatus: "marked"` and writes timeline event `on_chain_mark_succeeded`. The dispute review status is unchanged. |
+| Zero-share settlement: Soroban `Cancelled` | Dispute status `resolved_client` |
+| Full-share settlement: Soroban `Released` | Dispute status `resolved_freelancer` |
+| Intermediate-share settlement: Soroban `Released` | Dispute status `split_resolution` |
 
-The chain emits Soroban contract events separately from Convex `disputeEvents` timeline records. No contract-event indexer or event ingestion path exists, so these Soroban events do not currently create or update Convex timeline records. Existing browser/backend settlement flows maintain their own records.
+The event's `actor` is the authorized contract caller address. It does not contain the Convex dispute ID, callback wallet type, or application actor role; the application supplies that context. The transaction hash comes from Stellar transaction execution. `marking` and `mark_failed` are Convex marking phases, not Soroban escrow states or contract events.
+
+Soroban contract events are separate from Convex `disputeEvents` timeline records. No contract-event indexer or ingestion path exists, so the event does not automatically create or update Convex records. The browser flow records the successful callback after transaction confirmation; Rust tests assert contract output, while existing Convex tests independently cover callback bookkeeping.
+
+For C07 Rust regression coverage and validation evidence, see [C07 Dispute Marking Evidence](C07-Dispute-Marking-Evidence.md).
 
 ## Validation evidence and limits
 
