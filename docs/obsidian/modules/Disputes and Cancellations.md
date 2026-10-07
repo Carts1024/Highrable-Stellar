@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -83,6 +83,28 @@ C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirme
 
 C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
 
+## Deliverable 2 C09 — Participant Form Recovery
+
+Participant evidence and response composers now consume an in-memory action session keyed by dispute ID, wallet address, and wallet type. The session owns separate drafts, attachment references, readable errors, pending state, and duplicate-submit locks for each form above the participant permission-query error boundary. Permission loading, denial, thrown-query recovery, and retry therefore remove or remount the forms without losing the same-case, same-wallet drafts; forms render only after `canRespondToDispute` returns an allowed participant role, which remains the upload role. Evidence and response submissions remain independent, successful writes clear only their own draft, and rejected writes preserve text and attachments.
+
+The session is intentionally ephemeral. Case navigation, wallet address or wallet-type changes, disconnect, and participant-page unmount replace or discard it; full page reloads and removal of the detail page also discard drafts. Async upload and mutation completions retain the identity of their original keyed session and cannot clear or populate a replacement session. No durable browser storage, schema, generated API, Convex signature, Stellar transaction, or contract behavior changed.
+
+Participant regression coverage is in `apps/web/features/disputes/components/dispute-participant-actions.test.tsx`, `dispute-participant-integration.test.tsx`, and `participant-submission.test.ts`. The focused participant command passes 16 tests; `pnpm --filter web test features/disputes` passes 50 tests across 9 files; web TypeScript, scoped oxlint, and scoped oxfmt checks pass. This is mocked local UI evidence only and does not verify live Convex, wallet possession, Stellar RPC, transaction signing/submission, or deployed contracts.
+
+## Deliverable 2 C10 - Participant Timeline Regression Coverage
+
+`apps/web/features/disputes/components/dispute-timeline.test.tsx` now uses typed fixtures derived from `TParticipantDisputeTimelineQueryResult`. The fixture set covers all 14 Convex event types, client/freelancer/moderator/system actors, optional status transition fields, serialized event attachments, and transaction links. Function-and-argument keyed query fixtures verify wallet and dispute changes reset timeline errors and replace prior events; repeated failures remain recoverable through the readable alert and retry button without exposing raw backend messages.
+
+`dispute-participant-integration.test.tsx` keeps the real participant detail panel, action composers, and timeline together. It proves a timeline read failure preserves case details and participant drafts, retry restores events without mutations or Stellar operations, permission revocation and disconnect remove the real timeline, and restored access queries the current participant and dispute. Existing C04 list, route, and status-label coverage remains the acceptance evidence for those concerns rather than being duplicated.
+
+The focused `pnpm --filter web test features/disputes` command passes 54 tests across 9 files. Web TypeScript, scoped oxlint, and scoped oxfmt checks pass. This is mocked local UI evidence only; it does not verify live Convex, wallet possession, Stellar RPC, transaction execution, or deployed contracts. The C10 evidence map is `docs/instawards/Deliverable-2-C10-Participant-Timeline-Evidence.md`.
+
+## Deliverable 2 C11 - Admin Evidence Review
+
+Administrator detail review now displays case-level evidence separately from the event timeline through a shared `AdminEvidenceList`. It preserves event association, shows attachment metadata, renders missing references as `Evidence unavailable`, distinguishes empty evidence, and allows only active records with validated storage or external HTTP/HTTPS URLs to open in a new tab. Deleted, blocked, missing, null-URL, and unsafe records remain non-actionable.
+
+The manual detail refresh is read-only and identity-scoped through the existing protected admin query. It replaces server-returned evidence/status, prevents duplicate refreshes, and removes stale content for 404/authorization failures while retaining retryable network/5xx errors. Real session-gate integration covers assigned-admin rendering, wallet changes, disconnects, and late detail responses; focused administrator coverage passes 173 tests and the full web suite passes 286 tests. This is mocked UI/session/API evidence, not live Convex, storage, or Stellar verification. The evidence map is `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
+
 ## C04 participant route regression coverage
 
 `apps/web/features/disputes/components/dispute-route-states.test.tsx` now uses query fixtures keyed by Convex function and arguments, with explicit loading, result, and thrown-error states. Its 12 tests cover wallet-scoped list refresh/disconnect behavior; accessible recovery through the real participant route fallback for list, permission, detail, and agreement reads without exposing raw errors; permission-gated detail loading, missing and revoked access, dispute-ID navigation, current-wallet arguments, and suppression of evidence/actions/timeline before access; and every typed review and on-chain marking badge label while keeping the two status vocabularies separate. `apps/web/app/disputes/[disputeId]/page.test.tsx` adds 2 route-entry tests proving malformed IDs call `notFound()` before the detail panel and valid-looking IDs reach the existing participant permission flow.
@@ -108,6 +130,13 @@ The requested focused command, `pnpm --filter web test features/disputes`, passe
 - Only assigned escrows in `funded` or `submitted` status are eligible. Query eligibility and mutation creation both call `assertCanOpenDispute`; active duplicate checks query each active status index directly, so closed-history volume cannot hide an active dispute.
 - Creation and participant/audit checks share normalized client/freelancer role resolution. Opening and audit roles continue to come from backend-resolved records; a configured administrator who is not a participant cannot use the participant creation mutation. Admin review still requires the configured wallet and Convex secret.
 - The original C05 coverage extends the C02 in-memory harness with participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Deliverable 2 C05 expands that matrix and preserves the caller-supplied participant wallet limitation because this flow does not prove wallet possession.
+
+## C08 Verified Invariants
+
+- `validateDisputeAttachmentIds` enforces the raw 25-item request limit before deduplicating IDs in first-seen order, validates each unique active caller-owned attachment, and returns typed attachment IDs. Creation still requires unlinked attachments; subsequent evidence/response writes accept an attachment unlinked or already attached to the same dispute.
+- `createDispute`, `addDisputeEvidence`, and `addDisputeResponse` use the returned IDs for attachment reassignment, dispute evidence arrays, and audit-event attachments. Supplied evidence/response messages are sanitized before any mutation write. The public arguments, result values, statuses, schemas, and indexes remain unchanged; the two participant mutations now declare their existing boolean result validators explicitly.
+- Related submission, revision, message, and deadline arrays retain their raw 20-item-per-array limits and first-seen deduplication. Legacy optional links, shared parent-job conversations, system messages, empty response attachments, and caller-owned attachments already on the same dispute remain compatible. Deduplication is request-scoped and does not add cross-request idempotency.
+- `packages/backend/tests/disputes/c08.evidence.test.ts` adds 23 deterministic public-mutation tests covering micro-gigs/milestones, both participant roles and wallet types, duplicate and boundary limits, attachment ownership/status/table/case checks, submission/revision/message/deadline relationships, unrelated/terminal actors, side-effect recipients, and complete rollback snapshots. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files. Backend source/test TypeScript, scoped oxlint, and scoped oxfmt checks pass. Evidence is local in-memory Convex bookkeeping, not signed-session possession, live RPC, deployed-contract, or external-service verification.
 
 ## Deliverable 2 C05 Verified Evidence
 
