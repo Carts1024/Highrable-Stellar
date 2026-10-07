@@ -6,7 +6,9 @@ use super::{
     DisputeMarkedEvent, DisputeResolvedEvent, Error, EscrowContract, EscrowContractClient, TEscrow,
     TEscrowStatus,
 };
-use highrable_reputation::{ReputationContract, ReputationContractClient, TFreelancerStatsView};
+use highrable_reputation::{
+    ReputationContract, ReputationContractClient, TCompletionRecord, TFreelancerStatsView,
+};
 use soroban_sdk::xdr::{
     Limits, ReadXdr, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeResult,
     ScSpecTypeTuple,
@@ -359,7 +361,7 @@ fn assert_resolve_event(
     freelancer_share_bps: u32,
     resolution_hash: BytesN<32>,
     before: &TEscrow,
-) -> (i128, i128) {
+) -> (i128, i128, TEscrowStatus) {
     let records = dispute_events(context);
     assert_eq!(records.len(), event_index + 1);
     let (emitter, topics, data) = &records[event_index];
@@ -394,7 +396,7 @@ fn assert_resolve_event(
     let expected_payload = DisputeResolvedEvent {
         version: 1,
         actor: actor.clone(),
-        status,
+        status: status.clone(),
         resolution_hash: resolution_hash.clone(),
         asset: before.asset.clone(),
         client: before.client.clone(),
@@ -451,8 +453,9 @@ fn assert_resolve_event(
     assert_eq!(actual_data_xdr, expected_data_xdr);
     let decoded: DisputeResolvedEvent = data.try_into_val(&context.env).unwrap();
     assert_eq!(decoded, expected_payload);
+    assert_eq!(before.escrow_id, escrow_id);
 
-    (freelancer_amount, client_amount)
+    (freelancer_amount, client_amount, decoded.status)
 }
 
 fn assert_settlement_conservation(
@@ -730,7 +733,7 @@ fn assert_resolve_dispute_with_auth(
     freelancer_share_bps: u32,
     hash_byte: u8,
     expected_error: Option<Error>,
-) {
+) -> Option<TEscrowStatus> {
     let event_count_before = dispute_event_count(context);
     let escrow_before = context.escrow_client.get_escrow(&escrow_id);
     let token_transfer_count_before =
@@ -751,7 +754,7 @@ fn assert_resolve_dispute_with_auth(
         &resolution_hash,
     );
 
-    match expected_error {
+    let event_status = match expected_error {
         Some(error) => {
             assert_eq!(result, Err(Ok(error)));
             assert_eq!(dispute_event_count(context), event_count_before);
@@ -759,6 +762,7 @@ fn assert_resolve_dispute_with_auth(
                 events_from_topic(context, &escrow_before.asset, "transfer").len(),
                 token_transfer_count_before
             );
+            None
         }
         None => {
             assert_resolve_dispute_auth(
@@ -770,7 +774,7 @@ fn assert_resolve_dispute_with_auth(
                 hash_byte,
             );
             assert_eq!(result, Ok(Ok(())));
-            let (freelancer_amount, client_amount) = assert_resolve_event(
+            let (freelancer_amount, client_amount, event_status) = assert_resolve_event(
                 context,
                 0,
                 dispute_admin,
@@ -785,9 +789,11 @@ fn assert_resolve_dispute_with_auth(
                 events_from_topic(context, &escrow_before.asset, "transfer").len(),
                 token_transfer_count_before + expected_transfer_count
             );
+            Some(event_status)
         }
-    }
+    };
     context.env.mock_all_auths();
+    event_status
 }
 
 fn escrow_fixture_with_status(context: &TTestContext, status: TEscrowStatus, hash_byte: u8) -> u64 {
@@ -2007,6 +2013,365 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
                 &mismatched_auth_before,
                 mismatched_auth_balances,
             );
+        }
+    }
+}
+
+#[test]
+fn c13_mark_authorization_is_bound_to_the_escrow_id() {
+    let context = setup();
+    let first_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 228);
+    let second_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 229);
+    let first_before = context.escrow_client.get_escrow(&first_id);
+    let second_before = context.escrow_client.get_escrow(&second_id);
+    let balances_before = dispute_token_balances(&context);
+    let completion_before = [
+        context.reputation_client.get_completion(&first_id),
+        context.reputation_client.get_completion(&second_id),
+    ];
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    let event_count_before = dispute_event_count(&context);
+    let transfer_count_before =
+        events_from_topic(&context, &context.mock_usdc_token, "transfer").len();
+
+    install_mock_dispute_auth(&context, &context.client, &context.client, first_id);
+    let result = context
+        .escrow_client
+        .try_mark_disputed(&context.client, &second_id);
+
+    assert_eq!(result, Err(Err(InvokeError::Abort)));
+    context.env.mock_all_auths();
+    assert_eq!(dispute_event_count(&context), event_count_before);
+    assert_eq!(
+        events_from_topic(&context, &context.mock_usdc_token, "transfer").len(),
+        transfer_count_before
+    );
+    assert_eq!(context.escrow_client.get_escrow(&first_id), first_before);
+    assert_eq!(context.escrow_client.get_escrow(&second_id), second_before);
+    assert_eq!(dispute_token_balances(&context), balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&first_id),
+        completion_before[0]
+    );
+    assert_eq!(
+        context.reputation_client.get_completion(&second_id),
+        completion_before[1]
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before
+    );
+}
+
+fn assert_c13_resolve_auth_rejected(
+    context: &TTestContext,
+    signer: Option<&Address>,
+    authorized_actor: &Address,
+    authorized_escrow_id: u64,
+    authorized_share_bps: u32,
+    authorized_hash_byte: u8,
+    attempted_actor: &Address,
+    attempted_escrow_id: u64,
+    attempted_share_bps: u32,
+    attempted_hash_byte: u8,
+) {
+    let first_id = authorized_escrow_id;
+    let second_id = attempted_escrow_id;
+    let first_before = context.escrow_client.get_escrow(&first_id);
+    let second_before = context.escrow_client.get_escrow(&second_id);
+    let balances_before = dispute_token_balances(context);
+    let first_completion_before = context.reputation_client.get_completion(&first_id);
+    let second_completion_before = context.reputation_client.get_completion(&second_id);
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    let event_count_before = dispute_event_count(context);
+    let transfer_count_before =
+        events_from_topic(context, &context.mock_usdc_token, "transfer").len();
+    let attempted_hash = hash_from_byte(&context.env, attempted_hash_byte);
+
+    let result = if let Some(signer) = signer {
+        install_mock_resolve_auth(
+            context,
+            signer,
+            authorized_actor,
+            authorized_escrow_id,
+            authorized_share_bps,
+            authorized_hash_byte,
+        );
+        context.escrow_client.try_resolve_dispute(
+            attempted_actor,
+            &attempted_escrow_id,
+            &attempted_share_bps,
+            &attempted_hash,
+        )
+    } else {
+        context.escrow_client.mock_auths(&[]).try_resolve_dispute(
+            attempted_actor,
+            &attempted_escrow_id,
+            &attempted_share_bps,
+            &attempted_hash,
+        )
+    };
+
+    assert_eq!(result, Err(Err(InvokeError::Abort)));
+    context.env.mock_all_auths();
+    assert_eq!(dispute_event_count(context), event_count_before);
+    assert_eq!(
+        events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
+        transfer_count_before
+    );
+    assert_eq!(context.escrow_client.get_escrow(&first_id), first_before);
+    assert_eq!(context.escrow_client.get_escrow(&second_id), second_before);
+    assert_eq!(dispute_token_balances(context), balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&first_id),
+        first_completion_before
+    );
+    assert_eq!(
+        context.reputation_client.get_completion(&second_id),
+        second_completion_before
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before
+    );
+}
+
+#[test]
+fn c13_resolve_authorization_is_bound_to_signer_and_all_arguments() {
+    let context = setup();
+    let moderator = Address::generate(&context.env);
+    context
+        .escrow_client
+        .add_dispute_admin(&context.platform_admin, &moderator);
+    let first_id = disputed_escrow_fixture(&context, TEscrowStatus::Funded, 301, 232);
+    let second_id = disputed_escrow_fixture(&context, TEscrowStatus::Submitted, 301, 233);
+
+    // No signer authorization and a different signer both abort at the host boundary.
+    assert_c13_resolve_auth_rejected(
+        &context, None, &moderator, first_id, 3_333, 234, &moderator, first_id, 3_333, 234,
+    );
+    assert_c13_resolve_auth_rejected(
+        &context,
+        Some(&context.outsider),
+        &moderator,
+        first_id,
+        3_333,
+        234,
+        &moderator,
+        first_id,
+        3_333,
+        234,
+    );
+
+    // Each authorized invocation is tied to the full contract call, not just its actor.
+    assert_c13_resolve_auth_rejected(
+        &context,
+        Some(&moderator),
+        &moderator,
+        first_id,
+        3_333,
+        234,
+        &moderator,
+        second_id,
+        3_333,
+        234,
+    );
+    assert_c13_resolve_auth_rejected(
+        &context,
+        Some(&moderator),
+        &moderator,
+        first_id,
+        3_333,
+        234,
+        &moderator,
+        first_id,
+        3_334,
+        234,
+    );
+    assert_c13_resolve_auth_rejected(
+        &context,
+        Some(&moderator),
+        &moderator,
+        first_id,
+        3_333,
+        234,
+        &moderator,
+        first_id,
+        3_333,
+        235,
+    );
+}
+
+fn assert_c13_terminal_retry_preserves_state(
+    context: &TTestContext,
+    escrow_id: u64,
+    before: &TEscrow,
+    balances_before: DisputeTokenBalances,
+    completion_before: &Option<TCompletionRecord>,
+    stats_before: &TFreelancerStatsView,
+    unrelated_id: u64,
+    unrelated_before: &TEscrow,
+) {
+    assert_dispute_attempt_preserved_state(context, escrow_id, before, balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&escrow_id),
+        completion_before.clone()
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before.clone()
+    );
+    assert_eq!(
+        context.escrow_client.get_escrow(&unrelated_id),
+        unrelated_before.clone()
+    );
+}
+
+#[test]
+fn c13_settlement_emits_one_terminal_outcome_and_rejects_all_retries() {
+    for (origin_index, origin) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+        .into_iter()
+        .enumerate()
+    {
+        for (actor_index, registered_admin) in [false, true].into_iter().enumerate() {
+            for share_bps in [0, 3_333, 10_000] {
+                let context = setup();
+                let moderator = Address::generate(&context.env);
+                context
+                    .escrow_client
+                    .add_dispute_admin(&context.platform_admin, &moderator);
+                let actor = if registered_admin {
+                    moderator.clone()
+                } else {
+                    context.platform_admin.clone()
+                };
+                let fixture_hash = 150 + (origin_index * 10 + actor_index) as u8;
+                let escrow_id =
+                    disputed_escrow_fixture(&context, origin.clone(), 301, fixture_hash);
+                let unrelated_id = funded_escrow_fixture(
+                    &context,
+                    101,
+                    fixture_hash + 30,
+                    u64::from(fixture_hash) + 31,
+                    u64::from(fixture_hash) + 32,
+                );
+                let unrelated_before = context.escrow_client.get_escrow(&unrelated_id);
+                let completion_before = context.reputation_client.get_completion(&escrow_id);
+                let stats_before = context
+                    .reputation_client
+                    .get_freelancer_stats(&context.freelancer);
+                let hash_byte = fixture_hash + 1;
+
+                set_timestamp(&context.env, 500);
+                let event_status = assert_resolve_dispute_with_auth(
+                    &context, &actor, &actor, escrow_id, share_bps, hash_byte, None,
+                )
+                .unwrap();
+                let expected_status = if share_bps == 0 {
+                    TEscrowStatus::Cancelled
+                } else {
+                    TEscrowStatus::Released
+                };
+                let terminal_record = context.escrow_client.get_escrow(&escrow_id);
+                assert_eq!(terminal_record.status, expected_status);
+                assert_eq!(event_status, terminal_record.status);
+                assert_eq!(
+                    terminal_record.released_at,
+                    if share_bps > 0 { 500 } else { 0 }
+                );
+                assert_eq!(
+                    context.escrow_client.get_escrow(&unrelated_id),
+                    unrelated_before
+                );
+                assert_eq!(
+                    context.reputation_client.get_completion(&escrow_id),
+                    completion_before
+                );
+                assert_eq!(
+                    context
+                        .reputation_client
+                        .get_freelancer_stats(&context.freelancer),
+                    stats_before
+                );
+
+                let balances_after_settlement = dispute_token_balances(&context);
+                let completion_after_settlement =
+                    context.reputation_client.get_completion(&escrow_id);
+                let stats_after_settlement = context
+                    .reputation_client
+                    .get_freelancer_stats(&context.freelancer);
+
+                for (retry_index, (retry_share_bps, retry_hash_byte)) in [
+                    (share_bps, hash_byte),
+                    (if share_bps == 3_333 { 3_334 } else { 3_333 }, hash_byte),
+                    (share_bps, hash_byte + 1),
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    set_timestamp(&context.env, 600 + retry_index as u64 * 100);
+                    assert_resolve_dispute_with_auth(
+                        &context,
+                        &actor,
+                        &actor,
+                        escrow_id,
+                        retry_share_bps,
+                        retry_hash_byte,
+                        Some(Error::InvalidStatus),
+                    );
+                    assert_c13_terminal_retry_preserves_state(
+                        &context,
+                        escrow_id,
+                        &terminal_record,
+                        balances_after_settlement,
+                        &completion_after_settlement,
+                        &stats_after_settlement,
+                        unrelated_id,
+                        &unrelated_before,
+                    );
+                }
+
+                set_timestamp(&context.env, 1_000);
+                let dispute_events_before = dispute_event_count(&context);
+                let transfer_count_before =
+                    events_from_topic(&context, &context.mock_usdc_token, "transfer").len();
+                install_mock_dispute_auth(
+                    &context,
+                    &context.platform_admin,
+                    &context.platform_admin,
+                    escrow_id,
+                );
+                let mark_result = context
+                    .escrow_client
+                    .try_mark_disputed(&context.platform_admin, &escrow_id);
+                assert_eq!(mark_result, Err(Ok(Error::InvalidStatus)));
+                assert_eq!(dispute_event_count(&context), dispute_events_before);
+                assert_eq!(
+                    events_from_topic(&context, &context.mock_usdc_token, "transfer").len(),
+                    transfer_count_before
+                );
+                context.env.mock_all_auths();
+                assert_c13_terminal_retry_preserves_state(
+                    &context,
+                    escrow_id,
+                    &terminal_record,
+                    balances_after_settlement,
+                    &completion_after_settlement,
+                    &stats_after_settlement,
+                    unrelated_id,
+                    &unrelated_before,
+                );
+            }
         }
     }
 }

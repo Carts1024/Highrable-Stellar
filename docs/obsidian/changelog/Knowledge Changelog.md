@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-07
+
+- **Deliverable 2 C13 - Soroban Dispute Guard Coverage:** added three Rust tests for escrow-ID-bound marking authorization, signer and full-argument-bound settlement authorization, and a 12-case terminal settlement/retry matrix. Event terminal status is compared with persisted escrow state after event inspection. Production contract code is unchanged. The focused C13 tests pass 3/3; the workspace passes 72 escrow and 9 reputation tests; both WASM contracts build and Rust formatting passes. Evidence is local Soroban host/mock testing, not wallet-signature or deployment verification; see the [C13 evidence map](../../instawards/Deliverable-2-C13-Dispute-State-Guards-Evidence.md).
+
 ## 2026-10-06
 
 - **Deliverable 2 C12 - Admin Assignment and Review Controls:** hardened existing queue/detail assignment, claim, and review controls with rendered and handler-side policy checks, normalized/deduplicated nonparticipant assignees, disabled inactive historical options, owner membership-read gating, active-settlement reassignment locks, duplicate-submission protection, queue-filter/detail cache invalidation, explicit non-optimistic refreshes, preserved rejected drafts/conflicts, and read-only retry after successful-write refresh failure. Added real session-gate mutation 401/403 coverage while preserving wallet-change late-response eviction. Focused administrator coverage passes 190 tests, full web coverage passes 303 tests, web TypeScript, scoped oxlint/oxfmt, and the production build pass. No backend or live-chain behavior changed; see the [C12 evidence map](../evidence/C12-Administrator%20Assignment%20Review%20Evidence.md).
