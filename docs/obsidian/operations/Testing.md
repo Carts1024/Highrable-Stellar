@@ -34,6 +34,18 @@ At the Deliverable 2 C02 checkpoint, the focused schema/index/API contract run p
 
 C05 rejection cases seed valid evidence and an accepted agreement, then compare complete document snapshots before and after failure across disputes, attachments, dispute events, notifications, conversations/messages, agreement records/versions/events, and linked job/milestone/escrow records. The full backend suite passes 239 tests across 10 files; backend source/tests type-check, scoped oxlint passes, and the changed test file passes oxfmt. No production, schema, generated, frontend, contract, migration, or deployment changes were needed. This is local in-memory Convex evidence only, not live-chain or signed-session verification.
 
+## Deliverable 2 C10 participant timeline regression coverage
+
+`apps/web/features/disputes/components/dispute-timeline.test.tsx` derives typed fixtures from the generated Convex return type and covers every timeline event type and actor role, optional status fields, attachments, transaction links, loading/empty states, keyed wallet/dispute replacement, and repeated retryable failures. `dispute-participant-integration.test.tsx` uses the real participant detail, action, and timeline components to preserve drafts across timeline failure, prove retry is free of mutations and Stellar operations, and verify permission revocation/disconnect cleanup plus current-wallet/current-case restoration.
+
+The exact focused command `pnpm --filter web test features/disputes` passes 54 tests across 9 files. `pnpm --filter web exec tsc --noEmit`, scoped oxlint, and scoped oxfmt checks pass. These are mocked local UI checks only; list, route, and status-label acceptance remains covered by the existing C04 tests, and no live Convex, wallet-possession, Stellar, deployment, or contract behavior is proven. See `docs/instawards/Deliverable-2-C10-Participant-Timeline-Evidence.md` for the acceptance map and commands.
+
+## Deliverable 2 C11 administrator evidence review
+
+The administrator detail suite covers independent case/event evidence, metadata, empty and missing references, null/unsafe/deleted/blocked attachments, safe descriptive links, refresh replacement, 404/403 removal, retryable failures, and no-write/no-Stellar refresh behavior. The real protected-page integration suite covers assigned-admin rendering through `AdminSessionGate`, wallet changes, disconnects, and late detail responses.
+
+`pnpm --filter web test features/admin` passes 173 tests across 7 files, and `pnpm --filter web test` passes 286 tests across 23 files. Web TypeScript, scoped oxlint/oxfmt, and `pnpm --filter web build` pass. These are mocked local UI/session/API checks only; live Convex, storage URL availability, Stellar, deployment, and transaction execution are not proven. See `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
+
 ## Contract coverage to preserve
 
 The Rust tests cover initialization/reinitialization, authorization, amount/rating validation, duplicate reputation completion, aggregate statistics, escrow lifecycle/status guards, dispute flows, asset allowlisting, and contract wiring assumptions. Read the tests before changing a contract error or status.

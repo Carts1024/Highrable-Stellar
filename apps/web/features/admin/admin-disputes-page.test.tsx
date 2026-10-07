@@ -7,12 +7,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ReactNode } from "react";
 
+const runtime = vi.hoisted(() => ({
+  verifiedWallet: `G${"A".repeat(55)}`,
+  isOwner: false,
+}));
+
 vi.mock("@/features/admin/admin-session-gate", () => ({
   ADMIN_QUERY_KEY: ["admin"],
   AdminSessionGate: ({ children }: { readonly children: ReactNode }) => children,
   useAdminSessionAccess: () => ({
-    verifiedWallet: `G${"A".repeat(55)}`,
-    isOwner: false,
+    verifiedWallet: runtime.verifiedWallet,
+    isOwner: runtime.isOwner,
     isDisputeAdmin: true,
     handleProtectedApiError: vi.fn(),
   }),
@@ -80,6 +85,14 @@ function response(body: unknown, status = 200): Response {
   });
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
 function renderQueue() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, retryDelay: 0, gcTime: 0 } },
@@ -109,10 +122,30 @@ const populatedQueue = {
   ],
 };
 
+const ownerWallet = `G${"A".repeat(55)}`;
+const secondAdminWallet = `G${"C".repeat(55)}`;
+const historicalAdminWallet = `G${"D".repeat(55)}`;
+
+function ownerMembership() {
+  return {
+    admins: [
+      { wallet: ownerWallet.toLowerCase(), accessState: "active" },
+      { wallet: ownerWallet, accessState: "active" },
+      { wallet: secondAdminWallet, accessState: "active" },
+      { wallet: historicalAdminWallet, accessState: "revoked" },
+      { wallet: "GCLIENT", accessState: "active" },
+      { wallet: "GFREELANCER", accessState: "active" },
+    ],
+    operations: [],
+  };
+}
+
 describe("AdminDisputesPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    runtime.verifiedWallet = `G${"A".repeat(55)}`;
+    runtime.isOwner = false;
   });
 
   it("does not show misleading zero workload metrics while the queue is loading", async () => {
@@ -213,6 +246,8 @@ describe("AdminDisputesPage", () => {
     renderQueue();
 
     expect(await screen.findByText("Missing deliverable")).toBeTruthy();
+    expect(screen.getByText("under_review")).toBeTruthy();
+    expect(screen.getByText("Chain: marked")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("href")).toBe(
       "/admin/disputes/dispute-1",
     );
@@ -235,5 +270,189 @@ describe("AdminDisputesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("Missing deliverable")).toBeTruthy();
+  });
+
+  it.each([
+    ["GCLIENT", "participant"],
+    [ownerWallet, "terminal"],
+  ])("does not render a claim control for an unclaimable %s case", async (wallet, reason) => {
+    runtime.verifiedWallet = wallet;
+    const dispute = {
+      ...populatedQueue.disputes[0],
+      status: reason === "terminal" ? "resolved_client" : "open",
+      assignedAdminWallet: undefined,
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ disputes: [dispute] })));
+
+    renderQueue();
+
+    await screen.findByText("Missing deliverable");
+    expect(screen.queryByRole("button", { name: "Claim" })).toBeNull();
+  });
+
+  it("waits for membership before enabling deduplicated owner assignment options", async () => {
+    runtime.isOwner = true;
+    const dispute = {
+      ...populatedQueue.disputes[0],
+      assignedAdminWallet: historicalAdminWallet,
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/admin/admins"
+        ? Promise.resolve(response(ownerMembership()))
+        : Promise.resolve(response({ disputes: [dispute] })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderQueue();
+
+    const assignment = await screen.findByLabelText("Assign DSP-001");
+    if (!(assignment instanceof HTMLSelectElement)) {
+      throw new Error("Expected owner assignment select.");
+    }
+
+    expect(assignment.disabled).toBe(false);
+    expect(Array.from(assignment.options).map((option) => option.value)).toEqual([
+      "",
+      historicalAdminWallet,
+      ownerWallet,
+      secondAdminWallet,
+    ]);
+    expect(assignment.options[1]?.disabled).toBe(true);
+    expect(
+      Array.from(assignment.options).filter((option) => option.value === ownerWallet),
+    ).toHaveLength(1);
+    expect(Array.from(assignment.options).some((option) => option.value === "GCLIENT")).toBe(false);
+    expect(Array.from(assignment.options).some((option) => option.value === "GFREELANCER")).toBe(
+      false,
+    );
+  });
+
+  it("keeps owner assignment disabled while membership is loading or unavailable", async () => {
+    runtime.isOwner = true;
+    let resolveMembership!: (value: Response) => void;
+    const membership = new Promise<Response>((resolve) => {
+      resolveMembership = resolve;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) =>
+      String(input) === "/api/admin/admins"
+        ? membership
+        : Promise.resolve(response({ disputes: populatedQueue.disputes })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderQueue();
+
+    const assignment = await screen.findByLabelText("Assign DSP-001");
+    expect(assignment).toHaveProperty("disabled", true);
+    expect(screen.getByText(/Loading eligible dispute admins/)).toBeTruthy();
+
+    resolveMembership(response({ error: "Membership read failed." }, 500));
+    await waitFor(() => {
+      expect(screen.getByText(/Could not load eligible dispute admins/)).toBeTruthy();
+    });
+    expect(assignment).toHaveProperty("disabled", true);
+  });
+
+  it("posts exact assignment payloads, invalidates every queue filter and detail cache, and refreshes", async () => {
+    runtime.isOwner = true;
+    const updatedDispute = {
+      ...populatedQueue.disputes[0],
+      assignedAdminWallet: secondAdminWallet,
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/admin/admins") {
+        return Promise.resolve(response(ownerMembership()));
+      }
+      if (url.endsWith("/assignment")) {
+        expect(init?.body).toBe(JSON.stringify({ assignedAdminWallet: secondAdminWallet }));
+        return Promise.resolve(response({ assignedAdminWallet: secondAdminWallet }));
+      }
+
+      return Promise.resolve(
+        response({
+          disputes: [fetchMock.mock.calls.length > 2 ? updatedDispute : populatedQueue.disputes[0]],
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryClient } = renderQueue();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const assignment = await screen.findByLabelText("Assign DSP-001");
+    fireEvent.change(assignment, { target: { value: secondAdminWallet } });
+
+    expect(await screen.findByText("Case assignment updated.")).toBeTruthy();
+    expect(screen.getByText(`Assigned: ${secondAdminWallet}`)).toBeTruthy();
+    expect(invalidateSpy).toHaveBeenNthCalledWith(1, {
+      queryKey: ["admin", "disputes", ownerWallet],
+      refetchType: "none",
+    });
+    expect(invalidateSpy).toHaveBeenNthCalledWith(2, {
+      queryKey: ["admin", "dispute", ownerWallet, "dispute-1"],
+      refetchType: "none",
+    });
+  });
+
+  it("shows backend assignment conflicts and prevents duplicate queue submissions", async () => {
+    const pendingAssignment = createDeferred<Response>();
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/claim")) {
+        return pendingAssignment.promise;
+      }
+      return Promise.resolve(response({ disputes: [populatedQueue.disputes[0]] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderQueue();
+    const claim = await screen.findByRole("button", { name: "Claim" });
+    fireEvent.click(claim);
+    expect(await screen.findByRole("button", { name: "Claiming..." })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Claiming..." }));
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/claim"))).toHaveLength(
+      1,
+    );
+
+    pendingAssignment.resolve(response({ error: "A settlement attempt is active." }, 409));
+    expect(await screen.findByText("A settlement attempt is active.")).toBeTruthy();
+  });
+
+  it("offers read-only recovery after a successful assignment cannot refresh the queue", async () => {
+    runtime.isOwner = true;
+    let queueRead = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/admins") {
+        return Promise.resolve(response(ownerMembership()));
+      }
+      if (url.endsWith("/assignment")) {
+        return Promise.resolve(response({ assignedAdminWallet: secondAdminWallet }));
+      }
+      queueRead += 1;
+      return queueRead === 1
+        ? Promise.resolve(response({ disputes: populatedQueue.disputes }))
+        : queueRead <= 4
+          ? Promise.resolve(response({ error: "Queue refresh failed." }, 500))
+          : Promise.resolve(
+              response({
+                disputes: [
+                  { ...populatedQueue.disputes[0], assignedAdminWallet: secondAdminWallet },
+                ],
+              }),
+            );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderQueue();
+    const assignment = await screen.findByLabelText("Assign DSP-001");
+    fireEvent.change(assignment, { target: { value: secondAdminWallet } });
+
+    expect(await screen.findByText(/assignment was saved/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+    expect(await screen.findByText(`Assigned: ${secondAdminWallet}`)).toBeTruthy();
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/assignment")),
+    ).toHaveLength(1);
   });
 });
