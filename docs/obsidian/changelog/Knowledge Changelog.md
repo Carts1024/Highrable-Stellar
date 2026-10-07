@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-06
 
+- Completed Deliverable 2 C08 evidence association and validation hardening. Raw attachment limits now run before first-seen deduplication, and the returned unique typed IDs are shared by creation, participant evidence, and participant response attachment reassignment, dispute arrays, and audit events. Supplied evidence/response messages are sanitized before writes; public arguments, result values, statuses, schemas, indexes, legacy optional links, and wallet authorization boundaries remain unchanged. Added 23 deterministic public-mutation tests for role/parent/wallet-type acceptance, duplicate and raw 25/20 limits, invalid attachment/reference relationships, message/deadline links, unrelated/terminal actors, side-effect recipients, and complete rollback snapshots. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files; source/test TypeScript, scoped oxlint, and scoped oxfmt checks pass. No frontend, contract, deployment, migration, schema, index, generated-file, or external-service changes were made.
 - Completed Deliverable 2 C07 Soroban marking regressions without changing contract behavior. Event assertions now compare the emitted escrow ID and status to persisted state; new tests cover two-escrow isolation across `Funded`/`Submitted` origins and authorized missing-ID rejection with record, balance, reputation, event, and next-ID preservation. The C07 tests pass 2/2, the focused dispute filter passes 24 tests, and `cargo test --workspace --locked` passes 69 escrow and 9 reputation tests. Corrected the C01 handoff to distinguish Soroban state/event data from Convex mirror, dispute phase, and timeline records. Local evidence does not verify deployment or wallet signatures.
 
 ## 2026-10-05

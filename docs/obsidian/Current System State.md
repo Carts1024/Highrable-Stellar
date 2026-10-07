@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -20,6 +20,7 @@ This classification is based on current source, tests, manifests, deployment art
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
 - Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation mirrors, transactions, reports, and waitlist entries.
 - Convex dispute creation preserves C05 parent/participant authorization and now validates all related submissions, revisions, messages, deadline events, and evidence before writes; opening is canonical, deduplicated, atomic, and audited with one `dispute_opened` event while agreement context and notification/system-message side effects remain intact.
+- Convex dispute evidence handling is C08-hardened: raw attachment limits are checked before first-seen deduplication, the unique typed IDs are reused for reassignment, dispute evidence, and audit attachments across creation/evidence/response mutations, and supplied participant messages are sanitized before writes. Existing attachment ownership/case rules, raw related-reference limits, public contracts, schemas, indexes, statuses, optional-link compatibility, and caller-supplied wallet boundary remain unchanged. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files.
 - Convex dispute marking callbacks are C13-hardened and idempotent: accepted phase transitions preserve hashes and historical failure events, duplicate callbacks avoid repeated audit/message/notification side effects, terminal review cases cannot be reopened, and same-hash success/stale-failure replays are harmless. The frozen callback arguments, boolean returns, schema, statuses, event types, and participant/configured-admin wallet boundary remain unchanged.
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
 - External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
