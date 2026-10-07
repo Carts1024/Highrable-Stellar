@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -34,7 +34,7 @@ Admin Next routes call `requireAdminRequestContext`:
 
 Convex admin functions independently check the shared secret and then enforce owner-only or active dispute-admin capability, network/contract scope, case assignment, and participant conflicts. `HIGHRABLE_ADMIN_WALLET_ADDRESS` identifies the platform owner. Additional wallets are authorized through the scoped `disputeAdmins` table after a verified contract grant; `users.role` does not grant access.
 
-`GET /api/admin/session` returns the verified normalized wallet and `isOwner`/`isDisputeAdmin` capabilities with caching disabled. The dispute queue/detail and owner-only pages use the shared runtime gate. Protected content is not mounted before verification, and TanStack queries are scoped by the verified wallet with cancellation and cache cleanup on disconnect, wallet change, or API 401/403. Admin sign-in remains external-wallet-only; passkey admin authentication is not supported.
+`GET /api/admin/session` returns the verified normalized wallet and `isOwner`/`isDisputeAdmin` capabilities with caching disabled. The browser parses the response as unknown and requires the existing Stellar public-key schema plus strict booleans; additive response fields remain compatible, while malformed successful responses become a generic, non-payload-bearing client error. The dispute queue/detail and owner-only pages use the shared runtime gate. Protected content is not mounted before verification, and TanStack queries are scoped by the verified wallet with cancellation and cache cleanup on disconnect, wallet change, or API 401/403, including owner queue membership reads. Session and protected reads retry only network/5xx failures, at most twice; invalid session responses require a manual access-check retry. Admin sign-in remains external-wallet-only; passkey admin authentication is not supported.
 
 Membership grants become active only after the saved contract transaction succeeds and current membership is verified. Revocation blocks app access immediately and remains incomplete until the owner-signed contract change is reconciled. Settlement recovery verifies a persisted transaction hash and its exact contract invocation server-side; recovery does not submit another transaction.
 

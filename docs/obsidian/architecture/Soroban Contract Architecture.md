@@ -2,7 +2,7 @@
 type: architecture
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -23,6 +23,6 @@ flowchart LR
 
 The escrow contract stores its configuration and counters in instance storage and each `TEscrow` in persistent storage. The reputation contract stores its authorized escrow address in instance storage and completion/stat records in persistent storage. Every public method calls `touch_instance`, extending instance TTL when below the threshold.
 
-The contracts do not emit events in the current source. Off-chain mirror updates therefore use explicit transaction results or action-driven RPC reads rather than a contract-event indexer.
+The escrow contract emits versioned `dispute/marked` and `dispute/resolved` events. The reputation contract emits no events, and no indexer consumes the escrow events. Off-chain mirror updates use explicit transaction results or action-driven RPC reads.
 
 See [[contracts/Escrow Contract]], [[contracts/Reputation Contract]], and [[contracts/Deployment Artifacts]].

@@ -459,13 +459,14 @@ export async function validateDisputeAttachmentIds(
     walletAddress: string;
     parentId?: string;
   },
-) {
+): Promise<Id<"attachments">[]> {
   if (input.attachmentIds.length > MAX_ATTACHMENTS) {
     throw new BadRequestError("Attach 25 files or fewer.");
   }
 
+  const attachmentIds = Array.from(new Set(input.attachmentIds));
   const walletAddress = normalizeWalletAddress(input.walletAddress);
-  for (const attachmentId of input.attachmentIds) {
+  for (const attachmentId of attachmentIds) {
     const attachment = await ctx.db.get(attachmentId);
     if (!attachment || attachment.status !== "active") {
       throw new NotFoundError("Attachment not found.");
@@ -482,6 +483,8 @@ export async function validateDisputeAttachmentIds(
       throw new BadRequestError("Attachment is already linked to another record.");
     }
   }
+
+  return attachmentIds;
 }
 
 export async function attachEvidenceToDispute(

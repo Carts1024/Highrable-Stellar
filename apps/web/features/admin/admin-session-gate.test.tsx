@@ -138,6 +138,37 @@ describe("AdminSessionGate", () => {
     expect(screen.queryByTestId("protected-content")).toBeNull();
   });
 
+  it("keeps malformed successful sessions closed until a manual retry returns a valid session", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          adminWallet: runtime.wallet.walletState.walletAddress,
+          isOwner: "true",
+          isDisputeAdmin: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, {
+          adminWallet: runtime.wallet.walletState.walletAddress,
+          isOwner: true,
+          isDisputeAdmin: true,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderGate();
+
+    expect(await screen.findByRole("heading", { name: "Admin access check failed" })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("protected-content")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry access check" }));
+
+    await waitFor(() => expect(screen.getByTestId("protected-content")).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("authenticates the connected wallet when the signed session belongs to another wallet", async () => {
     const connectedWallet = runtime.wallet.walletState.walletAddress;
     const previousWallet = `G${"B".repeat(55)}`;
