@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -22,6 +22,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Convex dispute creation preserves C05 parent/participant authorization and now validates all related submissions, revisions, messages, deadline events, and evidence before writes; opening is canonical, deduplicated, atomic, and audited with one `dispute_opened` event while agreement context and notification/system-message side effects remain intact.
 - Convex dispute evidence handling is C08-hardened: raw attachment limits are checked before first-seen deduplication, the unique typed IDs are reused for reassignment, dispute evidence, and audit attachments across creation/evidence/response mutations, and supplied participant messages are sanitized before writes. Existing attachment ownership/case rules, raw related-reference limits, public contracts, schemas, indexes, statuses, optional-link compatibility, and caller-supplied wallet boundary remain unchanged. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files.
 - Convex dispute marking callbacks are C13-hardened and idempotent: accepted phase transitions preserve hashes and historical failure events, duplicate callbacks avoid repeated audit/message/notification side effects, terminal review cases cannot be reopened, and same-hash success/stale-failure replays are harmless. The frozen callback arguments, boolean returns, schema, statuses, event types, and participant/configured-admin wallet boundary remain unchanged.
+- Deliverable 2 C14 marking callback coverage is verified locally: first-failure guidance distinguishes recorded-hash reconciliation from retry only when not submitted, using stored-or-incoming hashes in audit/message references. Fifty new cases cover terminal phase combinations, authorization before replay returns, repeated retries, preserved history, and late hash recovery for both parent kinds. C14/C13/C21 pass 86 tests; the full backend suite passes 312 tests in 12 files; backend/test TypeScript and scoped oxlint/oxfmt pass. Public callback contracts and guards are unchanged. This proves bookkeeping only; caller-supplied wallets and the absence of attempt IDs remain limitations, and no reconciliation service or deployment was added. See the [C14 evidence map](../instawards/Deliverable-2-C14-Marking-Evidence.md).
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
 - External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
 - Owner-managed dispute-admin membership, assignment history, claim workflow, and signed settlement recovery are implemented in source. Platform metrics and team/assignment management remain owner-only; app dispute work is assignment-scoped.

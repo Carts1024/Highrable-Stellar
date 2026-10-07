@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-07
+
+- **Deliverable 2 C14 — Dispute Marking Callbacks:** corrected first-failure guidance and audit/system-message hash references to use the effective stored-or-incoming hash. Recorded hashes require reconciliation; hashless guidance makes retry conditional on non-submission. Added 50 regressions covering both parent kinds, terminal phases, authorization before no-op returns, repeated retries, historical side effects, and late hash recovery. C14/C13/C21 pass 86 tests, the full backend passes 312 tests in 12 files, and backend/test TypeScript plus scoped oxlint/oxfmt pass. Callback contracts, authorization, transition guards, and persistence schema remain unchanged. Local bookkeeping evidence does not establish chain verification or wallet possession; hashless attempts remain indistinguishable without attempt IDs. No deployment or reconciliation service was added. See the [C14 evidence map](../../instawards/Deliverable-2-C14-Marking-Evidence.md).
 
 ## 2026-10-06
 
