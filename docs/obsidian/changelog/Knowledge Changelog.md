@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-06
+
+- Completed Deliverable 2 C07 Soroban marking regressions without changing contract behavior. Event assertions now compare the emitted escrow ID and status to persisted state; new tests cover two-escrow isolation across `Funded`/`Submitted` origins and authorized missing-ID rejection with record, balance, reputation, event, and next-ID preservation. The C07 tests pass 2/2, the focused dispute filter passes 24 tests, and `cargo test --workspace --locked` passes 69 escrow and 9 reputation tests. Corrected the C01 handoff to distinguish Soroban state/event data from Convex mirror, dispute phase, and timeline records. Local evidence does not verify deployment or wallet signatures.
+
 ## 2026-10-05
 
 - Completed Deliverable 2 C05 dispute authorization and creation matrix coverage. Extended the real Convex regression suite to 111 focused tests across participant/status/alias/explicit-escrow paths, legacy jobs, parent-graph conflicts, active duplicate statuses, milestone-only conflicts, and terminal/long-history behavior. Rejection tests now compare complete before/after documents with seeded evidence and accepted agreement context. The full backend suite passes 239 tests across 10 files; no production, schema, generated, frontend, contract, migration, or deployment changes were made. Evidence is local in-memory Convex bookkeeping, not live-chain or signed-session verification.
