@@ -88,6 +88,7 @@ This vault is a navigation and context index for humans and coding agents. It re
 ## Evidence
 
 - [[evidence/C22-Administrator Regression Evidence]]
+- [[evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence]]
 
 ## Existing Documentation
 

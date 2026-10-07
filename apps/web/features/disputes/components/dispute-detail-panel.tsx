@@ -4,10 +4,7 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import {
-  isPendingStellarTransactionError,
-  normalizeStellarError,
-} from "@/core/stellar/transaction";
+import { normalizeStellarError } from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -18,10 +15,11 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { TDisputeReasonCategory } from "../types";
 import type { TLocalMarkOutcome } from "./dispute-marking-status";
+import type { TParticipantMarkRecordingContext } from "./participant-marking";
 import type { TConvexId } from "@repo/convex-client";
 
 import { formatDisputeDate, getDisputeReasonLabel, isTerminalDisputeStatus } from "../lib";
@@ -29,6 +27,11 @@ import { DisputeMarkingStatus, getDisputeMarkingPresentation } from "./dispute-m
 import { DisputeParticipantActions } from "./dispute-participant-actions";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "./dispute-status-badge";
 import { ParticipantDisputeTimeline } from "./dispute-timeline";
+import {
+  createParticipantMarkingScopeKey,
+  getParticipantTransactionHash,
+  isParticipantOutcomeUncertain,
+} from "./participant-marking";
 
 function createClientRequestId(escrowId: string): string {
   const uniqueId =
@@ -75,110 +78,163 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         }
       : "skip",
   );
+  const executionContextKey = createParticipantMarkingScopeKey({
+    caseId: disputeId,
+    parentId: disputeId,
+    escrowId: dispute?.onChainEscrowId ?? "",
+    walletAddress: walletIdentity.walletAddress,
+    walletType: walletIdentity.walletType,
+    connectedWalletAddress: address,
+    isConnected: walletIdentity.isConnected && walletState.isConnected,
+    network: walletState.network,
+    isTestnet: walletState.isTestnet,
+    canWriteContracts: walletState.canWriteContracts,
+    hasSigner: Boolean(signTransaction),
+    permission: permission?.allowed,
+  });
+  type TExecutionToken = { readonly generation: number; readonly operationId: string };
+  type TScopedLocalMarkOutcome = TLocalMarkOutcome & { readonly scopeKey: string };
+  const contextKeyRef = useRef(executionContextKey);
+  const generationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const executionRef = useRef<TExecutionToken | null>(null);
   const retryInFlight = useRef(false);
   const [retryPhase, setRetryPhase] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
-  const [localOutcome, setLocalOutcome] = useState<
-    | (TLocalMarkOutcome & {
-        disputeId: string;
-        clientRequestId: string;
-        recordingFailed?: boolean;
-      })
-    | null
-  >(null);
+  const [localOutcome, setLocalOutcome] = useState<TScopedLocalMarkOutcome | null>(null);
+
+  if (contextKeyRef.current !== executionContextKey) {
+    contextKeyRef.current = executionContextKey;
+    generationRef.current += 1;
+    executionRef.current = null;
+    retryInFlight.current = false;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      executionRef.current = null;
+      retryInFlight.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setRetryPhase(null);
+    setRetryError(null);
+    setLocalOutcome(null);
+  }, [executionContextKey]);
+
+  const isCurrent = (): boolean =>
+    mountedRef.current && contextKeyRef.current === executionContextKey;
+  const isExecutionCurrent = (token: TExecutionToken): boolean =>
+    isCurrent() && generationRef.current === token.generation && executionRef.current === token;
+  const assertExecutionCurrent = (token: TExecutionToken): void => {
+    if (!isExecutionCurrent(token)) {
+      throw new Error("Dispute marking context changed; stopping the obsolete attempt.");
+    }
+  };
+  const visibleLocalOutcome =
+    localOutcome?.scopeKey === executionContextKey && localOutcome.disputeId === dispute?._id
+      ? localOutcome
+      : null;
 
   const recordConfirmedMark = async (
-    currentDispute: NonNullable<typeof dispute>,
-    actorWallet: string,
-    actorWalletType: "external_wallet" | "passkey_smart_account",
-    transactionHash: string,
-    clientRequestId: string,
-  ) => {
+    recordingContext: TParticipantMarkRecordingContext,
+    token: TExecutionToken,
+  ): Promise<boolean> => {
+    if (!isExecutionCurrent(token)) return false;
     setRetryPhase("Recording confirmed transaction...");
     try {
+      assertExecutionCurrent(token);
       await markSucceeded({
-        disputeId: currentDispute._id,
-        actorWallet,
-        actorWalletType,
-        transactionHash,
-        stellarExpertUrl: getTxExplorerUrl(transactionHash),
+        disputeId: recordingContext.disputeId as TConvexId<"disputes">,
+        actorWallet: recordingContext.actorWallet,
+        actorWalletType: recordingContext.actorWalletType,
+        transactionHash: recordingContext.transactionHash,
+        stellarExpertUrl: getTxExplorerUrl(recordingContext.transactionHash),
       });
+      assertExecutionCurrent(token);
       await updateTransactionStatus({
-        clientRequestId,
-        txHash: transactionHash,
+        clientRequestId: recordingContext.clientRequestId,
+        txHash: recordingContext.transactionHash,
         status: "success",
       });
-      if (currentDispute.milestoneId) {
+      assertExecutionCurrent(token);
+      if (recordingContext.milestoneId) {
         await updateMilestoneEscrowStatus({
-          milestoneId: currentDispute.milestoneId,
-          escrowId: currentDispute.onChainEscrowId!,
+          milestoneId: recordingContext.milestoneId as TConvexId<"milestones">,
+          escrowId: recordingContext.onChainEscrowId,
           status: "disputed",
-          txHash: transactionHash,
+          txHash: recordingContext.transactionHash,
           txType: "mark_disputed",
         });
       } else {
         await updateEscrowStatus({
-          escrowId: currentDispute.onChainEscrowId!,
+          escrowId: recordingContext.onChainEscrowId,
           status: "disputed",
-          txHash: transactionHash,
+          txHash: recordingContext.transactionHash,
           txType: "mark_disputed",
         });
       }
-      setLocalOutcome({
-        kind: "confirmed_sync_pending",
-        disputeId: currentDispute._id,
-        clientRequestId,
-        transactionHash,
-      });
+      assertExecutionCurrent(token);
+      setLocalOutcome(null);
       setRetryError(null);
+      return true;
     } catch (error) {
+      if (!isExecutionCurrent(token)) return false;
       setLocalOutcome({
         kind: "confirmed_sync_pending",
-        disputeId: currentDispute._id,
-        clientRequestId,
-        transactionHash,
+        disputeId: recordingContext.disputeId,
+        transactionHash: recordingContext.transactionHash,
+        recordingContext,
         recordingFailed: true,
+        scopeKey: executionContextKey,
       });
       setRetryError(
         `Stellar confirmed the transaction, but Highrable could not finish recording it: ${normalizeStellarError(error)}`,
       );
-    } finally {
-      setRetryPhase(null);
+      return false;
     }
   };
 
   const handleRetryRecording = async () => {
     if (
-      retryInFlight.current ||
-      !dispute ||
-      !walletIdentity.walletAddress ||
-      !walletIdentity.walletType ||
-      localOutcome?.kind !== "confirmed_sync_pending" ||
-      localOutcome.disputeId !== dispute._id ||
-      !localOutcome.recordingFailed
-    )
+      executionRef.current ||
+      !isCurrent() ||
+      !visibleLocalOutcome ||
+      visibleLocalOutcome.kind !== "confirmed_sync_pending" ||
+      !visibleLocalOutcome.recordingFailed
+    ) {
       return;
+    }
+    const token: TExecutionToken = {
+      generation: generationRef.current,
+      operationId: visibleLocalOutcome.recordingContext.clientRequestId,
+    };
+    executionRef.current = token;
     retryInFlight.current = true;
+    setRetryError(null);
     try {
-      await recordConfirmedMark(
-        dispute,
-        walletIdentity.walletAddress,
-        walletIdentity.walletType,
-        localOutcome.transactionHash,
-        localOutcome.clientRequestId,
-      );
+      await recordConfirmedMark(visibleLocalOutcome.recordingContext, token);
     } finally {
-      retryInFlight.current = false;
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        retryInFlight.current = false;
+        if (isCurrent()) setRetryPhase(null);
+      }
     }
   };
 
   const handleRetryMarkDisputed = async () => {
     const setRetryWarning = (message: string) => {
+      if (!isCurrent()) return;
       setRetryError(message);
       showWarningToast(message);
     };
 
-    if (retryInFlight.current) return;
+    if (executionRef.current || retryInFlight.current || !isCurrent()) return;
     if (!dispute || !walletIdentity.walletAddress || !walletIdentity.walletType) {
       setRetryWarning("Missing wallet identity for retry.");
       return;
@@ -188,11 +244,12 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
       !getDisputeMarkingPresentation(
         dispute.onChainStatus,
         dispute.transactionHash,
-        localOutcome?.disputeId === dispute._id ? localOutcome : null,
+        visibleLocalOutcome,
         isTerminalDisputeStatus(dispute.status),
       ).canRetry
-    )
+    ) {
       return;
+    }
 
     if (!dispute.onChainEscrowId) {
       setRetryWarning("This dispute does not have an on-chain escrow id.");
@@ -206,55 +263,53 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
       setRetryWarning(normalizeStellarError(error));
       return;
     }
+
+    const actorWallet = walletIdentity.walletAddress;
+    const actorWalletType = walletIdentity.walletType;
+    const clientRequestId = createClientRequestId(dispute.onChainEscrowId);
+    const token: TExecutionToken = {
+      generation: generationRef.current,
+      operationId: clientRequestId,
+    };
+    executionRef.current = token;
     retryInFlight.current = true;
     setRetryPhase("Checking wallet readiness...");
-    const failReadiness = (message: string) => {
-      setRetryWarning(message);
-      setRetryPhase(null);
-      retryInFlight.current = false;
-    };
-    if (walletIdentity.walletType === "passkey_smart_account") {
-      let readiness: Awaited<ReturnType<typeof getPasskeyEscrowExecutionReadiness>>;
-      try {
-        readiness = await getPasskeyEscrowExecutionReadiness();
-      } catch (error) {
-        failReadiness(normalizeStellarError(error));
-        return;
-      }
-      if (!readiness.canExecute) {
-        failReadiness(
-          readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
-        );
-        return;
-      }
-    } else {
-      if (
-        !address ||
-        !walletState.isConnected ||
-        address.toUpperCase() !== walletIdentity.walletAddress.toUpperCase()
-      ) {
-        failReadiness("Connect the wallet for this dispute before retrying.");
-        return;
-      }
-      if (!isWalletOnConfiguredNetwork(walletState)) {
-        failReadiness(getWalletNetworkMismatchMessage("marking the escrow disputed"));
-        return;
-      }
-      if (walletState.canWriteContracts === false) {
-        failReadiness("Current wallet cannot sign escrow contract actions right now.");
-        return;
-      }
-    }
-
-    setRetryPhase("Preparing dispute marking...");
     setRetryError(null);
 
-    const clientRequestId = createClientRequestId(dispute.onChainEscrowId);
+    let knownHash: string | undefined;
+    let mayHaveSubmitted = false;
     let transactionCreated = false;
+    let markingStarted = false;
     try {
+      assertExecutionCurrent(token);
+      if (actorWalletType === "passkey_smart_account") {
+        const readiness = await getPasskeyEscrowExecutionReadiness();
+        assertExecutionCurrent(token);
+        if (!readiness.canExecute) {
+          throw new Error(
+            readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
+          );
+        }
+      } else {
+        if (
+          !address ||
+          !walletState.isConnected ||
+          address.toUpperCase() !== actorWallet.toUpperCase()
+        ) {
+          throw new Error("Connect the wallet for this dispute before retrying.");
+        }
+        if (!isWalletOnConfiguredNetwork(walletState)) {
+          throw new Error(getWalletNetworkMismatchMessage("marking the escrow disputed"));
+        }
+        if (walletState.canWriteContracts === false) {
+          throw new Error("Current wallet cannot sign escrow contract actions right now.");
+        }
+      }
+      assertExecutionCurrent(token);
+      setRetryPhase("Preparing dispute marking...");
       await createTransaction({
-        walletAddress: walletIdentity.walletAddress,
-        walletType: walletIdentity.walletType,
+        walletAddress: actorWallet,
+        walletType: actorWalletType,
         type: "mark_disputed",
         clientRequestId,
         escrowId: dispute.onChainEscrowId,
@@ -262,54 +317,48 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
         status: "pending",
       });
+      assertExecutionCurrent(token);
       transactionCreated = true;
-
       await markStarted({
         disputeId: dispute._id,
-        actorWallet: walletIdentity.walletAddress,
-        actorWalletType: walletIdentity.walletType,
+        actorWallet,
+        actorWalletType,
       });
-    } catch (error) {
-      if (transactionCreated) {
-        try {
-          await updateTransactionStatus({
-            clientRequestId,
-            status: "failed",
-            errorMessage: normalizeStellarError(error),
-          });
-        } catch {
-          // Keep the original start error visible.
-        }
-      }
-      setRetryError(`Could not start escrow marking: ${normalizeStellarError(error)}`);
-      setRetryPhase(null);
-      retryInFlight.current = false;
-      return;
-    }
+      assertExecutionCurrent(token);
+      markingStarted = true;
 
-    let knownHash: string | undefined;
-    let mayHaveSubmitted = false;
-    let result: { txHash: string };
-    try {
-      result = await markDisputedOnChain({
+      const guardedSignTransaction = async (
+        xdr: string,
+        options?: { requiresServerSession?: boolean },
+      ): Promise<string> => {
+        void options;
+        assertExecutionCurrent(token);
+        const signedXdr = await signTransaction(xdr);
+        assertExecutionCurrent(token);
+        return signedXdr;
+      };
+      const result = await markDisputedOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: walletIdentity.walletAddress,
-        signTransaction,
-        walletType: walletIdentity.walletType,
+        sourceAddress: actorWallet,
+        signTransaction: guardedSignTransaction,
+        walletType: actorWalletType,
         operationId: clientRequestId,
-        caller: walletIdentity.walletAddress,
+        caller: actorWallet,
         escrowId: dispute.onChainEscrowId,
         onSigned: async ({ transactionHash }) => {
+          assertExecutionCurrent(token);
           knownHash = transactionHash;
           await updateTransactionStatus({
             clientRequestId,
             txHash: transactionHash,
             status: "pending",
           });
+          assertExecutionCurrent(token);
         },
         onPhase: (phase) => {
+          if (!isExecutionCurrent(token)) return;
           setRetryPhase(
             {
               simulation: "Simulating transaction...",
@@ -321,72 +370,95 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
           if (phase === "submission" || phase === "confirmation") mayHaveSubmitted = true;
         },
       });
+      assertExecutionCurrent(token);
+      const recordingContext: TParticipantMarkRecordingContext = {
+        disputeId: dispute._id,
+        actorWallet,
+        actorWalletType,
+        transactionHash: result.txHash,
+        clientRequestId,
+        onChainEscrowId: dispute.onChainEscrowId,
+        ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
+        ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
+      };
+      setLocalOutcome({
+        kind: "confirmed_sync_pending",
+        disputeId: dispute._id,
+        transactionHash: result.txHash,
+        recordingContext,
+        scopeKey: executionContextKey,
+      });
+      await recordConfirmedMark(recordingContext, token);
     } catch (error) {
+      if (!isExecutionCurrent(token)) return;
       const errorMessage = normalizeStellarError(error);
-      const failedTxHash =
-        knownHash ??
-        (typeof error === "object" &&
-        error !== null &&
-        "txHash" in error &&
-        typeof error.txHash === "string"
-          ? error.txHash
-          : undefined);
-      const uncertain =
-        isPendingStellarTransactionError(error) || mayHaveSubmitted || Boolean(failedTxHash);
-
-      try {
-        await updateTransactionStatus({
-          clientRequestId,
-          ...(failedTxHash ? { txHash: failedTxHash } : {}),
-          status: uncertain ? "pending" : "failed",
-          errorMessage,
-        });
-      } catch {
-        // Best-effort transaction status update.
-      }
-
-      if (!uncertain) {
+      const failedTxHash = knownHash ?? getParticipantTransactionHash(error);
+      const uncertain = isParticipantOutcomeUncertain({
+        error,
+        mayHaveSubmitted,
+        transactionHash: failedTxHash,
+      });
+      const outcomeUncertain = uncertain;
+      if (transactionCreated) {
         try {
-          await markFailed({
-            disputeId: dispute._id,
-            actorWallet: walletIdentity.walletAddress,
-            actorWalletType: walletIdentity.walletType,
+          assertExecutionCurrent(token);
+          await updateTransactionStatus({
+            clientRequestId,
+            ...(failedTxHash ? { txHash: failedTxHash } : {}),
+            status: outcomeUncertain ? "pending" : "failed",
             errorMessage,
           });
+          assertExecutionCurrent(token);
         } catch {
-          // Best-effort dispute failure event update.
+          if (!isExecutionCurrent(token)) return;
         }
       }
-
-      if (uncertain) {
+      if (!outcomeUncertain && markingStarted) {
+        try {
+          assertExecutionCurrent(token);
+          await markFailed({
+            disputeId: dispute._id,
+            actorWallet,
+            actorWalletType,
+            errorMessage,
+          });
+          assertExecutionCurrent(token);
+        } catch {
+          if (!isExecutionCurrent(token)) return;
+        }
+      }
+      if (outcomeUncertain) {
         setLocalOutcome({
           kind: "pending",
           disputeId: dispute._id,
-          clientRequestId,
           ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
+          ...(failedTxHash
+            ? {
+                recordingContext: {
+                  disputeId: dispute._id,
+                  actorWallet,
+                  actorWalletType,
+                  transactionHash: failedTxHash,
+                  clientRequestId,
+                  onChainEscrowId: dispute.onChainEscrowId,
+                  ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
+                  ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
+                },
+              }
+            : {}),
+          scopeKey: executionContextKey,
         });
         setRetryError(`Transaction outcome is uncertain: ${errorMessage}`);
       } else {
         setRetryError(`Escrow marking failed before submission: ${errorMessage}`);
       }
-      return;
     } finally {
-      setRetryPhase(null);
-      retryInFlight.current = false;
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        retryInFlight.current = false;
+        if (isCurrent()) setRetryPhase(null);
+      }
     }
-    setLocalOutcome({
-      kind: "confirmed_sync_pending",
-      disputeId: dispute._id,
-      clientRequestId,
-      transactionHash: result.txHash,
-    });
-    await recordConfirmedMark(
-      dispute,
-      walletIdentity.walletAddress,
-      walletIdentity.walletType,
-      result.txHash,
-      clientRequestId,
-    );
   };
 
   if (!walletIdentity.walletAddress) {
@@ -450,7 +522,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             <DisputeOnChainStatusBadge
               status={dispute.onChainStatus}
               transactionHash={dispute.transactionHash}
-              localOutcome={localOutcome?.disputeId === dispute._id ? localOutcome.kind : undefined}
+              localOutcome={visibleLocalOutcome?.kind}
             />
           </div>
         </div>
@@ -480,7 +552,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
         <DisputeMarkingStatus
           status={dispute.onChainStatus}
           transactionHash={dispute.transactionHash}
-          localOutcome={localOutcome?.disputeId === dispute._id ? localOutcome : null}
+          localOutcome={visibleLocalOutcome}
           retryPhase={retryPhase}
           retryError={retryError}
           onRetry={() => void handleRetryMarkDisputed()}
