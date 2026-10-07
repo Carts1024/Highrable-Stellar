@@ -343,6 +343,12 @@ fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address
     assert_eq!(actual_data_xdr, expected_data_xdr);
     let decoded: DisputeMarkedEvent = data.try_into_val(&context.env).unwrap();
     assert_eq!(decoded, expected_payload);
+
+    let emitted_escrow_id: u64 = topics.get(2).unwrap().try_into_val(&context.env).unwrap();
+    let persisted_escrow = context.escrow_client.get_escrow(&emitted_escrow_id);
+    assert_eq!(emitted_escrow_id, escrow_id);
+    assert_eq!(persisted_escrow.escrow_id, emitted_escrow_id);
+    assert_eq!(decoded.status, persisted_escrow.status);
 }
 
 fn assert_resolve_event(
@@ -1834,6 +1840,114 @@ fn mark_disputed_accepts_each_authorized_role_from_funded_and_submitted() {
             submitted_balances_before,
         );
     }
+}
+
+#[test]
+fn c07_mark_events_identify_the_changed_escrow_and_preserve_unrelated_state() {
+    let context = setup();
+    let funded_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 240);
+    let submitted_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Submitted, 241);
+    let funded_before = context.escrow_client.get_escrow(&funded_id);
+    let submitted_before = context.escrow_client.get_escrow(&submitted_id);
+    let balances_before = dispute_token_balances(&context);
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    let funded_completion_before = context.reputation_client.get_completion(&funded_id);
+    let submitted_completion_before = context.reputation_client.get_completion(&submitted_id);
+
+    assert_eq!(funded_before.status, TEscrowStatus::Funded);
+    assert_eq!(submitted_before.status, TEscrowStatus::Submitted);
+    assert_mark_disputed_with_auth(&context, &context.client, &context.client, funded_id, None);
+    assert_dispute_mark_changed_only_status(&context, funded_id, &funded_before, balances_before);
+    let funded_after_mark = context.escrow_client.get_escrow(&funded_id);
+    assert_eq!(
+        context.escrow_client.get_escrow(&submitted_id),
+        submitted_before
+    );
+
+    assert_mark_disputed_with_auth(
+        &context,
+        &context.freelancer,
+        &context.freelancer,
+        submitted_id,
+        None,
+    );
+    assert_dispute_mark_changed_only_status(
+        &context,
+        submitted_id,
+        &submitted_before,
+        balances_before,
+    );
+    assert_eq!(
+        context.escrow_client.get_escrow(&funded_id),
+        funded_after_mark
+    );
+    assert_eq!(dispute_token_balances(&context), balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&funded_id),
+        funded_completion_before
+    );
+    assert_eq!(
+        context.reputation_client.get_completion(&submitted_id),
+        submitted_completion_before
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before
+    );
+}
+
+#[test]
+fn c07_missing_escrow_mark_preserves_records_balances_and_reputation() {
+    let context = setup();
+    let existing_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 242);
+    let existing_before = context.escrow_client.get_escrow(&existing_id);
+    let missing_id = context.escrow_client.get_next_escrow_id();
+    let next_id_before = missing_id;
+    let balances_before = dispute_token_balances(&context);
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    let completion_before = context.reputation_client.get_completion(&existing_id);
+    let missing_completion_before = context.reputation_client.get_completion(&missing_id);
+    let dispute_events_before = dispute_event_count(&context);
+    let transfer_events_before =
+        events_from_topic(&context, &context.mock_usdc_token, "transfer").len();
+
+    install_mock_dispute_auth(&context, &context.client, &context.client, missing_id);
+    let result = context
+        .escrow_client
+        .try_mark_disputed(&context.client, &missing_id);
+
+    assert_eq!(result, Err(Ok(Error::EscrowNotFound)));
+    assert_eq!(dispute_event_count(&context), dispute_events_before);
+    assert_eq!(
+        events_from_topic(&context, &context.mock_usdc_token, "transfer").len(),
+        transfer_events_before
+    );
+    assert_eq!(
+        context.escrow_client.get_escrow(&existing_id),
+        existing_before
+    );
+    assert_eq!(dispute_token_balances(&context), balances_before);
+    assert_eq!(
+        context.reputation_client.get_completion(&existing_id),
+        completion_before
+    );
+    assert_eq!(
+        context.reputation_client.get_completion(&missing_id),
+        missing_completion_before
+    );
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        stats_before
+    );
+    assert_eq!(context.escrow_client.get_next_escrow_id(), next_id_before);
 }
 
 #[test]
