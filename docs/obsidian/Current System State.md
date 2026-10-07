@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-06
 source_of_truth: repository
 ---
 
@@ -14,6 +14,7 @@ This classification is based on current source, tests, manifests, deployment art
 
 - Soroban escrow creation, open escrow creation, create-and-fund open escrow, funding, assignment, submission, approval/release, cancellation, dispute marking, owner-only settlement for existing deployments, membership-enabled admin dispute settlement in current source, asset allowlisting, and read/configuration methods exist in `contracts/escrow/src/lib.rs`.
 - C20 local Soroban regression coverage is implemented: six tests exercise 84 forbidden dispute/terminal invocations from funded/submitted dispute origins and ordinary release/cancellation paths. Full records, balances, reputation, and event counts remain unchanged on rejection; the contract workspace passes 61 escrow and 9 reputation tests and both WASM contracts build. This is local evidence; deployed behavior and wider sprint acceptance remain unverified.
+- Deliverable 2 C06 dispute guard coverage is verified locally: revoked-admin reauthorization, participant conflicts, registered-admin marking boundaries, `1`/`9_999` bps payouts across owner/admin and funded/submitted origins, invalid shares, and all non-disputed statuses are covered. `cargo test --workspace --locked` passes 67 escrow and 9 reputation tests. Mocked authorization does not prove wallet signatures or deployed behavior; the membership-enabled source remains undeployed as described below.
 - The current escrow source emits versioned `dispute/marked` and `dispute/resolved` events after successful state writes; C16 handoff and payload schemas are documented. Resolution hashes are emitted but remain absent from persistent escrow records.
 - Soroban reputation initialization, authorized completion recording, immutable completion lookup, existence checks, and freelancer aggregate statistics exist in `contracts/reputation/src/lib.rs`.
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
@@ -23,6 +24,8 @@ This classification is based on current source, tests, manifests, deployment art
 - The web app has marketplace, job, dashboard, onboarding, profile, proof, dispute, work-agreement review, admin, and wallet/passkey routes. `/talent` is intentionally not in this category; see below.
 - External-wallet challenge/verify authentication creates signed HTTP-only session cookies. Admin APIs derive the actor from the verified wallet; Convex separately checks the server-only secret, owner/dispute-admin capability, scope, assignment, and participant conflicts.
 - Owner-managed dispute-admin membership, assignment history, claim workflow, and signed settlement recovery are implemented in source. Platform metrics and team/assignment management remain owner-only; app dispute work is assignment-scoped.
+- Deliverable 2 C11 admin evidence review is implemented: protected case evidence is rendered independently from timeline evidence, missing/unusable records fail closed, safe links use validated HTTP/HTTPS URLs, and manual detail refresh replaces evidence/status without writes or Stellar calls. Focused admin coverage passes 173 tests, full web coverage passes 286 tests, and the web build passes. This is mocked local UI/session/API evidence; live deployment and storage verification remain outside scope.
+- Deliverable 2 C12 admin assignment and review controls are implemented on top of the existing endpoints and Convex-derived policy: normalized/deduplicated nonparticipant assignees, disabled historical inactive options, membership-read gating, participant/terminal claim guards, active-settlement detail reassignment locks, duplicate-submission prevention, cross-filter queue/detail cache invalidation, non-optimistic refreshes, preserved rejected drafts/conflicts, and read-only recovery after post-write refresh failure. Real session-gate coverage includes mutation 401/403 cache eviction and existing late wallet-response protection. Focused admin coverage passes 190 tests, full web coverage passes 303 tests, web TypeScript and scoped oxlint/oxfmt pass, and the production build passes. No backend policy, schema, generated file, wallet, environment, contract, deployment, transaction, audit/notification side effect, or live-chain behavior changed or was verified.
 - Administrator settlement records are C17-hardened across started, signed, submission-unknown, succeeded, and failed callbacks. Current source validates integer basis points, normalized operation IDs, 64-hex hashes, positive safe expiries, scoped capability/assignment/attempt ownership, explicit persisted escrow references, and atomic terminal bookkeeping with replay-safe audit/notification behavior. C17 adds 14 deterministic in-memory tests; the full backend suite passes 81 tests.
 - External-wallet and passkey smart-account execution both route through shared escrow helpers and a wallet-specific transaction executor.
 - Deadline reminder scanning is scheduled by Convex every 15 minutes.

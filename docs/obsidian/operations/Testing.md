@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 source_of_truth: repository
 ---
 
@@ -20,11 +20,31 @@ source_of_truth: repository
 
 ## Backend dispute regression harness
 
-The C02 backend harness uses `convex-test` with the real composed schema from `packages/backend/convex/schema.ts`, an explicit module map, Vitest 2, and the Edge Runtime environment. Tests and fixtures live outside deployable Convex functions in `packages/backend/tests/`; `tests/tsconfig.json` type-checks them separately from `convex/tsconfig.json`.
+The C02 backend harness uses `convex-test` with the real composed schema from `packages/backend/convex/schema.ts`, an explicit module map, Vitest 5, and the Edge Runtime environment. Tests and fixtures live outside deployable Convex functions in `packages/backend/tests/`; `tests/tsconfig.json` type-checks them separately from `convex/tsconfig.json`.
 
 Dispute fixtures seed users, a client, an assigned freelancer, an unrelated wallet, a configured administrator, a job, and a funded or submitted escrow directly. They support both micro-gig and milestone parents. Tests then create disputes through `api.disputes.createDispute` and exercise administrator paths through `api.admin` with synthetic test-only environment values. Each test receives a fresh in-memory database and deterministic clock; environment and timer stubs are restored after each test. No network calls, live credentials, or mocked authorization/dispute helpers are used.
 
-Verified C02 coverage includes schema enum/type/ID rejection contracts, every existing dispute/event index and field order, participant opening and persisted opening events, administrator review/moderator-note events, participant filtering, parent/escrow/status lookup, chronological timelines, duplicate active disputes, unrelated participants, and invalid administrator credentials.
+The Deliverable 2 C02 extension adds parameterized parent/reason/wallet/status/event vocabulary checks, optional event-status fields, unknown/type/wrong-table rejection checks, `by_assignedAdmin_updatedAt` isolation and ordering, generated `api.disputes` export references, malformed public arguments with rejected-write preservation, participant present/missing/denied result shapes, and the legacy rejecting moderator-note/resolution placeholders. Working administrator APIs remain under `api.admin`.
+
+At the Deliverable 2 C02 checkpoint, the focused schema/index/API contract run passed 59 tests and the backend suite passed 154 tests across 10 files. The backend source and test TypeScript projects both type-check; local tests use deterministic in-memory Convex state and do not prove Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
+
+## Deliverable 2 C05 authorization and creation matrix
+
+`packages/backend/tests/disputes/c05.authorization.test.ts` uses the real composed schema, deterministic fixtures, and public Convex functions. The focused run passes 111 tests. It covers all supported participant/status/entry-path combinations, legacy jobs without `jobType`, canonical parent and participant derivation, one opening audit event, configured nonparticipant administrators, profile-role isolation, unassigned/non-eligible escrows, malformed/missing/wrong-table/conflicting parent graphs, explicit escrow ambiguity resolution, active duplicate statuses and aliases, independent milestone conflicts, and terminal/long-history behavior.
+
+C05 rejection cases seed valid evidence and an accepted agreement, then compare complete document snapshots before and after failure across disputes, attachments, dispute events, notifications, conversations/messages, agreement records/versions/events, and linked job/milestone/escrow records. The full backend suite passes 239 tests across 10 files; backend source/tests type-check, scoped oxlint passes, and the changed test file passes oxfmt. No production, schema, generated, frontend, contract, migration, or deployment changes were needed. This is local in-memory Convex evidence only, not live-chain or signed-session verification.
+
+## Deliverable 2 C10 participant timeline regression coverage
+
+`apps/web/features/disputes/components/dispute-timeline.test.tsx` derives typed fixtures from the generated Convex return type and covers every timeline event type and actor role, optional status fields, attachments, transaction links, loading/empty states, keyed wallet/dispute replacement, and repeated retryable failures. `dispute-participant-integration.test.tsx` uses the real participant detail, action, and timeline components to preserve drafts across timeline failure, prove retry is free of mutations and Stellar operations, and verify permission revocation/disconnect cleanup plus current-wallet/current-case restoration.
+
+The exact focused command `pnpm --filter web test features/disputes` passes 54 tests across 9 files. `pnpm --filter web exec tsc --noEmit`, scoped oxlint, and scoped oxfmt checks pass. These are mocked local UI checks only; list, route, and status-label acceptance remains covered by the existing C04 tests, and no live Convex, wallet-possession, Stellar, deployment, or contract behavior is proven. See `docs/instawards/Deliverable-2-C10-Participant-Timeline-Evidence.md` for the acceptance map and commands.
+
+## Deliverable 2 C11 administrator evidence review
+
+The administrator detail suite covers independent case/event evidence, metadata, empty and missing references, null/unsafe/deleted/blocked attachments, safe descriptive links, refresh replacement, 404/403 removal, retryable failures, and no-write/no-Stellar refresh behavior. The real protected-page integration suite covers assigned-admin rendering through `AdminSessionGate`, wallet changes, disconnects, and late detail responses.
+
+`pnpm --filter web test features/admin` passes 173 tests across 7 files, and `pnpm --filter web test` passes 286 tests across 23 files. Web TypeScript, scoped oxlint/oxfmt, and `pnpm --filter web build` pass. These are mocked local UI/session/API checks only; live Convex, storage URL availability, Stellar, deployment, and transaction execution are not proven. See `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
 
 ## Contract coverage to preserve
 

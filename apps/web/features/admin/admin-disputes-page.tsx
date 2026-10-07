@@ -16,11 +16,14 @@ import {
   fetchAdminMembershipManagement,
   fetchAdminDisputes,
   getAdminApiErrorMessage,
+  isAdminAccessError,
   isAdminNetworkError,
   shouldRetryAdminRead,
   postAdminAssignDispute,
   postAdminClaimDispute,
 } from "@/features/admin/lib/admin-api";
+import { invalidateAdminDisputeCaches } from "@/features/admin/lib/admin-query-cache";
+import { dedupeAdminWallets } from "@/features/admin/lib/assignment-validation";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
 import {
   DISPUTE_ON_CHAIN_STATUS_OPTIONS,
@@ -31,7 +34,7 @@ import {
 } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -69,11 +72,14 @@ function isOnChainFilter(value: string): value is TOnChainFilter {
 
 function AdminDisputesContent() {
   const { verifiedWallet, isOwner, handleProtectedApiError } = useAdminSessionAccess();
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<TStatusFilter>("");
   const [onChainFilter, setOnChainFilter] = useState<TOnChainFilter>("");
   const [assignmentFilter, setAssignmentFilter] = useState<TAdminAssignmentFilter>("all");
   const [busyDisputeId, setBusyDisputeId] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
+  const [assignmentRefreshFailed, setAssignmentRefreshFailed] = useState(false);
 
   const adminsQuery = useQuery({
     queryKey: [...ADMIN_QUERY_KEY, "admins", verifiedWallet],
@@ -117,27 +123,68 @@ function AdminDisputesContent() {
   }, [adminsQuery.error, handleProtectedApiError]);
 
   const disputes = disputeQuery.data?.disputes ?? [];
-  const activeAdminWallets = [
-    verifiedWallet,
-    ...(adminsQuery.data?.admins
-      ?.filter((admin) => admin.accessState === "active")
-      .map((admin) => admin.wallet) ?? []),
-  ];
+  const activeAdminWallets = adminsQuery.isSuccess
+    ? dedupeAdminWallets([
+        verifiedWallet,
+        ...adminsQuery.data.admins
+          .filter((admin) => admin.accessState === "active")
+          .map((admin) => admin.wallet),
+      ])
+    : [];
+  const assignmentReady = !isOwner || adminsQuery.isSuccess;
   const runAssignmentAction = async (
     disputeId: string,
     action: () => Promise<void>,
+    successMessage: string,
   ): Promise<void> => {
+    if (busyDisputeId !== null) {
+      return;
+    }
+
     setBusyDisputeId(disputeId);
     setAssignmentError(null);
+    setAssignmentSuccess(null);
+    setAssignmentRefreshFailed(false);
+    let assignmentWriteSucceeded = false;
     try {
       await action();
-      await disputeQuery.refetch();
+      assignmentWriteSucceeded = true;
+      await invalidateAdminDisputeCaches(queryClient, verifiedWallet, disputeId);
+      const refreshed = await disputeQuery.refetch();
+      if (refreshed.error) {
+        throw refreshed.error;
+      }
+      setAssignmentSuccess(successMessage);
     } catch (error) {
       handleProtectedApiError(error);
-      setAssignmentError(error instanceof Error ? error.message : "Case assignment failed.");
+      if (isAdminAccessError(error)) {
+        return;
+      }
+
+      if (assignmentWriteSucceeded) {
+        setAssignmentRefreshFailed(true);
+        setAssignmentError(
+          "The case assignment was saved, but the queue could not be refreshed. Retry the read; the assignment will not be repeated.",
+        );
+      } else {
+        setAssignmentError(error instanceof Error ? error.message : "Case assignment failed.");
+      }
     } finally {
       setBusyDisputeId(null);
     }
+  };
+  const handleQueueReadRetry = async (): Promise<void> => {
+    if (disputeQuery.isFetching) {
+      return;
+    }
+
+    const refreshed = await disputeQuery.refetch();
+    if (refreshed.error) {
+      return;
+    }
+
+    setAssignmentRefreshFailed(false);
+    setAssignmentError(null);
   };
   const queueMetrics = useMemo(
     () => [
@@ -183,7 +230,7 @@ function AdminDisputesContent() {
         </AppButton>
         <AppButton
           size="sm"
-          onClick={() => void disputeQuery.refetch()}
+          onClick={() => void handleQueueReadRetry()}
           disabled={disputeQuery.isFetching}
         >
           {disputeQuery.isFetching ? "Refreshing..." : "Refresh"}
@@ -264,9 +311,53 @@ function AdminDisputesContent() {
         </div>
       </AdminSection>
 
-      {assignmentError ? <RouteCallout tone="danger">{assignmentError}</RouteCallout> : null}
+      {isOwner && adminsQuery.isPending ? (
+        <RouteCallout tone="warning" role="status">
+          Loading eligible dispute admins. Assignment controls remain disabled until membership is
+          verified.
+        </RouteCallout>
+      ) : null}
 
-      {disputeQuery.isError ? (
+      {isOwner && adminsQuery.isError && !isAdminAccessError(adminsQuery.error) ? (
+        <RouteCallout tone="danger">
+          Could not load eligible dispute admins. Assignment controls remain disabled until the
+          membership read succeeds.{" "}
+          {adminsQuery.error instanceof AdminApiError
+            ? getAdminApiErrorMessage(adminsQuery.error)
+            : "Retry the membership read."}
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-3"
+            onClick={() => void adminsQuery.refetch()}
+            disabled={adminsQuery.isFetching}
+          >
+            {adminsQuery.isFetching ? "Retrying..." : "Retry membership"}
+          </AppButton>
+        </RouteCallout>
+      ) : null}
+
+      {assignmentError ? (
+        <RouteCallout tone="danger">
+          {assignmentError}
+          {assignmentRefreshFailed ? (
+            <AppButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="ml-3"
+              onClick={() => void handleQueueReadRetry()}
+              disabled={disputeQuery.isFetching}
+            >
+              {disputeQuery.isFetching ? "Retrying..." : "Retry read"}
+            </AppButton>
+          ) : null}
+        </RouteCallout>
+      ) : null}
+      {assignmentSuccess ? <RouteCallout tone="success">{assignmentSuccess}</RouteCallout> : null}
+
+      {disputeQuery.isError && !assignmentRefreshFailed ? (
         <RouteCallout tone="danger">
           {disputeQuery.error.status === 400
             ? "The dispute queue request was invalid. Check the selected filters and retry."
@@ -282,7 +373,7 @@ function AdminDisputesContent() {
             variant="secondary"
             size="sm"
             className="ml-3"
-            onClick={() => void disputeQuery.refetch()}
+            onClick={() => void handleQueueReadRetry()}
             disabled={disputeQuery.isFetching}
           >
             Retry
@@ -316,13 +407,20 @@ function AdminDisputesContent() {
                 verifiedWallet={verifiedWallet}
                 isOwner={isOwner}
                 activeAdminWallets={activeAdminWallets}
+                assignmentReady={assignmentReady}
                 busyDisputeId={busyDisputeId}
                 onClaim={(disputeId) =>
-                  void runAssignmentAction(disputeId, () => postAdminClaimDispute(disputeId))
+                  void runAssignmentAction(
+                    disputeId,
+                    () => postAdminClaimDispute(disputeId),
+                    "Case claimed.",
+                  )
                 }
                 onAssign={(disputeId, assignedWallet) =>
-                  void runAssignmentAction(disputeId, () =>
-                    postAdminAssignDispute(disputeId, assignedWallet),
+                  void runAssignmentAction(
+                    disputeId,
+                    () => postAdminAssignDispute(disputeId, assignedWallet),
+                    assignedWallet ? "Case assignment updated." : "Case unassigned.",
                   )
                 }
                 emptyState={

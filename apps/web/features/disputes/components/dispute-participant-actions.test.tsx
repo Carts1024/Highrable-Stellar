@@ -103,11 +103,34 @@ vi.mock("@repo/ui/components/ui/textarea", () => ({
 
 import { DisputeParticipantActions } from "./dispute-participant-actions";
 
-function renderActions() {
+function renderActions(disputeId = "dispute-1", viewerWallet = wallet.walletAddress ?? "") {
   return render(
     createElement(DisputeParticipantActions, {
-      disputeId: "dispute-1" as never,
-      viewerWallet: wallet.walletAddress ?? "",
+      disputeId: disputeId as never,
+      viewerWallet,
+    }),
+  );
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function rerenderActions(
+  view: ReturnType<typeof render>,
+  disputeId = "dispute-1",
+  viewerWallet = wallet.walletAddress ?? "",
+) {
+  view.rerender(
+    createElement(DisputeParticipantActions, {
+      disputeId: disputeId as never,
+      viewerWallet,
     }),
   );
 }
@@ -220,5 +243,218 @@ describe("C19 participant evidence and response actions", () => {
     } finally {
       console.error = previousError;
     }
+  });
+
+  it("preserves both drafts through permission loading and thrown-query recovery without writing", async () => {
+    const previousError = console.error;
+    console.error = () => {};
+    try {
+      const view = renderActions();
+      const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+      const response = screen.getByRole("heading", { name: "Add response" }).parentElement!;
+      fireEvent.click(evidence.querySelector("button")!);
+      fireEvent.change(screen.getByLabelText("Note (optional)"), {
+        target: { value: "Evidence draft" },
+      });
+      fireEvent.click(response.querySelector("button")!);
+      fireEvent.change(screen.getByLabelText("Response"), {
+        target: { value: "Response draft" },
+      });
+
+      permission.result = undefined;
+      rerenderActions(view);
+      expect(screen.getByRole("status").textContent).toContain("Checking participant actions");
+      expect(addEvidence).not.toHaveBeenCalled();
+      expect(addResponse).not.toHaveBeenCalled();
+
+      permission.result = new Error("permission read failed");
+      rerenderActions(view);
+      expect(screen.getByRole("alert").textContent).toContain("Unable to check");
+      expect(addEvidence).not.toHaveBeenCalled();
+      expect(addResponse).not.toHaveBeenCalled();
+
+      permission.result = { allowed: true, role: "client", reason: null };
+      fireEvent.click(screen.getByRole("button", { name: "Retry participant actions" }));
+      expect((screen.getByLabelText("Note (optional)") as HTMLTextAreaElement).value).toBe(
+        "Evidence draft",
+      );
+      expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe(
+        "Response draft",
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Add Evidence" }));
+      fireEvent.click(screen.getByRole("button", { name: "Add Response" }));
+      await waitFor(() => {
+        expect(addEvidence).toHaveBeenCalledWith({
+          disputeId: "dispute-1",
+          actorWallet: "GCLIENT",
+          actorWalletType: "external_wallet",
+          attachmentIds: ["file-0"],
+          message: "Evidence draft",
+        });
+        expect(addResponse).toHaveBeenCalledWith({
+          disputeId: "dispute-1",
+          responderWallet: "GCLIENT",
+          responderWalletType: "external_wallet",
+          message: "Response draft",
+          attachmentIds: ["file-0"],
+        });
+      });
+    } finally {
+      console.error = previousError;
+    }
+  });
+
+  it("hides forms while denied and restores the same session's drafts when permission returns", () => {
+    const view = renderActions();
+    fireEvent.change(screen.getByLabelText("Response"), {
+      target: { value: "Keep this response" },
+    });
+    permission.result = {
+      allowed: false,
+      role: null,
+      reason: "This dispute is closed.",
+    };
+    rerenderActions(view);
+    expect(screen.getByText("This dispute is closed.")).toBeTruthy();
+    expect(screen.queryByLabelText("Response")).toBeNull();
+
+    permission.result = { allowed: true, role: "freelancer", reason: null };
+    rerenderActions(view);
+    expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe(
+      "Keep this response",
+    );
+    expect(screen.getAllByText("Uploader role: freelancer; context: dispute")).toHaveLength(2);
+  });
+
+  it("keeps a pending write locked through permission recovery and prevents duplicate submits", async () => {
+    const pendingEvidence = createDeferred<true>();
+    addEvidence.mockReturnValueOnce(pendingEvidence.promise);
+    const view = renderActions();
+    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    fireEvent.click(evidence.querySelector("button")!);
+    fireEvent.submit(evidence);
+    fireEvent.submit(evidence);
+    expect(addEvidence).toHaveBeenCalledTimes(1);
+    expect(
+      (screen.getByRole("button", { name: "Adding evidence..." }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    permission.result = undefined;
+    rerenderActions(view);
+    expect(screen.getByRole("status")).toBeTruthy();
+    permission.result = { allowed: true, role: "client", reason: null };
+    rerenderActions(view);
+    const recoveredEvidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    expect(
+      (screen.getByRole("button", { name: "Adding evidence..." }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.submit(recoveredEvidence);
+    expect(addEvidence).toHaveBeenCalledTimes(1);
+
+    pendingEvidence.resolve(true);
+    await waitFor(() => {
+      expect(
+        (screen.getByRole("button", { name: "Add Evidence" }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+      expect((screen.getByLabelText("Note (optional)") as HTMLTextAreaElement).value).toBe("");
+    });
+  });
+
+  it("clears only the form whose write succeeds and retains rejected drafts for retry", async () => {
+    addEvidence.mockRejectedValueOnce(new Error("Evidence was rejected."));
+    renderActions();
+    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    fireEvent.click(evidence.querySelector("button")!);
+    fireEvent.change(screen.getByLabelText("Note (optional)"), {
+      target: { value: "Rejected evidence" },
+    });
+    fireEvent.change(screen.getByLabelText("Response"), {
+      target: { value: "Successful response" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Evidence" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("rejected"));
+    expect((screen.getByLabelText("Note (optional)") as HTMLTextAreaElement).value).toBe(
+      "Rejected evidence",
+    );
+    expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe(
+      "Successful response",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Response" }));
+    await waitFor(() => {
+      expect((screen.getByLabelText("Note (optional)") as HTMLTextAreaElement).value).toBe(
+        "Rejected evidence",
+      );
+      expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe("");
+    });
+    expect(addEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the permitted role and passkey wallet identity in both mutation arguments", async () => {
+    wallet.walletAddress = "GSMART";
+    wallet.walletType = "passkey_smart_account";
+    permission.result = { allowed: true, role: "freelancer", reason: null };
+    renderActions();
+    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    const response = screen.getByRole("heading", { name: "Add response" }).parentElement!;
+    fireEvent.click(evidence.querySelector("button")!);
+    fireEvent.click(response.querySelector("button")!);
+    fireEvent.click(screen.getByRole("button", { name: "Add Evidence" }));
+    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "Passkey response" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Response" }));
+    await waitFor(() => {
+      expect(addEvidence).toHaveBeenCalledWith({
+        disputeId: "dispute-1",
+        actorWallet: "GSMART",
+        actorWalletType: "passkey_smart_account",
+        attachmentIds: ["file-0"],
+      });
+      expect(addResponse).toHaveBeenCalledWith({
+        disputeId: "dispute-1",
+        responderWallet: "GSMART",
+        responderWalletType: "passkey_smart_account",
+        message: "Passkey response",
+        attachmentIds: ["file-0"],
+      });
+    });
+  });
+
+  it("discards case, wallet-type, and disconnect sessions and ignores late completions", async () => {
+    const pendingResponse = createDeferred<true>();
+    addResponse.mockReturnValueOnce(pendingResponse.promise);
+    const view = renderActions();
+    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "Old response" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Response" }));
+    expect(addResponse).toHaveBeenCalledTimes(1);
+
+    wallet.walletAddress = "GNEW";
+    permission.result = { allowed: true, role: "client", reason: null };
+    rerenderActions(view, "dispute-1", "GNEW");
+    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "New wallet draft" } });
+    pendingResponse.resolve(true);
+    await waitFor(() =>
+      expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe(
+        "New wallet draft",
+      ),
+    );
+
+    wallet.walletType = "passkey_smart_account";
+    rerenderActions(view, "dispute-1", "GNEW");
+    expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "Case draft" } });
+    rerenderActions(view, "dispute-2", "GNEW");
+    expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe("");
+
+    wallet.walletAddress = null;
+    wallet.walletType = null;
+    rerenderActions(view, "dispute-2", "");
+    expect(screen.queryByLabelText("Response")).toBeNull();
+
+    wallet.walletAddress = "GNEW";
+    wallet.walletType = "external_wallet";
+    permission.result = { allowed: true, role: "client", reason: null };
+    rerenderActions(view, "dispute-2", "GNEW");
+    expect((screen.getByLabelText("Response") as HTMLTextAreaElement).value).toBe("");
   });
 });
