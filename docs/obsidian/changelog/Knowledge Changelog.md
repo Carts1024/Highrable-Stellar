@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-07
 
+- **Deliverable 2 C18 - Settlement Invariants:** replaced overflow-prone Soroban settlement multiplication with quotient/remainder arithmetic that preserves floor payout and client remainder semantics. Added 120 common amount/share/origin/admin combinations, seven large-amount regressions through `i128::MAX`, and same-/other-asset escrow conservation checks. The original `i128::MAX` regression aborted before the fix; afterward the C18 suite passes 3 tests, the contract workspace passes 75 escrow and 9 reputation tests, Rust formatting passes, and both WASM contracts build. Evidence is local and does not verify wallet signatures or deployed behavior; see the [C18 evidence](../../instawards/Deliverable-2-C18-Settlement-Invariants-Evidence.md).
 - **Deliverable 2 C13 - Soroban Dispute Guard Coverage:** added three Rust tests for escrow-ID-bound marking authorization, signer and full-argument-bound settlement authorization, and a 12-case terminal settlement/retry matrix. Event terminal status is compared with persisted escrow state after event inspection. Production contract code is unchanged. The focused C13 tests pass 3/3; the workspace passes 72 escrow and 9 reputation tests; both WASM contracts build and Rust formatting passes. Evidence is local Soroban host/mock testing, not wallet-signature or deployment verification; see the [C13 evidence map](../../instawards/Deliverable-2-C13-Dispute-State-Guards-Evidence.md).
 
 ## 2026-10-06
