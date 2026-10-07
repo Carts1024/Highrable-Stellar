@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  canClaimAdminDispute,
+  getEligibleAdminWallets,
+  isDisputeParticipant,
+  normalizeAdminWallet,
+} from "@/features/admin/lib/assignment-validation";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
@@ -48,6 +54,7 @@ interface IAdminDisputeQueueProps {
   readonly verifiedWallet?: string;
   readonly isOwner?: boolean;
   readonly activeAdminWallets?: readonly string[];
+  readonly assignmentReady?: boolean;
   readonly busyDisputeId?: string | null;
   readonly onClaim?: (disputeId: string) => void;
   readonly onAssign?: (disputeId: string, assignedAdminWallet: string | null) => void;
@@ -146,6 +153,7 @@ export function AdminDisputeQueue({
   verifiedWallet,
   isOwner = false,
   activeAdminWallets = [],
+  assignmentReady = true,
   busyDisputeId,
   onClaim,
   onAssign,
@@ -169,70 +177,89 @@ export function AdminDisputeQueue({
             key={dispute.disputeId}
             className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center"
           >
-            <div className="min-w-0">
-              <p className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-                {dispute.disputeNumber}
-              </p>
-              <h3 className="mt-1 font-semibold text-[#0a0a0a]">{dispute.title}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-[#5f5f5f]">
-                {compact ? "Updated" : "Opened"}{" "}
-                {formatDisputeDate(compact ? dispute.updatedAt : dispute.openedAt)}
-                {!compact ? ` | Updated ${formatDisputeDate(dispute.updatedAt)}` : null}
-              </p>
-              <p className="mt-1 text-xs text-[#7f7f7f]">
-                Assigned: {dispute.assignedAdminWallet ?? "Unassigned"}
-              </p>
-            </div>
+            {(() => {
+              const normalizedAssignedWallet = normalizeAdminWallet(dispute.assignedAdminWallet);
+              const eligibleAdminWallets = getEligibleAdminWallets(dispute, activeAdminWallets);
+              const isParticipant = isDisputeParticipant(dispute, verifiedWallet);
+              const canAssign = isOwner && Boolean(onAssign) && assignmentReady && !isParticipant;
+              const assignedWalletIsUnavailable =
+                Boolean(normalizedAssignedWallet) &&
+                !eligibleAdminWallets.includes(normalizedAssignedWallet);
+              const canClaim =
+                Boolean(onClaim) && canClaimAdminDispute(dispute, verifiedWallet ?? "");
 
-            <p className="text-sm text-[#5f5f5f]">
-              {getDisputeReasonLabel(dispute.reasonCategory)}
-            </p>
+              return (
+                <>
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
+                      {dispute.disputeNumber}
+                    </p>
+                    <h3 className="mt-1 font-semibold text-[#0a0a0a]">{dispute.title}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[#5f5f5f]">
+                      {compact ? "Updated" : "Opened"}{" "}
+                      {formatDisputeDate(compact ? dispute.updatedAt : dispute.openedAt)}
+                      {!compact ? ` | Updated ${formatDisputeDate(dispute.updatedAt)}` : null}
+                    </p>
+                    <p className="mt-1 text-xs text-[#7f7f7f]">
+                      Assigned: {dispute.assignedAdminWallet ?? "Unassigned"}
+                    </p>
+                  </div>
 
-            <div className="flex flex-wrap gap-2">
-              <DisputeStatusBadge status={dispute.status} />
-              <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
-            </div>
+                  <p className="text-sm text-[#5f5f5f]">
+                    {getDisputeReasonLabel(dispute.reasonCategory)}
+                  </p>
 
-            <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-              {!dispute.assignedAdminWallet && onClaim ? (
-                <AppButton
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={busyDisputeId === dispute.disputeId}
-                  onClick={() => onClaim(dispute.disputeId)}
-                >
-                  {busyDisputeId === dispute.disputeId ? "Claiming..." : "Claim"}
-                </AppButton>
-              ) : null}
-              {isOwner && onAssign ? (
-                <select
-                  aria-label={`Assign ${dispute.disputeNumber}`}
-                  className="h-9 max-w-44 border border-[#e8e8e8] bg-white px-2 text-xs"
-                  value={dispute.assignedAdminWallet ?? ""}
-                  disabled={busyDisputeId === dispute.disputeId}
-                  onChange={(event) => onAssign(dispute.disputeId, event.target.value || null)}
-                >
-                  <option value="">Unassigned</option>
-                  {dispute.assignedAdminWallet &&
-                  !activeAdminWallets.includes(dispute.assignedAdminWallet) ? (
-                    <option value={dispute.assignedAdminWallet}>
-                      Revoked: {dispute.assignedAdminWallet}
-                    </option>
-                  ) : null}
-                  {activeAdminWallets.map((wallet) => (
-                    <option key={wallet} value={wallet}>
-                      {wallet === verifiedWallet ? "Owner (you)" : wallet}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              <AppButton asChild variant="secondary" size="sm">
-                <Link href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}>
-                  {actionLabel}
-                </Link>
-              </AppButton>
-            </div>
+                  <div className="flex flex-wrap gap-2">
+                    <DisputeStatusBadge status={dispute.status} />
+                    <DisputeOnChainStatusBadge status={dispute.onChainStatus} />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+                    {canClaim ? (
+                      <AppButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={busyDisputeId === dispute.disputeId}
+                        onClick={() => onClaim?.(dispute.disputeId)}
+                      >
+                        {busyDisputeId === dispute.disputeId ? "Claiming..." : "Claim"}
+                      </AppButton>
+                    ) : null}
+                    {isOwner && onAssign ? (
+                      <select
+                        aria-label={`Assign ${dispute.disputeNumber}`}
+                        className="h-9 max-w-44 border border-[#e8e8e8] bg-white px-2 text-xs"
+                        value={normalizedAssignedWallet}
+                        disabled={busyDisputeId === dispute.disputeId || !canAssign}
+                        onChange={(event) =>
+                          onAssign(dispute.disputeId, event.target.value || null)
+                        }
+                      >
+                        <option value="">Unassigned</option>
+                        {assignedWalletIsUnavailable ? (
+                          <option value={normalizedAssignedWallet} disabled>
+                            Unavailable: {normalizedAssignedWallet}
+                          </option>
+                        ) : null}
+                        {eligibleAdminWallets.map((wallet) => (
+                          <option key={wallet} value={wallet}>
+                            {wallet === normalizeAdminWallet(verifiedWallet)
+                              ? "Owner (you)"
+                              : wallet}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <AppButton asChild variant="secondary" size="sm">
+                      <Link href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}>
+                        {actionLabel}
+                      </Link>
+                    </AppButton>
+                  </div>
+                </>
+              );
+            })()}
           </article>
         ))}
       </div>
