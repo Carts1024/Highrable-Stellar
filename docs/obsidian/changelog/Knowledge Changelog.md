@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-07
+
+- **C15 - Hardened Administrator Settlement Submission:** added coordinator-boundary term validation for client/freelancer/split outcomes, strict started/signed API acknowledgment matching, and generation-scoped stale-context guards across preparation, signing, signed-identity persistence, and submission. Preserved text-based form behavior, signed-hash persistence, uncertain-attempt reconciliation, read-only refresh recovery, and no-resubmission behavior for known hashes. Focused administrator coverage passes 220 tests across 7 files; full web coverage passes 333 tests across 23 files; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is separate C15 local mocked evidence, not C21/C23 acceptance or live-chain/deployed-contract verification; see the [C15 evidence map](../evidence/C15-Administrator%20Settlement%20Submission%20Evidence.md).
 
 ## 2026-10-06
 
