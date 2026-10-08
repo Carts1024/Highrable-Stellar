@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-08
+
+- **Deliverable 2 C19 — RPC normalization and recovery:** validate decoded record IDs and fields before sync, reject unknown transaction statuses and unreadable expiry evidence, and verify returned envelope hashes against saved settlement hashes with fee-bump support. Added 31 backend and 27 server recovery tests. Full suites pass 361 backend and 330 web tests; backend/test/web TypeScript and scoped lint/format checks pass. Evidence uses mocked RPC and local Convex execution; no configured deployment target or live-chain verification. See the [C19 evidence](../../instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md).
 
 ## 2026-10-07
 

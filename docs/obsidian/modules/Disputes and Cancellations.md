@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 source_of_truth: repository
 ---
 
@@ -205,6 +205,10 @@ Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit
 - Client-refund, freelancer-payout, and split outcomes are covered for both parent types. Milestone settlement patches only the selected milestone and derives the parent job from remaining active, disputed, or terminal siblings.
 - Generic sync can recover an escrow mirror to `disputed` and record repeated reads/failure metadata, but it refuses to downgrade or finalize a disputed escrow. Administrator settlement owns the terminal transition.
 - The C21 suite verifies Convex transaction rollback when a required milestone parent fails during settlement. It remains an in-memory bookkeeping test and does not verify live RPC execution or deployed contract behavior.
+
+## Deliverable 2 C19 Verified RPC Recovery
+
+Deliverable 2 C19 hardens RPC record parsing and saved settlement verification. Escrow reads must match the requested ID; transaction verification must match the saved hash and expected invocation. Malformed reads remain retryable without finalizing records, and recovery never resubmits a transaction. The backend suite passes 361 tests and the web suite passes 330 tests, including 58 new C19 cases. See `docs/instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md` for coverage and local-only evidence limits.
 
 ## Related Notes
 
