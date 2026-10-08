@@ -72,6 +72,8 @@ Settlement attempts are single-active per escrow and use `started → signed →
 
 The mapping is `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. Optional legacy dispute contract/escrow references remain optional, but any populated conflicting reference is rejected. The UI/RPC verification layer and payment arithmetic are outside C17; payout bookkeeping still truncates whole units pending a token-precision follow-up.
 
+Deliverable 2 C17 regression coverage now verifies these transitions against complete deterministic Convex snapshots. The 32 focused cases cover active-start identity and locking, signed/uncertain/failed phase boundaries, terminal and non-disputed replay guards, scoped authorization, both parent types, and single-write side effects. This extends the earlier C17 implementation evidence without changing the state vocabulary, public callback arguments, indexes, or schema.
+
 ## Cancellations
 
 Requests track `draft`, `pending_freelancer_response`, `approved_for_cancel`, `rejected_by_freelancer`, `cancel_pending_on_chain`, `cancelled_on_chain`, `cancel_failed`, `blocked`, `expired`, and `withdrawn`. On-chain state is `not_required`, `not_submitted`, `pending`, `confirmed`, or `failed`.

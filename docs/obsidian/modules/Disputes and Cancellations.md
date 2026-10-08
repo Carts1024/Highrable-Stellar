@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -57,7 +57,7 @@ Escrows, jobs, milestones, work submissions, revisions, agreements, conversation
 ```text
 participant opens dispute
   → Convex evidence/timeline
-  → on-chain mark disputed (retryable if failed)
+  → on-chain mark disputed (hashless retry only if not submitted; known hashes require reconciliation)
   → active admin claim or owner assignment
   → assigned admin review
   → persist signed transaction identity before submission
@@ -68,6 +68,16 @@ participant opens dispute
 On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking`; a start in `mark_failed` is retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
 
 Cancellation is blocked by submitted proof or active disputes according to its eligibility helpers. Contract cancellation is only valid for `Created` or `Funded`; a `Submitted` escrow must use dispute/review paths.
+
+## Deliverable 2 C14 — Marking Callback and Retry Evidence
+
+First-failure audit messages, system messages, and notifications now use the effective stored-or-incoming hash to distinguish reconciliation-required failures from hashless failures. Hashless guidance permits retry only if the operation was not submitted; otherwise the outcome needs reconciliation. Audit and system-message transaction references retain a previously stored hash even when the failure callback omits it. Existing authorization, guards, callback arguments, boolean returns, validators, statuses, and schema remain unchanged.
+
+`packages/backend/tests/disputes/c14.marking.test.ts` adds 50 cases across micro-gig and milestone parents: all terminal-status/phase combinations, rejected late hash enrichment, authorization before replay returns, repeated hashless retry cycles, late-hash recovery, and incoming/stored hash guidance. Rejected/replayed callbacks compare complete records and timestamps with an advanced clock. Accepted transitions assert exact side-effect counts; enrichment changes only the missing hash, preserving first-failure details and historical side effects.
+
+C13/C21 retain actor attribution (external-wallet, passkey, configured admin), initial phase, and existing reconciliation coverage. The combined suites pass 86 tests; the full backend suite passes 312 tests across 12 files. Backend/test TypeScript and scoped oxlint/oxfmt checks pass. See the [C14 evidence map](../../instawards/Deliverable-2-C14-Marking-Evidence.md).
+
+This is local Convex bookkeeping evidence, not independent on-chain verification. Caller-supplied wallet possession remains unproven. Without attempt IDs, callbacks from separate hashless attempts cannot always be distinguished; hash absence is not proof of non-submission. Known-hash recovery uses existing reconciliation boundaries, with no new reconciliation service or deployment.
 
 ## Common Change Locations
 
