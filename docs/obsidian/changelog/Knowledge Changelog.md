@@ -2,13 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
 
 ## 2026-10-09
+
+- **Deliverable 2 C22–C24:** added participant integration/accessibility and administrator/participant acceptance journeys, and corrected stale uncertainty feedback after confirmed marking while preserving bookkeeping retries. Final local suites pass 346 web, 361 backend, and 49 verifier tests. [C24 handoff](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) records the chronological commits and explicit local/live limits.
 
 - **Deliverable 2 C21:** prevented asynchronous administrator settlement continuation after wallet/case changes, including signing and signed-identity recording. Added nine protected-page integration regressions; existing basis-point and recovery tests are retained. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
 
