@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## Test layers
 
+Deliverable 2 C22 extends participant integration coverage for revoked access during writes, stale wallet/case results, independent accessible form recovery, and saved-hash refresh without resubmission. The participant and attachment suites pass 60 tests across 10 files at this checkpoint; see [C22 evidence](../../instawards/Deliverable-2-C22-Participant-Integration-Evidence.md). This is local mocked transport/component evidence.
+
 | Layer | Command/location | Scope |
 | --- | --- | --- |
 | Web unit/component tests | `pnpm --filter web test` | Vitest suite under `apps/web`. |

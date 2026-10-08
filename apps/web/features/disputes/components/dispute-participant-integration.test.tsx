@@ -1,8 +1,25 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type {
+  TParticipantDisputeQueryResult,
+  TParticipantDisputeTimelineQueryResult,
+  TParticipantDisputePermissionQueryResult,
+  TParticipantDisputeResponsePermissionQueryResult,
+  TParticipantAgreementContextQueryResult,
+} from "../types";
+import type { TConvexId } from "@repo/convex-client";
+
+type TQueryResults = {
+  canView: TParticipantDisputePermissionQueryResult;
+  detail: TParticipantDisputeQueryResult;
+  canRespond: TParticipantDisputeResponsePermissionQueryResult;
+  timeline: TParticipantDisputeTimelineQueryResult;
+  agreement: TParticipantAgreementContextQueryResult;
+};
 
 type TQueryState = { kind: "result"; value: unknown } | { kind: "error"; error: Error };
 
@@ -21,7 +38,11 @@ function queryKey(name: string, args: unknown): string {
   return `${name}:${JSON.stringify(args)}`;
 }
 
-function setQueryResult(name: string, args: unknown, value: unknown): void {
+function setQueryResult<TName extends keyof TQueryResults>(
+  name: TName,
+  args: unknown,
+  value: TQueryResults[TName],
+): void {
   queryFixtures.set(queryKey(name, args), { kind: "result", value });
 }
 
@@ -49,9 +70,14 @@ function timelineArgs(disputeId: string, viewerWallet: string) {
   return { disputeId, viewerWallet };
 }
 
-function timelineEvent(message: string, actorWallet = "GCLIENT") {
+function timelineEvent(
+  message: string,
+  actorWallet = "GCLIENT",
+): TParticipantDisputeTimelineQueryResult[number] {
   return {
-    _id: `event-${message}`,
+    _id: `event-${message}` as TConvexId<"disputeEvents">,
+    _creationTime: 1,
+    disputeId: "dispute-1" as TConvexId<"disputes">,
     type: "dispute_opened",
     actorRole: actorWallet === "GFREELANCER" ? "freelancer" : "client",
     actorWallet,
@@ -116,7 +142,9 @@ vi.mock("@/core/stellar/escrow-contract", () => ({
     return Promise.resolve({ txHash: "tx-created-by-test" });
   },
 }));
-vi.mock("@/core/stellar/explorer", () => ({ getTxExplorerUrl: () => "https://example.test/tx" }));
+vi.mock("@/core/stellar/explorer", () => ({
+  getTxExplorerUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
+}));
 vi.mock("@/core/stellar/passkeySmartAccountExecutor", () => ({
   getPasskeyEscrowExecutionReadiness: vi.fn(),
 }));
@@ -131,10 +159,12 @@ vi.mock("@/features/attachments/components", () => ({
     onChange,
     ownerRole,
     value,
+    disabled,
   }: {
     onChange: (update: (current: unknown[]) => unknown[]) => void;
     ownerRole: string;
     value: unknown[];
+    disabled?: boolean;
   }) =>
     createElement(
       "div",
@@ -143,6 +173,7 @@ vi.mock("@/features/attachments/components", () => ({
         "button",
         {
           type: "button",
+          disabled,
           onClick: () =>
             onChange((current) => [
               ...current,
@@ -179,7 +210,18 @@ vi.mock("next/link", () => ({
 import { DisputeDetailPanel } from "./dispute-detail-panel";
 
 const dispute = {
-  _id: "dispute-1",
+  _id: "dispute-1" as TConvexId<"disputes">,
+  _creationTime: 1,
+  parentType: "micro_gig",
+  parentId: "job-1",
+  openedByWallet: "GCLIENT",
+  openedByWalletType: "external_wallet",
+  openedByRole: "client",
+  evidenceAttachmentIds: [],
+  relatedWorkSubmissionIds: [],
+  relatedRevisionRequestIds: [],
+  createdAt: 1,
+  updatedAt: 1,
   disputeNumber: "DSP-1",
   title: "Payment dispute",
   description: "Payment is pending.",
@@ -189,8 +231,8 @@ const dispute = {
   openedAt: 1,
   clientWallet: "GCLIENT",
   freelancerWallet: "GFREELANCER",
-  attachments: [{ _id: "initial-evidence", name: "initial.pdf", type: "pdf" }],
-};
+  attachments: [],
+} satisfies NonNullable<TParticipantDisputeQueryResult>;
 
 function setParticipantCase(
   disputeId = "dispute-1",
@@ -198,7 +240,7 @@ function setParticipantCase(
   options: {
     title?: string;
     role?: "client" | "freelancer";
-    timeline?: unknown[];
+    timeline?: TParticipantDisputeTimelineQueryResult;
   } = {},
 ): void {
   const role = options.role ?? (viewerWallet === "GFREELANCER" ? "freelancer" : "client");
@@ -209,13 +251,14 @@ function setParticipantCase(
   });
   setQueryResult("detail", detailArgs(disputeId, viewerWallet), {
     ...dispute,
-    _id: disputeId,
+    _id: disputeId as TConvexId<"disputes">,
     title: options.title ?? dispute.title,
   });
   setQueryResult("agreement", agreementArgs(disputeId, viewerWallet), null);
   setQueryResult("canRespond", responsePermissionArgs(disputeId, viewerWallet), {
     allowed: true,
     role,
+    reason: null,
   });
   setQueryResult(
     "timeline",
@@ -224,7 +267,7 @@ function setParticipantCase(
   );
 }
 
-describe("C24 participant detail integration and accessibility", () => {
+describe("participant detail integration and accessibility", () => {
   beforeEach(() => {
     wallet.walletAddress = "GCLIENT";
     wallet.walletType = "external_wallet";
@@ -436,5 +479,199 @@ describe("C24 participant detail integration and accessibility", () => {
       name: "timeline",
       args: { disputeId: "dispute-2", viewerWallet: "GFREELANCER" },
     });
+  });
+
+  it("D2 C22 discards a revoked case session and ignores its late write after access returns", async () => {
+    let resolveResponse!: (value: boolean) => void;
+    mutations.response!.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveResponse = resolve;
+      }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.change(screen.getByLabelText("Response"), {
+      target: { value: "Old submitted response" },
+    });
+    fireEvent.submit(screen.getByLabelText("Response").closest("form")!);
+    expect(mutations.response).toHaveBeenCalledTimes(1);
+
+    setQueryResult("canView", permissionArgs("dispute-1", "GCLIENT"), {
+      allowed: false,
+      role: null,
+      reason: "Revoked",
+    });
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.queryByRole("heading", { name: "Payment dispute" })).toBeNull();
+    expect(screen.queryByLabelText("Response")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Dispute evidence timeline" })).toBeNull();
+    expect(calls.filter((call) => call.name === "detail").at(-1)?.args).toBe("skip");
+
+    setParticipantCase();
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    const response = screen.getByLabelText<HTMLTextAreaElement>("Response");
+    expect(response.value).toBe("");
+    fireEvent.change(response, { target: { value: "New authorized draft" } });
+    await act(async () => {
+      resolveResponse(true);
+    });
+    expect(response.value).toBe("New authorized draft");
+    expect(mutations.response).toHaveBeenCalledTimes(1);
+    expect(mutations.evidence).not.toHaveBeenCalled();
+    expect(stellarOperations).toHaveLength(0);
+  });
+
+  it("D2 C22 isolates current wallet reads and drafts from stale case results and rejected writes", async () => {
+    let rejectResponse!: (reason: Error) => void;
+    mutations.response!.mockReturnValueOnce(
+      new Promise<boolean>((_, reject) => {
+        rejectResponse = reject;
+      }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.change(screen.getByLabelText("Response"), { target: { value: "Client response" } });
+    fireEvent.submit(screen.getByLabelText("Response").closest("form")!);
+
+    wallet.walletAddress = "GFREELANCER";
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-2" }));
+    expect(screen.queryByRole("heading", { name: "Payment dispute" })).toBeNull();
+    expect(screen.queryByLabelText("Response")).toBeNull();
+    expect(screen.queryByText("Dispute opened.")).toBeNull();
+    expect(calls.filter((call) => call.name === "detail").at(-1)?.args).toBe("skip");
+
+    setParticipantCase("dispute-2", "GFREELANCER", {
+      title: "New participant case",
+      timeline: [timelineEvent("New case event", "GFREELANCER")],
+    });
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-2" }));
+    const response = screen.getByLabelText<HTMLTextAreaElement>("Response");
+    fireEvent.change(response, { target: { value: "Freelancer draft" } });
+    setQueryResult("timeline", timelineArgs("dispute-1", "GCLIENT"), [
+      timelineEvent("Late private client event"),
+    ]);
+    await act(async () => {
+      rejectResponse(new Error("Old client write rejected"));
+    });
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-2" }));
+    expect(response.value).toBe("Freelancer draft");
+    expect(screen.getByText("New case event")).toBeTruthy();
+    expect(screen.queryByText("Late private client event")).toBeNull();
+    expect(screen.queryByText("Old client write rejected")).toBeNull();
+    expect(mutations.response).toHaveBeenCalledTimes(1);
+    expect(stellarOperations).toHaveLength(0);
+  });
+
+  it("D2 C22 keeps form errors, focus, attachment controls and pending writes independent during timeline recovery", async () => {
+    let resolveEvidence!: (value: boolean) => void;
+    mutations.evidence!.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveEvidence = resolve;
+      }),
+    );
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      const note = screen.getByLabelText<HTMLTextAreaElement>("Note (optional)");
+      const response = screen.getByLabelText<HTMLTextAreaElement>("Response");
+      const evidenceForm = note.closest("form")!;
+      const responseForm = response.closest("form")!;
+      fireEvent.submit(evidenceForm);
+      fireEvent.submit(responseForm);
+      const evidenceError = within(evidenceForm).getByRole("alert");
+      const responseError = within(responseForm).getByRole("alert");
+      expect(evidenceError.id).not.toBe(responseError.id);
+      expect(evidenceForm.getAttribute("aria-describedby")).toBe(evidenceError.id);
+      expect(response.getAttribute("aria-describedby")).toBe(responseError.id);
+      expect(
+        within(evidenceForm).getByRole("button", { name: "Add Evidence" }).getAttribute("type"),
+      ).toBe("submit");
+      expect(
+        within(responseForm).getByRole("button", { name: "Add Response" }).getAttribute("type"),
+      ).toBe("submit");
+
+      fireEvent.click(within(evidenceForm).getByRole("button", { name: "Attach as client" }));
+      fireEvent.change(note, { target: { value: "Pending evidence" } });
+      fireEvent.submit(evidenceForm);
+      fireEvent.submit(evidenceForm);
+      expect(mutations.evidence).toHaveBeenCalledTimes(1);
+      expect(
+        within(evidenceForm).getByRole<HTMLButtonElement>("button", { name: "Attach as client" })
+          .disabled,
+      ).toBe(true);
+      expect(
+        within(responseForm).getByRole<HTMLButtonElement>("button", { name: "Attach as client" })
+          .disabled,
+      ).toBe(false);
+      fireEvent.click(within(responseForm).getByRole("button", { name: "Attach as client" }));
+      fireEvent.change(response, { target: { value: "Independent response draft" } });
+      response.focus();
+      expect(document.activeElement).toBe(response);
+
+      setQueryError(
+        "timeline",
+        timelineArgs("dispute-1", "GCLIENT"),
+        new Error("Timeline offline"),
+      );
+      view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(document.activeElement).toBe(response);
+      setQueryResult("timeline", timelineArgs("dispute-1", "GCLIENT"), [
+        timelineEvent("Recovered during evidence write"),
+      ]);
+      fireEvent.click(screen.getByRole("button", { name: "Retry timeline" }));
+      expect(response.value).toBe("Independent response draft");
+      expect(within(responseForm).getByText("client attachments: 1")).toBeTruthy();
+      fireEvent.submit(evidenceForm);
+      expect(mutations.evidence).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        resolveEvidence(true);
+      });
+      expect(note.value).toBe("");
+      expect(response.value).toBe("Independent response draft");
+      expect(within(responseForm).getByText("client attachments: 1")).toBeTruthy();
+      expect(mutations.response).not.toHaveBeenCalled();
+      expect(stellarOperations).toHaveLength(0);
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it("D2 C22 refreshes a saved-hash marking result without resubmission or disturbing participant drafts", () => {
+    const hash = "b".repeat(64);
+    const savedCase = {
+      ...dispute,
+      onChainStatus: "mark_failed" as const,
+      onChainEscrowId: "chain-1",
+      transactionHash: hash,
+      stellarExpertUrl: "https://untrusted.test/stale",
+    };
+    setQueryResult("detail", detailArgs("dispute-1", "GCLIENT"), savedCase);
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    const response = screen.getByLabelText<HTMLTextAreaElement>("Response");
+    fireEvent.change(response, { target: { value: "Draft while reconciliation is pending" } });
+    expect(screen.getByText(/Reconcile its outcome before retrying/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "View transaction on Stellar Expert" }).getAttribute("href"),
+    ).toBe(`https://stellar.expert/explorer/testnet/tx/${hash}`);
+
+    setQueryResult("detail", detailArgs("dispute-1", "GCLIENT"), {
+      ...savedCase,
+      onChainStatus: "marked",
+    });
+    setQueryResult("timeline", timelineArgs("dispute-1", "GCLIENT"), [
+      {
+        ...timelineEvent("Escrow marking reconciled"),
+        type: "on_chain_mark_succeeded",
+        transactionHash: hash,
+      },
+    ]);
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
+    expect(screen.getByText("Escrow marking reconciled")).toBeTruthy();
+    expect(response.value).toBe("Draft while reconciliation is pending");
+    expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+    expect(Object.values(mutations).every((mutation) => mutation.mock.calls.length === 0)).toBe(
+      true,
+    );
+    expect(stellarOperations).toHaveLength(0);
   });
 });
