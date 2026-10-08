@@ -39,6 +39,8 @@ Assignment, claim, and review actions reject overlapping submissions, clear stal
 
 ## Responsibilities
 
+Deliverable 2 C21 guards settlement continuation against wallet/case changes after asynchronous membership checks, start recording, hashing, simulation, signing, and signed-identity persistence. The signer and submission callback reject stale origins; saved attempts use the existing recovery path. Nine protected-page integration regressions supplement the existing phase/basis-point matrix. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
+
 - Aggregate bounded metrics across users/jobs/escrows/disputes/submissions/revisions/reminders.
 - List and inspect disputes with filters.
 - Add moderator notes and move review status.

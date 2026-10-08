@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-10-09
 
+- **Deliverable 2 C21:** prevented asynchronous administrator settlement continuation after wallet/case changes, including signing and signed-identity recording. Added nine protected-page integration regressions; existing basis-point and recovery tests are retained. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
+
 - **Deliverable 2 C20:** added a read-only deployment identity verifier and 49 local tests, checking explicit backend scope, actual local/remote WASM hashes, contract links, and changing/unreadable ledger evidence. Production build provenance and live verification remain blocked; no deployment or transaction was performed. See [C20 evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md).
 
 ## 2026-10-08

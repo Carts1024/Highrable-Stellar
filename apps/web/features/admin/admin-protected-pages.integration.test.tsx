@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { cloneElement, createElement, isValidElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type {
+  IAdminResolutionStartedResponse,
+  IAdminResolutionSignedResponse,
+  TAdminResolutionRequest,
+} from "./types";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
 const walletA = `G${"A".repeat(55)}`;
@@ -183,6 +188,9 @@ vi.mock("convex/react", () => ({
   useMutation: () => vi.fn().mockResolvedValue(true),
 }));
 
+import { isDisputeAdminOnChain, resolveDisputeOnChain } from "@/core/stellar/escrow-contract";
+import { toBytesN32Hash } from "@/core/stellar/hashes";
+
 import { AdminDisputeDetailPage } from "./admin-dispute-detail-page";
 import { AdminDisputesPage } from "./admin-disputes-page";
 
@@ -357,8 +365,12 @@ function getProtectedQueryKeys(queryClient: QueryClient): readonly (readonly unk
 
 describe("protected administrator pages", () => {
   beforeEach(() => {
+    vi.mocked(isDisputeAdminOnChain).mockReset().mockResolvedValue(true);
+    vi.mocked(resolveDisputeOnChain).mockReset();
+    vi.mocked(toBytesN32Hash).mockReset().mockResolvedValue(new Uint8Array(32));
     runtime.wallet.authSession = null;
     runtime.wallet.authenticateWallet.mockReset();
+    runtime.wallet.signTransaction.mockReset().mockResolvedValue("signed-xdr");
     runtime.wallet.logoutWallet.mockReset();
     runtime.wallet.address = walletA;
     runtime.wallet.walletState = {
@@ -379,6 +391,243 @@ describe("protected administrator pages", () => {
     vi.unstubAllGlobals();
   });
 
+  it("blocks settlement after on-chain membership is revoked despite a valid protected session", async () => {
+    vi.mocked(isDisputeAdminOnChain).mockResolvedValueOnce(false);
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((input: RequestInfo | URL) =>
+        Promise.resolve(
+          response(String(input) === "/api/admin/session" ? sessionFor(walletA) : detailResponse),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    renderPage("detail");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(
+      await screen.findByText(/The connected wallet is not an active on-chain dispute admin\./),
+    ).toBeTruthy();
+    expect(vi.mocked(isDisputeAdminOnChain)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/resolve"))).toBe(false);
+  });
+
+  it.each([401, 403] as const)(
+    "closes protected settlement after the start request returns %s without invoking Stellar",
+    async (status) => {
+      const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/admin/session") return Promise.resolve(response(sessionFor(walletA)));
+        if (url.endsWith("/resolve"))
+          return Promise.resolve(response({ error: "Settlement authorization revoked." }, status));
+        return Promise.resolve(response(detailResponse));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const rendered = renderPage("detail");
+
+      fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+      expect(
+        await screen.findByRole("heading", {
+          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+        }),
+      ).toBeTruthy();
+      expect(screen.queryByText("Protected detail record")).toBeNull();
+      expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(
+          rendered.queryClient.getQueryData(["admin", "dispute", walletA, "dispute-1"]),
+        ).toBeUndefined(),
+      );
+    },
+  );
+
+  it.each(["membership", "started", "hash"] as const)(
+    "abandons stale settlement after wallet switch during %s verification",
+    async (pauseAt) => {
+      const membership = createDeferred<boolean>();
+      const started = createDeferred<Response>();
+      const hash = createDeferred<Uint8Array>();
+      if (pauseAt === "hash") vi.mocked(toBytesN32Hash).mockReturnValueOnce(hash.promise);
+      const startedBody = {
+        success: true,
+        phase: "started",
+        result: { operationId: "stale-operation", freelancerShareBps: 0 },
+      } satisfies IAdminResolutionStartedResponse;
+      const phases: string[] = [];
+      if (pauseAt === "membership")
+        vi.mocked(isDisputeAdminOnChain).mockReturnValueOnce(membership.promise);
+      const fetchMock = vi
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url === "/api/admin/session")
+            return Promise.resolve(response(sessionFor(runtime.wallet.address ?? walletA)));
+          if (url.endsWith("/resolve")) {
+            const body = JSON.parse(String(init?.body)) as TAdminResolutionRequest;
+            phases.push(body.phase);
+            if (body.phase === "started")
+              return pauseAt === "started"
+                ? started.promise
+                : Promise.resolve(response(startedBody));
+            return Promise.resolve(response({ success: true, phase: "failed", result: true }));
+          }
+          return Promise.resolve(
+            response({
+              ...detailResponse,
+              dispute: { ...detailResponse.dispute, assignedAdminWallet: runtime.wallet.address },
+            }),
+          );
+        });
+      vi.stubGlobal("fetch", fetchMock);
+      const rendered = renderPage("detail");
+      fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+      await waitFor(() =>
+        expect(
+          pauseAt === "membership"
+            ? vi.mocked(isDisputeAdminOnChain).mock.calls.length
+            : pauseAt === "hash"
+              ? vi.mocked(toBytesN32Hash).mock.calls.length
+              : phases.length,
+        ).toBe(1),
+      );
+
+      runtime.wallet.address = walletB;
+      runtime.wallet.walletState.walletAddress = walletB;
+      runtime.identity.walletAddress = walletB;
+      rendered.rerender(
+        createElement(
+          QueryClientProvider,
+          { client: rendered.queryClient },
+          createElement(AdminDisputeDetailPage, { disputeId: "dispute-1" }),
+        ),
+      );
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([input]) => String(input) === "/api/admin/session"),
+        ).toHaveLength(2),
+      );
+      await act(async () => {
+        membership.resolve(true);
+        started.resolve(response(startedBody));
+        hash.resolve(new Uint8Array(32));
+      });
+
+      expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+      expect(phases.filter((phase) => phase === "started")).toHaveLength(
+        pauseAt === "membership" ? 0 : 1,
+      );
+      expect(
+        screen.queryByText("Dispute settlement was verified on Stellar and recorded."),
+      ).toBeNull();
+    },
+  );
+  it.each(["simulation", "signing", "signed_recording"] as const)(
+    "does not release the submission callback after wallet change during %s",
+    async (pauseAt) => {
+      const signing = createDeferred<void>();
+      const signedRecording = createDeferred<Response>();
+      const submitted = vi.fn();
+      const phases: string[] = [];
+      vi.mocked(resolveDisputeOnChain).mockImplementationOnce(async (args) => {
+        if (pauseAt === "simulation") await signing.promise;
+        if (!args.signTransaction)
+          throw new Error("External settlement requires a signing callback.");
+        await args.signTransaction("prepared-xdr");
+        args.onPhase?.("signing");
+        if (pauseAt === "signing") await signing.promise;
+        await args.onSigned?.({
+          transactionHash: "a".repeat(64),
+          transactionValidUntil: 2_000_000_000,
+        });
+        submitted();
+        return { txHash: "a".repeat(64) };
+      });
+      const fetchMock = vi
+        .fn()
+        .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url === "/api/admin/session")
+            return Promise.resolve(response(sessionFor(runtime.wallet.address ?? walletA)));
+          if (url.endsWith("/resolve")) {
+            const body = JSON.parse(String(init?.body)) as TAdminResolutionRequest;
+            phases.push(body.phase);
+            if (body.phase === "signed" && pauseAt === "signed_recording")
+              return signedRecording.promise;
+            if (body.phase === "started")
+              return Promise.resolve(
+                response({
+                  success: true,
+                  phase: "started",
+                  result: {
+                    operationId: body.operationId,
+                    freelancerShareBps: body.freelancerShareBps,
+                  },
+                } satisfies IAdminResolutionStartedResponse),
+              );
+            if (body.phase === "signed")
+              return Promise.resolve(
+                response({
+                  success: true,
+                  phase: "signed",
+                  result: { operationId: body.operationId, transactionHash: body.transactionHash },
+                } satisfies IAdminResolutionSignedResponse),
+              );
+            return Promise.resolve(response({ success: true, phase: "failed", result: true }));
+          }
+          return Promise.resolve(
+            response({
+              ...detailResponse,
+              dispute: { ...detailResponse.dispute, assignedAdminWallet: runtime.wallet.address },
+            }),
+          );
+        });
+      vi.stubGlobal("fetch", fetchMock);
+      const rendered = renderPage("detail");
+      fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+      await waitFor(() =>
+        expect(
+          pauseAt !== "signed_recording"
+            ? vi.mocked(resolveDisputeOnChain).mock.calls.length
+            : phases.filter((phase) => phase === "signed").length,
+        ).toBe(1),
+      );
+
+      runtime.wallet.address = walletB;
+      runtime.wallet.walletState.walletAddress = walletB;
+      runtime.identity.walletAddress = walletB;
+      rendered.rerender(
+        createElement(
+          QueryClientProvider,
+          { client: rendered.queryClient },
+          createElement(AdminDisputeDetailPage, { disputeId: "dispute-1" }),
+        ),
+      );
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([input]) => String(input) === "/api/admin/session"),
+        ).toHaveLength(2),
+      );
+      await act(async () => {
+        signing.resolve();
+        signedRecording.resolve(
+          response({
+            success: true,
+            phase: "signed",
+            result: { operationId: "saved-operation", transactionHash: "a".repeat(64) },
+          } satisfies IAdminResolutionSignedResponse),
+        );
+      });
+
+      expect(submitted).not.toHaveBeenCalled();
+      expect(phases).toEqual(pauseAt !== "signed_recording" ? ["started"] : ["started", "signed"]);
+      if (pauseAt === "simulation") expect(runtime.wallet.signTransaction).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText("Dispute settlement was verified on Stellar and recorded."),
+      ).toBeNull();
+    },
+  );
   it.each(["queue", "detail"] as const)(
     "does not request protected %s data before session verification",
     async (page) => {
