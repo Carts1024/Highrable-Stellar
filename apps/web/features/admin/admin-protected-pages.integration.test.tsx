@@ -6,8 +6,12 @@ import { cloneElement, createElement, isValidElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  IAdminDisputeDetail,
   IAdminResolutionStartedResponse,
   IAdminResolutionSignedResponse,
+  IAdminResolutionPendingResponse,
+  IAdminResolutionSucceededResponse,
+  TAdminReviewStatus,
   TAdminResolutionRequest,
 } from "./types";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
@@ -64,31 +68,6 @@ vi.mock("@/features/common", () => ({
     createElement("p", undefined, description),
   sanitizeMultilineInput: (value: string) => value,
   showWarningToast: vi.fn(),
-}));
-
-vi.mock("@/features/admin/components/admin-operations-ui", () => ({
-  AdminSection: ({ title, children }: { readonly title: string; readonly children?: ReactNode }) =>
-    createElement("section", undefined, createElement("h2", undefined, title), children),
-  AdminMetricRail: ({ items }: { readonly items: readonly { label: string; value: number }[] }) =>
-    createElement(
-      "div",
-      undefined,
-      items.map((item) => `${item.label}: ${item.value}`),
-    ),
-  AdminDisputeQueue: ({
-    disputes,
-    emptyState,
-  }: {
-    readonly disputes: readonly { disputeId: string; title: string }[];
-    readonly emptyState: ReactNode;
-  }) =>
-    disputes.length > 0
-      ? createElement(
-          "div",
-          { "data-testid": "protected-queue-records" },
-          disputes.map((dispute) => createElement("p", { key: dispute.disputeId }, dispute.title)),
-        )
-      : emptyState,
 }));
 
 vi.mock("@/features/disputes", () => ({
@@ -391,6 +370,235 @@ describe("protected administrator pages", () => {
     vi.unstubAllGlobals();
   });
 
+  it("accepts a protected review journey through authorization rejection and saved-transaction recovery", async () => {
+    const transactionHash = "c".repeat(64);
+    const transactionValidUntil = 2_000_000_000;
+    const finalVerification = createDeferred<Response>();
+    const resolutionRequests: TAdminResolutionRequest[] = [];
+    const statusRequests: { status: TAdminReviewStatus; message?: string }[] = [];
+    let operationId = "";
+    let reviewAuthorized = false;
+    let pendingRecovery = false;
+    let terminal = false;
+    let reconciliations = 0;
+    let reviewStatus: TAdminReviewStatus = "under_review";
+    const terminalEvent = {
+      _id: "verified-resolution-event",
+      type: "dispute_resolved",
+      actorWallet: walletA,
+      actorRole: "moderator",
+      actorWalletType: "external_wallet",
+      message: "Verified client refund recorded.",
+      transactionHash,
+      createdAt: 1_700_000_300_000,
+      attachments: [],
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/admin/session") return Promise.resolve(response(sessionFor(walletA)));
+      if (url === "/api/admin/disputes/dispute-1/status") {
+        expect(init?.method).toBe("POST");
+        const body = JSON.parse(String(init?.body)) as {
+          status: TAdminReviewStatus;
+          message?: string;
+        };
+        statusRequests.push(body);
+        if (!reviewAuthorized)
+          return Promise.resolve(response({ error: "Review permission was revoked." }, 403));
+        reviewStatus = body.status;
+        return Promise.resolve(response({ success: true }));
+      }
+      if (url === "/api/admin/disputes/dispute-1/resolve") {
+        expect(init?.method).toBe("POST");
+        const body = JSON.parse(String(init?.body)) as TAdminResolutionRequest;
+        resolutionRequests.push(body);
+        if (body.phase === "started") {
+          operationId = body.operationId;
+          return Promise.resolve(
+            response({
+              success: true,
+              phase: "started",
+              result: { operationId, freelancerShareBps: body.freelancerShareBps },
+            } satisfies IAdminResolutionStartedResponse),
+          );
+        }
+        expect(body.operationId).toBe(operationId);
+        if (body.phase === "signed") {
+          expect(body).toEqual({
+            phase: "signed",
+            operationId,
+            transactionHash,
+            transactionValidUntil,
+          });
+          return Promise.resolve(
+            response({
+              success: true,
+              phase: "signed",
+              result: { operationId, transactionHash },
+            } satisfies IAdminResolutionSignedResponse),
+          );
+        }
+        if (body.phase === "succeeded")
+          return Promise.resolve(
+            response({ error: "Settlement verification service unavailable." }, 500),
+          );
+        if (body.phase === "reconcile") {
+          reconciliations += 1;
+          if (reconciliations === 1) {
+            pendingRecovery = true;
+            return Promise.resolve(
+              response({
+                status: "pending",
+                result: { status: "submission_unknown" },
+              } satisfies IAdminResolutionPendingResponse),
+            );
+          }
+          return finalVerification.promise;
+        }
+        throw new Error(`Unexpected settlement callback: ${body.phase}`);
+      }
+      if (url === "/api/admin/disputes/dispute-1") {
+        return Promise.resolve(
+          response({
+            ...detailWithEvidenceResponse,
+            dispute: {
+              ...detailWithEvidenceResponse.dispute,
+              status: terminal ? "resolved_client" : reviewStatus,
+              ...(terminal ? { resolutionTxHash: transactionHash } : {}),
+            },
+            escrow: { status: terminal ? "cancelled" : "disputed" } satisfies Pick<
+              NonNullable<IAdminDisputeDetail["escrow"]>,
+              "status"
+            >,
+            timeline: terminal
+              ? [...detailWithEvidenceResponse.timeline, terminalEvent]
+              : detailWithEvidenceResponse.timeline,
+            settlementAttempts:
+              pendingRecovery && !terminal
+                ? [
+                    {
+                      _id: "saved-attempt",
+                      actorWallet: walletA,
+                      operationId,
+                      transactionHash,
+                      status: "submission_unknown",
+                    },
+                  ]
+                : [],
+          }),
+        );
+      }
+      if (url.startsWith("/api/admin/disputes")) {
+        return Promise.resolve(
+          response({
+            disputes: [
+              {
+                ...queueResponse.disputes[0],
+                assignedAdminWallet: walletA,
+                status: terminal ? "resolved_client" : reviewStatus,
+              },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected acceptance request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(resolveDisputeOnChain).mockImplementationOnce(async (args) => {
+      if (!args.signTransaction || !args.onSigned)
+        throw new Error("Settlement callbacks are required.");
+      await args.signTransaction("prepared-settlement-xdr");
+      await args.onSigned({ transactionHash, transactionValidUntil });
+      return { txHash: transactionHash };
+    });
+
+    const queue = renderPage("queue");
+    const reviewLink = await screen.findByRole("link", { name: "Review" });
+    expect(reviewLink.getAttribute("href")).toBe("/admin/disputes/dispute-1");
+    // Next.js navigation is the harness seam; mount the linked route with the same query client.
+    queue.unmount();
+    const detail = renderPage("detail", queue.queryClient);
+    expect(await screen.findByRole("link", { name: "Open case-proof.pdf" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
+    expect(await screen.findByRole("heading", { name: "Admin access forbidden" })).toBeTruthy();
+    expect(screen.queryByText("case-proof.pdf")).toBeNull();
+    expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+    expect(resolutionRequests).toHaveLength(0);
+
+    reviewAuthorized = true;
+    fireEvent.click(await screen.findByRole("button", { name: "Retry access check" }));
+    expect(await screen.findByText("case-proof.pdf")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Review status"), {
+      target: { value: "awaiting_client_response" },
+    });
+    fireEvent.change(screen.getByLabelText("Optional review message"), {
+      target: { value: "Evidence reviewed; client response requested." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
+    expect(await screen.findByText("awaiting_client_response")).toBeTruthy();
+    expect(statusRequests).toEqual([
+      { status: "under_review" },
+      {
+        status: "awaiting_client_response",
+        message: "Evidence reviewed; client response requested.",
+      },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+    expect(await screen.findByText(/Settlement is unresolved/)).toBeTruthy();
+    expect(
+      screen.queryByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Resolve On-Chain" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Reconcile" }));
+    await waitFor(() => expect(reconciliations).toBe(2));
+    expect(vi.mocked(resolveDisputeOnChain)).toHaveBeenCalledTimes(1);
+    expect(runtime.wallet.signTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeNull();
+
+    await act(async () => {
+      terminal = true;
+      finalVerification.resolve(
+        response({
+          status: "succeeded",
+          result: {
+            status: "resolved_client",
+            freelancerShareBps: 0,
+            freelancerPayoutAmount: 0,
+            clientRefundAmount: 100,
+            resolutionTxHash: transactionHash,
+            resolutionStellarExpertUrl: `https://stellar.expert/explorer/testnet/tx/${transactionHash}`,
+          },
+        } satisfies IAdminResolutionSucceededResponse),
+      );
+    });
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(await screen.findByText("Verified client refund recorded.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resolve On-Chain" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reconcile" })).toBeNull();
+    expect(resolutionRequests.map((request) => request.phase)).toEqual([
+      "started",
+      "signed",
+      "succeeded",
+      "reconcile",
+      "reconcile",
+    ]);
+    expect(resolutionRequests.filter((request) => request.phase === "reconcile")).toEqual([
+      { phase: "reconcile", operationId },
+      { phase: "reconcile", operationId },
+    ]);
+    expect(vi.mocked(resolveDisputeOnChain)).toHaveBeenCalledTimes(1);
+
+    detail.unmount();
+    renderPage("queue", queue.queryClient);
+    expect(await screen.findByText("resolved_client")).toBeTruthy();
+  });
   it("blocks settlement after on-chain membership is revoked despite a valid protected session", async () => {
     vi.mocked(isDisputeAdminOnChain).mockResolvedValueOnce(false);
     const fetchMock = vi
