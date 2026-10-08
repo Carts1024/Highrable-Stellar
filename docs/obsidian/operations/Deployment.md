@@ -27,6 +27,10 @@ Do not run a deployment command as a documentation validation step. It changes e
 
 ## Testnet verification
 
+Deliverable 2 C20 adds `pnpm contracts:verify:identity --scope <backend-scope.json> --build <build-provenance.json>`. It performs only network/ledger reads and compares the explicit backend scope and selected local WASM bytes with deployed code and reciprocal contract links. `pnpm contracts:test:identity` runs 49 deterministic/local-transport tests. Build/test provenance is operator-supplied and must come from an actual matching source build; the verifier cannot independently certify it. Exit 0 means a point-in-time match; mismatch is 1, unknown/unavailable is 2. See [C20 inputs and evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md). No production WASM or live identity verification was available on this host.
+
+The older command below uses contract invocation and must not be treated as a read-only identity verifier.
+
 `scripts/verify-testnet.sh` checks the authorized escrow contract in reputation, the linked reputation contract, platform admin, initial next escrow ID, and configured asset allowlists. It uses `deployments/testnet.json` as a fallback for public IDs and admin metadata.
 
 ## Web/backend release
