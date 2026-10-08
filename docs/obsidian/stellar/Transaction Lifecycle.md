@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -37,11 +37,21 @@ With the Velo flag enabled, steps 1–4 are unchanged. The wallet signs the prep
 
 Product flows record phases in Convex before/after chain work. Escrows, disputes, cancellations, submissions, and transaction records carry transaction hashes and pending/success/failed states where the domain needs them. Participant dispute marking now records the signed external-wallet hash in a pending transaction before submission and keeps uncertain or possibly submitted outcomes pending. A confirmed chain result is recorded separately from later Convex dispute, transaction, and escrow bookkeeping; a failed bookkeeping step does not create an on-chain failure event or permit a second chain submission. A local success record is not itself proof of chain finality; the chain hash and subsequent read/sync remain important.
 
+Participant marking uses one generation-scoped browser execution lock from preparation through all recording mutations. The scope includes the dispute/parent, wallet address, wallet mode, connection, network, signing capability, and participant permission. The lock is held while a confirmed operation records its dispute callback, transaction success, and parent escrow status. A recording retry reuses the original actor, hash, operation ID, and parent references and does not call Stellar. Scope changes and unmount invalidate local phases/errors/hashes and prevent late callbacks from updating a replacement view; a signed external-wallet callback is guarded before submission so obsolete work cannot continue after the identity changes.
+
 ## Error interpretation
 
 `normalizeStellarError` distinguishes user rejection, missing/funded-account problems, simulation failures, wrong-wallet authorization, invalid escrow status, timeouts, and failed transactions. Confirmation timeouts retain the transaction hash so an operator can check the explorer before retrying.
 
 `invokeContract`, the shared transaction executor, and escrow wrappers accept optional execution-phase notifications for simulation, signing, submission, and confirmation. These notifications are observational only. The locally computed transaction hash is retained for signed-identity persistence failures, submission transport errors, confirmation failures/timeouts, and sponsored Velo handoff/status uncertainty; admin recovery reconciles that identity without resubmitting.
+
+## Administrator settlement submission boundary
+
+The administrator settlement coordinator validates the requested outcome terms immediately before execution: `resolved_client` is `0` bps, `resolved_freelancer` is `10000` bps, and `split_resolution` is an integer from `1` through `9999` bps. This protects the API and Stellar path even when a form draft or callback supplies stale or malformed numeric data.
+
+The protected start acknowledgment must echo the requested operation ID and basis points. The signed acknowledgment must echo the operation ID and the normalized transaction hash. Missing, malformed, or mismatched acknowledgments stop the lifecycle before the next side effect. The coordinator rechecks its generation identity after preparation awaits, before signing, and at the signed-identity barrier before submission; case, wallet, connection, network, wallet-mode, signing-capability, and unmount changes invalidate obsolete callbacks. Persisted signed identities still reconcile through the existing server-verified recovery path, and known hashes are never submitted a second time.
+
+C15 coverage is local mocked frontend/API/executor evidence. It does not prove deployed-contract compatibility, wallet-provider behavior, or live-chain acceptance.
 
 ## Amounts and hashes
 

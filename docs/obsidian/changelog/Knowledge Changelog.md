@@ -2,11 +2,16 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-07
+
+- **Deliverable 2 C16 — Participant Transaction States and Safe Retry:** hardened participant dispute marking in the opening dialog and detail retry flow with generation-scoped locks spanning preparation, signing, submission, confirmation, and Convex bookkeeping. Signed external-wallet work is stopped when its execution context changes; hashless passkey uncertainty, known hashes, and confirmed bookkeeping recovery remain non-retryable until safe; recording retries reuse the original actor/hash/operation/parent context and never invoke Stellar; and local recovery remains visible when Convex reports `marked` early. Added deferred lifecycle, stale-context, and real detail/timeline integration regression coverage. Focused disputes coverage passes 68 tests across 9 files; full web coverage passes 347 tests across 23 files; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is local mocked evidence only; see the [C16 participant evidence map](../evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence.md).
+- **C15 - Hardened Administrator Settlement Submission:** added coordinator-boundary term validation for client/freelancer/split outcomes, strict started/signed API acknowledgment matching, and generation-scoped stale-context guards across preparation, signing, signed-identity persistence, and submission. Preserved text-based form behavior, signed-hash persistence, uncertain-attempt reconciliation, read-only refresh recovery, and no-resubmission behavior for known hashes. Focused administrator coverage passes 220 tests across 7 files; full web coverage passes 333 tests across 23 files; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is separate C15 local mocked evidence, not C21/C23 acceptance or live-chain/deployed-contract verification; see the [C15 evidence map](../evidence/C15-Administrator%20Settlement%20Submission%20Evidence.md).
 
 ## 2026-10-06
 

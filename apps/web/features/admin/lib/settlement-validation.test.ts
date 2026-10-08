@@ -9,7 +9,9 @@ import {
   deriveSettlementEligibility,
   getResolutionShareDisplayValue,
   resolveShareBps,
+  resolveSettlementTerms,
   validateResolutionShare,
+  validateSettlementTerms,
 } from "./settlement-validation";
 
 const adminWallet = `G${"A".repeat(55)}`;
@@ -80,6 +82,38 @@ describe("resolution share validation", () => {
     expect(getResolutionShareDisplayValue("split_resolution", "1e3")).toBe("1e3");
     expect(getResolutionShareDisplayValue("resolved_client", "5000")).toBe("0");
     expect(getResolutionShareDisplayValue("resolved_freelancer", "5000")).toBe("10000");
+  });
+
+  it.each([
+    ["resolved_client", 0],
+    ["resolved_freelancer", 10_000],
+    ["split_resolution", 1],
+    ["split_resolution", 9_999],
+  ] as const)("accepts execution terms %s/%s", (status, freelancerShareBps) => {
+    expect(validateSettlementTerms(status, freelancerShareBps)).toEqual({
+      isValid: true,
+      freelancerShareBps,
+      error: null,
+    });
+    expect(resolveSettlementTerms(status, freelancerShareBps)).toBe(freelancerShareBps);
+  });
+
+  it.each([
+    ["resolved_client", 1, "0 bps"],
+    ["resolved_freelancer", 9_999, "10000 bps"],
+    ["split_resolution", 0, "1 to 9999 bps"],
+    ["split_resolution", 10_000, "1 to 9999 bps"],
+    ["split_resolution", 1.5, "whole-number"],
+    ["split_resolution", Number.NaN, "finite"],
+    ["split_resolution", Number.POSITIVE_INFINITY, "finite"],
+    ["unknown_outcome", 5000, "recognized"],
+  ] as const)("rejects invalid execution terms %s/%s", (status, freelancerShareBps, message) => {
+    const validation = validateSettlementTerms(status, freelancerShareBps);
+
+    expect(validation.isValid).toBe(false);
+    expect(validation.freelancerShareBps).toBeNull();
+    expect(validation.error).toContain(message);
+    expect(() => resolveSettlementTerms(status, freelancerShareBps)).toThrow(message);
   });
 });
 

@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -29,6 +29,14 @@ Detail refresh uses the existing protected GET query, shows in-progress feedback
 Queue and detail controls now mirror the existing backend policy before issuing writes: claim requires an unassigned, nonterminal case and a verified nonparticipant admin; assignment requires a verified nonparticipant owner; review-status changes require the assigned, nonparticipant admin on a nonterminal case. Assignee wallets are normalized and deduplicated, participant wallets are excluded, inactive historical assignees remain visible only as disabled unavailable options, and owner assignment stays disabled until membership loading succeeds. Detail reassignment is disabled during active settlement attempts while preserving backend-permitted terminal-case owner reassignment.
 
 Assignment, claim, and review actions reject overlapping submissions, clear stale success feedback, preserve rejected review drafts, and invalidate every queue-filter cache plus the affected wallet-scoped detail cache after a successful write. Refreshes are explicit and non-optimistic. A successful write followed by a failed read exposes a read-only retry and never repeats the mutation; rejected writes retain the backend conflict message. The shared session gate still owns 401/403 handling and protected-cache eviction. The C12 focused administrator coverage passes 190 tests; the full web suite passes 303 tests; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is mocked local UI/session/API evidence only: backend policy, signed-session authentication, Convex authorization, audit/notification side effects, contracts, schemas, and Stellar transaction behavior were not changed or live-verified. See `docs/obsidian/evidence/C12-Administrator Assignment Review Evidence.md`.
+
+## C15 - Hardened Administrator Settlement Submission
+
+The settlement coordinator revalidates the outcome terms at execution time, before taking an API or Stellar side effect: client resolution requires `0` bps, freelancer resolution requires `10000` bps, and split resolution requires an integer from `1` through `9999` bps. Unknown outcomes, non-finite values, unsafe or fractional numbers, and mismatched fixed terms are rejected while the existing text input, accessible errors, split drafts, and 2,000-character note limit remain unchanged.
+
+The coordinator also verifies protected API acknowledgments. A started acknowledgment must match the requested operation ID and basis points; a signed acknowledgment must match the operation ID and normalized transaction hash. Missing or mismatched acknowledgments stop progression before signing or submission. Each execution carries a generation identity tied to the case, verified/connected wallet, wallet mode, connection, network, and signing capability. Context changes and unmounts invalidate obsolete callbacks, which cannot mutate a replacement attempt, release its lock, or issue follow-up writes. Persisted signed identities retain the existing reconciliation path, and a known hash is never resubmitted.
+
+The C15 focused administrator suite passes 220 tests across 7 files; the full web suite passes 333 tests across 23 files; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is mocked frontend/API/chain-executor evidence only: server-side Stellar verification remains required, and local tests do not establish deployed-contract compatibility or live-chain acceptance. See `docs/obsidian/evidence/C15-Administrator Settlement Submission Evidence.md`.
 
 ## Primary Locations
 
@@ -95,6 +103,8 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety.
 - C14 settlement eligibility accepts `open`, `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`, but requires `marked` dispute state plus a `disputed` escrow mirror. Invalid bps text is retained for correction, and active settlement attempts disable new settlement while preserving reconciliation controls. Stellar simulation remains authoritative when the local mirror is stale.
 - C17 validates integer resolution basis points, 64-hex hashes, positive safe-integer expiries, normalized operation IDs, saved escrow/scope/terms, and non-empty failure messages. Matching callbacks are authorized before replay no-ops; signed/unknown callbacks retain their first phase and error, while owner recovery preserves the initiating administrator as the settlement actor.
+- C15 validates settlement terms again inside the coordinator, not only through form state. Started and signed API acknowledgments must match the request before the execution can proceed; the client compares signed hashes after normalization while the server remains authoritative for transaction-shape and Stellar verification.
+- C15 execution generations are invalidated by case, wallet, connection, network, wallet-mode, signing-capability, and unmount changes. Persisted attempts remain available for reconciliation, while obsolete callbacks are prevented from changing current state or issuing writes.
 - Settlement audit events carry the operation identity and failure events carry any known transaction hash. Existing event types, public callback arguments, table fields, and server-side RPC verification boundary are unchanged.
 - Whole-unit payout truncation remains a known bookkeeping limitation; token-precision settlement arithmetic is a separate follow-up.
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety. C13 permits a retry only when no failed transaction hash is recorded, makes same-hash success replay harmless, and ignores stale failures after confirmation while rejecting conflicting hashes.

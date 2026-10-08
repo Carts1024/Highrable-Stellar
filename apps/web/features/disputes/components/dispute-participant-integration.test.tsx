@@ -6,16 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type TQueryState = { kind: "result"; value: unknown } | { kind: "error"; error: Error };
 
-const { wallet, queryFixtures, calls, mutations, stellarOperations } = vi.hoisted(() => ({
-  wallet: {
-    walletAddress: "GCLIENT" as string | null,
-    walletType: "external_wallet" as string | null,
-  },
-  queryFixtures: new Map<string, TQueryState>(),
-  calls: [] as Array<{ name: string; args: unknown }>,
-  mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
-  stellarOperations: [] as unknown[][],
-}));
+const { wallet, queryFixtures, calls, mutations, stellarOperations, markOnChain } = vi.hoisted(
+  () => ({
+    wallet: {
+      walletAddress: "GCLIENT" as string | null,
+      walletType: "external_wallet" as string | null,
+    },
+    queryFixtures: new Map<string, TQueryState>(),
+    calls: [] as Array<{ name: string; args: unknown }>,
+    mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
+    stellarOperations: [] as unknown[][],
+    markOnChain: vi.fn(),
+  }),
+);
 
 function queryKey(name: string, args: unknown): string {
   return `${name}:${JSON.stringify(args)}`;
@@ -101,7 +104,12 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({
     address: wallet.walletAddress,
-    walletState: { isConnected: true },
+    walletState: {
+      isConnected: true,
+      canWriteContracts: true,
+      network: "Test SDF Network ; September 2015",
+      isTestnet: true,
+    },
     signTransaction: vi.fn(),
   }),
 }));
@@ -109,11 +117,17 @@ vi.mock("@/core/wallet/config", () => ({
   isWalletOnConfiguredNetwork: () => true,
   getWalletNetworkMismatchMessage: () => "Wrong network.",
 }));
-vi.mock("@/core/config/stellar-contracts", () => ({ getRequiredEscrowActionConfig: vi.fn() }));
+vi.mock("@/core/config/stellar-contracts", () => ({
+  getRequiredEscrowActionConfig: () => ({
+    rpcUrl: "https://example.test",
+    networkPassphrase: "testnet",
+    escrowContractId: "contract-1",
+  }),
+}));
 vi.mock("@/core/stellar/escrow-contract", () => ({
-  markDisputedOnChain: (...args: unknown[]) => {
-    stellarOperations.push(args);
-    return Promise.resolve({ txHash: "tx-created-by-test" });
+  markDisputedOnChain: (args: unknown) => {
+    stellarOperations.push([args]);
+    return markOnChain(args);
   },
 }));
 vi.mock("@/core/stellar/explorer", () => ({ getTxExplorerUrl: () => "https://example.test/tx" }));
@@ -186,6 +200,7 @@ const dispute = {
   reasonCategory: "payment_release_disagreement",
   status: "open",
   onChainStatus: "marked",
+  onChainEscrowId: "chain-1",
   openedAt: 1,
   clientWallet: "GCLIENT",
   freelancerWallet: "GFREELANCER",
@@ -232,6 +247,7 @@ describe("C24 participant detail integration and accessibility", () => {
     setParticipantCase();
     calls.length = 0;
     stellarOperations.length = 0;
+    markOnChain.mockReset().mockResolvedValue({ txHash: "tx-created-by-test" });
     mutations.evidence = vi.fn().mockResolvedValue(true);
     mutations.response = vi.fn().mockResolvedValue(true);
     for (const name of [
@@ -311,6 +327,41 @@ describe("C24 participant detail integration and accessibility", () => {
         message: "Please review the invoice.",
       }),
     );
+  });
+
+  it("drives the real detail and timeline from failed marking through retry and confirmation", async () => {
+    const detailKey = detailArgs("dispute-1", "GCLIENT");
+    const timelineKey = timelineArgs("dispute-1", "GCLIENT");
+    setQueryResult("detail", detailKey, { ...dispute, onChainStatus: "mark_failed" });
+    setQueryResult("timeline", timelineKey, [timelineEvent("Historical marking failure.")]);
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    markOnChain.mockRejectedValueOnce(new Error("wallet rejected signing"));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("before submission"),
+    );
+    expect(markOnChain).toHaveBeenCalledOnce();
+
+    markOnChain.mockResolvedValueOnce({ txHash: "tx-confirmed" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(mutations.markSucceeded).toHaveBeenCalledOnce());
+    expect(stellarOperations).toHaveLength(2);
+
+    setQueryResult("detail", detailKey, {
+      ...dispute,
+      onChainStatus: "marked",
+      transactionHash: "tx-confirmed",
+    });
+    setQueryResult("timeline", timelineKey, [
+      timelineEvent("Historical marking failure."),
+      timelineEvent("Marking confirmed."),
+    ]);
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    expect(screen.getByText("Marking confirmed.")).toBeTruthy();
+    expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
   });
 
   it("hides both action forms when the case stops accepting participant submissions", () => {

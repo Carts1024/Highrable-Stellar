@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -82,6 +82,14 @@ C19 adds separate participant evidence and response composers to permitted dispu
 C23 distinguishes saved, marking, uncertain, hash-recorded failure, and confirmed escrow-marking states in the participant UI. A hash-recorded or possibly submitted attempt cannot be retried from the participant detail page until reconciliation; a pre-submission failure without a hash can be retried with a new operation ID. The browser persists signed external-wallet hashes in pending transaction records, labels simulation/signing/submission/confirmation phases, and derives Stellar Expert links from transaction hashes rather than stored URLs. After chain confirmation, recording failures remain distinct from chain failures and can be retried as bookkeeping without submitting another Stellar operation. The opening dialog retains the saved case and any known hash when marking is uncertain.
 
 C24 verifies the detail page, action gate, evidence and response forms, and timeline together with wallet-scoped query and submission tests. Opening and composer forms use native submit buttons with announced, associated errors. The timeline list is named. Attachment uploaders use unique label targets when both forms are present, and a disabled dropzone is removed from keyboard navigation and cannot open the picker. The six participant commit IDs and verification commands are recorded in `docs/instawards/C24-Participant-Frontend-Verification.md`.
+
+## Deliverable 2 C16 — Participant Transaction States and Safe Retry
+
+Participant marking now uses a generation-scoped execution lock in both `open-dispute-dialog.tsx` and `dispute-detail-panel.tsx`. The lock covers readiness/preparation, signing, submission, confirmation, and every Convex recording step; recording retries reuse the saved operation and never invoke Stellar. Execution context is keyed by dispute/parent, escrow, wallet identity, wallet mode, connection, network, signing capability, and participant permission. Navigation, disconnect, network or mode changes, permission loss, and unmount invalidate obsolete callbacks. The external-wallet signing wrapper rechecks the generation before and after signing and the signed-identity callback rechecks it before allowing submission to continue.
+
+Confirmed outcomes retain the original actor, wallet mode, hash, operation ID, escrow, job, and milestone references for bookkeeping retries. The local confirmed-recovery presentation takes precedence over an early `marked` subscription and clears only after dispute callback, transaction, and parent escrow recording all succeed. Hashless passkey uncertainty remains pending and hash-bearing or possibly submitted attempts remain non-retryable. Simulation/signing failures without a hash remain retryable only through the persisted nonterminal `not_marked`/`mark_failed` path. Timeline rendering remains Convex-event-only; local phases do not manufacture events.
+
+Regression coverage is in `dispute-marking-status.test.tsx`, `open-dispute-dialog.test.tsx`, and the real `dispute-participant-integration.test.tsx`: deferred transaction/opening tests cover repeated clicks, simulation/signing/hash persistence failure, submission timeout, hashless passkey uncertainty, confirmation, independent recording-step failures and recovery, marked-subscription bookkeeping visibility, permission/navigation/network/mode/disconnect/unmount staleness, terminal gating, and the opening lock. The focused disputes command passes 68 tests across 9 files; full web coverage passes 347 tests across 23 files. See [Deliverable 2 C16 participant evidence](../evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence.md).
 
 ## Deliverable 2 C09 — Participant Form Recovery
 
