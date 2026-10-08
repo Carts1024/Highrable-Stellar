@@ -87,6 +87,7 @@ This vault is a navigation and context index for humans and coding agents. It re
 
 ## Evidence
 
+- [[evidence/C17-Settlement Attempt Regression Evidence]]
 - [[evidence/C22-Administrator Regression Evidence]]
 
 ## Existing Documentation
