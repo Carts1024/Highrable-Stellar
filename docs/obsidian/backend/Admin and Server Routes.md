@@ -2,7 +2,7 @@
 type: reference
 area: backend
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-08
 source_of_truth: repository
 ---
 
@@ -26,6 +26,8 @@ The admin HTTP boundary is under `apps/web/app/api/admin`. `apps/web/core/admin/
 | `POST /api/admin/disputes/[disputeId]/resolve` | Persist settlement start/sign identity and recover the existing operation after server RPC verification. |
 
 The admin route handlers validate request bodies with Zod and then call typed Convex server functions. The shared Stellar executor persists a signed transaction hash and expiry before submitting. The resolve route checks the exact contract, method, actor, escrow, and split, and verifies current escrow state before applying existing Convex updates. Recovery never resubmits. Structured Convex application errors preserve their codes at this boundary; `NOT_FOUND` becomes HTTP 404 for detail reads, while malformed requests remain distinct from server failures.
+
+Deliverable 2 C19 additionally verifies the returned transaction envelope hash under the configured network against the saved hash, including inner-hash lookup for fee-bump envelopes. Unknown RPC statuses and unreadable ledger close times cannot be treated as definitive failure/expiry. Escrow reads require the requested escrow ID, recognized status, and readable addresses. Rejected reads leave settlement bookkeeping untouched so the same saved transaction can be checked again. This is covered by the real route/verifier with mocked RPC and Convex transport in `apps/web/core/admin/settlement-recovery.test.ts`.
 
 ## Stellar authentication routes
 

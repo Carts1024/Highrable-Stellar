@@ -107,12 +107,13 @@ export function DisputeMarkingStatus({
         ? "border-amber-200 bg-amber-50 text-amber-900"
         : "border-[#d8d8d8] bg-[#fafafa] text-[#3f3f3f]";
   const hash = presentation.transactionHash?.trim();
+  const pendingOutcomeReconciled = status === "marked" && localOutcome?.kind === "pending";
 
   return (
     <div className={`mt-4 space-y-3 rounded-lg border p-3 text-sm ${toneClass}`}>
       <p>{presentation.message}</p>
       {retryPhase ? <p role="status">{retryPhase}</p> : null}
-      {retryError ? <p role="alert">{retryError}</p> : null}
+      {retryError && !pendingOutcomeReconciled ? <p role="alert">{retryError}</p> : null}
       {hash ? (
         <AppButton asChild variant="secondary" size="sm">
           <a href={getTxExplorerUrl(hash)} target="_blank" rel="noopener noreferrer">

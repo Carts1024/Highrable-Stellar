@@ -10,6 +10,8 @@
     "contracts:build": "cd contracts && stellar contract build",
     "contracts:deploy:mainnet": "bash scripts/deploy-mainnet.sh",
     "contracts:deploy:testnet": "bash scripts/deploy-testnet.sh",
+    "contracts:test:identity": "node --test scripts/verify-deployment-identity.test.mjs",
+    "contracts:verify:identity": "node scripts/verify-deployment-identity.mjs",
     "contracts:verify:testnet": "bash scripts/verify-testnet.sh",
     "dev": "turbo run dev",
     "lint:fix": "turbo run lint:fix",

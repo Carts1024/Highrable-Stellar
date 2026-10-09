@@ -12,6 +12,22 @@ import {
   TEST_WALLETS,
 } from "../fixtures/disputes";
 
+const DISPUTE_PARENT_TYPES = ["micro_gig", "milestone", "escrow", "job"] as const;
+
+const DISPUTE_REASON_CATEGORIES = [
+  "work_not_delivered",
+  "work_quality_issue",
+  "client_unresponsive",
+  "freelancer_unresponsive",
+  "missed_deadline",
+  "revision_disagreement",
+  "payment_release_disagreement",
+  "scope_disagreement",
+  "other",
+] as const;
+
+const WALLET_TYPES = ["external_wallet", "passkey_smart_account"] as const;
+
 const DISPUTE_STATUSES = [
   "open",
   "under_review",
@@ -45,63 +61,161 @@ const DISPUTE_EVENT_TYPES = [
 ] as const;
 
 describe("dispute schema contracts", () => {
-  it("accepts every existing status and on-chain marking phase", async () => {
+  it.each(DISPUTE_STATUSES)("accepts dispute status %s", async (status) => {
     const t = convexTest(schema, modules);
     const fixture = await seedDisputeFixture(t);
 
-    const inserted = await t.run(async (ctx) => {
-      const disputeIds = [];
-      for (const [index, status] of DISPUTE_STATUSES.entries()) {
-        disputeIds.push(
-          await ctx.db.insert(
-            "disputes",
-            makeDisputeFields(fixture, {
-              disputeNumber: `DSP-C02-status-${index}`,
-              status,
-              onChainStatus: DISPUTE_ON_CHAIN_STATUSES[index % DISPUTE_ON_CHAIN_STATUSES.length],
-            }),
-          ),
-        );
-      }
-      return disputeIds;
-    });
+    const inserted = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputes",
+        makeDisputeFields(fixture, {
+          disputeNumber: `DSP-C02-status-${status}`,
+          status,
+        }),
+      ),
+    );
 
-    expect(inserted).toHaveLength(DISPUTE_STATUSES.length);
+    expect(inserted).toBeDefined();
   });
 
-  it("accepts every existing event type and actor role", async () => {
+  it.each(DISPUTE_ON_CHAIN_STATUSES)("accepts on-chain marking phase %s", async (onChainStatus) => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+
+    const inserted = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputes",
+        makeDisputeFields(fixture, {
+          disputeNumber: `DSP-C02-on-chain-${onChainStatus}`,
+          onChainStatus,
+        }),
+      ),
+    );
+
+    expect(inserted).toBeDefined();
+  });
+
+  it.each(DISPUTE_PARENT_TYPES)("accepts dispute parent type %s", async (parentType) => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+
+    const inserted = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputes",
+        makeDisputeFields(fixture, {
+          disputeNumber: `DSP-C02-parent-${parentType}`,
+          parentType,
+        }),
+      ),
+    );
+
+    expect(inserted).toBeDefined();
+  });
+
+  it.each(DISPUTE_REASON_CATEGORIES)("accepts reason category %s", async (reasonCategory) => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+
+    const inserted = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputes",
+        makeDisputeFields(fixture, {
+          disputeNumber: `DSP-C02-reason-${reasonCategory}`,
+          reasonCategory,
+        }),
+      ),
+    );
+
+    expect(inserted).toBeDefined();
+  });
+
+  it.each(WALLET_TYPES)(
+    "accepts wallet type %s in dispute and event records",
+    async (walletType) => {
+      const t = convexTest(schema, modules);
+      const fixture = await seedDisputeFixture(t);
+      const disputeId = await t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, {
+            disputeNumber: `DSP-C02-wallet-${walletType}`,
+            clientWalletType: walletType,
+            freelancerWalletType: walletType,
+            openedByWalletType: walletType,
+          }),
+        ),
+      );
+
+      const eventId = await t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, {
+            actorWalletType: walletType,
+          }),
+        ),
+      );
+
+      expect(eventId).toBeDefined();
+    },
+  );
+
+  it.each(DISPUTE_ACTOR_ROLES)("accepts event actor role %s", async (actorRole) => {
     const t = convexTest(schema, modules);
     const fixture = await seedDisputeFixture(t);
     const disputeId = await t.run(async (ctx) =>
       ctx.db.insert("disputes", makeDisputeFields(fixture)),
     );
 
-    const inserted = await t.run(async (ctx) => {
-      const eventIds = [];
-      for (const [index, type] of DISPUTE_EVENT_TYPES.entries()) {
-        eventIds.push(
-          await ctx.db.insert(
-            "disputeEvents",
-            makeDisputeEventFields(disputeId, {
-              type,
-              actorRole: DISPUTE_ACTOR_ROLES[index % DISPUTE_ACTOR_ROLES.length],
-              actorWallet:
-                DISPUTE_ACTOR_ROLES[index % DISPUTE_ACTOR_ROLES.length] === "system"
-                  ? "system"
-                  : TEST_WALLETS.client,
-              actorWalletType:
-                DISPUTE_ACTOR_ROLES[index % DISPUTE_ACTOR_ROLES.length] === "system"
-                  ? "system"
-                  : "external_wallet",
-              createdAt: 1_768_480_800_000 + index,
-            }),
-          ),
-        );
-      }
-      return eventIds;
-    });
+    const eventId = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputeEvents",
+        makeDisputeEventFields(disputeId, {
+          actorRole,
+          actorWallet: actorRole === "system" ? "system" : TEST_WALLETS.client,
+          actorWalletType: actorRole === "system" ? "system" : "external_wallet",
+        }),
+      ),
+    );
 
-    expect(inserted).toHaveLength(DISPUTE_EVENT_TYPES.length);
+    expect(eventId).toBeDefined();
+  });
+
+  it.each(DISPUTE_EVENT_TYPES)("accepts event type %s", async (type) => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+    const disputeId = await t.run(async (ctx) =>
+      ctx.db.insert("disputes", makeDisputeFields(fixture)),
+    );
+
+    const eventId = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputeEvents",
+        makeDisputeEventFields(disputeId, {
+          type,
+        }),
+      ),
+    );
+
+    expect(eventId).toBeDefined();
+  });
+
+  it.each([
+    ["without optional statuses", {}],
+    ["with old status", { oldStatus: "open" }],
+    ["with new status", { newStatus: "resolved_client" }],
+    ["with both statuses", { oldStatus: "under_review", newStatus: "cancelled" }],
+  ] as const)("accepts event status fields %s", async (_label, statusFields) => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+    const disputeId = await t.run(async (ctx) =>
+      ctx.db.insert("disputes", makeDisputeFields(fixture)),
+    );
+
+    const eventId = await t.run(async (ctx) =>
+      ctx.db.insert("disputeEvents", makeDisputeEventFields(disputeId, statusFields)),
+    );
+
+    expect(eventId).toBeDefined();
   });
 
   it("rejects unknown enum values, missing fields, and incorrect field types", async () => {
@@ -155,6 +269,116 @@ describe("dispute schema contracts", () => {
           makeDisputeFields(fixture, {
             escrowId: fixture.jobId as unknown as Id<"escrows">,
           }),
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("rejects uncovered enum, type, and wrong-table combinations", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, { parentType: "not_a_parent" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, { reasonCategory: "not_a_reason" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, { openedByWalletType: "not_a_wallet_type" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert("disputes", makeDisputeFields(fixture, { clientWalletType: 42 as never })),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputes",
+          makeDisputeFields(fixture, { onChainStatus: "not_a_phase" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    const disputeId = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputes",
+        makeDisputeFields(fixture, { disputeNumber: "DSP-C02-invalid-event" }),
+      ),
+    );
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, { type: "not_an_event" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, { actorRole: "not_a_role" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, { actorWalletType: "not_a_wallet_type" as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, { oldStatus: 42 as never }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(disputeId, {
+            attachmentIds: [fixture.jobId as unknown as Id<"attachments">],
+          }),
+        ),
+      ),
+    ).rejects.toThrow();
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db.insert(
+          "disputeEvents",
+          makeDisputeEventFields(fixture.jobId as unknown as Id<"disputes">),
         ),
       ),
     ).rejects.toThrow();

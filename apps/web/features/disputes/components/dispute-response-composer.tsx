@@ -6,9 +6,10 @@ import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Textarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
-import React, { useId, useRef, useState } from "react";
+import React, { useId } from "react";
 
-import type { TDraftAttachment, TWalletType } from "@/features/attachments/types";
+import type { TParticipantComposerSession } from "./participant-action-session";
+import type { TWalletType } from "@/features/attachments/types";
 import type { TConvexId } from "@repo/convex-client";
 
 import {
@@ -21,30 +22,26 @@ export function DisputeResponseComposer({
   walletAddress,
   walletType,
   role,
+  session,
 }: {
   readonly disputeId: TConvexId<"disputes">;
   readonly walletAddress: string;
   readonly walletType: TWalletType;
   readonly role: "client" | "freelancer";
+  readonly session: TParticipantComposerSession;
 }) {
   const addResponse = useMutation(api.disputes.addDisputeResponse);
-  const [message, setMessage] = useState("");
-  const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submitting = useRef(false);
   const errorId = useId();
+  const { state } = session;
+  const { message, attachments, isSubmitting, error } = state;
 
   const handleSubmit = async () => {
-    if (submitting.current) return;
     const validationError = validateParticipantSubmission("response", message, attachments);
     if (validationError) {
-      setError(validationError);
+      session.onErrorChange(validationError);
       return;
     }
-    submitting.current = true;
-    setIsSubmitting(true);
-    setError(null);
+    if (!session.beginSubmission()) return;
     try {
       await addResponse({
         disputeId,
@@ -53,15 +50,15 @@ export function DisputeResponseComposer({
         message: message.trim(),
         attachmentIds: getParticipantAttachmentIds(attachments),
       });
-      setMessage("");
-      setAttachments([]);
+      session.completeSubmission({ succeeded: true });
     } catch (caughtError) {
-      setError(
-        getReadableAttachmentError(caughtError, "Response could not be added. Please retry."),
-      );
-    } finally {
-      submitting.current = false;
-      setIsSubmitting(false);
+      session.completeSubmission({
+        succeeded: false,
+        error: getReadableAttachmentError(
+          caughtError,
+          "Response could not be added. Please retry.",
+        ),
+      });
     }
   };
 
@@ -92,15 +89,14 @@ export function DisputeResponseComposer({
           error?.startsWith("Enter a response") || error?.startsWith("Keep the message"),
         )}
         onChange={(event) => {
-          setMessage(event.target.value);
-          setError(null);
+          session.onMessageChange(event.target.value);
         }}
         className="min-h-28 rounded-lg border-[#d8d8d8]"
         placeholder="Add a concise response for the dispute timeline."
       />
       <AttachmentUploader
         value={attachments}
-        onChange={setAttachments}
+        onChange={session.onAttachmentsChange}
         disabled={isSubmitting}
         ownerRole={role}
         context="dispute"

@@ -6,6 +6,7 @@ import {
   AdminApiError,
   fetchAdminSession,
   isAdminAccessError,
+  shouldRetryAdminRead,
 } from "@/features/admin/lib/admin-api";
 import { RouteCallout, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
@@ -100,13 +101,7 @@ export function AdminSessionGate({
     queryFn: ({ signal }) => fetchAdminSession({ signal }),
     enabled: shouldCheckSession,
     staleTime: 0,
-    retry: (failureCount, error) => {
-      if (isAdminAccessError(error)) {
-        return false;
-      }
-
-      return failureCount < 2;
-    },
+    retry: shouldRetryAdminRead,
   });
 
   const clearProtectedQueries = useCallback(

@@ -5,11 +5,16 @@ import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import React, { Component } from "react";
 
+import type { TWalletType } from "@/features/attachments/types";
 import type { TConvexId } from "@repo/convex-client";
 import type { ReactNode } from "react";
 
 import { DisputeEvidenceComposer } from "./dispute-evidence-composer";
 import { DisputeResponseComposer } from "./dispute-response-composer";
+import {
+  useParticipantActionSession,
+  type TParticipantActionSession,
+} from "./participant-action-session";
 
 class ParticipantActionsErrorBoundary extends Component<
   { readonly children: (retryKey: number) => ReactNode },
@@ -45,16 +50,19 @@ class ParticipantActionsErrorBoundary extends Component<
   }
 }
 
-function ParticipantActionsQuery({ disputeId }: { readonly disputeId: TConvexId<"disputes"> }) {
-  const walletIdentity = useHighrableWalletIdentity();
-  const walletAddress = walletIdentity.walletAddress;
-  const walletType = walletIdentity.walletType;
-  const permission = useQuery(
-    api.disputes.canRespondToDispute,
-    walletAddress ? { disputeId, walletAddress } : "skip",
-  );
+function ParticipantActionsQuery({
+  disputeId,
+  walletAddress,
+  walletType,
+  session,
+}: {
+  readonly disputeId: TConvexId<"disputes">;
+  readonly walletAddress: string;
+  readonly walletType: TWalletType;
+  readonly session: TParticipantActionSession;
+}) {
+  const permission = useQuery(api.disputes.canRespondToDispute, { disputeId, walletAddress });
 
-  if (!walletAddress || !walletType) return null;
   if (permission === undefined) {
     return (
       <p role="status" className="text-sm text-[#5f5f5f]">
@@ -77,14 +85,44 @@ function ParticipantActionsQuery({ disputeId }: { readonly disputeId: TConvexId<
         walletAddress={walletAddress}
         walletType={walletType}
         role={permission.role}
+        session={session.evidence}
       />
       <DisputeResponseComposer
         disputeId={disputeId}
         walletAddress={walletAddress}
         walletType={walletType}
         role={permission.role}
+        session={session.response}
       />
     </div>
+  );
+}
+
+function ParticipantActionSession({
+  disputeId,
+  walletAddress,
+  walletType,
+  viewerWallet,
+}: {
+  readonly disputeId: TConvexId<"disputes">;
+  readonly walletAddress: string;
+  readonly walletType: TWalletType;
+  readonly viewerWallet: string;
+}) {
+  const session = useParticipantActionSession();
+
+  return (
+    <ParticipantActionsErrorBoundary key={`${disputeId}:${viewerWallet}`}>
+      {(retryKey) => (
+        <ParticipantActionsQuery
+          key={retryKey}
+          disputeId={disputeId}
+          walletAddress={walletAddress}
+          walletType={walletType}
+          session={session}
+        />
+      )}
+    </ParticipantActionsErrorBoundary>
   );
 }
 
@@ -95,9 +133,21 @@ export function DisputeParticipantActions({
   readonly disputeId: TConvexId<"disputes">;
   readonly viewerWallet: string;
 }) {
+  const walletIdentity = useHighrableWalletIdentity();
+  const walletAddress = walletIdentity.walletAddress;
+  const walletType = walletIdentity.walletType;
+
+  if (!walletAddress || !walletType) return null;
+
+  const sessionKey = `${disputeId}:${walletAddress}:${walletType}`;
+
   return (
-    <ParticipantActionsErrorBoundary key={`${disputeId}:${viewerWallet}`}>
-      {(retryKey) => <ParticipantActionsQuery key={retryKey} disputeId={disputeId} />}
-    </ParticipantActionsErrorBoundary>
+    <ParticipantActionSession
+      key={sessionKey}
+      disputeId={disputeId}
+      walletAddress={walletAddress}
+      walletType={walletType}
+      viewerWallet={viewerWallet}
+    />
   );
 }

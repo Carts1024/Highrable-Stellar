@@ -1,3 +1,6 @@
+import { TStellarPublicKeySchema } from "@/core/wallet/validation";
+import { z } from "zod";
+
 import type {
   IAdminDashboardMetrics,
   IAdminDisputeDetail,
@@ -62,6 +65,16 @@ export function shouldRetryAdminRead(failureCount: number, error: unknown): bool
   return isRetryableAdminReadError(error) && failureCount < 2;
 }
 
+const AdminSessionResponseSchema = z
+  .object({
+    adminWallet: TStellarPublicKeySchema,
+    isOwner: z.boolean(),
+    isDisputeAdmin: z.boolean(),
+  })
+  .passthrough();
+
+const INVALID_ADMIN_SESSION_RESPONSE_MESSAGE = "Admin API returned an invalid session response.";
+
 function buildAdminQuery(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -93,7 +106,10 @@ function getErrorPayloadDetails(payload: unknown): unknown {
   return payload.details;
 }
 
-async function readJsonOrThrow<TResponse>(response: Response): Promise<TResponse> {
+async function readJsonOrThrow<TResponse>(
+  response: Response,
+  options: { readonly allowEmptyPayload?: boolean } = {},
+): Promise<TResponse> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
     throw new AdminApiError(
@@ -113,7 +129,7 @@ async function readJsonOrThrow<TResponse>(response: Response): Promise<TResponse
     );
   }
 
-  if (!payload) {
+  if (!options.allowEmptyPayload && !payload) {
     throw new AdminApiError(response.status, "Admin API returned an invalid JSON response.");
   }
 
@@ -157,7 +173,13 @@ export async function fetchAdminSession(
     signal: options.signal,
   });
 
-  return await readJsonOrThrow<IAdminSessionResponse>(response);
+  const payload = await readJsonOrThrow<unknown>(response, { allowEmptyPayload: true });
+  const parsed = AdminSessionResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new AdminApiError(response.status, INVALID_ADMIN_SESSION_RESPONSE_MESSAGE);
+  }
+
+  return parsed.data;
 }
 
 export async function fetchAdminMetrics(
