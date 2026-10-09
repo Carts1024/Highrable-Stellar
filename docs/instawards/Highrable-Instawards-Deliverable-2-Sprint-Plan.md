@@ -203,6 +203,8 @@ The four-day Deliverable 2 sprint is ready for review when:
 
 ## 14. Known decisions and risks
 
+Execution checkpoint, 2026-10-09: C19 was revalidated and C20–C24 implemented locally on `instawards/dev/sherwin` under the user's single-branch override, with parallel preparation and chronological integration. C20 live deployment identity remains blocked on matching scope and tested production WASM. The original four-branch/PR and live-evidence exit criteria are not claimed complete. See [C24 acceptance and commit evidence](./Deliverable-2-C24-Participant-Acceptance-Evidence.md).
+
 1. **Existing backend maturity:** The prior foundation already covers much of the SOW backend scope, including validation, callback idempotency, settlement records, and reconciliation tests. Day 1 must compare source and tests with each row before adding code.
 2. **Participant identity:** Public Convex dispute calls still accept caller-supplied wallet values in some paths. Equality/role checks reject unrelated wallets but are not proof that the caller controls the supplied wallet. Do not report this as signed authentication.
 3. **Deployment identity:** The recorded multi-admin Testnet artifact predates later contract changes and lacks code identity evidence. Live synchronization evidence depends on verifying the actual deployed contract first.

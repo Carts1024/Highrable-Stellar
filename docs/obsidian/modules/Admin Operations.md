@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-09
 source_of_truth: repository
 ---
 
@@ -38,6 +38,10 @@ Assignment, claim, and review actions reject overlapping submissions, clear stal
 - Shared admin checks: `packages/backend/convex/_shared/adminAuth.ts`
 
 ## Responsibilities
+
+Deliverable 2 C23 adds a coherent protected queue-to-resolution acceptance test, including a denied review write, access retry, uncertain saved transaction, verified recovery, and terminal queue/timeline refresh. Real Convex settlement and server recovery tests are linked as separate evidence; this is not a live end-to-end run. See [C23 evidence](../../instawards/Deliverable-2-C23-Admin-Acceptance-Evidence.md).
+
+Deliverable 2 C21 guards settlement continuation against wallet/case changes after asynchronous membership checks, start recording, hashing, simulation, signing, and signed-identity persistence. The signer and submission callback reject stale origins; saved attempts use the existing recovery path. Nine protected-page integration regressions supplement the existing phase/basis-point matrix. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
 
 - Aggregate bounded metrics across users/jobs/escrows/disputes/submissions/revisions/reminders.
 - List and inspect disputes with filters.

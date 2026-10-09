@@ -2,13 +2,17 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-09
 source_of_truth: repository
 ---
 
 # Testing
 
 ## Test layers
+
+The Deliverable 2 C19–C24 final local run passes 346 web tests, 361 backend tests, and 49 deployment-verifier tests. Administrator and participant acceptance use real components with controlled external seams, paired with separate actual backend/domain tests. See [the C24 final evidence map](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md). Production contract build provenance and live deployment identity are still unavailable.
+
+Deliverable 2 C22 extends participant integration coverage for revoked access during writes, stale wallet/case results, independent accessible form recovery, and saved-hash refresh without resubmission. The participant and attachment suites pass 60 tests across 10 files at this checkpoint; see [C22 evidence](../../instawards/Deliverable-2-C22-Participant-Integration-Evidence.md). This is local mocked transport/component evidence.
 
 | Layer | Command/location | Scope |
 | --- | --- | --- |

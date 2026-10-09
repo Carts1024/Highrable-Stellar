@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-09
 source_of_truth: repository
 ---
 
@@ -84,6 +84,8 @@ This is local Convex bookkeeping evidence, not independent on-chain verification
 Use domain helpers for participant roles and eligibility. Use admin helpers for status/settlement mapping. Update application dispute timeline/system-message/notification side effects and parent escrow/job/milestone patches when changing a terminal flow. The Soroban events are a separate future-consumption interface and currently do not populate the Convex dispute timeline.
 
 ## Frontend Contract and Limits
+
+Deliverable 2 C24 adds a complete local participant acceptance journey from denied access through evidence/response and uncertain saved-hash marking to authoritative confirmation. Confirmed `marked` state now suppresses an obsolete local pending-outcome error; genuine `confirmed_sync_pending` bookkeeping failures retain recording recovery. No new transaction or duplicate case is created by these recovery paths. See [C24 evidence and commit map](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md).
 
 Participant reads remain identity-scoped at the UI layer and use the generated Convex API contract. Current bounded reads are 50 client plus 50 freelancer disputes before deduplication, 20 parent disputes, 200 timeline events, and 50 each for context submissions, revisions, and deadline events. Admin queue/detail limits and the complete participant function/argument matrix are frozen in `docs/instawards/C06-Frontend-Handoff.md`. Admin HTTP errors remain separate from participant Convex errors; both use explicit loading, empty, invalid/not-found, forbidden, and failed-read presentation.
 
@@ -205,6 +207,10 @@ Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit
 - Client-refund, freelancer-payout, and split outcomes are covered for both parent types. Milestone settlement patches only the selected milestone and derives the parent job from remaining active, disputed, or terminal siblings.
 - Generic sync can recover an escrow mirror to `disputed` and record repeated reads/failure metadata, but it refuses to downgrade or finalize a disputed escrow. Administrator settlement owns the terminal transition.
 - The C21 suite verifies Convex transaction rollback when a required milestone parent fails during settlement. It remains an in-memory bookkeeping test and does not verify live RPC execution or deployed contract behavior.
+
+## Deliverable 2 C19 Verified RPC Recovery
+
+Deliverable 2 C19 hardens RPC record parsing and saved settlement verification. Escrow reads must match the requested ID; transaction verification must match the saved hash and expected invocation. Malformed reads remain retryable without finalizing records, and recovery never resubmits a transaction. The backend suite passes 361 tests and the web suite passes 330 tests, including 58 new C19 cases. See `docs/instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md` for coverage and local-only evidence limits.
 
 ## Related Notes
 
