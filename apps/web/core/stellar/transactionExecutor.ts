@@ -3,7 +3,11 @@
 import { executeWithPasskeySmartAccount } from "@/core/stellar/passkeySmartAccountExecutor";
 import { invokeContract } from "@/core/stellar/transaction";
 
-import type { TConfirmedContractTx, TSignedTransactionSubmitter } from "@/core/stellar/transaction";
+import type {
+  TConfirmedContractTx,
+  TSignedTransactionSubmitter,
+  TStellarExecutionPhase,
+} from "@/core/stellar/transaction";
 import type { xdr } from "@stellar/stellar-sdk";
 
 export type TWalletExecutionMode = "external_wallet" | "passkey_smart_account";
@@ -19,6 +23,12 @@ export interface IExecuteHighrableContractCallParams {
   readonly networkPassphrase: string;
   readonly signTransaction?: TSignedTransactionSubmitter;
   readonly operationId?: string;
+  readonly onSigned?: (identity: {
+    readonly operationId?: string;
+    readonly transactionHash: string;
+    readonly transactionValidUntil: number;
+  }) => Promise<void>;
+  readonly onPhase?: (phase: TStellarExecutionPhase) => void;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
@@ -39,6 +49,8 @@ export async function executeHighrableContractCall(
       args: [...params.args],
       signTransaction: params.signTransaction,
       operationId: params.operationId,
+      onSigned: params.onSigned,
+      onPhase: params.onPhase,
     });
   }
 
@@ -50,6 +62,7 @@ export async function executeHighrableContractCall(
     args: params.args,
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
+    onPhase: params.onPhase,
   });
 
   if (result.status !== "success") {

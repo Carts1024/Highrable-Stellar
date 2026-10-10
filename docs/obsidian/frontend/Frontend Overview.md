@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-09-27
+last_updated: 2026-09-29
 source_of_truth: repository
 ---
 
@@ -13,6 +13,7 @@ source_of_truth: repository
 ## Runtime composition
 
 - `app/layout.tsx` provides fonts, metadata, global CSS, providers, and `AppShell`.
+- Font variables are defined in `app/globals.css` using the Space Grotesk and JetBrains Mono family names with system fallbacks; the app does not fetch Google Fonts during builds.
 - `core/providers/app-providers.tsx` constructs the Convex client and composes wallet/UI/onboarding/debugger providers.
 - `core/wallet` owns external wallet connection, authentication, funding checks, persistence, and identity state.
 - `core/passkeys` and `core/stellar` own passkey readiness, smart-account configuration, contract calls, asset/payment helpers, and transaction execution.

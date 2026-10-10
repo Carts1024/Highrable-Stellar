@@ -44,6 +44,7 @@ export function OpenDisputeButton({
         Open Dispute
       </AppButton>
       <OpenDisputeDialog
+        key={escrow._id}
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         job={job}

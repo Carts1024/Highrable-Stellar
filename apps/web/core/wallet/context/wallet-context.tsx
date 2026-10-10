@@ -40,7 +40,7 @@ type TWalletContextValue = {
   authSession: TAuthSession | null;
   isConnected: boolean;
   address: string | null;
-  connectWallet: () => Promise<string | null>;
+  connectWallet: (onNotice?: (message: string) => void) => Promise<string | null>;
   disconnectWallet: () => Promise<void>;
   checkFundingStatus: (address?: string) => Promise<boolean | null>;
   fundTestnetAccount: () => Promise<void>;
@@ -391,47 +391,50 @@ export function WalletContextProvider({
     walletState.walletAddress,
   ]);
 
-  const connectWallet = useCallback(async (): Promise<string | null> => {
-    setWalletState((currentValue) => ({
-      ...currentValue,
-      status: "connecting",
-      isConnecting: true,
-      friendbotError: null,
-      friendbotSuccess: false,
-      error: null,
-    }));
-
-    try {
-      const account: TWalletAccount = await wallet.connect();
-      setConnectedWalletState(account, {
-        isCheckingFunding: account.isTestnet,
-        isFundingWithFriendbot: false,
-        isFunded: null,
+  const connectWallet = useCallback(
+    async (onNotice?: (message: string) => void): Promise<string | null> => {
+      setWalletState((currentValue) => ({
+        ...currentValue,
+        status: "connecting",
+        isConnecting: true,
         friendbotError: null,
         friendbotSuccess: false,
-        lastFriendbotResponse: null,
-        lastTxStatus: "idle",
-      });
+        error: null,
+      }));
 
-      if (account.isTestnet) {
-        await checkFundingStatus(account.address);
-      } else {
-        setWalletState((currentValue) => ({
-          ...currentValue,
-          isCheckingFunding: false,
+      try {
+        const account: TWalletAccount = await wallet.connect(onNotice);
+        setConnectedWalletState(account, {
+          isCheckingFunding: account.isTestnet,
+          isFundingWithFriendbot: false,
           isFunded: null,
-        }));
+          friendbotError: null,
+          friendbotSuccess: false,
+          lastFriendbotResponse: null,
+          lastTxStatus: "idle",
+        });
+
+        if (account.isTestnet) {
+          await checkFundingStatus(account.address);
+        } else {
+          setWalletState((currentValue) => ({
+            ...currentValue,
+            isCheckingFunding: false,
+            isFunded: null,
+          }));
+        }
+        return account.address;
+      } catch (error) {
+        setWalletState({
+          ...DEFAULT_STATE,
+          status: "error",
+          error: toErrorMessage(error),
+        });
+        return null;
       }
-      return account.address;
-    } catch (error) {
-      setWalletState({
-        ...DEFAULT_STATE,
-        status: "error",
-        error: toErrorMessage(error),
-      });
-      return null;
-    }
-  }, [checkFundingStatus, setConnectedWalletState, wallet]);
+    },
+    [checkFundingStatus, setConnectedWalletState, wallet],
+  );
 
   const disconnectWallet = useCallback(async () => {
     setWalletState((currentValue) => ({ ...currentValue, status: "disconnecting" }));

@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -20,7 +20,7 @@ Hold an allowlisted token amount for a client/freelancer work escrow, enforce li
 
 ## Current Status
 
-Implemented and deployed artifacts are recorded for testnet/mainnet escrow contracts. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
+The membership-enabled source and C16 versioned dispute events are implemented and build. Tracked testnet/mainnet deployment artifacts still refer to prior contract versions; this source has not been deployed and requires a fresh isolated deployment. Existing deployments do not emit the C16 events. Deployment metadata does not imply an audit or that every configured payment/smart-account path is operational.
 
 ## Public Interface
 
@@ -31,6 +31,8 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 | `create_open_escrow(client, asset, amount, job_hash)` | Creates `Created` escrow with no freelancer; client auth. |
 | `create_and_fund_open_escrow(client, asset, amount, job_hash)` | Creates `Funded` open escrow and transfers asset from client to contract atomically. |
 | `add_allowed_asset(platform_admin, asset)` / `remove_allowed_asset(...)` | Admin-managed instance allowlist and count. |
+| `add_dispute_admin(platform_admin, dispute_admin)` / `remove_dispute_admin(...)` | Owner-authenticated, idempotent dispute-admin membership management; the owner is implicit and cannot be removed. |
+| `is_dispute_admin(dispute_admin)` | Returns true for the owner or an explicitly registered dispute admin. |
 | `is_allowed_asset(asset)` / `get_allowed_asset_count()` | Allowlist reads. |
 | `fund_escrow(client, escrow_id)` | `Created → Funded`; client auth and client-to-contract token transfer. |
 | `assign_freelancer(client, escrow_id, freelancer)` | Assigns once while `Created` or `Funded`; client auth. |
@@ -38,7 +40,7 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 | `approve_and_release(client, escrow_id, rating, review_hash)` | `Submitted → Released`; client auth; pays freelancer and calls reputation. |
 | `cancel_escrow(client, escrow_id)` | `Created → Cancelled` or `Funded → Cancelled` with funded refund; client auth. |
 | `mark_disputed(caller, escrow_id)` | `Funded/Submitted → Disputed`; client, assigned freelancer, or platform admin auth. |
-| `resolve_dispute(platform_admin, escrow_id, freelancer_share_bps, resolution_hash)` | Admin-only settlement of `Disputed`; splits/refunds funds and sets `Cancelled` for zero share or `Released` for positive share. |
+| `resolve_dispute(dispute_admin, escrow_id, freelancer_share_bps, resolution_hash)` | Requires the actor's auth and owner/registered membership; rejects client/freelancer actors; settles `Disputed` with existing split/refund behavior. |
 | `get_escrow(escrow_id)` | Read `TEscrow`; unwraps missing record and therefore can fail rather than return `Result`. |
 | `get_next_escrow_id()` | Read next ID. |
 | `get_reputation_contract()` / `get_platform_admin()` | Read stored configuration. |
@@ -46,7 +48,7 @@ Implemented and deployed artifacts are recorded for testnet/mainnet escrow contr
 
 ## Storage
 
-Instance keys: `Initialized`, `ReputationContract`, `PlatformAdmin`, `NextEscrowId`, `AllowedAsset(Address)`, `AllowedAssetCount`.
+Instance keys: `Initialized`, `ReputationContract`, `PlatformAdmin`, `NextEscrowId`, `AllowedAsset(Address)`, `AllowedAssetCount`, and appended `DisputeAdmin(Address)`. The existing key variants and escrow record shape remain unchanged.
 
 Persistent key: `Escrow(u64)` containing `TEscrow`:
 
@@ -75,7 +77,8 @@ Assignment is allowed once from `Created`/`Funded` when no freelancer exists. Di
 - Client methods: client address must require auth and match stored client where applicable.
 - `submit_work`: freelancer address must require auth and match assigned freelancer.
 - `mark_disputed`: caller must require auth and match client, assigned freelancer, or stored admin.
-- Admin methods: supplied platform admin must require auth and equal stored admin.
+- Owner methods: supplied platform admin must require auth and equal stored admin.
+- Dispute-admin membership methods and `resolve_dispute` extend dispute-only authority. The owner is implicitly a member; settlement rejects either escrow participant as actor. Asset allowlisting and all unrelated owner-only operations remain owner-only.
 - Read methods require initialization except `is_initialized` and can still extend instance TTL.
 
 ## Token Transfers
@@ -95,11 +98,40 @@ Amounts must be positive `i128`; the contract does not attach token decimals to 
 
 ## Events
 
-No `events().publish(...)` or equivalent event emission is present in the current source.
+The source publishes one versioned named payload after each successful dispute state write:
+
+| Operation | Topics | Payload |
+| --- | --- | --- |
+| Mark | `(dispute, marked, escrow_id: u64)` | `DisputeMarkedEvent { version: u32, actor: Address, status: TEscrowStatus }`; version is `1`, status is `Disputed`. |
+| Resolve | `(dispute, resolved, escrow_id: u64)` | `DisputeResolvedEvent` with version, actor, resulting status, supplied 32-byte resolution hash, asset, client, freelancer, share basis points, and actual freelancer/client amounts. |
+
+Resolution amounts are raw token base units (`i128`); the client amount includes the rounding remainder. The resolution hash is emitted but is not stored in `TEscrow`. Contract address, transaction identity, and ledger metadata come from the event envelope. Escrow IDs are scoped to the emitting contract and network. The C16 event interface is described in [C16-Dispute-Event-Handoff](../../instawards/C16-Dispute-Event-Handoff.md); independent compatibility assertions and the backend handoff are in [Deliverable-2-C01-Dispute-Contract-Handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md). No indexer consumes these events yet.
+
+## C01 interface compatibility
+
+Rust tests decode the SDK-generated function specifications and lock `mark_disputed(caller: Address, escrow_id: u64)` and `resolve_dispute(dispute_admin: Address, escrow_id: u64, freelancer_share_bps: u32, _resolution_hash: BytesN<32>)`, including argument order/types and `Result<(), Error>` returns. They also freeze all six status names and their one-symbol vector encoding, plus every existing error name/code (`Unauthorized = 3`, `EscrowNotFound = 5`, `InvalidStatus = 6`, `InvalidShareBps = 10`). Host authorization aborts remain tested separately from returned contract errors.
+
+Mark and resolve event checks build complete expected maps from literal field names and explicit value types rather than from the production event structs. They preserve typed decoding assertions and verify emitter, ordered topics, version, exact field set, status encoding, addresses, hash bytes, and `i128` token amounts. The amount-301 examples lock `0 bps → 0/301`, `3,333 bps → 100/201`, and `10,000 bps → 301/0` freelancer/client amounts. Existing success, rejection, and rollback coverage continues to supply the behavior matrix. The full evidence and local-only limits are in the C01 handoff.
+
+## C07 marking event/state regression
+
+`assert_mark_event` independently checks the literal wire payload and also compares the event topic escrow ID and decoded `Disputed` status with the persisted record. C07 exercises two distinct escrows from `Funded` and `Submitted` with different authorized callers, then verifies the untargeted escrow, token balances, reputation completion records, and freelancer statistics remain unchanged. A separately authorized missing-ID call must return `EscrowNotFound` without emitting dispute or transfer events or changing records, balances, reputation, or the next escrow ID. Existing tests continue to cover authorization, unassigned escrows, invalid statuses, and repeat marking. See the [C07 evidence](../../instawards/C07-Dispute-Marking-Evidence.md); local tests do not verify deployed behavior or wallet signatures.
 
 ## Tests
 
-`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes.
+`contracts/escrow/src/test.rs` covers initialization/reinitialization, direct/open/create-and-fund flows, amount/freelancer validation, funding/assignment/submission/release, cancellation, dispute marking/resolution, allowlist behavior, token balances, reputation side effects, and distinct milestone/job hashes. Dispute marking and settlement tests prepare timestamped funded or submitted escrows through public contract calls. For settlement, invocation-scoped mock authorization covers the actor and all four `resolve_dispute` arguments; successful calls immediately assert the exact authorized invocation. Settlement coverage accepts `0`, `1`, `3_333`, `9_999`, and `10_000` basis points with payout and terminal-status assertions; the `1` and `9_999` boundary outcomes run for owner and registered-admin actors from both `Funded` and `Submitted` dispute origins. With amount `301`, these boundaries pay `0/301` and `300/1`, and both end in `Released`, including the rounded-zero freelancer payout. The successful cases compare the complete escrow record, verify settlement timestamps, assert event payloads, and check participant gains and contract balance conservation. Settlement rejects `10_001` and `u32::MAX` and all five non-disputed statuses for both owner and registered admins. Rejected settlements compare the complete escrow record and client, freelancer, and contract token balances before and after, and preserve dispute and token-transfer event counts. Additional cases verify removed-admin denial followed by same-actor re-registration and success, registered-admin marking denial, and owner/admin participant conflicts. Dispute event assertions verify emitter, exact topics, independent literal-key payload maps, typed decoding, version and field values, one event on success, and no new dispute event on rejection; amount `301` locks the `0`, `1`, `3_333`, `9_999`, and `10_000` bps event payouts as `0/301`, `0/301`, `100/201`, `300/1`, and `301/0`. Token-transfer events are checked under the token emitter. A failing second settlement transfer verifies rollback and no resolution event. SDK-spec assertions freeze the two dispute method signatures, six status names/encodings, and all contract error names/codes; host authorization aborts remain distinct from contract errors. See the [C01 handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md) and [C06 evidence](../../instawards/Deliverable-2-C06-Dispute-Guards-Evidence.md) for requirement mappings and local-evidence limits. These mocks exercise Soroban host authorization enforcement, but do not prove cryptographic signatures or wallet integration behavior.
+
+## C20 terminal-state regression coverage
+
+Six focused Rust tests cover disputed escrows originating in both `Funded` and `Submitted`, rejecting submission, ordinary release, cancellation, and repeat marking by client, freelancer, and platform owner. Terminal matrices cover refund, split, and full-payout settlements from both origins, ordinary release, and cancellation from `Created` and `Funded`. Across 84 rejected invocations, exact invocation-scoped mock authorization and valid arguments isolate `InvalidStatus`; full escrow records, participant/contract balances, completion records, freelancer statistics, and dispute/transfer event counts are preserved. Timestamps advance and replacement hashes differ from fixture hashes. Existing positive, authorization, rounding, and rollback coverage remains intact. At C20 verification, the workspace passed 61 escrow and 9 reputation tests, and both WASM contracts built locally. At C01 verification, the workspace passed 64 escrow and 9 reputation tests and built both WASM contracts with the pnpm wrapper; see [C20 evidence](../../instawards/C20-Dispute-State-Regression-Evidence.md) for its original matrix, the [C01 handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md), and the [C06 evidence](../../instawards/Deliverable-2-C06-Dispute-Guards-Evidence.md) for current local results. None of these results verifies deployed behavior.
+
+## Deliverable 2 C13 marking and settlement guards
+
+Three focused Rust tests bind mark authorization to the requested escrow ID and settlement authorization to the signer, escrow ID, basis-point share, and resolution hash. Missing/wrong signer authorization and mismatched invocation arguments abort at the Soroban host boundary without changing records, balances, reputation, or events. A 12-case lifecycle matrix settles both `Funded` and `Submitted` dispute origins through the owner and a registered dispute admin at `0`, `3_333`, and `10_000` bps. It verifies one matching terminal resolution event, stored terminal status, an untouched unrelated funded escrow, and rejection of identical, changed-share, changed-hash, and repeat-mark attempts. Rejections preserve the full record and all settlement bookkeeping after ledger time advances. The focused C13 filter passes 3 tests; `cargo test --workspace --locked` passes 72 escrow and 9 reputation tests, `pnpm contracts:build` builds both WASM contracts, and `cargo fmt --all -- --check` passes. Production contract code is unchanged. See the [Deliverable 2 C13 evidence](../../instawards/Deliverable-2-C13-Dispute-State-Guards-Evidence.md). Mock authorization does not prove signatures or deployed behavior.
+
+## Deliverable 2 C18 settlement invariants and arithmetic
+
+Dispute settlement computes the freelancer payout using quotient/remainder arithmetic, preserving floor rounding while avoiding overflow for positive `i128` escrow amounts and valid shares through `10_000` bps. The client receives the remainder; status, timestamps, authorization, storage, and event interfaces are unchanged. Three C18 tests cover 120 combinations across common amount/share boundaries, both dispute origins, and both admin roles; seven large-amount cases through `i128::MAX`; and refund/split/full settlement while preserving same-token and other-token escrow funds. They verify exact event amounts, complete records, and that contract balance decreases by exactly the settled amount. `cargo test --locked -p highrable-escrow c18_` passes 3 tests; `cargo test --workspace --locked` passes 75 escrow and 9 reputation tests; formatting and both WASM builds pass. The original arithmetic aborted on the `i128::MAX` regression before the fix. See the [C18 evidence](../../instawards/Deliverable-2-C18-Settlement-Invariants-Evidence.md). This is local mocked-authorization evidence, not wallet-signature or deployed-contract verification.
 
 ## Deployment Configuration
 
@@ -107,10 +139,12 @@ Deployment scripts build and initialize reputation before/around escrow wiring, 
 
 ## Known Constraints
 
-- `resolve_dispute` accepts `_resolution_hash` but does not store it.
+- `resolve_dispute` accepts `_resolution_hash` and emits it in `DisputeResolvedEvent`, but does not persist it in escrow storage.
+- Contract membership and participant-conflict enforcement are available only after deploying the new WASM. Existing deployments keep their prior owner-only settlement logic.
+- Existing deployments also lack C16 dispute event emission until replaced with a WASM that contains the event interface; the reputation contract still emits no events.
 - Zero share becomes `Cancelled`; positive share becomes `Released`, even if the client receives most/all of the refund.
 - No escrow expiration/timeout is enforced on chain.
-- No on-chain events or contract-side metadata beyond the structure above.
+- No contract-event indexer or backend ingestion is implemented.
 - `get_escrow` unwraps missing storage and may fail.
 
 ## Related Notes

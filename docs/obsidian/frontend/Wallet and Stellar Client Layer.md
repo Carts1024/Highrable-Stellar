@@ -2,7 +2,7 @@
 type: architecture
 area: frontend
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
@@ -11,13 +11,18 @@ source_of_truth: repository
 ## Core files
 
 - `apps/web/core/wallet/context/wallet-context.tsx`: external wallet state, connection, funding checks, Friendbot, auth session.
-- `apps/web/core/wallet/clients/stellar-wallet-kit-client.ts`: Stellar Wallets Kit adapter.
+- `apps/web/core/wallet/clients/stellar-wallet-kit-client.ts`: Stellar Wallets Kit adapter; keeps one WalletConnect module instance, waits up to 10 seconds for its public `isAvailable()` result before the picker, and applies the same readiness check to WalletConnect restoration. A timed-out picker attempt retries without WalletConnect while preserving other kit wallets; a later attempt checks readiness again.
+- `apps/web/core/wallet/components/wallet-connect-trigger.tsx`: external-wallet/passkey choice, phone and desktop WalletConnect guidance, and accessible connection/identity-recording feedback.
 - `apps/web/core/wallet/auth/stellar-auth-service.ts`: challenge/verify client.
 - `apps/web/core/wallet/passkey-smart-account-context.tsx`: passkey account lifecycle and active state.
 - `apps/web/core/stellar/transaction.ts`: RPC simulation, prepared transaction signing, submission, polling, readable errors.
 - `apps/web/core/stellar/transactionExecutor.ts`: dispatches by wallet mode.
 - `apps/web/core/stellar/escrow-contract.ts`: argument encoding and escrow method wrappers.
 - `apps/web/core/stellar/payment-assets.ts`, `stablecoin-config.ts`, `path-payments.ts`, `trustline.ts`: payment asset/readiness logic.
+
+## Wallet kit package names
+
+The app installs the JSR kit as `@creit-tech/stellar-wallets-kit`. MetaMask Connect Stellar's published module imports the older npm scope, `@creit.tech/stellar-wallets-kit`, so the web package aliases the same JSR version under that name and pnpm public-hoists only that alias for isolated resolution. Keep both aliases aligned when updating the wallet kit.
 
 ## Execution dispatcher
 
@@ -30,6 +35,8 @@ executeHighrableContractCall
 ```
 
 External `invokeContract` gets a classic source account, prepares the transaction through RPC, calls the wallet signer, sends the signed XDR, then polls up to 18 attempts with 1.5-second delays. Passkey execution builds an outer smart-account execute transaction and reads the inner return value after confirmation.
+
+WalletConnect is configured for the selected Testnet or Mainnet chain and omitted on the unsupported local network. Stellar Wallets Kit owns the phone handoff and desktop QR presentation. Connecting and recording a wallet identity does not create a signed server session; authentication remains a separate message-signature flow. Device-level Freighter Mobile and QR pairing have not been verified.
 
 ## Read behavior
 

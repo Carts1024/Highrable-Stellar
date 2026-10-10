@@ -27,13 +27,15 @@ import {
 } from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import Link from "next/link";
+import React, { useId, useMemo, useRef, useState } from "react";
 
 import type { TDisputeParentType, TDisputeReasonCategory } from "../types";
 import type { TDraftAttachment } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
-import { DISPUTE_REASON_OPTIONS, getDisputeReasonLabel } from "../lib";
+import { DISPUTE_REASON_OPTIONS, formatDisputeDate } from "../lib";
+import { validateDisputeDraft } from "./open-dispute-validation";
 
 type TOpenDisputeDialogProps = {
   readonly isOpen: boolean;
@@ -134,14 +136,25 @@ export function OpenDisputeDialog({
   );
   const [reasonCategory, setReasonCategory] =
     useState<TDisputeReasonCategory>("work_quality_issue");
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [includeLatestSubmission, setIncludeLatestSubmission] = useState(true);
+  const [selectedRevisionIds, setSelectedRevisionIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<TDraftAttachment[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionPhase, setSubmissionPhase] = useState<"idle" | "creating" | "marking">("idle");
+  const [markExecutionPhase, setMarkExecutionPhase] = useState<string | null>(null);
+  const [markTransactionHash, setMarkTransactionHash] = useState<string | null>(null);
+  const [createdDisputeId, setCreatedDisputeId] = useState<TConvexId<"disputes"> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submissionFailed, setSubmissionFailed] = useState(false);
+  const submissionInFlight = useRef(false);
 
+  const isSubmitting = submissionPhase !== "idle";
   const activeWalletAddress = walletIdentity.walletAddress;
   const reasonSelectId = useId();
+  const titleId = useId();
   const descriptionId = useId();
+  const errorId = useId();
   const activeWalletType = walletIdentity.walletType ?? "external_wallet";
   const ownerRole = useMemo(() => {
     if (!activeWalletAddress) return "client";
@@ -149,15 +162,16 @@ export function OpenDisputeDialog({
       ? "client"
       : "freelancer";
   }, [activeWalletAddress, escrow.clientWallet]);
-  const hasUploadingAttachment = attachments.some(
-    (attachment) => attachment.status === "uploading",
-  );
+  const relatedRevisions = (revisions ?? []).filter((revision) => revision.escrowId === escrow._id);
+  const selectedSubmissionId = includeLatestSubmission ? (latestSubmission?._id ?? null) : null;
+  const relatedDataReady = latestSubmission !== undefined && revisions !== undefined;
   const canSubmit =
     Boolean(activeWalletAddress) &&
     Boolean(walletIdentity.walletType) &&
-    description.trim().length > 0 &&
-    !hasUploadingAttachment &&
-    canOpenDispute?.allowed !== false;
+    canOpenDispute?.allowed === true &&
+    relatedDataReady &&
+    !isSubmitting &&
+    !createdDisputeId;
 
   const runOnChainMark = async (disputeId: TConvexId<"disputes">) => {
     const config = getRequiredEscrowActionConfig();
@@ -174,8 +188,12 @@ export function OpenDisputeDialog({
         );
       }
     } else {
-      if (!address || !walletState.isConnected) {
-        throw new Error("Connect a Stellar wallet before opening a dispute.");
+      if (
+        !address ||
+        !walletState.isConnected ||
+        address.toUpperCase() !== activeWalletAddress.toUpperCase()
+      ) {
+        throw new Error("Connect the wallet for this dispute before marking its escrow.");
       }
       if (!isWalletOnConfiguredNetwork(walletState)) {
         throw new Error(getWalletNetworkMismatchMessage("opening a dispute"));
@@ -196,14 +214,30 @@ export function OpenDisputeDialog({
       ...(milestone ? { milestoneId: milestone._id } : {}),
       status: "pending",
     });
-    await markStarted({
-      disputeId,
-      actorWallet: activeWalletAddress,
-      actorWalletType: walletIdentity.walletType,
-    });
-
     try {
-      const result = await markDisputedOnChain({
+      await markStarted({
+        disputeId,
+        actorWallet: activeWalletAddress,
+        actorWalletType: walletIdentity.walletType,
+      });
+    } catch (error) {
+      try {
+        await updateTransactionStatus({
+          clientRequestId,
+          status: "failed",
+          errorMessage: normalizeStellarError(error),
+        });
+      } catch {
+        // Keep the original start error visible.
+      }
+      throw error;
+    }
+
+    let knownHash: string | undefined;
+    let mayHaveSubmitted = false;
+    let result: { txHash: string };
+    try {
+      result = await markDisputedOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
@@ -213,14 +247,82 @@ export function OpenDisputeDialog({
         operationId: clientRequestId,
         caller: activeWalletAddress,
         escrowId: escrow.escrowId,
+        onSigned: async ({ transactionHash }) => {
+          knownHash = transactionHash;
+          setMarkTransactionHash(transactionHash);
+          await updateTransactionStatus({
+            clientRequestId,
+            txHash: transactionHash,
+            status: "pending",
+          });
+        },
+        onPhase: (phase) => {
+          setMarkExecutionPhase(
+            {
+              simulation: "Simulating transaction...",
+              signing: "Waiting for wallet signature...",
+              submission: "Submitting transaction...",
+              confirmation: "Waiting for Stellar confirmation...",
+            }[phase],
+          );
+          if (phase === "submission" || phase === "confirmation") mayHaveSubmitted = true;
+        },
       });
+    } catch (error) {
+      const errorMessage = normalizeStellarError(error);
+      const failedTxHash =
+        knownHash ??
+        (typeof error === "object" &&
+        error !== null &&
+        "txHash" in error &&
+        typeof error.txHash === "string"
+          ? error.txHash
+          : undefined);
+      const uncertain =
+        isPendingStellarTransactionError(error) || mayHaveSubmitted || Boolean(failedTxHash);
+      if (failedTxHash) setMarkTransactionHash(failedTxHash);
+      try {
+        await updateTransactionStatus({
+          clientRequestId,
+          ...(failedTxHash ? { txHash: failedTxHash } : {}),
+          status: uncertain ? "pending" : "failed",
+          errorMessage,
+        });
+      } catch {
+        // Keep the original chain error visible.
+      }
+      if (!uncertain) {
+        try {
+          await markFailed({
+            disputeId,
+            actorWallet: activeWalletAddress,
+            actorWalletType: walletIdentity.walletType,
+            errorMessage,
+          });
+        } catch {
+          throw new Error(
+            "Escrow marking failed, but its failure could not be recorded. Check the saved dispute before retrying.",
+          );
+        }
+      }
+      throw new Error(
+        uncertain
+          ? "Transaction outcome is uncertain. Check Stellar Expert or wait for reconciliation before retrying."
+          : `Dispute evidence was saved, but on-chain marking failed: ${errorMessage}`,
+      );
+    }
 
-      await updateTransactionStatus({
-        clientRequestId,
-        txHash: result.txHash,
-        status: "success",
+    setMarkTransactionHash(result.txHash);
+    setMarkExecutionPhase("Recording confirmed transaction...");
+    try {
+      await markSucceeded({
+        disputeId,
+        actorWallet: activeWalletAddress,
+        actorWalletType: walletIdentity.walletType,
+        transactionHash: result.txHash,
+        stellarExpertUrl: getTxExplorerUrl(result.txHash),
       });
-
+      await updateTransactionStatus({ clientRequestId, txHash: result.txHash, status: "success" });
       if (milestone) {
         await updateMilestoneEscrowStatus({
           milestoneId: milestone._id,
@@ -237,48 +339,16 @@ export function OpenDisputeDialog({
           txType: "mark_disputed",
         });
       }
-
-      await markSucceeded({
-        disputeId,
-        actorWallet: activeWalletAddress,
-        actorWalletType: walletIdentity.walletType,
-        transactionHash: result.txHash,
-        stellarExpertUrl: getTxExplorerUrl(result.txHash),
-      });
-      return result.txHash;
     } catch (error) {
-      const errorMessage = normalizeStellarError(error);
-      const failedTxHash =
-        typeof error === "object" &&
-        error !== null &&
-        "txHash" in error &&
-        typeof error.txHash === "string"
-          ? error.txHash
-          : undefined;
-      await updateTransactionStatus({
-        clientRequestId,
-        ...(failedTxHash ? { txHash: failedTxHash } : {}),
-        status: isPendingStellarTransactionError(error) ? "pending" : "failed",
-        errorMessage,
-      });
-      if (!isPendingStellarTransactionError(error)) {
-        await markFailed({
-          disputeId,
-          actorWallet: activeWalletAddress,
-          actorWalletType: walletIdentity.walletType,
-          errorMessage,
-          ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-        });
-      }
       throw new Error(
-        isPendingStellarTransactionError(error)
-          ? "Dispute marking is still pending. Use transaction recovery before retrying."
-          : "Dispute evidence was saved, but on-chain marking failed. Please retry.",
+        `Stellar confirmed the transaction, but Highrable could not finish recording it: ${normalizeStellarError(error)}`,
       );
     }
+    return result.txHash;
   };
 
   const handleSubmit = async () => {
+    if (submissionInFlight.current || createdDisputeId) return;
     const setWarning = (message: string) => {
       setError(message);
       showWarningToast(message);
@@ -288,17 +358,33 @@ export function OpenDisputeDialog({
       setWarning("Missing wallet identity.");
       return;
     }
-    if (!description.trim()) {
-      setWarning("Add a reason and description before opening a dispute.");
-      return;
-    }
-    if (hasUploadingAttachment) {
-      setWarning("Wait for evidence uploads to finish.");
+    const validationError = validateDisputeDraft({
+      title,
+      reasonCategory,
+      description,
+      eligibility: canOpenDispute,
+      escrowId: escrow._id,
+      onChainEscrowId: escrow.escrowId,
+      escrowStatus: escrow.status,
+      relatedDataReady,
+      selectedSubmissionId,
+      availableSubmissionId: latestSubmission?._id ?? null,
+      selectedRevisionIds,
+      availableRevisionIds: relatedRevisions.map((revision) => revision._id),
+      attachments,
+    });
+    if (validationError) {
+      setWarning(validationError);
       return;
     }
 
-    setIsSubmitting(true);
+    submissionInFlight.current = true;
+    setSubmissionPhase("creating");
+    setMarkExecutionPhase(null);
+    setMarkTransactionHash(null);
     setError(null);
+    setSubmissionFailed(false);
+    let savedDisputeId: TConvexId<"disputes"> | null = null;
     try {
       const disputeId = await createDispute({
         parentType,
@@ -306,24 +392,40 @@ export function OpenDisputeDialog({
         openedByWallet: activeWalletAddress,
         openedByWalletType: walletIdentity.walletType,
         reasonCategory,
-        title: getDisputeReasonLabel(reasonCategory),
-        description,
+        title: title.trim().replace(/\s+/g, " "),
+        description: description.trim(),
         evidenceAttachmentIds: getReadyAttachmentIds(attachments),
-        ...(latestSubmission?._id ? { relatedWorkSubmissionIds: [latestSubmission._id] } : {}),
-        ...(latestSubmission?.proofHash ? { proofHash: latestSubmission.proofHash } : {}),
-        ...(revisions && revisions.length > 0
-          ? { relatedRevisionRequestIds: revisions.map((revision) => revision._id).slice(0, 5) }
+        ...(selectedSubmissionId
+          ? { relatedWorkSubmissionIds: [selectedSubmissionId as TConvexId<"workSubmissions">] }
+          : {}),
+        ...(selectedSubmissionId && latestSubmission?.proofHash
+          ? { proofHash: latestSubmission.proofHash }
+          : {}),
+        ...(selectedRevisionIds.length > 0
+          ? { relatedRevisionRequestIds: selectedRevisionIds as TConvexId<"revisionRequests">[] }
           : {}),
         escrowContractId: getRequiredEscrowActionConfig().escrowContractId,
       });
+      savedDisputeId = disputeId;
+      setCreatedDisputeId(disputeId);
+      setSubmissionPhase("marking");
       await runOnChainMark(disputeId);
+      setTitle("");
       setDescription("");
+      setSelectedRevisionIds([]);
       setAttachments([]);
+      setCreatedDisputeId(null);
       onOpenChange(false);
     } catch (error) {
-      setError(getReadableAttachmentError(error, "Dispute could not be opened."));
+      setSubmissionFailed(!savedDisputeId);
+      setError(
+        savedDisputeId
+          ? getReadableAttachmentError(error, "Dispute was saved, but escrow marking failed.")
+          : getReadableAttachmentError(error, "Dispute could not be opened. Please retry."),
+      );
     } finally {
-      setIsSubmitting(false);
+      submissionInFlight.current = false;
+      setSubmissionPhase("idle");
     }
   };
 
@@ -340,77 +442,201 @@ export function OpenDisputeDialog({
         </ResponsiveDialogHeader>
 
         <ResponsiveDialogBody>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <div className="flex gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Manual dispute review pauses release and cancellation. This MVP does not automate
-                escrow judgment or fund splitting.
-              </p>
+          <form
+            noValidate
+            aria-describedby={error ? errorId : undefined}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSubmit();
+            }}
+          >
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="flex gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Manual dispute review pauses release and cancellation. This MVP does not automate
+                  escrow judgment or fund splitting.
+                </p>
+              </div>
             </div>
-          </div>
 
-          {canOpenDispute?.allowed === false ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {canOpenDispute.reason}
-            </p>
-          ) : null}
+            {canOpenDispute?.allowed === false ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {canOpenDispute.reason}
+              </p>
+            ) : null}
 
-          <div className="grid gap-4">
-            <label className="grid gap-2" htmlFor={reasonSelectId}>
-              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
-              <DisputeReasonSelect
-                id={reasonSelectId}
-                value={reasonCategory}
-                disabled={isSubmitting}
-                onChange={setReasonCategory}
+            {activeWalletAddress && canOpenDispute === undefined ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                Checking dispute eligibility...
+              </p>
+            ) : null}
+
+            {canOpenDispute?.allowed && !relatedDataReady ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                Loading related work records...
+              </p>
+            ) : null}
+
+            <div className="grid gap-4">
+              <label className="grid gap-2" htmlFor={titleId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Title</span>
+                <input
+                  id={titleId}
+                  type="text"
+                  value={title}
+                  maxLength={160}
+                  required
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
+                  placeholder="Briefly summarize the dispute"
+                />
+              </label>
+
+              <label className="grid gap-2" htmlFor={reasonSelectId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
+                <DisputeReasonSelect
+                  id={reasonSelectId}
+                  value={reasonCategory}
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={setReasonCategory}
+                />
+              </label>
+
+              <label className="grid gap-2" htmlFor={descriptionId}>
+                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
+                <Textarea
+                  id={descriptionId}
+                  value={description}
+                  maxLength={10_000}
+                  required
+                  disabled={isSubmitting || Boolean(createdDisputeId)}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Describe what happened, what has already been tried, and what evidence matters."
+                  className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
+                />
+              </label>
+
+              {latestSubmission ? (
+                <label className="flex items-start gap-2 text-sm text-[#3f3f3f]">
+                  <input
+                    type="checkbox"
+                    checked={includeLatestSubmission}
+                    disabled={isSubmitting || Boolean(createdDisputeId)}
+                    onChange={(event) => setIncludeLatestSubmission(event.target.checked)}
+                  />
+                  Include latest work submission ({formatDisputeDate(latestSubmission.createdAt)})
+                </label>
+              ) : null}
+
+              {relatedRevisions.length > 0 ? (
+                <fieldset className="space-y-2">
+                  <legend className="font-mono text-xs text-[#5f5f5f] uppercase">
+                    Related revision requests (up to 20)
+                  </legend>
+                  {relatedRevisions.map((revision) => (
+                    <label
+                      key={revision._id}
+                      className="flex items-start gap-2 text-sm text-[#3f3f3f]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRevisionIds.includes(revision._id)}
+                        disabled={isSubmitting || Boolean(createdDisputeId)}
+                        onChange={(event) =>
+                          setSelectedRevisionIds((current) =>
+                            event.target.checked
+                              ? [...current, revision._id]
+                              : current.filter((id) => id !== revision._id),
+                          )
+                        }
+                      />
+                      Revision {revision.revisionNumber}: {revision.reason}
+                    </label>
+                  ))}
+                </fieldset>
+              ) : null}
+
+              <AttachmentUploader
+                value={attachments}
+                onChange={setAttachments}
+                disabled={isSubmitting || Boolean(createdDisputeId)}
+                ownerRole={ownerRole}
+                context="dispute"
               />
-            </label>
+            </div>
 
-            <label className="grid gap-2" htmlFor={descriptionId}>
-              <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
-              <Textarea
-                id={descriptionId}
-                value={description}
+            {error ? (
+              <p
+                id={errorId}
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            {isSubmitting ? (
+              <p role="status" className="text-sm text-[#5f5f5f]">
+                {submissionPhase === "creating"
+                  ? "Saving dispute..."
+                  : (markExecutionPhase ?? "Marking escrow disputed...")}
+              </p>
+            ) : null}
+
+            {createdDisputeId ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Your dispute was saved.{" "}
+                <Link
+                  href={`/disputes/${createdDisputeId}`}
+                  className="underline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  View the dispute and its on-chain status
+                </Link>
+                .
+                {markTransactionHash ? (
+                  <p className="mt-2">
+                    <a
+                      href={getTxExplorerUrl(markTransactionHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      View transaction on Stellar Expert
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <AppButton
+                type="button"
+                variant="secondary"
                 disabled={isSubmitting}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe what happened, what has already been tried, and what evidence matters."
-                className="min-h-32 rounded-lg border-[#d8d8d8] bg-white"
-              />
-            </label>
-
-            <AttachmentUploader
-              value={attachments}
-              onChange={setAttachments}
-              disabled={isSubmitting}
-              ownerRole={ownerRole}
-            />
-          </div>
-
-          {error ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="flex flex-wrap justify-end gap-2">
-            <AppButton
-              type="button"
-              variant="secondary"
-              disabled={isSubmitting}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </AppButton>
-            <AppButton
-              type="button"
-              disabled={!canSubmit || isSubmitting}
-              onClick={() => void handleSubmit()}
-              className="disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Opening Dispute..." : "Open Dispute"}
-            </AppButton>
-          </div>
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </AppButton>
+              {!createdDisputeId ? (
+                <AppButton
+                  type="submit"
+                  disabled={!canSubmit}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submissionPhase === "creating"
+                    ? "Saving Dispute..."
+                    : submissionPhase === "marking"
+                      ? "Marking Escrow..."
+                      : submissionFailed
+                        ? "Retry Opening Dispute"
+                        : "Open Dispute"}
+                </AppButton>
+              ) : null}
+            </div>
+          </form>
         </ResponsiveDialogBody>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

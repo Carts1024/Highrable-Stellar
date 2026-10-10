@@ -20,6 +20,7 @@ const SearchSchema = z.object({
     ])
     .optional(),
   onChainStatus: z.enum(["not_marked", "marking", "marked", "mark_failed"]).optional(),
+  assignmentFilter: z.enum(["unassigned", "mine", "all"]).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
       adminApiSecret: adminContext.adminApiSecret,
       ...(parsed.status ? { status: parsed.status } : {}),
       ...(parsed.onChainStatus ? { onChainStatus: parsed.onChainStatus } : {}),
+      ...(parsed.assignmentFilter ? { assignmentFilter: parsed.assignmentFilter } : {}),
       ...(parsed.limit !== undefined ? { limit: parsed.limit } : {}),
     });
 
