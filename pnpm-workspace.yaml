@@ -1,6 +1,8 @@
 packages:
   - apps/*
   - packages/*
+publicHoistPattern:
+  - '@creit.tech/stellar-wallets-kit'
 allowBuilds:
   '@reown/appkit': true
   '@stellar/stellar-sdk': true

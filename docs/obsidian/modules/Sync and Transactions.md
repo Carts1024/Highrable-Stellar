@@ -2,7 +2,7 @@
 type: module
 area: integration
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-08
 source_of_truth: repository
 ---
 
@@ -60,6 +60,8 @@ manual sync → RPC simulation → safe internal mutation
 ## Common Change Locations
 
 Use `lib/stellarReads.ts` for RPC decoding/config; `sync.ts` for external reads and reasons; `syncMutations.ts` for safe local application; transaction schemas for new operation/fee types.
+
+Deliverable 2 C19 validates decoded escrow/completion IDs against the requested u64 ID, Stellar addresses, integer bounds, 32-byte hashes, status encodings, and completion ratings. Missing completion data remains distinct from a malformed record. A failed escrow read records failure metadata while preserving parent state; a valid retry can reconcile to disputed and clear that error. Generic sync still cannot finalize disputed escrow. See `docs/instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md` for local RPC-mocked and Convex action coverage.
 
 ## Risks / Gotchas
 

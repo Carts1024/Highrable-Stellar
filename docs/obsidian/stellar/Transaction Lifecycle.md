@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-26
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -16,9 +16,10 @@ The shared path in `apps/web/core/stellar/transaction.ts` is:
 2. Build the contract invocation with the configured network passphrase and a 30-second transaction timeout.
 3. Prepare/simulate the transaction through RPC.
 4. Ask the connected wallet to sign the prepared XDR.
-5. Submit the signed transaction.
-6. Poll for confirmation up to 18 attempts with a 1.5-second delay.
-7. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
+5. Persist any signed identity through the caller's `onSigned` barrier.
+6. Submit the signed transaction.
+7. Poll for confirmation up to 18 attempts with a 1.5-second delay.
+8. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
 
 `simulateContractCall` is the read/preflight helper. `invokeContract` is the signed submission helper.
 
@@ -34,11 +35,13 @@ With the Velo flag enabled, steps 1–4 are unchanged. The wallet signs the prep
 
 ## Local bookkeeping
 
-Product flows record phases in Convex before/after chain work. Escrows, disputes, cancellations, submissions, and transaction records carry transaction hashes and pending/success/failed states where the domain needs them. A local success record is not itself proof of chain finality; the chain hash and subsequent read/sync remain important.
+Product flows record phases in Convex before/after chain work. Escrows, disputes, cancellations, submissions, and transaction records carry transaction hashes and pending/success/failed states where the domain needs them. Participant dispute marking now records the signed external-wallet hash in a pending transaction before submission and keeps uncertain or possibly submitted outcomes pending. A confirmed chain result is recorded separately from later Convex dispute, transaction, and escrow bookkeeping; a failed bookkeeping step does not create an on-chain failure event or permit a second chain submission. A local success record is not itself proof of chain finality; the chain hash and subsequent read/sync remain important.
 
 ## Error interpretation
 
 `normalizeStellarError` distinguishes user rejection, missing/funded-account problems, simulation failures, wrong-wallet authorization, invalid escrow status, timeouts, and failed transactions. Confirmation timeouts retain the transaction hash so an operator can check the explorer before retrying.
+
+`invokeContract`, the shared transaction executor, and escrow wrappers accept optional execution-phase notifications for simulation, signing, submission, and confirmation. These notifications are observational only. The locally computed transaction hash is retained for signed-identity persistence failures, submission transport errors, confirmation failures/timeouts, and sponsored Velo handoff/status uncertainty; admin recovery reconciles that identity without resubmitting.
 
 ## Amounts and hashes
 

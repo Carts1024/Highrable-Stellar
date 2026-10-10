@@ -1,8 +1,6 @@
 "use client";
 
-import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
-import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import { AdminSessionGate } from "@/features/admin/admin-session-gate";
+import { AdminSessionGate, useAdminSessionAccess } from "@/features/admin/admin-session-gate";
 import {
   AdminBreakdownMatrix,
   AdminDisputeQueue,
@@ -13,16 +11,20 @@ import {
 } from "@/features/admin/components/admin-operations-ui";
 import { fetchAdminMetrics } from "@/features/admin/lib/admin-api";
 import { ProductPageHero, RouteCallout, RouteEmptyState } from "@/features/common";
-import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
+import {
+  getDisputeOnChainStatusLabel,
+  getDisputeStatusLabel,
+  isDisputeOnChainStatus,
+  isDisputeStatus,
+} from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminDashboardMetrics } from "@/features/admin/types";
 
-export function AdminDashboardPage() {
-  const { role, isLoading: isRoleLoading } = useDashboardRole();
-  const { authSession } = useWallet();
+export function AdminDashboardContent() {
+  const { isOwner } = useAdminSessionAccess();
   const [metrics, setMetrics] = useState<IAdminDashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +43,12 @@ export function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (role !== "admin" || !authSession) {
+    if (!isOwner) {
       return;
     }
 
     void loadMetrics();
-  }, [authSession, loadMetrics, role]);
+  }, [isOwner, loadMetrics]);
 
   const platformMetrics = useMemo<readonly IAdminMetricItem[]>(() => {
     if (!metrics) {
@@ -102,11 +104,17 @@ export function AdminDashboardPage() {
         title: "Disputes By Status",
         description: "Review queue state for open, waiting, and resolved cases.",
         values: metrics.disputes.byStatus,
+        formatLabel: (label) =>
+          isDisputeStatus(label) ? getDisputeStatusLabel(label) : formatBreakdownLabel(label),
       },
       {
         title: "Disputes By On-Chain",
         description: "On-chain marking state for dispute settlement integrity.",
         values: metrics.disputes.byOnChainStatus,
+        formatLabel: (label) =>
+          isDisputeOnChainStatus(label)
+            ? getDisputeOnChainStatusLabel(label)
+            : formatBreakdownLabel(label),
       },
     ];
   }, [metrics]);
@@ -140,31 +148,6 @@ export function AdminDashboardPage() {
     ];
   }, [metrics]);
 
-  if (isRoleLoading) {
-    return <p className="hr-text-secondary text-sm">Loading wallet access...</p>;
-  }
-
-  if (role === null) {
-    return (
-      <WalletRequiredNotice
-        title="Admin Dashboard"
-        description="Connect the configured admin wallet to access platform operations."
-      />
-    );
-  }
-
-  if (role !== "admin") {
-    return (
-      <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-        This route is restricted to the configured admin wallet.
-      </section>
-    );
-  }
-
-  if (!authSession) {
-    return <AdminSessionGate>{null}</AdminSessionGate>;
-  }
-
   return (
     <div className="space-y-6">
       <ProductPageHero
@@ -180,6 +163,9 @@ export function AdminDashboardPage() {
       <div className="flex flex-wrap items-center justify-end gap-2">
         <AppButton asChild variant="secondary" size="sm">
           <Link href="/admin/disputes">Open Dispute Console</Link>
+        </AppButton>
+        <AppButton asChild variant="secondary" size="sm">
+          <Link href="/admin/admins">Manage Dispute Admins</Link>
         </AppButton>
         <AppButton size="sm" onClick={() => void loadMetrics()} disabled={isLoading}>
           {isLoading ? "Refreshing..." : "Refresh Metrics"}
@@ -272,4 +258,16 @@ export function AdminDashboardPage() {
       )}
     </div>
   );
+}
+
+export function AdminDashboardPage() {
+  return (
+    <AdminSessionGate requiredCapability="owner">
+      <AdminDashboardContent />
+    </AdminSessionGate>
+  );
+}
+
+function formatBreakdownLabel(label: string): string {
+  return label.replaceAll("_", " ");
 }

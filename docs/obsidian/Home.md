@@ -2,7 +2,7 @@
 type: reference
 area: navigation
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-01
 source_of_truth: repository
 ---
 
@@ -84,6 +84,11 @@ This vault is a navigation and context index for humans and coding agents. It re
 - [[operations/Testing]]
 - [[operations/Deployment]]
 - [[operations/Security and Secrets]]
+
+## Evidence
+
+- [[evidence/C17-Settlement Attempt Regression Evidence]]
+- [[evidence/C22-Administrator Regression Evidence]]
 
 ## Existing Documentation
 
