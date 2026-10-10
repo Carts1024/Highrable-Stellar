@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
@@ -32,6 +32,7 @@ This classification is based on current source, tests, manifests, deployment art
 - Deliverable 2 C12 admin assignment and review controls are implemented on top of the existing endpoints and Convex-derived policy: normalized/deduplicated nonparticipant assignees, disabled historical inactive options, membership-read gating, participant/terminal claim guards, active-settlement detail reassignment locks, duplicate-submission prevention, cross-filter queue/detail cache invalidation, non-optimistic refreshes, preserved rejected drafts/conflicts, and read-only recovery after post-write refresh failure. Real session-gate coverage includes mutation 401/403 cache eviction and existing late wallet-response protection. Focused admin coverage passes 190 tests, full web coverage passes 303 tests, web TypeScript and scoped oxlint/oxfmt pass, and the production build passes. No backend policy, schema, generated file, wallet, environment, contract, deployment, transaction, audit/notification side effect, or live-chain behavior changed or was verified.
 - Administrator settlement records remain C17-hardened across started, signed, submission-unknown, succeeded, and failed callbacks. The earlier C17 implementation added validation and atomic replay-safe bookkeeping. Deliverable 2 C17 regression coverage now adds 32 deterministic in-memory tests for operation identity, all active-attempt phases, same-escrow locking, signed identity, phase/state guards, authorization, participant conflicts, complete snapshots, and side-effect idempotency. Focused C17+C21 coverage passes 50 tests; the full backend suite passes 330 tests across 12 files. No production violation was demonstrated or fixed. See the [C17 settlement-attempt evidence](evidence/C17-Settlement%20Attempt%20Regression%20Evidence.md).
 - External-wallet and passkey smart-account execution both route through shared escrow helpers and a wallet-specific transaction executor.
+- WalletConnect now reuses one Stellar Wallets Kit module and waits up to 10 seconds for its public readiness check before picker use and session restoration. A timed-out picker attempt leaves WalletConnect out while other kit wallets remain available; retry checks it again. Testnet/Mainnet chain selection and the kit's phone handoff/desktop QR presentation are retained, while local-network WalletConnect is disabled. The UI gives retryable cancellation/connection and identity-recording feedback. Connecting and recording identity do not create a signed server session. Freighter Mobile and desktop QR pairing remain unverified on devices, and this local evidence does not validate the configured project ID or relay.
 - Deadline reminder scanning is scheduled by Convex every 15 minutes.
 
 ## Implemented but Operationally Incomplete

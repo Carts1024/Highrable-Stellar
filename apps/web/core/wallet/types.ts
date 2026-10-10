@@ -73,7 +73,7 @@ export type TAuthChallenge = {
 };
 
 export interface IWalletClient {
-  connect(): Promise<TWalletAccount>;
+  connect(onNotice?: (message: string) => void): Promise<TWalletAccount>;
   getActiveWallet(): Promise<TWalletAccount>;
   getPublicKey(): Promise<string>;
   getNetwork(): Promise<{ network: string | null; isTestnet: boolean }>;

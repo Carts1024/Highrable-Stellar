@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-10
+
+- Completed WalletConnect mobile signup integration in the existing Stellar Wallets Kit adapter: reuse one module, poll readiness before picker/restoration, omit it on timeout while retaining other wallets, and allow retries. Added accessible connection and identity-recording feedback, phone/desktop instructions, and local-network exclusion. Focused adapter/UI tests cover readiness, chain selection, signing delegation, cancellation, connection failure, and identity persistence recovery. Device pairing and deployed project/relay configuration remain unverified.
 
 ## 2026-10-09
 
