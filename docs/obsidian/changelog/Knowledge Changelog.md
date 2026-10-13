@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-13
+
+- **Deliverable 3 C02 — Participant API Contract Coverage:** extended the existing Convex dispute contract suite with exact generated public-API key/name checks, local `FunctionArgs`/`FunctionReturnType` and `expectTypeOf` assertions for ten participant queries and six creation/evidence/response/marking mutations, exact status/marking/reason/event vocabulary checks, attachment and permission-result shapes, and unexpected-top-level-argument rejection with complete record snapshots. The focused schema/index/API run passes 62 tests and the full backend passes 364 tests; backend source/tests TypeScript, scoped oxlint, and oxfmt pass. No production, schema, generated, frontend, contract, dependency, deployment, or environment change was made. Evidence is local in-memory Convex contract coverage only; the SOW is missing from this checkout, and frontend, wallet-possession, and live-chain acceptance remain separate boundaries. See the [C02 evidence map](../../instawards/Deliverable-3-C02-Participant-API-Contract-Evidence.md).
 
 ## 2026-10-10
 
