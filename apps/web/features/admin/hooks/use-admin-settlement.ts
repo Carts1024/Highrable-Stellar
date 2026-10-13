@@ -416,7 +416,12 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       setError("Connect a signing-capable external Stellar wallet to settle.");
       return;
     }
-    if (!params.signTransaction) {
+    if (params.freelancerShareBps === null) {
+      setError("Enter a valid freelancer share before settling.");
+      return;
+    }
+    const signTransaction = params.signTransaction;
+    if (!signTransaction) {
       setError("External wallet signing is not available.");
       return;
     }
@@ -518,7 +523,9 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         sourceAddress: activeWalletAddress,
         disputeAdmin: connectedWallet,
       });
-      assertExecutionCurrent(token);
+      if (!isCurrent()) {
+        return;
+      }
       if (!isOnChainDisputeAdmin) {
         throw new Error("The connected wallet is not an active on-chain dispute admin.");
       }
@@ -532,7 +539,9 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         operationId,
         ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
       });
-      assertExecutionCurrent(token);
+      if (!isCurrent()) {
+        return;
+      }
       if (!("phase" in startedResponse) || startedResponse.phase !== "started") {
         throw new Error("Settlement start was not recorded.");
       }
@@ -552,12 +561,23 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         return signedXdr;
       };
 
+      if (!isCurrent()) {
+        return;
+      }
+
       await resolveDisputeOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
         sourceAddress: connectedWallet,
-        signTransaction,
+        signTransaction: (xdr, options) => {
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before signing. Reconcile the saved attempt.",
+            );
+          }
+          return signTransaction(xdr, options);
+        },
         walletType: "external_wallet",
         operationId,
         disputeAdmin: connectedWallet,
@@ -574,24 +594,34 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
           updatePhase(phaseMap[nextPhase], token);
         },
         onSigned: async ({ transactionHash, transactionValidUntil }) => {
-          assertExecutionCurrent(token);
-          updateAttempt({ operationId, transactionHash, transactionValidUntil }, token);
-          updatePhase("recording_signed_identity", token);
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before submission. Reconcile the saved attempt.",
+            );
+          }
+          updateAttempt({ operationId, transactionHash, transactionValidUntil });
+          updatePhase("recording_signed_identity");
           const signedResponse = await postAdminResolution(params.disputeId, {
             phase: "signed",
             operationId,
             transactionHash,
             transactionValidUntil,
           });
-          assertExecutionCurrent(token);
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before submission. Reconcile the saved attempt.",
+            );
+          }
           if (!("phase" in signedResponse) || signedResponse.phase !== "signed") {
             throw new Error("Signed transaction identity was not recorded.");
           }
         },
       });
 
-      assertExecutionCurrent(token);
-      updatePhase("recording_final", token);
+      if (!isCurrent()) {
+        return;
+      }
+      updatePhase("recording_final");
       const finalResponse = await postAdminResolution(params.disputeId, {
         phase: "succeeded",
         operationId,
@@ -604,10 +634,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         token,
       );
     } catch (nextError) {
-      if (!isExecutionCurrent(token)) {
+      // Preserve the saved operation for recovery by its verified administrator.
+      // Never continue bookkeeping under a different wallet or case.
+      if (!isCurrent()) {
         return;
       }
-
       params.handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
       const currentAttempt = readAttemptContext(attemptRef);
@@ -667,11 +698,9 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         await refreshAfterStateChange(token);
       }
     } finally {
-      if (executionRef.current === token) {
-        executionRef.current = null;
-        if (isCurrent()) {
-          setIsExecuting(false);
-        }
+      if (isCurrent()) {
+        executingRef.current = false;
+        setIsExecuting(false);
       }
     }
   }, [

@@ -9,14 +9,15 @@ const RAW_WALLETCONNECT_PROJECT_ID = env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 const HAS_WALLETCONNECT_PROJECT_ID =
   !!RAW_WALLETCONNECT_PROJECT_ID &&
   RAW_WALLETCONNECT_PROJECT_ID !== "REPLACE_WITH_YOUR_WALLETCONNECT_PROJECT_ID";
+const IS_LOCAL_NETWORK = NETWORK === "local";
 
-if (env.NODE_ENV === "production" && !HAS_WALLETCONNECT_PROJECT_ID) {
+if (env.NODE_ENV === "production" && !HAS_WALLETCONNECT_PROJECT_ID && !IS_LOCAL_NETWORK) {
   throw new Error(
     "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is required in production when WalletConnect is enabled.",
   );
 }
 
-if (env.NODE_ENV !== "production" && !HAS_WALLETCONNECT_PROJECT_ID) {
+if (env.NODE_ENV !== "production" && !HAS_WALLETCONNECT_PROJECT_ID && !IS_LOCAL_NETWORK) {
   // eslint-disable-next-line no-console
   console.warn(
     "WalletConnect project ID is not set. WalletConnect will be unavailable until NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is provided.",
@@ -42,6 +43,8 @@ export const WALLET_NETWORK_LABEL =
 export const WALLETCONNECT_PROJECT_ID = HAS_WALLETCONNECT_PROJECT_ID
   ? RAW_WALLETCONNECT_PROJECT_ID
   : undefined;
+export const WALLETCONNECT_ENABLED =
+  WALLET_NETWORK !== "local" && Boolean(WALLETCONNECT_PROJECT_ID);
 
 export function isWalletOnConfiguredNetwork(wallet: Pick<TWalletState, "isTestnet">): boolean {
   return WALLET_NETWORK === "mainnet" ? !wallet.isTestnet : wallet.isTestnet;

@@ -3,6 +3,7 @@ import {
   Address,
   BASE_FEE,
   Contract,
+  FeeBumpTransaction,
   nativeToScVal,
   rpc,
   scValToNative,
@@ -79,7 +80,7 @@ function normalizeAddress(value: unknown): string {
     return value.toString().toUpperCase();
   }
   if (typeof value === "string") {
-    return value.trim().toUpperCase();
+    return new Address(value.trim().toUpperCase()).toString();
   }
   throw new Error("Transaction invocation contains an unreadable Stellar address.");
 }
@@ -156,13 +157,44 @@ export async function verifyAdminChainOperation(args: {
 }): Promise<TAdminChainOperationStatus> {
   const config = getAdminChainConfig();
   assertAdminChainScope(config, args.network, args.contractId);
+  if (
+    !/^[0-9a-fA-F]{64}$/.test(args.transactionHash) ||
+    !Number.isSafeInteger(args.transactionValidUntil) ||
+    args.transactionValidUntil <= 0
+  ) {
+    throw new Error("The saved transaction hash or expiry is unreadable.");
+  }
   const server = createRpcServer(config);
   const response = await server.getTransaction(args.transactionHash);
 
   if (response.status === rpc.Api.GetTransactionStatus.NOT_FOUND) {
-    return response.latestLedgerCloseTime > args.transactionValidUntil + 5 ? "expired" : "pending";
+    if (
+      !Number.isSafeInteger(response.latestLedgerCloseTime) ||
+      response.latestLedgerCloseTime <= 0
+    ) {
+      throw new Error("Stellar returned an unreadable ledger close time; retry verification.");
+    }
+    return response.latestLedgerCloseTime - args.transactionValidUntil > 5 ? "expired" : "pending";
   }
 
+  if (
+    response.status !== rpc.Api.GetTransactionStatus.SUCCESS &&
+    response.status !== rpc.Api.GetTransactionStatus.FAILED
+  ) {
+    throw new Error("Stellar returned an unrecognized transaction status; retry verification.");
+  }
+  const transaction = TransactionBuilder.fromXDR(response.envelopeXdr, config.networkPassphrase);
+  const expectedHash = args.transactionHash.toLowerCase();
+  // Sponsored submissions can be looked up using the saved inner transaction hash.
+  if (
+    transaction.hash().toString("hex") !== expectedHash &&
+    !(
+      transaction instanceof FeeBumpTransaction &&
+      transaction.innerTransaction.hash().toString("hex") === expectedHash
+    )
+  ) {
+    throw new Error("Stellar returned a transaction that does not match the saved hash.");
+  }
   assertExpectedInvocation(response.envelopeXdr, config, args.expected);
   return response.status === rpc.Api.GetTransactionStatus.SUCCESS ? "succeeded" : "failed";
 }
@@ -226,31 +258,40 @@ export async function readDisputedEscrowStatus(args: {
     method: "get_escrow",
     args: [nativeToScVal(BigInt(args.escrowId), { type: "u64" })],
   });
-  if (typeof value !== "object" || value === null || !("status" in value)) {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || !("status" in value)) {
     throw new Error("Escrow state could not be read from Stellar.");
   }
-  const escrow = value as { status: unknown; client: unknown; freelancer?: unknown };
+  const escrow = value as {
+    escrow_id?: unknown;
+    status: unknown;
+    client: unknown;
+    freelancer?: unknown;
+  };
+  if (normalizeInteger(escrow.escrow_id) !== BigInt(args.escrowId)) {
+    throw new Error("Stellar returned a different escrow; retry verification.");
+  }
   return {
     status: normalizeEnumValue(escrow.status),
     client: normalizeAddress(escrow.client),
-    freelancer:
-      escrow.freelancer === null || escrow.freelancer === undefined
-        ? null
-        : normalizeAddress(escrow.freelancer),
+    freelancer: escrow.freelancer === null ? null : normalizeAddress(escrow.freelancer),
   };
 }
 
 function normalizeEnumValue(value: unknown): string {
-  if (typeof value === "string") {
+  const statuses = ["Created", "Funded", "Submitted", "Released", "Cancelled", "Disputed"];
+  if (typeof value === "string" && statuses.includes(value)) {
     return value;
   }
   if (Array.isArray(value) && value.length === 1 && typeof value[0] === "string") {
-    return value[0];
+    return normalizeEnumValue(value[0]);
   }
-  if (typeof value === "object" && value !== null) {
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const keys = Object.keys(value);
     if (keys.length === 1 && keys[0]) {
-      return keys[0];
+      const payload = (value as Record<string, unknown>)[keys[0]];
+      if (payload === null || (Array.isArray(payload) && payload.length === 0)) {
+        return normalizeEnumValue(keys[0]);
+      }
     }
   }
   throw new Error("Escrow returned an unrecognized status.");

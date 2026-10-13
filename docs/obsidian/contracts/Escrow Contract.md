@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-07
 source_of_truth: repository
 ---
 
@@ -124,6 +124,14 @@ Mark and resolve event checks build complete expected maps from literal field na
 ## C20 terminal-state regression coverage
 
 Six focused Rust tests cover disputed escrows originating in both `Funded` and `Submitted`, rejecting submission, ordinary release, cancellation, and repeat marking by client, freelancer, and platform owner. Terminal matrices cover refund, split, and full-payout settlements from both origins, ordinary release, and cancellation from `Created` and `Funded`. Across 84 rejected invocations, exact invocation-scoped mock authorization and valid arguments isolate `InvalidStatus`; full escrow records, participant/contract balances, completion records, freelancer statistics, and dispute/transfer event counts are preserved. Timestamps advance and replacement hashes differ from fixture hashes. Existing positive, authorization, rounding, and rollback coverage remains intact. At C20 verification, the workspace passed 61 escrow and 9 reputation tests, and both WASM contracts built locally. At C01 verification, the workspace passed 64 escrow and 9 reputation tests and built both WASM contracts with the pnpm wrapper; see [C20 evidence](../../instawards/C20-Dispute-State-Regression-Evidence.md) for its original matrix, the [C01 handoff](../../instawards/Deliverable-2-C01-Dispute-Contract-Handoff.md), and the [C06 evidence](../../instawards/Deliverable-2-C06-Dispute-Guards-Evidence.md) for current local results. None of these results verifies deployed behavior.
+
+## Deliverable 2 C13 marking and settlement guards
+
+Three focused Rust tests bind mark authorization to the requested escrow ID and settlement authorization to the signer, escrow ID, basis-point share, and resolution hash. Missing/wrong signer authorization and mismatched invocation arguments abort at the Soroban host boundary without changing records, balances, reputation, or events. A 12-case lifecycle matrix settles both `Funded` and `Submitted` dispute origins through the owner and a registered dispute admin at `0`, `3_333`, and `10_000` bps. It verifies one matching terminal resolution event, stored terminal status, an untouched unrelated funded escrow, and rejection of identical, changed-share, changed-hash, and repeat-mark attempts. Rejections preserve the full record and all settlement bookkeeping after ledger time advances. The focused C13 filter passes 3 tests; `cargo test --workspace --locked` passes 72 escrow and 9 reputation tests, `pnpm contracts:build` builds both WASM contracts, and `cargo fmt --all -- --check` passes. Production contract code is unchanged. See the [Deliverable 2 C13 evidence](../../instawards/Deliverable-2-C13-Dispute-State-Guards-Evidence.md). Mock authorization does not prove signatures or deployed behavior.
+
+## Deliverable 2 C18 settlement invariants and arithmetic
+
+Dispute settlement computes the freelancer payout using quotient/remainder arithmetic, preserving floor rounding while avoiding overflow for positive `i128` escrow amounts and valid shares through `10_000` bps. The client receives the remainder; status, timestamps, authorization, storage, and event interfaces are unchanged. Three C18 tests cover 120 combinations across common amount/share boundaries, both dispute origins, and both admin roles; seven large-amount cases through `i128::MAX`; and refund/split/full settlement while preserving same-token and other-token escrow funds. They verify exact event amounts, complete records, and that contract balance decreases by exactly the settled amount. `cargo test --locked -p highrable-escrow c18_` passes 3 tests; `cargo test --workspace --locked` passes 75 escrow and 9 reputation tests; formatting and both WASM builds pass. The original arithmetic aborted on the `i128::MAX` regression before the fix. See the [C18 evidence](../../instawards/Deliverable-2-C18-Settlement-Invariants-Evidence.md). This is local mocked-authorization evidence, not wallet-signature or deployed-contract verification.
 
 ## Deployment Configuration
 
