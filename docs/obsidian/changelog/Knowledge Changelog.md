@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-10-14
 
+- **Deliverable 2 C08:** require previous-dispute message evidence to match the current work's client and freelancer, closing a gap where work links and conversation membership alone passed. Four public-mutation regressions cover both parent kinds and participant fields, atomic rejection, and valid-history compatibility. Full backend: 365 tests passed. See [C08 evidence](../../instawards/Deliverable-2-C08-Evidence-Validation-Evidence.md).
+
 - **Deliverable 2 C04:** recover the participant route error boundary when the active wallet changes or disconnects; preserve manual retry without automatic retry loops for the same wallet. Three new regressions reproduce the stale error screen and verify recovery. See [C04 evidence](../../instawards/Deliverable-2-C04-Participant-Route-Evidence.md).
 
 ## 2026-10-09
