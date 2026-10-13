@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-13
+
+- **Deliverable 3 C01 — Participant Marking Contract:** froze the generated Soroban `DisputeMarkedEvent` field specification and added a regression proving uninitialized marking returns `NotInitialized` before caller authorization, without emitting events or changing initialization state. Existing participant-role, state, error, authorization, and event tests remain the behavior contract. See the [C01 participant marking handoff](../../instawards/Deliverable-3-C01-Participant-Marking-Contract-Handoff.md). Local mocked authorization does not prove wallet signatures or deployed Testnet behavior.
+
 ## 2026-10-10
 
 - Completed WalletConnect mobile signup integration in the existing Stellar Wallets Kit adapter: reuse one module, poll readiness before picker/restoration, omit it on timeout while retaining other wallets, and allow retries. Added accessible connection and identity-recording feedback, phone/desktop instructions, and local-network exclusion. Focused adapter/UI tests cover readiness, chain selection, signing delegation, cancellation, connection failure, and identity persistence recovery. Device pairing and deployed project/relay configuration remain unverified.

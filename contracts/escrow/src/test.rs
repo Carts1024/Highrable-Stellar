@@ -11,7 +11,7 @@ use highrable_reputation::{
 };
 use soroban_sdk::xdr::{
     Limits, ReadXdr, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeResult,
-    ScSpecTypeTuple,
+    ScSpecTypeTuple, ScSpecTypeUdt,
 };
 use soroban_sdk::{
     contract, contractimpl, contracttype,
@@ -1116,6 +1116,48 @@ fn dispute_method_specs_are_frozen() {
             ),
         ],
     );
+}
+
+#[test]
+fn d3_c01_mark_event_spec_is_frozen() {
+    let ScSpecEntry::UdtStructV0(spec) = decode_spec_entry(&DisputeMarkedEvent::spec_xdr()) else {
+        panic!("expected a struct spec for DisputeMarkedEvent");
+    };
+
+    assert_eq!(spec.name.to_string(), "DisputeMarkedEvent");
+    let actual_fields = spec
+        .fields
+        .iter()
+        .map(|field| (field.name.to_string(), field.type_.clone()))
+        .collect::<std::vec::Vec<_>>();
+    let expected_fields = [
+        ("actor".to_string(), ScSpecTypeDef::Address),
+        (
+            "status".to_string(),
+            ScSpecTypeDef::Udt(ScSpecTypeUdt {
+                name: "TEscrowStatus".try_into().unwrap(),
+            }),
+        ),
+        ("version".to_string(), ScSpecTypeDef::U32),
+    ];
+
+    assert_eq!(actual_fields, expected_fields);
+}
+
+#[test]
+fn d3_c01_uninitialized_mark_returns_error_before_authorization() {
+    let env: &'static Env = Box::leak(Box::new(Env::default()));
+    let contract_id = env.register(EscrowContract, ());
+    let client = EscrowContractClient::new(env, &contract_id);
+    let caller = Address::generate(env);
+
+    assert_eq!(client.is_initialized(), false);
+    let result = client.try_mark_disputed(&caller, &1);
+
+    assert_eq!(result, Err(Ok(Error::NotInitialized)));
+    assert!(env.auths().is_empty());
+    assert!(env.events().all().is_empty());
+    assert_eq!(client.is_initialized(), false);
 }
 
 #[test]
