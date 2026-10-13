@@ -169,4 +169,142 @@ describe("admin API client errors", () => {
       message: "Admin API returned an unrecognized settlement outcome.",
     });
   });
+
+  it("accepts started and signed acknowledgments only when they match the request", async () => {
+    const operationId = "resolve_dispute:case-1:operation-1";
+    const transactionHash = "a".repeat(64);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          jsonResponse(
+            {
+              success: true,
+              phase: "started",
+              result: { operationId, freelancerShareBps: 4321 },
+            },
+            200,
+          ),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse(
+            {
+              success: true,
+              phase: "signed",
+              result: { operationId, transactionHash: transactionHash.toUpperCase() },
+            },
+            200,
+          ),
+        ),
+    );
+
+    await expect(
+      postAdminResolution("case-1", {
+        phase: "started",
+        status: "split_resolution",
+        freelancerShareBps: 4321,
+        operationId,
+      }),
+    ).resolves.toMatchObject({ phase: "started" });
+    await expect(
+      postAdminResolution("case-1", {
+        phase: "signed",
+        operationId,
+        transactionHash,
+        transactionValidUntil: 123,
+      }),
+    ).resolves.toMatchObject({ phase: "signed" });
+  });
+
+  it.each([
+    [
+      "started operation ID",
+      { phase: "started", result: { operationId: "other", freelancerShareBps: 4321 } },
+      {
+        phase: "started",
+        status: "split_resolution",
+        freelancerShareBps: 4321,
+        operationId: "resolve_dispute:case-1:operation-1",
+      },
+    ],
+    [
+      "started basis points",
+      {
+        phase: "started",
+        result: { operationId: "resolve_dispute:case-1:operation-1", freelancerShareBps: 4322 },
+      },
+      {
+        phase: "started",
+        status: "split_resolution",
+        freelancerShareBps: 4321,
+        operationId: "resolve_dispute:case-1:operation-1",
+      },
+    ],
+    [
+      "signed operation ID",
+      { phase: "signed", result: { operationId: "other", transactionHash: "a".repeat(64) } },
+      {
+        phase: "signed",
+        operationId: "resolve_dispute:case-1:operation-1",
+        transactionHash: "a".repeat(64),
+        transactionValidUntil: 123,
+      },
+    ],
+    [
+      "signed transaction hash",
+      {
+        phase: "signed",
+        result: {
+          operationId: "resolve_dispute:case-1:operation-1",
+          transactionHash: "b".repeat(64),
+        },
+      },
+      {
+        phase: "signed",
+        operationId: "resolve_dispute:case-1:operation-1",
+        transactionHash: "a".repeat(64),
+        transactionValidUntil: 123,
+      },
+    ],
+  ] as const)("rejects mismatched %s acknowledgments", async (_caseName, body, request) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ success: true, ...body }, 200)),
+    );
+
+    await expect(postAdminResolution("case-1", request)).rejects.toMatchObject({
+      name: "AdminApiError",
+      message: expect.stringContaining("acknowledgment"),
+    });
+  });
+
+  it.each([
+    ["started", { success: true, phase: "started", result: {} }],
+    ["started", { success: true, phase: "started", result: { operationId: "op" } }],
+    ["signed", { success: true, phase: "signed", result: {} }],
+    ["signed", { success: true, phase: "signed", result: { operationId: "op" } }],
+  ] as const)("rejects malformed %s acknowledgments", async (phase, body) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(body, 200)));
+
+    const request =
+      phase === "started"
+        ? {
+            phase,
+            status: "resolved_client" as const,
+            freelancerShareBps: 0,
+            operationId: "op",
+          }
+        : {
+            phase,
+            operationId: "op",
+            transactionHash: "a".repeat(64),
+            transactionValidUntil: 123,
+          };
+
+    await expect(postAdminResolution("case-1", request)).rejects.toMatchObject({
+      name: "AdminApiError",
+      message: expect.stringContaining("acknowledgment"),
+    });
+  });
 });
