@@ -514,6 +514,12 @@ export const markDisputeOnChainFailed = mutation({
       throw new ConflictError("On-chain dispute marking must start before it can fail.");
     }
 
+    const effectiveTransactionHash = dispute.transactionHash ?? transactionHash;
+    const failureGuidance =
+      effectiveTransactionHash !== undefined
+        ? "The recorded transaction hash requires reconciliation before retrying."
+        : "Retry only if the operation was not submitted; otherwise, reconcile its outcome first.";
+
     await ctx.db.patch(dispute._id, {
       onChainStatus: "mark_failed",
       ...(transactionHash !== undefined ? { transactionHash } : {}),
@@ -527,24 +533,27 @@ export const markDisputeOnChainFailed = mutation({
       actorWallet,
       actorWalletType: args.actorWalletType,
       actorRole,
-      message:
-        "Dispute evidence was saved, but on-chain escrow dispute marking failed. Retry required.",
-      ...(transactionHash !== undefined ? { transactionHash } : {}),
+      message: `Dispute evidence was saved, but on-chain escrow dispute marking failed. ${failureGuidance}`,
+      ...(effectiveTransactionHash !== undefined
+        ? { transactionHash: effectiveTransactionHash }
+        : {}),
       metadata: { errorMessage },
     });
     const updated = await getDisputeOrThrow(ctx, args.disputeId);
     await createDisputeSystemMessage(ctx, {
       dispute: updated,
       eventType: "dispute_on_chain_mark_failed",
-      body: "Dispute update: on-chain dispute marking failed. Retry required.",
-      ...(transactionHash !== undefined ? { transactionHash } : {}),
+      body: `Dispute update: on-chain dispute marking failed. ${failureGuidance}`,
+      ...(effectiveTransactionHash !== undefined
+        ? { transactionHash: effectiveTransactionHash }
+        : {}),
     });
     await createDisputeNotification(ctx, {
       dispute: updated,
       recipientWallet: updated.openedByWallet,
       type: "dispute_on_chain_mark_failed",
       title: "On-chain dispute mark failed",
-      body: "Dispute evidence was saved, but on-chain marking failed. Please retry.",
+      body: `Dispute evidence was saved, but on-chain marking failed. ${failureGuidance}`,
     });
 
     return true;

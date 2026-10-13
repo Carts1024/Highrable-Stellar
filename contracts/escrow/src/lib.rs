@@ -553,7 +553,9 @@ impl EscrowContract {
         let contract_address = env.current_contract_address();
         let token_client = token::Client::new(&env, &escrow.asset);
 
-        let freelancer_amount = (escrow.amount * freelancer_share_bps as i128) / 10_000;
+        let share_bps = freelancer_share_bps as i128;
+        let freelancer_amount =
+            (escrow.amount / 10_000) * share_bps + ((escrow.amount % 10_000) * share_bps) / 10_000;
         let client_amount = escrow.amount - freelancer_amount;
 
         if freelancer_amount > 0 {
