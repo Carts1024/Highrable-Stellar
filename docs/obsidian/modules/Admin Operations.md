@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
@@ -17,6 +17,12 @@ Give the configured platform owner access to platform metrics and owner controls
 Admin dashboard, owner-managed dispute-admin membership, case assignment, and dispute settlement recovery are implemented in source. C14 adds frontend settlement hardening: resolution input is strict and text-preserving, fixed outcomes map to 0/10000 bps, split input accepts whole-number 1–9999 bps, and the optional note remains capped at 2,000 characters. C18 adds an admin settlement coordinator with explicit preparation, simulation, signing, signed-identity recording, submission, confirmation, final-recording, pending, and reconciliation feedback. The executor reports phases without changing routing and preserves the locally computed hash for submission/confirmation uncertainty, including sponsored execution. Resolution API results are typed and recognized outcomes only; `pending` and verified `failed` never render success. Reconciliation is manual and status-only, while signed operation context and a configured explorer link remain visible until the server establishes an outcome. C22 adds mocked protected-page integration and deferred coordinator regression coverage; the focused administrator suite passes 135 tests and the full web suite passes 211 tests. Settlement is enabled only for an assigned, nonparticipant admin using the verified, connected, signing-capable external wallet on the configured network, for one of the four nonterminal review statuses, with `marked` dispute state, an on-chain escrow ID, a `disputed` escrow mirror, and no active settlement attempt or concurrent action. The current recorded contract deployments predate dispute-admin membership; the new contract behavior is undeployed and requires a fresh isolated deployment. The platform owner remains `HIGHRABLE_ADMIN_WALLET_ADDRESS`; external dispute admins are stored separately from `users.role` and scoped to the configured Stellar network and escrow contract. C06 freezes the shared frontend dispute contract in `docs/instawards/C06-Frontend-Handoff.md`. This is platform-operated review, not decentralized arbitration.
 
 Deliverable 2 C03 adds runtime validation for successful admin-session payloads, limits session retries to network/5xx failures, and closes an already-loaded owner queue when its membership read returns 401/403, including protected-cache eviction against late responses. C03 validation passes 119 focused administrator tests, 255 full web tests, and the web production build. This is mocked browser/API regression evidence, not live-chain verification or completion of Day 1 or the full sprint.
+
+## Deliverable 3 C03 — Administrator Consumer Contract
+
+The administrator consumer contract is now covered by [`admin-consumer.contract.test.ts`](../../../apps/web/features/admin/admin-consumer.contract.test.ts) and its separate [C03 handoff](../../instawards/Deliverable-3-C03-Admin-Consumer-Handoff.md). Typed fixtures cover client-opened micro-gig and freelancer-opened milestone cases in their initial `open`/`not_marked` state, canonical participant and parent references, opening events, queue projection/envelope, detail parent nullability, assignment history, settlement attempts, and case-vs-timeline evidence. The test derives administrator and participant fields/statuses from `@repo/convex-client`, locks the eight dispute statuses, four marking statuses, and actor roles, and uses TypeScript negative assertions for forbidden shapes. It does not add runtime payload validation or change production APIs.
+
+Validation on `instawards/dev/bette` passes the focused administrator suite (8 files, 238 tests), web TypeScript, scoped oxlint, and scoped oxfmt. The full web suite remains at 412/414 passing: two existing participant integration assertions expect an older marking-success message while the current UI renders pending/recording-confirmation states. Mocked transport does not prove participant creation, backend authorization, wallet possession, or live-chain execution; broader C07/C19 integration coverage remains responsible for those boundaries.
 
 ## Deliverable 2 C11 - Admin Evidence Review
 

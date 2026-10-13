@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-13
+
+- **Deliverable 3 C03 — Administrator Consumer Contract:** added a substantive typed administrator consumer suite for client-opened micro-gig and freelancer-opened milestone cases. It locks the queue projection and `{ disputes }` envelope, detail/timeline/assignment/settlement/nullable-parent results, separate case/timeline evidence semantics, nullable and missing attachment resolution, shared generated participant/admin statuses and actor roles, typed credentialed uncached reads, empty queues, and 401/403/404 rejection. TypeScript negative assertions cover missing fields, wrong-table IDs, invalid statuses, incorrect envelopes, and unsupported nulls; no runtime API/schema/generated/wallet/contract behavior changed. Focused admin coverage passes 238 tests across 8 files; web TypeScript, scoped oxlint, and scoped oxfmt pass. The full web suite is 412/414 passing with two existing participant integration assertions still expecting older marking-success copy. See the [C03 administrator handoff](../../instawards/Deliverable-3-C03-Admin-Consumer-Handoff.md).
 
 ## 2026-10-10
 
