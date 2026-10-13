@@ -2,7 +2,7 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
@@ -11,6 +11,7 @@ source_of_truth: repository
 ## 2026-10-13
 
 - **Deliverable 3 C01 — Participant Marking Contract:** froze the generated Soroban `DisputeMarkedEvent` field specification and added a regression proving uninitialized marking returns `NotInitialized` before caller authorization, without emitting events or changing initialization state. Existing participant-role, state, error, authorization, and event tests remain the behavior contract. See the [C01 participant marking handoff](../../instawards/Deliverable-3-C01-Participant-Marking-Contract-Handoff.md). Local mocked authorization does not prove wallet signatures or deployed Testnet behavior.
+- **Deliverable 3 C05 — Participant Marking Guards:** added three Soroban tests for unassigned open escrow rejection, public assignment eligibility from `Funded`/`Submitted`, repeated marking, and participant isolation across separate escrows. Rejected calls preserve records, participant/contract balances, and event counts. The focused C05 suite passes 3 tests; the contract workspace passes 80 escrow and 9 reputation tests; Rust formatting and both WASM builds pass. See the [C05 evidence](../../instawards/Deliverable-3-C05-Participant-Marking-Guards-Evidence.md). This is local mocked-authorization evidence, not wallet-signature or deployed behavior.
 
 ## 2026-10-10
 
