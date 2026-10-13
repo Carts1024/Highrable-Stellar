@@ -17,6 +17,7 @@ import type {
 const runtime = vi.hoisted(() => ({
   wallet: {
     address: `G${"A".repeat(55)}`,
+    walletType: "external_wallet" as "external_wallet" | "passkey_smart_account",
     walletState: {
       isConnected: true,
       isTestnet: true,
@@ -72,7 +73,7 @@ vi.mock("@/features/disputes", () => ({
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => ({
     walletAddress: runtime.wallet.address,
-    walletType: "external_wallet" as const,
+    walletType: runtime.wallet.walletType,
   }),
 }));
 
@@ -191,6 +192,41 @@ function response(body: unknown, status = 200): Response {
   });
 }
 
+function withSettlementAcknowledgments(fetchMock: ReturnType<typeof vi.fn>) {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const nextResponse = (await fetchMock(input, init)) as Response | undefined;
+    if (!nextResponse || !String(input).endsWith("/resolve") || !init?.body) {
+      return nextResponse;
+    }
+
+    const request = JSON.parse(String(init.body)) as {
+      readonly phase?: string;
+      readonly operationId?: string;
+      readonly transactionHash?: string;
+    };
+    if (request.phase !== "started" && request.phase !== "signed") {
+      return nextResponse;
+    }
+
+    const body = (await nextResponse.json()) as {
+      readonly phase?: string;
+      readonly result?: Record<string, unknown>;
+    };
+    if (body.phase !== request.phase || !body.result) {
+      return response(body, nextResponse.status);
+    }
+
+    const result = {
+      ...body.result,
+      operationId: request.operationId,
+      ...(request.phase === "signed" && request.transactionHash
+        ? { transactionHash: request.transactionHash }
+        : {}),
+    };
+    return response({ ...body, result }, nextResponse.status);
+  });
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((nextResolve) => {
@@ -209,6 +245,19 @@ function renderDetail(disputeId = "dispute-1") {
     createElement(
       QueryClientProvider,
       { client: queryClient },
+      createElement(AdminDisputeDetailPage, { disputeId }),
+    ),
+  );
+}
+
+function rerenderDetail(
+  rendered: { readonly rerender: (ui: ReactNode) => void },
+  disputeId = "dispute-1",
+): void {
+  rendered.rerender(
+    createElement(
+      QueryClientProvider,
+      { client: runtime.queryClient as QueryClient },
       createElement(AdminDisputeDetailPage, { disputeId }),
     ),
   );
@@ -331,6 +380,12 @@ describe("AdminDisputeDetailPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    runtime.wallet.address = adminWallet;
+    runtime.wallet.walletType = "external_wallet";
+    runtime.wallet.walletState.isConnected = true;
+    runtime.wallet.walletState.isTestnet = true;
+    runtime.wallet.walletState.canWriteContracts = true;
+    runtime.wallet.signTransaction.mockReset();
     runtime.protectedApiError.mockReset();
     runtime.session.isOwner = false;
     runtime.stellar.markDisputedOnChain.mockReset();
@@ -458,7 +513,7 @@ describe("AdminDisputeDetailPage", () => {
         ? Promise.resolve(response(ownerMembership()))
         : Promise.resolve(response(detail)),
     );
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
 
@@ -495,7 +550,7 @@ describe("AdminDisputeDetailPage", () => {
         ? membership
         : Promise.resolve(response(createActiveDetail())),
     );
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
 
@@ -526,7 +581,7 @@ describe("AdminDisputeDetailPage", () => {
         ? Promise.resolve(response(ownerMembership()))
         : Promise.resolve(response(detail)),
     );
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
 
@@ -558,7 +613,7 @@ describe("AdminDisputeDetailPage", () => {
       detailRead += 1;
       return Promise.resolve(response(detailRead === 1 ? initialDetail : updatedDetail));
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
     const queryClient = runtime.queryClient;
@@ -593,7 +648,7 @@ describe("AdminDisputeDetailPage", () => {
       }
       return Promise.resolve(response(createActiveDetail()));
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
     const assignment = await screen.findByLabelText("Assign case to dispute admin");
@@ -626,7 +681,7 @@ describe("AdminDisputeDetailPage", () => {
           ? Promise.resolve(response({ error: "Detail refresh failed." }, 400))
           : Promise.resolve(response(updatedDetail));
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
     const assignment = await screen.findByLabelText("Assign case to dispute admin");
@@ -653,7 +708,7 @@ describe("AdminDisputeDetailPage", () => {
       .fn()
       .mockResolvedValueOnce(response(firstDetail))
       .mockResolvedValueOnce(response(secondDetail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     const rendered = renderDetail("dispute-1");
     const reviewSelect = await screen.findByLabelText("Review status");
@@ -754,7 +809,7 @@ describe("AdminDisputeDetailPage", () => {
         .mockResolvedValueOnce(response(detail))
         .mockResolvedValueOnce(response({ success: true }))
         .mockResolvedValueOnce(response(detail));
-      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
       renderDetail();
       await screen.findByText("Moderator workflow");
@@ -1048,7 +1103,7 @@ describe("AdminDisputeDetailPage", () => {
           ),
         )
         .mockResolvedValueOnce(response({ error: message }, status));
-      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
       renderDetail();
       expect(await screen.findByText("loaded-proof.pdf")).toBeTruthy();
@@ -1076,7 +1131,7 @@ describe("AdminDisputeDetailPage", () => {
       .mockResolvedValueOnce(response({ error: "Temporary detail failure." }, 500))
       .mockResolvedValueOnce(response({ error: "Temporary detail failure." }, 500))
       .mockResolvedValueOnce(response(recoveredDetail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
     await screen.findByText("Case evidence");
@@ -1139,7 +1194,7 @@ describe("AdminDisputeDetailPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(response(createActiveDetail({ dispute: { onChainStatus } })));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
 
@@ -1198,7 +1253,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "pending", result: { status: "submission_unknown" } }, 202),
       )
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
     fireEvent.click(await screen.findByRole("button", { name: "Reconcile" }));
@@ -1233,7 +1288,7 @@ describe("AdminDisputeDetailPage", () => {
       )
       .mockResolvedValueOnce(response({ status: "failed", result: true }))
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
         readonly onSigned: (value: {
@@ -1269,7 +1324,7 @@ describe("AdminDisputeDetailPage", () => {
       )
       .mockResolvedValueOnce(response({ success: true, phase: "failed", result: true }))
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockRejectedValueOnce(
       new Error("Transaction simulation failed: invalid escrow state"),
     );
@@ -1315,7 +1370,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "succeeded", result: { status: "resolved_client" } }),
       )
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain
       .mockRejectedValueOnce(new Error("Transaction simulation failed."))
       .mockImplementationOnce(
@@ -1385,7 +1440,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "succeeded", result: { status: "resolved_client" } }),
       )
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain
       .mockRejectedValueOnce(new Error("User rejected the wallet signature."))
       .mockImplementationOnce(
@@ -1462,7 +1517,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "succeeded", result: { status: "resolved_client" } }),
       )
       .mockResolvedValueOnce(response(resolvedDetail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain
       .mockImplementationOnce(
         async (args: {
@@ -1515,7 +1570,7 @@ describe("AdminDisputeDetailPage", () => {
       .mockReturnValueOnce(signedRecording.promise)
       .mockReturnValueOnce(finalRecording.promise)
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
         readonly onPhase: (phase: "simulation" | "signing" | "submission" | "confirmation") => void;
@@ -1604,7 +1659,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "pending", result: { status: "submission_unknown" } }, 202),
       )
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     const phases: string[] = [];
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
@@ -1662,7 +1717,7 @@ describe("AdminDisputeDetailPage", () => {
           response({ status: "pending", result: { status: "submission_unknown" } }, 202),
         )
         .mockResolvedValueOnce(response(detail));
-      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
       runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
         async (args: {
           readonly onPhase: (
@@ -1721,7 +1776,7 @@ describe("AdminDisputeDetailPage", () => {
         response({ status: "succeeded", result: { status: "resolved_client" } }),
       )
       .mockResolvedValueOnce(response(resolvedDetail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
         readonly onSigned: (value: {
@@ -1812,7 +1867,7 @@ describe("AdminDisputeDetailPage", () => {
           response({ status: "succeeded", result: { status, freelancerShareBps: expectedBps } }),
         )
         .mockResolvedValueOnce(response(detail));
-      vi.stubGlobal("fetch", fetchMock);
+      vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
       runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
         async (args: {
           readonly freelancerShareBps: number;
@@ -1880,7 +1935,7 @@ describe("AdminDisputeDetailPage", () => {
         }),
       )
       .mockResolvedValueOnce(response(detail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
         readonly freelancerShareBps: number;
@@ -1942,7 +1997,7 @@ describe("AdminDisputeDetailPage", () => {
       .mockResolvedValueOnce(response({ error: "Refresh failed." }, 500))
       .mockResolvedValueOnce(response({ error: "Refresh failed." }, 500))
       .mockResolvedValueOnce(response(resolvedDetail));
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
     runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
       async (args: {
         readonly onSigned: (value: {
@@ -1965,6 +2020,227 @@ describe("AdminDisputeDetailPage", () => {
     expect(await screen.findByText("No timeline events yet.")).toBeTruthy();
     expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it.each([
+    [
+      "wallet replacement",
+      (): void => {
+        runtime.wallet.address = secondAdminWallet;
+      },
+    ],
+    [
+      "disconnect",
+      (): void => {
+        runtime.wallet.walletState.isConnected = false;
+      },
+    ],
+    [
+      "network change",
+      (): void => {
+        runtime.wallet.walletState.isTestnet = false;
+      },
+    ],
+    [
+      "wallet mode change",
+      (): void => {
+        runtime.wallet.walletType = "passkey_smart_account";
+      },
+    ],
+  ] as const)(
+    "does not continue after a %s during membership preparation",
+    async (_label, change) => {
+      const membership = createDeferred<boolean>();
+      const detail = createActiveDetail({ dispute: { status: "under_review" } });
+      const fetchMock = vi.fn().mockResolvedValueOnce(response(detail));
+      vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+      runtime.stellar.isDisputeAdminOnChain.mockReturnValueOnce(membership.promise);
+
+      const rendered = renderDetail();
+      fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+      await waitFor(() => {
+        expect(runtime.stellar.isDisputeAdminOnChain).toHaveBeenCalledTimes(1);
+      });
+
+      change();
+      rerenderDetail(rendered);
+      membership.resolve(true);
+
+      await waitFor(() => {
+        expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("does not let an obsolete membership callback continue after a case replacement", async () => {
+    const membership = createDeferred<boolean>();
+    const firstDetail = createActiveDetail({ dispute: { status: "under_review" } });
+    const secondDetail = createActiveDetail({ dispute: { _id: "dispute-2" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(firstDetail))
+      .mockResolvedValueOnce(response(secondDetail));
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+    runtime.stellar.isDisputeAdminOnChain.mockReturnValueOnce(membership.promise);
+
+    const rendered = renderDetail("dispute-1");
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    await waitFor(() => {
+      expect(runtime.stellar.isDisputeAdminOnChain).toHaveBeenCalledTimes(1);
+    });
+
+    rerenderDetail(rendered, "dispute-2");
+    membership.resolve(true);
+
+    await waitFor(() => {
+      expect(screen.getByText("Resolve dispute on-chain")).toBeTruthy();
+    });
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not start Stellar execution when start recording resolves after the context changes", async () => {
+    const startedRecording = createDeferred<Response>();
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockReturnValueOnce(startedRecording.promise);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+
+    const rendered = renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    runtime.wallet.walletState.isTestnet = false;
+    rerenderDetail(rendered);
+    startedRecording.resolve(
+      response({
+        success: true,
+        phase: "started",
+        result: { operationId: "obsolete", freelancerShareBps: 0 },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks signing when the wallet context changes before the signer runs", async () => {
+    const signing = createDeferred<string>();
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "obsolete", freelancerShareBps: 0 },
+        }),
+      );
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+    runtime.wallet.signTransaction.mockReturnValueOnce(signing.promise);
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onPhase: (phase: "simulation" | "signing") => void;
+        readonly signTransaction: (xdr: string) => Promise<string>;
+      }) => {
+        args.onPhase("signing");
+        await args.signTransaction("prepared-xdr");
+      },
+    );
+
+    const rendered = renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    await waitFor(() => {
+      expect(runtime.wallet.signTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    runtime.wallet.address = secondAdminWallet;
+    rerenderDetail(rendered);
+    signing.resolve("signed-xdr");
+
+    await waitFor(() => {
+      expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not submit after signed-identity recording becomes obsolete", async () => {
+    const signedRecording = createDeferred<Response>();
+    const transactionHash = "a".repeat(64);
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "obsolete", freelancerShareBps: 0 },
+        }),
+      )
+      .mockReturnValueOnce(signedRecording.promise);
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+    let submissionReached = false;
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onSigned: (value: {
+          readonly transactionHash: string;
+          readonly transactionValidUntil: number;
+        }) => Promise<void>;
+      }) => {
+        await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+        submissionReached = true;
+      },
+    );
+
+    const rendered = renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    runtime.wallet.walletState.isConnected = false;
+    rerenderDetail(rendered);
+    signedRecording.resolve(
+      response({
+        success: true,
+        phase: "signed",
+        result: { operationId: "obsolete", transactionHash },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(submissionReached).toBe(false);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("isolates an unmounted settlement callback", async () => {
+    const membership = createDeferred<boolean>();
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+    runtime.stellar.isDisputeAdminOnChain.mockReturnValueOnce(membership.promise);
+
+    const rendered = renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+    await waitFor(() => {
+      expect(runtime.stellar.isDisputeAdminOnChain).toHaveBeenCalledTimes(1);
+    });
+    rendered.unmount();
+    membership.resolve(true);
+
+    await Promise.resolve();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
   });
 
   it("resets resolution drafts when switching cases", async () => {

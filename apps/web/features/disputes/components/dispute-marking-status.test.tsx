@@ -4,11 +4,24 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queries, mutations, markOnChain } = vi.hoisted(() => ({
-  queries: {} as Record<string, unknown>,
-  mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
-  markOnChain: vi.fn(),
-}));
+const { queries, mutations, markOnChain, walletIdentity, walletState, passkeyReadiness } =
+  vi.hoisted(() => ({
+    queries: {} as Record<string, unknown>,
+    mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
+    markOnChain: vi.fn(),
+    walletIdentity: {
+      walletAddress: "GCLIENT" as string | null,
+      walletType: "external_wallet" as "external_wallet" | "passkey_smart_account" | null,
+      isConnected: true,
+    },
+    walletState: {
+      isConnected: true,
+      canWriteContracts: true,
+      network: "Test SDF Network ; September 2015",
+      isTestnet: true,
+    },
+    passkeyReadiness: vi.fn(),
+  }));
 
 vi.mock("@repo/convex-client", () => ({
   api: {
@@ -33,12 +46,12 @@ vi.mock("convex/react", () => ({
   useMutation: (name: string) => mutations[name],
 }));
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
-  useHighrableWalletIdentity: () => ({ walletAddress: "GCLIENT", walletType: "external_wallet" }),
+  useHighrableWalletIdentity: () => walletIdentity,
 }));
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({
     address: "GCLIENT",
-    walletState: { isConnected: true, canWriteContracts: true },
+    walletState,
     signTransaction: vi.fn(),
   }),
 }));
@@ -58,7 +71,7 @@ vi.mock("@/core/stellar/explorer", () => ({
   getTxExplorerUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
 }));
 vi.mock("@/core/stellar/passkeySmartAccountExecutor", () => ({
-  getPasskeyEscrowExecutionReadiness: vi.fn(),
+  getPasskeyEscrowExecutionReadiness: passkeyReadiness,
 }));
 vi.mock("@/core/stellar/transaction", () => ({
   isPendingStellarTransactionError: () => false,
@@ -114,6 +127,14 @@ function detail(
 
 describe("C23 participant transaction states", () => {
   beforeEach(() => {
+    walletIdentity.walletAddress = "GCLIENT";
+    walletIdentity.walletType = "external_wallet";
+    walletIdentity.isConnected = true;
+    walletState.isConnected = true;
+    walletState.canWriteContracts = true;
+    walletState.network = "Test SDF Network ; September 2015";
+    walletState.isTestnet = true;
+    passkeyReadiness.mockReset();
     queries.permission = { allowed: true, role: "client" };
     queries.detail = detail("mark_failed");
     queries.agreement = null;
@@ -192,6 +213,41 @@ describe("C23 participant transaction states", () => {
     expect(screen.getByRole("link", { name: "View transaction on Stellar Expert" })).toBeTruthy();
   });
 
+  it("preserves a signed hash when recording that identity fails", async () => {
+    mutations.updateTransaction!.mockRejectedValueOnce(new Error("signed identity unavailable"));
+    markOnChain.mockImplementationOnce(
+      async (args: { onSigned: (identity: { transactionHash: string }) => Promise<void> }) => {
+        await args.onSigned({ transactionHash: hash });
+        return { txHash: hash };
+      },
+    );
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("outcome is uncertain"),
+    );
+    expect(mutations.markFailed).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "View transaction on Stellar Expert" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+  });
+
+  it.each(["simulation", "signing"] as const)(
+    "keeps a %s rejection retryable before submission",
+    async (phase) => {
+      markOnChain.mockImplementationOnce(async (args: { onPhase: (nextPhase: string) => void }) => {
+        args.onPhase(phase);
+        throw new Error(`${phase} rejected`);
+      });
+      render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toContain("before submission"),
+      );
+      expect(mutations.markFailed).toHaveBeenCalledOnce();
+      expect(screen.getByRole("button", { name: "Retry escrow marking" })).toBeTruthy();
+    },
+  );
+
   it("retries recording a confirmed result without submitting Stellar twice", async () => {
     mutations.markSucceeded!.mockRejectedValueOnce(new Error("Convex unavailable"));
     render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
@@ -223,5 +279,179 @@ describe("C23 participant transaction states", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
     await waitFor(() => expect(mutations.markSucceeded).toHaveBeenCalledOnce());
     expect(markOnChain).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps one lock through preparation, confirmation, and every recording step", async () => {
+    let finishChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishChain = resolve;
+        }),
+    );
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    const retry = screen.getByRole("button", { name: "Retry escrow marking" });
+    fireEvent.click(retry);
+    fireEvent.click(retry);
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledOnce());
+
+    finishChain({ txHash: hash });
+    await waitFor(() => expect(mutations.updateEscrow).toHaveBeenCalledOnce());
+    expect(markOnChain).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["signed success recording", "updateTransaction", "Recording confirmation"],
+    ["parent escrow recording", "updateEscrow", "Recording confirmation"],
+  ] as const)("recovers when %s fails without submitting Stellar twice", async (_, step, phase) => {
+    const recordingStep = mutations[step]!;
+    recordingStep.mockRejectedValueOnce(new Error(`${step} unavailable`));
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("Stellar confirmed"),
+    );
+    expect(screen.getByRole("button", { name: "Retry recording confirmation" })).toBeTruthy();
+    expect(phase).toBe("Recording confirmation");
+
+    const originalRecordingCall =
+      step === "updateTransaction" ? mutations.updateTransaction!.mock.calls[0]?.[0] : null;
+    fireEvent.click(screen.getByRole("button", { name: "Retry recording confirmation" }));
+    await waitFor(() => expect(recordingStep).toHaveBeenCalledTimes(2));
+    expect(markOnChain).toHaveBeenCalledOnce();
+    if (originalRecordingCall) {
+      expect(mutations.updateTransaction!).toHaveBeenLastCalledWith(originalRecordingCall);
+    }
+  });
+
+  it("keeps recording recovery visible when Convex already reports marked", async () => {
+    mutations.markSucceeded!.mockRejectedValueOnce(new Error("recording unavailable"));
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Retry recording confirmation" })).toBeTruthy(),
+    );
+
+    queries.detail = detail("marked", hash);
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.getByText(/still recording the result/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry recording confirmation" })).toBeTruthy();
+    view.unmount();
+  });
+
+  it("does not let a late chain completion update a navigated replacement view", async () => {
+    let finishChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishChain = resolve;
+        }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledOnce());
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-2" }));
+    finishChain({ txHash: hash });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mutations.markSucceeded).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Stellar confirmed this transaction/)).toBeNull();
+  });
+
+  it("invalidates an execution when participant permission is revoked", async () => {
+    let finishChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishChain = resolve;
+        }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledOnce());
+    queries.permission = { allowed: false, role: null, reason: "Access revoked." };
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    finishChain({ txHash: hash });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mutations.markSucceeded).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toContain("do not have access");
+  });
+
+  it("invalidates late completions after network and wallet-mode changes", async () => {
+    let finishChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishChain = resolve;
+        }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledOnce());
+    walletState.network = "Stellar Mainnet";
+    walletIdentity.walletAddress = "CSMARTACCOUNT";
+    walletIdentity.walletType = "passkey_smart_account";
+    passkeyReadiness.mockResolvedValue({ canExecute: true });
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    finishChain({ txHash: hash });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mutations.markSucceeded).not.toHaveBeenCalled();
+  });
+
+  it("invalidates late completions after disconnect and unmount", async () => {
+    let finishChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishChain = resolve;
+        }),
+    );
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledOnce());
+    walletIdentity.walletAddress = null;
+    walletIdentity.walletType = null;
+    walletIdentity.isConnected = false;
+    walletState.isConnected = false;
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    finishChain({ txHash: hash });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mutations.markSucceeded).not.toHaveBeenCalled();
+
+    walletIdentity.walletAddress = "GCLIENT";
+    walletIdentity.walletType = "external_wallet";
+    walletIdentity.isConnected = true;
+    walletState.isConnected = true;
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    let finishUnmountedChain!: (result: { txHash: string }) => void;
+    markOnChain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishUnmountedChain = resolve;
+        }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(markOnChain).toHaveBeenCalledTimes(2));
+    view.unmount();
+    finishUnmountedChain({ txHash: hash });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mutations.markSucceeded).not.toHaveBeenCalled();
+  });
+
+  it("blocks a hashless passkey submission uncertainty from retrying", async () => {
+    walletIdentity.walletAddress = "CSMARTACCOUNT";
+    walletIdentity.walletType = "passkey_smart_account";
+    passkeyReadiness.mockResolvedValue({ canExecute: true });
+    markOnChain.mockImplementationOnce((args: { onPhase: (phase: string) => void }) => {
+      args.onPhase("submission");
+      return Promise.reject(new Error("passkey handoff timed out"));
+    });
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("outcome is uncertain"),
+    );
+    expect(mutations.markFailed).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "View transaction on Stellar Expert" })).toBeNull();
   });
 });

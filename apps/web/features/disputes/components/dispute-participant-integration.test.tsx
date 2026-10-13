@@ -132,7 +132,12 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({
     address: wallet.walletAddress,
-    walletState: { isConnected: true },
+    walletState: {
+      isConnected: true,
+      canWriteContracts: true,
+      network: "Test SDF Network ; September 2015",
+      isTestnet: true,
+    },
     signTransaction: vi.fn(),
   }),
 }));
@@ -239,6 +244,7 @@ const dispute = {
   reasonCategory: "payment_release_disagreement",
   status: "open",
   onChainStatus: "marked",
+  onChainEscrowId: "chain-1",
   openedAt: 1,
   clientWallet: "GCLIENT",
   freelancerWallet: "GFREELANCER",
@@ -366,6 +372,41 @@ describe("participant detail integration and accessibility", () => {
         message: "Please review the invoice.",
       }),
     );
+  });
+
+  it("drives the real detail and timeline from failed marking through retry and confirmation", async () => {
+    const detailKey = detailArgs("dispute-1", "GCLIENT");
+    const timelineKey = timelineArgs("dispute-1", "GCLIENT");
+    setQueryResult("detail", detailKey, { ...dispute, onChainStatus: "mark_failed" });
+    setQueryResult("timeline", timelineKey, [timelineEvent("Historical marking failure.")]);
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    markOnChain.mockRejectedValueOnce(new Error("wallet rejected signing"));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("before submission"),
+    );
+    expect(markOnChain).toHaveBeenCalledOnce();
+
+    markOnChain.mockResolvedValueOnce({ txHash: "tx-confirmed" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(mutations.markSucceeded).toHaveBeenCalledOnce());
+    expect(stellarOperations).toHaveLength(2);
+
+    setQueryResult("detail", detailKey, {
+      ...dispute,
+      onChainStatus: "marked",
+      transactionHash: "tx-confirmed",
+    });
+    setQueryResult("timeline", timelineKey, [
+      timelineEvent("Historical marking failure."),
+      timelineEvent("Marking confirmed."),
+    ]);
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    expect(screen.getByText("Marking confirmed.")).toBeTruthy();
+    expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
   });
 
   it("hides both action forms when the case stops accepting participant submissions", () => {
