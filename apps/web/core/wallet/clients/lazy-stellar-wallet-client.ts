@@ -24,8 +24,8 @@ export class LazyStellarWalletClient implements IWalletClient {
     return await loadStellarWalletKitClient();
   }
 
-  public async connect(): Promise<TWalletAccount> {
-    return await (await this.getWalletClient()).connect();
+  public async connect(onNotice?: (message: string) => void): Promise<TWalletAccount> {
+    return await (await this.getWalletClient()).connect(onNotice);
   }
 
   public async getActiveWallet(): Promise<TWalletAccount> {
