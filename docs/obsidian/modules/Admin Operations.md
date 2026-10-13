@@ -24,6 +24,14 @@ The administrator consumer contract is now covered by [`admin-consumer.contract.
 
 Validation on `instawards/dev/bette` passes the focused administrator suite (8 files, 238 tests), web TypeScript, scoped oxlint, and scoped oxfmt. The full web suite remains at 412/414 passing: two existing participant integration assertions expect an older marking-success message while the current UI renders pending/recording-confirmation states. Mocked transport does not prove participant creation, backend authorization, wallet possession, or live-chain execution; broader C07/C19 integration coverage remains responsible for those boundaries.
 
+## Deliverable 3 C07 — Protected Administrator Case Visibility
+
+C07 extends the C03 generated-type approach into the real protected queue/detail harness. Typed client-opened micro-gig and freelancer-opened milestone fixtures enter the queue as unassigned `open` / `not_marked` cases and navigate to the matching detail under both active dispute-admin and owner sessions. The case brief shows the opener role/wallet, canonical parent type/reference, available job and milestone titles, and explicit unavailable linked records. Settlement remains disabled for newly opened, unmarked cases.
+
+`fetchAdminDispute` now rejects wrong-case results and contradictory supplied/returned parent, job, milestone, and escrow references before TanStack Query can cache them. Nullable parent records and absent optional references remain valid when no contradiction is present. Consistency failures use a generic non-retryable `AdminApiError`; the detail surface renders no case content or actions and provides only a return-to-queue link and manual read retry. See the [C07 evidence report](../../instawards/Deliverable-3-C07-Admin-Protected-Case-Visibility-Evidence.md).
+
+C07 local validation passes the focused administrator suite (8 files, 247 tests), web TypeScript, scoped oxlint/oxfmt, and the web production build. The full web suite is 421/423 passing across 27 files; the two preserved failures are the existing participant assertions documented by C03. This remains mocked frontend/session/API evidence and does not prove participant creation, backend authorization, wallet possession, or live-chain behavior.
+
 ## Deliverable 2 C11 - Admin Evidence Review
 
 The protected admin detail page now renders `IAdminDisputeDetail.dispute.attachments` in a dedicated case-evidence section, while timeline attachments remain associated with their source events. The shared `AdminEvidenceList` compares referenced attachment IDs with returned records, distinguishes `No evidence attached.` from `Evidence unavailable`, displays attachment metadata, validates HTTP/HTTPS opening URLs, and provides descriptive new-tab links only for active usable evidence. Deleted, blocked, missing, null-URL, and unsafe evidence has no opening action.

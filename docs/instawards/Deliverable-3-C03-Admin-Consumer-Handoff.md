@@ -87,3 +87,5 @@ The initial focused run also encountered the sandbox's Vitest/esbuild `spawn EPE
 ## Explicit limitations
 
 These are typed fixtures and mocked HTTP transports. They do not prove participant case creation, backend authorization, signed wallet possession, participant identity proof, administrator capability enforcement in Convex, live RPC behavior, wallet signing, deployed contract compatibility, or live-chain execution. They also do not replace broader integration coverage: C07 and C19 retain the wider administrator/cross-interface integration responsibilities in the Deliverable 3 plan.
+
+The follow-on protected visibility and consistency evidence is recorded in the [Deliverable 3 C07 administrator case visibility report](./Deliverable-3-C07-Admin-Protected-Case-Visibility-Evidence.md). C07 extends this generated-type fixture approach through the real protected session gate, admin API client, and TanStack Query cache without changing participant files, public API signatures, schemas, wallet execution, or contracts.

@@ -25,6 +25,7 @@ import {
   fetchAdminMembershipManagement,
   getAdminApiErrorMessage,
   isAdminAccessError,
+  isAdminConsistencyError,
   isAdminNetworkError,
   postAdminModeratorNote,
   postAdminAssignDispute,
@@ -79,7 +80,7 @@ import type {
   TAdminResolutionStatus,
   TAdminReviewStatus,
 } from "@/features/admin/types";
-import type { TDisputeStatus } from "@/features/disputes/types";
+import type { TDisputeParentType, TDisputeStatus } from "@/features/disputes/types";
 import type { ReactNode } from "react";
 
 const MAX_MODERATOR_NOTE_LENGTH = 4000;
@@ -189,6 +190,23 @@ function DefinitionItem({ label, children }: IDefinitionItemProps) {
   );
 }
 
+function getAdminParentTypeLabel(parentType: TDisputeParentType): string {
+  switch (parentType) {
+    case "micro_gig":
+      return "Micro-gig";
+    case "milestone":
+      return "Milestone";
+    case "escrow":
+      return "Escrow";
+    case "job":
+      return "Job";
+  }
+}
+
+function getAdminOpenedByRoleLabel(role: "client" | "freelancer"): string {
+  return role === "client" ? "Client" : "Freelancer";
+}
+
 function AdminDisputeDetailActions({
   detail,
   canRetryMarkDisputed,
@@ -240,6 +258,21 @@ function AdminDisputeDetailActions({
 }
 
 function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
+  const parentTypeLabel = getAdminParentTypeLabel(detail.dispute.parentType);
+  const hasLinkedJob =
+    Boolean(detail.dispute.jobId) ||
+    Boolean(detail.dispute.microGigId) ||
+    detail.job !== null ||
+    detail.dispute.parentType === "milestone" ||
+    detail.dispute.parentType === "escrow" ||
+    detail.dispute.parentType === "micro_gig" ||
+    detail.dispute.parentType === "job" ||
+    Boolean(detail.dispute.milestoneId);
+  const hasLinkedMilestone =
+    Boolean(detail.dispute.milestoneId) ||
+    detail.milestone !== null ||
+    detail.dispute.parentType === "milestone";
+
   return (
     <section className="border border-[#e8e8e8] bg-white">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
@@ -265,7 +298,18 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
           {formatDisputeDate(detail.dispute.updatedAt)}
         </DefinitionItem>
         <DefinitionItem label="Parent">
-          {detail.milestone ? "Milestone" : detail.job ? "Job" : detail.dispute.parentType}
+          {parentTypeLabel} · {detail.dispute.parentId}
+        </DefinitionItem>
+        <DefinitionItem label="Opened by">
+          {getAdminOpenedByRoleLabel(detail.dispute.openedByRole)} · {detail.dispute.openedByWallet}
+        </DefinitionItem>
+        <DefinitionItem label="Job">
+          {hasLinkedJob ? (detail.job?.title ?? "Unavailable linked job") : "Not linked"}
+        </DefinitionItem>
+        <DefinitionItem label="Milestone">
+          {hasLinkedMilestone
+            ? (detail.milestone?.title ?? "Unavailable linked milestone")
+            : "Not linked"}
         </DefinitionItem>
         <DefinitionItem label="Client Wallet">{detail.dispute.clientWallet}</DefinitionItem>
         <DefinitionItem label="Freelancer Wallet">{detail.dispute.freelancerWallet}</DefinitionItem>
@@ -1315,6 +1359,27 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
             disabled={detailQuery.isFetching}
           >
             Retry
+          </AppButton>
+        </RouteCallout>
+      );
+    }
+
+    if (isAdminConsistencyError(detailError)) {
+      return (
+        <RouteCallout tone="danger">
+          <span>Dispute detail could not be verified for consistency.</span>{" "}
+          <Link className="underline" href="/admin/disputes">
+            Return to the dispute queue
+          </Link>{" "}
+          <AppButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="ml-3"
+            onClick={() => void handleRetryDetailRead()}
+            disabled={detailQuery.isFetching}
+          >
+            {detailQuery.isFetching ? "Retrying..." : "Retry read"}
           </AppButton>
         </RouteCallout>
       );
