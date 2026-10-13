@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
@@ -16,6 +16,18 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens parent authorization; C09 validates related records and the opening audit; C13 makes on-chain marking callbacks idempotent; and C17 hardens settlement callbacks and recovery. C16 adds versioned Soroban dispute events, but no indexer or backend event ingestion consumes them. C06 freezes the shared frontend contract; C07 adds protected participant detail states; C11 adds eligibility-first creation and saved-case recovery; and C15 adds the participant timeline. A separate deployments/testnet-multi-admin.json records a Testnet contract ID and a September 29 timestamp at 09:41 +08, before commit c6cc7e1 added dispute-admin membership at 10:03 +08; canonical testnet.json remains the earlier deployment. The artifact has no code hash or deployment link, so it does not verify the membership-enabled build. C16 added events on September 30. Verify the contract identity and use a matching isolated contract/database scope before activation. This remains a platform-reviewed workflow, not decentralized arbitration.
+
+Deliverable 3 C06 closes a test-coverage gap in creation rejection and
+atomicity. `packages/backend/tests/fixtures/disputes.ts` now provides the
+typed `snapshotDisputeCreationState` helper used by the existing C05, C08, and
+C09 suites. It compares complete documents, including timestamps, across the
+dispute, evidence, related work, agreement, parent, conversation, message,
+notification, and deadline graph. Rejected missing/wrong-table references,
+participant and parent conflicts, revision-linked submission conflicts, hidden
+messages, conversation mismatches, deadline isolation, and input limits now
+assert exact errors plus unchanged before/after state after the invalid
+condition is arranged. Valid attachment and accepted-agreement context is
+seeded for related-record creation rejections. See the [C06 evidence map](../../instawards/Deliverable-3-C06-Creation-Rejection-and-Atomicity-Evidence.md).
 
 ## Primary Locations
 

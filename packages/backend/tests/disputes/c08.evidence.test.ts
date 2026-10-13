@@ -10,6 +10,7 @@ import {
   seedAcceptedDisputeAgreement,
   seedDisputeFixture,
   seedDisputeReferences,
+  snapshotDisputeCreationState as snapshotState,
   type BackendTest,
   type DisputeFixture,
 } from "../fixtures/disputes";
@@ -67,24 +68,6 @@ async function insertAttachment(
       updatedAt: now,
     });
   });
-}
-
-async function snapshotState(t: BackendTest) {
-  return await t.run(async (ctx) => ({
-    attachments: await ctx.db.query("attachments").collect(),
-    conversations: await ctx.db.query("conversations").collect(),
-    disputeEvents: await ctx.db.query("disputeEvents").collect(),
-    disputes: await ctx.db.query("disputes").collect(),
-    deadlineAuditEvents: await ctx.db.query("deadlineAuditEvents").collect(),
-    messages: await ctx.db.query("messages").collect(),
-    milestones: await ctx.db.query("milestones").collect(),
-    notifications: await ctx.db.query("notifications").collect(),
-    revisionRequests: await ctx.db.query("revisionRequests").collect(),
-    workAgreements: await ctx.db.query("workAgreements").collect(),
-    workAgreementEvents: await ctx.db.query("workAgreementEvents").collect(),
-    workAgreementVersions: await ctx.db.query("workAgreementVersions").collect(),
-    workSubmissions: await ctx.db.query("workSubmissions").collect(),
-  }));
 }
 
 describe("C08 dispute evidence association and validation", () => {
@@ -268,16 +251,20 @@ describe("C08 dispute evidence association and validation", () => {
     const attachmentId = await insertAttachment(t, fixture, { label: `26-${label}` });
 
     if (mutation === "create") {
+      await seedAcceptedDisputeAgreement(t, fixture);
+      const before = await snapshotState(t);
       await expect(
         createDispute(t, fixture, {
           evidenceAttachmentIds: Array.from({ length: 26 }, () => attachmentId),
         }),
-      ).rejects.toThrow(/25 files or fewer/);
+      ).rejects.toThrow(/Attach 25 files or fewer\./);
+      expect(await snapshotState(t)).toEqual(before);
       return;
     }
 
     const disputeId = await createDispute(t, fixture);
     if (mutation === "evidence") {
+      const before = await snapshotState(t);
       await expect(
         t.mutation(api.disputes.addDisputeEvidence, {
           disputeId,
@@ -285,10 +272,12 @@ describe("C08 dispute evidence association and validation", () => {
           actorWalletType: "external_wallet",
           attachmentIds: Array.from({ length: 26 }, () => attachmentId),
         }),
-      ).rejects.toThrow(/25 files or fewer/);
+      ).rejects.toThrow(/Attach 25 files or fewer\./);
+      expect(await snapshotState(t)).toEqual(before);
       return;
     }
 
+    const before = await snapshotState(t);
     await expect(
       t.mutation(api.disputes.addDisputeResponse, {
         disputeId,
@@ -297,7 +286,8 @@ describe("C08 dispute evidence association and validation", () => {
         message: "C08 response",
         attachmentIds: Array.from({ length: 26 }, () => attachmentId),
       }),
-    ).rejects.toThrow(/25 files or fewer/);
+    ).rejects.toThrow(/Attach 25 files or fewer\./);
+    expect(await snapshotState(t)).toEqual(before);
   });
 
   it("accepts exactly 20 repeated IDs in every related-reference array and persists each once", async () => {
@@ -329,6 +319,7 @@ describe("C08 dispute evidence association and validation", () => {
   ] as const)("rejects 21 repeated IDs in %s before writing", async (field) => {
     const t = convexTest(schema, modules);
     const fixture = await seedDisputeFixture(t, { label: `c08-21-${field}` });
+    await seedAcceptedDisputeAgreement(t, fixture);
     const references = await seedDisputeReferences(t, fixture);
     const referenceByField = {
       relatedWorkSubmissionIds: references.submissionId,
@@ -336,19 +327,27 @@ describe("C08 dispute evidence association and validation", () => {
       relatedMessageIds: references.messageId,
       relatedDeadlineEventIds: references.deadlineEventId,
     };
+    const expectedErrorByField = {
+      relatedWorkSubmissionIds: /Proof references can include 20 records or fewer\./,
+      relatedRevisionRequestIds: /Revision references can include 20 records or fewer\./,
+      relatedMessageIds: /Message references can include 20 records or fewer\./,
+      relatedDeadlineEventIds: /Deadline references can include 20 records or fewer\./,
+    };
     const before = await snapshotState(t);
 
     await expect(
       createDispute(t, fixture, {
         [field]: Array.from({ length: 21 }, () => referenceByField[field]),
+        evidenceAttachmentIds: [references.attachmentId],
       }),
-    ).rejects.toThrow(/20 records or fewer/);
+    ).rejects.toThrow(expectedErrorByField[field]);
     expect(await snapshotState(t)).toEqual(before);
   });
 
   it.each([
     {
       label: "missing",
+      expected: /Attachment not found\./,
       prepare: async (t: BackendTest, fixture: DisputeFixture) => {
         const id = await insertAttachment(t, fixture, { label: "missing" });
         await t.run(async (ctx) => ctx.db.delete(id));
@@ -357,36 +356,44 @@ describe("C08 dispute evidence association and validation", () => {
     },
     {
       label: "wrong-table",
+      expected: /Expected ID for table "attachments"/,
       prepare: async (_t: BackendTest, fixture: DisputeFixture) => {
         return fixture.jobId as unknown as Id<"attachments">;
       },
     },
     {
       label: "inactive",
+      expected: /Attachment not found\./,
       prepare: async (t: BackendTest, fixture: DisputeFixture) => {
         return await insertAttachment(t, fixture, { label: "inactive", status: "deleted" });
       },
     },
     {
       label: "foreign-owned",
+      expected: /You cannot use evidence files owned by another wallet\./,
       prepare: async (t: BackendTest, fixture: DisputeFixture) => {
         return await insertAttachment(t, fixture, { label: "foreign-owned", owner: "client" });
       },
     },
     {
       label: "other-case",
+      expected: /Attachment is already linked to another record\./,
       prepare: async (t: BackendTest, fixture: DisputeFixture) => {
-        return await insertAttachment(t, fixture, { label: "other-case", parentType: "job" });
+        return await insertAttachment(t, fixture, {
+          label: "other-case",
+          owner: "freelancer",
+          parentType: "job",
+        });
       },
     },
   ])(
     "rejects $label attachment references without changing the case",
-    async ({ label, prepare }) => {
+    async ({ label, expected, prepare }) => {
       const t = convexTest(schema, modules);
       const fixture = await seedDisputeFixture(t, { label: `c08-attachment-${label}` });
       const disputeId = await createDispute(t, fixture);
       const attachmentId = await prepare(t, fixture);
-      const before = await snapshotState(t);
+      const evidenceBefore = await snapshotState(t);
 
       await expect(
         t.mutation(api.disputes.addDisputeEvidence, {
@@ -395,7 +402,9 @@ describe("C08 dispute evidence association and validation", () => {
           actorWalletType: "passkey_smart_account",
           attachmentIds: [attachmentId],
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(expected);
+      expect(await snapshotState(t)).toEqual(evidenceBefore);
+      const responseBefore = await snapshotState(t);
       await expect(
         t.mutation(api.disputes.addDisputeResponse, {
           disputeId,
@@ -404,8 +413,8 @@ describe("C08 dispute evidence association and validation", () => {
           message: "Rejected attachment response",
           attachmentIds: [attachmentId],
         }),
-      ).rejects.toThrow();
-      expect(await snapshotState(t)).toEqual(before);
+      ).rejects.toThrow(expected);
+      expect(await snapshotState(t)).toEqual(responseBefore);
     },
   );
 
@@ -449,83 +458,106 @@ describe("C08 dispute evidence association and validation", () => {
     const participantFixture = await seedDisputeFixture(participantTest, {
       label: "c08-submission-participant",
     });
+    await seedAcceptedDisputeAgreement(participantTest, participantFixture);
     const participantReferences = await seedDisputeReferences(participantTest, participantFixture);
     await participantTest.run(async (ctx) =>
       ctx.db.patch(participantReferences.submissionId, {
         clientWallet: participantFixture.unrelatedWallet,
       }),
     );
+    const participantBefore = await snapshotState(participantTest);
     await expect(
       createDispute(participantTest, participantFixture, {
+        evidenceAttachmentIds: [participantReferences.attachmentId],
         relatedWorkSubmissionIds: [participantReferences.submissionId],
       }),
-    ).rejects.toThrow(/participants do not match/);
+    ).rejects.toThrow(/Work submission participants do not match the disputed work\./);
+    expect(await snapshotState(participantTest)).toEqual(participantBefore);
 
     const linkTest = convexTest(schema, modules);
     const linkFixture = await seedDisputeFixture(linkTest, { label: "c08-submission-link" });
     const otherFixture = await seedDisputeFixture(linkTest, { label: "c08-other-work" });
+    await seedAcceptedDisputeAgreement(linkTest, linkFixture);
     const linkReferences = await seedDisputeReferences(linkTest, linkFixture);
     await linkTest.run(async (ctx) =>
       ctx.db.patch(linkReferences.submissionId, { escrowId: otherFixture.escrowId }),
     );
+    const linkBefore = await snapshotState(linkTest);
     await expect(
       createDispute(linkTest, linkFixture, {
+        evidenceAttachmentIds: [linkReferences.attachmentId],
         relatedWorkSubmissionIds: [linkReferences.submissionId],
       }),
-    ).rejects.toThrow(/escrow link/);
+    ).rejects.toThrow(/Work submission escrow link does not match the disputed work\./);
+    expect(await snapshotState(linkTest)).toEqual(linkBefore);
 
     const revisionTest = convexTest(schema, modules);
     const revisionFixture = await seedDisputeFixture(revisionTest, { label: "c08-revision" });
+    await seedAcceptedDisputeAgreement(revisionTest, revisionFixture);
     const revisionReferences = await seedDisputeReferences(revisionTest, revisionFixture);
     await revisionTest.run(async (ctx) =>
       ctx.db.patch(revisionReferences.revisionRequestId, {
         freelancerWallet: revisionFixture.unrelatedWallet,
       }),
     );
+    const revisionParticipantBefore = await snapshotState(revisionTest);
     await expect(
       createDispute(revisionTest, revisionFixture, {
+        evidenceAttachmentIds: [revisionReferences.attachmentId],
         relatedRevisionRequestIds: [revisionReferences.revisionRequestId],
       }),
-    ).rejects.toThrow(/Revision request participants do not match/);
+    ).rejects.toThrow(/Revision request participants do not match the disputed work\./);
+    expect(await snapshotState(revisionTest)).toEqual(revisionParticipantBefore);
     await revisionTest.run(async (ctx) => {
       await ctx.db.patch(revisionReferences.revisionRequestId, {
         freelancerWallet: revisionFixture.freelancerWallet,
       });
       await ctx.db.delete(revisionReferences.submissionId);
     });
+    const revisionSubmissionBefore = await snapshotState(revisionTest);
     await expect(
       createDispute(revisionTest, revisionFixture, {
+        evidenceAttachmentIds: [revisionReferences.attachmentId],
         relatedRevisionRequestIds: [revisionReferences.revisionRequestId],
       }),
-    ).rejects.toThrow(/Work submission not found/);
+    ).rejects.toThrow(/Work submission not found\./);
+    expect(await snapshotState(revisionTest)).toEqual(revisionSubmissionBefore);
   });
 
   it("requires available messages, matching conversation/work links, both participants, and exact deadline parents", async () => {
     const hiddenTest = convexTest(schema, modules);
     const hiddenFixture = await seedDisputeFixture(hiddenTest, { label: "c08-hidden-message" });
+    await seedAcceptedDisputeAgreement(hiddenTest, hiddenFixture);
     const hiddenReferences = await seedDisputeReferences(hiddenTest, hiddenFixture);
     await hiddenTest.run(async (ctx) =>
       ctx.db.patch(hiddenReferences.messageId, { status: "hidden" }),
     );
+    const hiddenBefore = await snapshotState(hiddenTest);
     await expect(
       createDispute(hiddenTest, hiddenFixture, {
+        evidenceAttachmentIds: [hiddenReferences.attachmentId],
         relatedMessageIds: [hiddenReferences.messageId],
       }),
-    ).rejects.toThrow(/Message not found/);
+    ).rejects.toThrow(/Message not found or no longer available\./);
+    expect(await snapshotState(hiddenTest)).toEqual(hiddenBefore);
 
     const parentLinkTest = convexTest(schema, modules);
     const parentLinkFixture = await seedDisputeFixture(parentLinkTest, {
       label: "c08-message-parent-link",
     });
+    await seedAcceptedDisputeAgreement(parentLinkTest, parentLinkFixture);
     const parentLinkReferences = await seedDisputeReferences(parentLinkTest, parentLinkFixture);
     await parentLinkTest.run(async (ctx) =>
       ctx.db.patch(parentLinkReferences.messageId, { parentId: parentLinkFixture.jobId }),
     );
+    const parentLinkBefore = await snapshotState(parentLinkTest);
     await expect(
       createDispute(parentLinkTest, parentLinkFixture, {
+        evidenceAttachmentIds: [parentLinkReferences.attachmentId],
         relatedMessageIds: [parentLinkReferences.messageId],
       }),
-    ).rejects.toThrow(/parent links do not match/);
+    ).rejects.toThrow(/Message and conversation parent links do not match\./);
+    expect(await snapshotState(parentLinkTest)).toEqual(parentLinkBefore);
 
     const workLinkTest = convexTest(schema, modules);
     const workLinkFixture = await seedDisputeFixture(workLinkTest, {
@@ -534,6 +566,7 @@ describe("C08 dispute evidence association and validation", () => {
     const otherWorkLinkFixture = await seedDisputeFixture(workLinkTest, {
       label: "c08-message-other-work",
     });
+    await seedAcceptedDisputeAgreement(workLinkTest, workLinkFixture);
     const workLinkReferences = await seedDisputeReferences(workLinkTest, workLinkFixture);
     await workLinkTest.run(async (ctx) => {
       await ctx.db.patch(workLinkReferences.conversationId, {
@@ -545,16 +578,20 @@ describe("C08 dispute evidence association and validation", () => {
         parentId: otherWorkLinkFixture.jobId,
       });
     });
+    const workLinkBefore = await snapshotState(workLinkTest);
     await expect(
       createDispute(workLinkTest, workLinkFixture, {
+        evidenceAttachmentIds: [workLinkReferences.attachmentId],
         relatedMessageIds: [workLinkReferences.messageId],
       }),
-    ).rejects.toThrow(/Conversation is linked to a different job/);
+    ).rejects.toThrow(/Conversation is linked to a different job\./);
+    expect(await snapshotState(workLinkTest)).toEqual(workLinkBefore);
 
     const participantsTest = convexTest(schema, modules);
     const participantsFixture = await seedDisputeFixture(participantsTest, {
       label: "c08-message-participants",
     });
+    await seedAcceptedDisputeAgreement(participantsTest, participantsFixture);
     const participantsReferences = await seedDisputeReferences(
       participantsTest,
       participantsFixture,
@@ -564,17 +601,21 @@ describe("C08 dispute evidence association and validation", () => {
         participantWallets: [participantsFixture.clientWallet],
       }),
     );
+    const participantsBefore = await snapshotState(participantsTest);
     await expect(
       createDispute(participantsTest, participantsFixture, {
+        evidenceAttachmentIds: [participantsReferences.attachmentId],
         relatedMessageIds: [participantsReferences.messageId],
       }),
-    ).rejects.toThrow(/both dispute participants/);
+    ).rejects.toThrow(/Conversation must include both dispute participants\./);
+    expect(await snapshotState(participantsTest)).toEqual(participantsBefore);
 
     const deadlineTest = convexTest(schema, modules);
     const deadlineFixture = await seedDisputeFixture(deadlineTest, {
       parentType: "milestone",
       label: "c08-deadline-parent",
     });
+    await seedAcceptedDisputeAgreement(deadlineTest, deadlineFixture);
     const deadlineReferences = await seedDisputeReferences(deadlineTest, deadlineFixture);
     const siblingMilestoneId = await deadlineTest.run(async (ctx) =>
       ctx.db.insert("milestones", {
@@ -592,11 +633,14 @@ describe("C08 dispute evidence association and validation", () => {
     await deadlineTest.run(async (ctx) =>
       ctx.db.patch(deadlineReferences.deadlineEventId, { parentId: siblingMilestoneId }),
     );
+    const deadlineBefore = await snapshotState(deadlineTest);
     await expect(
       createDispute(deadlineTest, deadlineFixture, {
+        evidenceAttachmentIds: [deadlineReferences.attachmentId],
         relatedDeadlineEventIds: [deadlineReferences.deadlineEventId],
       }),
-    ).rejects.toThrow(/different work parent/);
+    ).rejects.toThrow(/Deadline event is linked to a different work parent\./);
+    expect(await snapshotState(deadlineTest)).toEqual(deadlineBefore);
   });
 
   it("rejects unrelated actors and terminal-case evidence or response writes", async () => {
@@ -666,7 +710,7 @@ describe("C08 dispute evidence association and validation", () => {
         relatedMessageIds: [creationReferences.messageId],
         relatedDeadlineEventIds: [creationReferences.deadlineEventId],
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Expected ID for table "workSubmissions", got/);
     expect(await snapshotState(creationTest)).toEqual(creationBefore);
 
     const participantTest = convexTest(schema, modules);
@@ -690,7 +734,7 @@ describe("C08 dispute evidence association and validation", () => {
         attachmentIds: [validAttachmentId],
         message: "   ",
       }),
-    ).rejects.toThrow(/message/i);
+    ).rejects.toThrow(/message is required/);
     await expect(
       participantTest.mutation(api.disputes.addDisputeResponse, {
         disputeId: participantDisputeId,
@@ -699,7 +743,7 @@ describe("C08 dispute evidence association and validation", () => {
         message: "\n",
         attachmentIds: [validAttachmentId],
       }),
-    ).rejects.toThrow(/message/i);
+    ).rejects.toThrow(/message is required/);
     expect(await snapshotState(participantTest)).toEqual(participantBefore);
     await expect(
       participantTest.mutation(api.disputes.addDisputeEvidence, {
@@ -709,7 +753,8 @@ describe("C08 dispute evidence association and validation", () => {
         attachmentIds: [validAttachmentId, invalidAttachmentId],
         message: "Mixed evidence",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Attachment not found\./);
+    expect(await snapshotState(participantTest)).toEqual(participantBefore);
     await expect(
       participantTest.mutation(api.disputes.addDisputeResponse, {
         disputeId: participantDisputeId,
@@ -718,7 +763,7 @@ describe("C08 dispute evidence association and validation", () => {
         message: "Mixed response",
         attachmentIds: [validAttachmentId, invalidAttachmentId],
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Attachment not found\./);
     expect(await snapshotState(participantTest)).toEqual(participantBefore);
   });
 });
