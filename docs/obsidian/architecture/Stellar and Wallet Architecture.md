@@ -2,7 +2,7 @@
 type: architecture
 area: stellar
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
@@ -27,6 +27,8 @@ feature hook
   → Stellar Wallets Kit sign callback
   → Stellar RPC submission and confirmation polling
 ```
+
+The Stellar Wallets Kit adapter reuses one WalletConnect module and waits for its public availability check before opening the wallet picker or restoring a stored WalletConnect selection. If it is not ready within 10 seconds, the picker attempt omits WalletConnect but leaves other installed kit wallets available; retrying performs a fresh readiness check. WalletConnect uses the configured Testnet/Mainnet chain and is disabled on local. The kit provides mobile handoff and desktop QR presentation; device pairing remains unverified.
 
 ## Passkey smart-account execution
 

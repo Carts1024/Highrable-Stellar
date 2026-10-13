@@ -335,4 +335,26 @@ describe("OpenDisputeDialog", () => {
     expect(screen.getByRole("link", { name: "View transaction on Stellar Expert" })).toBeTruthy();
     expect(screen.getByRole("link", { name: /View the dispute/ })).toBeTruthy();
   });
+
+  it("keeps the opening lock through deferred final bookkeeping", async () => {
+    let finishRecording!: () => void;
+    mutations.updateEscrow!.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRecording = () => resolve(undefined);
+        }),
+    );
+    renderDialog();
+    fillDraft();
+    const form = screen.getByLabelText("Title").closest("form");
+    if (!form) throw new Error("Expected the dispute form.");
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mutations.createDispute).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mutations.updateEscrow).toHaveBeenCalledOnce());
+    expect(markOnChain).toHaveBeenCalledOnce();
+    expect(mutations.createDispute).toHaveBeenCalledOnce();
+    finishRecording();
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
 });
