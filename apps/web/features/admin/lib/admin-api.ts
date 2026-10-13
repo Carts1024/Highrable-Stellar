@@ -388,11 +388,45 @@ export async function postAdminResolution(
   );
 
   const result = await readJsonOrThrow<unknown>(response);
-  if (payload.phase === "started" && isAdminResolutionStartedResponse(result)) {
-    return result;
+  if (payload.phase === "started") {
+    if (isAdminResolutionStartedResponse(result)) {
+      try {
+        assertStartedResolutionAcknowledgment(result, payload);
+        return result;
+      } catch {
+        throw new AdminApiError(
+          response.status,
+          "Admin API returned an invalid or mismatched settlement start acknowledgment.",
+          result,
+        );
+      }
+    }
+
+    throw new AdminApiError(
+      response.status,
+      "Admin API returned an invalid or mismatched settlement start acknowledgment.",
+      result,
+    );
   }
-  if (payload.phase === "signed" && isAdminResolutionSignedResponse(result)) {
-    return result;
+  if (payload.phase === "signed") {
+    if (isAdminResolutionSignedResponse(result)) {
+      try {
+        assertSignedResolutionAcknowledgment(result, payload);
+        return result;
+      } catch {
+        throw new AdminApiError(
+          response.status,
+          "Admin API returned an invalid or mismatched signed settlement acknowledgment.",
+          result,
+        );
+      }
+    }
+
+    throw new AdminApiError(
+      response.status,
+      "Admin API returned an invalid or mismatched signed settlement acknowledgment.",
+      result,
+    );
   }
   if (payload.phase === "failed" && isAdminResolutionFailedResponse(result)) {
     return result;
@@ -439,4 +473,51 @@ function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutc
     (value.status === "pending" || value.status === "succeeded" || value.status === "failed") &&
     hasResult(value)
   );
+}
+
+function normalizeTransactionHash(transactionHash: string): string {
+  return transactionHash.trim().toLowerCase();
+}
+
+function assertStartedResolutionAcknowledgment(
+  response: IAdminResolutionStartedResponse,
+  request: Extract<TAdminResolutionRequest, { phase: "started" }>,
+): void {
+  const result = response.result;
+  if (
+    !isRecord(result) ||
+    typeof result.operationId !== "string" ||
+    result.operationId !== request.operationId ||
+    typeof result.freelancerShareBps !== "number" ||
+    !Number.isFinite(result.freelancerShareBps) ||
+    !Number.isSafeInteger(result.freelancerShareBps) ||
+    result.freelancerShareBps !== request.freelancerShareBps
+  ) {
+    throw new Error("Settlement start acknowledgment does not match the request.");
+  }
+}
+
+function assertSignedResolutionAcknowledgment(
+  response: IAdminResolutionSignedResponse,
+  request: Extract<TAdminResolutionRequest, { phase: "signed" }>,
+): void {
+  const result = response.result;
+  if (
+    !isRecord(result) ||
+    typeof result.operationId !== "string" ||
+    result.operationId !== request.operationId ||
+    typeof result.transactionHash !== "string"
+  ) {
+    throw new Error("Signed settlement acknowledgment does not match the request.");
+  }
+
+  const requestedHash = normalizeTransactionHash(request.transactionHash);
+  const acknowledgedHash = normalizeTransactionHash(result.transactionHash);
+  if (
+    requestedHash.length === 0 ||
+    acknowledgedHash.length === 0 ||
+    acknowledgedHash !== requestedHash
+  ) {
+    throw new Error("Signed settlement acknowledgment does not match the request.");
+  }
 }
