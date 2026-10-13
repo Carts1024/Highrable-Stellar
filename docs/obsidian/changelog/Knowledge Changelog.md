@@ -2,11 +2,27 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-10
+
+- Completed WalletConnect mobile signup integration in the existing Stellar Wallets Kit adapter: reuse one module, poll readiness before picker/restoration, omit it on timeout while retaining other wallets, and allow retries. Added accessible connection and identity-recording feedback, phone/desktop instructions, and local-network exclusion. Focused adapter/UI tests cover readiness, chain selection, signing delegation, cancellation, connection failure, and identity persistence recovery. Device pairing and deployed project/relay configuration remain unverified.
+
+## 2026-10-09
+
+- **Deliverable 2 C22–C24:** added participant integration/accessibility and administrator/participant acceptance journeys, and corrected stale uncertainty feedback after confirmed marking while preserving bookkeeping retries. Final local suites pass 346 web, 361 backend, and 49 verifier tests. [C24 handoff](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) records the chronological commits and explicit local/live limits.
+
+- **Deliverable 2 C21:** prevented asynchronous administrator settlement continuation after wallet/case changes, including signing and signed-identity recording. Added nine protected-page integration regressions; existing basis-point and recovery tests are retained. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
+
+- **Deliverable 2 C20:** added a read-only deployment identity verifier and 49 local tests, checking explicit backend scope, actual local/remote WASM hashes, contract links, and changing/unreadable ledger evidence. Production build provenance and live verification remain blocked; no deployment or transaction was performed. See [C20 evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md).
+
+## 2026-10-08
+
+- **Deliverable 2 C19 — RPC normalization and recovery:** validate decoded record IDs and fields before sync, reject unknown transaction statuses and unreadable expiry evidence, and verify returned envelope hashes against saved settlement hashes with fee-bump support. Added 31 backend and 27 server recovery tests. Full suites pass 361 backend and 330 web tests; backend/test/web TypeScript and scoped lint/format checks pass. Evidence uses mocked RPC and local Convex execution; no configured deployment target or live-chain verification. See the [C19 evidence](../../instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md).
 
 ## 2026-10-07
 
@@ -38,6 +54,10 @@ source_of_truth: repository
 - Completed C22 administrator regression evidence: added real-gate protected queue/detail integration coverage for verification, wallet identity changes, disconnects, 401/403 cache eviction, stale responses, and retryable reads; extended settlement detail tests through deferred execution phases, signing/simulation retry, uncertainty reconciliation, verified failure retry, bps boundaries, explorer feedback, and read-only refresh recovery. Focused administrator coverage passes 135 tests and the full web suite passes 211 tests. Evidence is mocked component/integration coverage, not live Testnet end-to-end evidence.
 - Completed C21 dispute retry/reconciliation coverage. Added deterministic Convex integration tests for marking retries and known-hash recovery, partial parent/callback ordering, settlement retry and uncertainty, all micro-gig/milestone outcomes, sibling aggregation, sync terminal boundaries, callback integrity, and atomic missing-parent rollback. Added test-only scoped-admin and sibling-milestone fixtures; full backend coverage now passes 99 tests. No production backend defect was reproduced and no runtime/schema/generated-file change was needed.
 - Added C20 Soroban dispute/terminal regression coverage: six tests exercise 84 rejected invocations and preserve escrow records, balances, reputation, and event counts under scoped mock authorization. The workspace passes 61 escrow and 9 reputation tests; both WASM contracts build using the underlying Stellar CLI command. Recorded the coverage matrix, pnpm registry-DNS limitation, and local-only evidence in the C20 evidence document and testing/contract notes. Production contract behavior and deployment status remain unchanged.
+
+## 2026-10-02
+
+- Added the [Deliverable 1 implementation review](../../instawards/Highrable-Instawards-Deliverable-1-Implementation-Review.md) and refreshed the SOW snapshot through 8eb4514. Reconciled the separate September 29 multi-admin Testnet record with the later membership and event source: its 09:41 +08 timestamp predates the 10:03 +08 membership commit and it has no code hash or deployment link, so it does not prove the exact current WASM is deployed.
 
 ## 2026-09-30
 

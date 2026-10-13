@@ -340,7 +340,8 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       setError("Enter a valid freelancer share before settling.");
       return;
     }
-    if (!params.signTransaction) {
+    const signTransaction = params.signTransaction;
+    if (!signTransaction) {
       setError("External wallet signing is not available.");
       return;
     }
@@ -423,6 +424,9 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         sourceAddress: activeWalletAddress,
         disputeAdmin: connectedWallet,
       });
+      if (!isCurrent()) {
+        return;
+      }
       if (!isOnChainDisputeAdmin) {
         throw new Error("The connected wallet is not an active on-chain dispute admin.");
       }
@@ -436,6 +440,9 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         operationId,
         ...(sanitizedResolutionNote ? { resolutionNote: sanitizedResolutionNote } : {}),
       });
+      if (!isCurrent()) {
+        return;
+      }
       if (!("phase" in startedResponse) || startedResponse.phase !== "started") {
         throw new Error("Settlement start was not recorded.");
       }
@@ -444,12 +451,23 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         `dispute:${detail.dispute._id}:status:${params.resolutionStatus}:bps:${params.freelancerShareBps}:note:${sanitizedResolutionNote}`,
       );
 
+      if (!isCurrent()) {
+        return;
+      }
+
       await resolveDisputeOnChain({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
         sourceAddress: connectedWallet,
-        signTransaction: params.signTransaction,
+        signTransaction: (xdr, options) => {
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before signing. Reconcile the saved attempt.",
+            );
+          }
+          return signTransaction(xdr, options);
+        },
         walletType: "external_wallet",
         operationId,
         disputeAdmin: connectedWallet,
@@ -466,6 +484,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
           updatePhase(phaseMap[nextPhase]);
         },
         onSigned: async ({ transactionHash, transactionValidUntil }) => {
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before submission. Reconcile the saved attempt.",
+            );
+          }
           updateAttempt({ operationId, transactionHash, transactionValidUntil });
           updatePhase("recording_signed_identity");
           const signedResponse = await postAdminResolution(params.disputeId, {
@@ -474,12 +497,20 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
             transactionHash,
             transactionValidUntil,
           });
+          if (!isCurrent()) {
+            throw new Error(
+              "Settlement context changed before submission. Reconcile the saved attempt.",
+            );
+          }
           if (!("phase" in signedResponse) || signedResponse.phase !== "signed") {
             throw new Error("Signed transaction identity was not recorded.");
           }
         },
       });
 
+      if (!isCurrent()) {
+        return;
+      }
       updatePhase("recording_final");
       const finalResponse = await postAdminResolution(params.disputeId, {
         phase: "succeeded",
@@ -488,6 +519,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       const finalOutcome = assertSettlementOutcome(finalResponse);
       await finishOutcome(finalOutcome, readAttemptContext(attemptRef)?.transactionHash ?? null);
     } catch (nextError) {
+      // Preserve the saved operation for recovery by its verified administrator.
+      // Never continue bookkeeping under a different wallet or case.
+      if (!isCurrent()) {
+        return;
+      }
       params.handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
       const currentAttempt = readAttemptContext(attemptRef);
@@ -539,8 +575,8 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         await refreshAfterStateChange();
       }
     } finally {
-      executingRef.current = false;
       if (isCurrent()) {
+        executingRef.current = false;
         setIsExecuting(false);
       }
     }
