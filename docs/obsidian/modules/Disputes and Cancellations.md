@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
@@ -13,7 +13,6 @@ source_of_truth: repository
 Capture participant disputes/cancellations, evidence, responses, timeline events, on-chain state, and admin settlement/review operations.
 
 ## Current Status
-
 
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. C15 keeps the participant list scoped to the active wallet, renders readable actor and status transitions from Convex dispute events, and isolates timeline read errors so the dispute detail remains visible with a timeline retry. This remains a platform-reviewed workflow, not decentralized arbitration.
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, C13 hardens idempotent on-chain marking callbacks, and C17 hardens all five administrator settlement callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
@@ -118,6 +117,8 @@ Administrator detail review now displays case-level evidence separately from the
 The manual detail refresh is read-only and identity-scoped through the existing protected admin query. It replaces server-returned evidence/status, prevents duplicate refreshes, and removes stale content for 404/authorization failures while retaining retryable network/5xx errors. Real session-gate integration covers assigned-admin rendering, wallet changes, disconnects, and late detail responses; focused administrator coverage passes 173 tests and the full web suite passes 286 tests. This is mocked UI/session/API evidence, not live Convex, storage, or Stellar verification. The evidence map is `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
 
 ## C04 participant route regression coverage
+
+Deliverable 2 follow-up (2026-10-14): the shared participant route error fallback resets when the active wallet address changes, including disconnect. A failed read for the previous wallet therefore cannot strand the current wallet on the old error screen. Unchanged-wallet renders do not automatically retry, and the explicit Retry button remains available. Three added regressions bring the route-state file to 15 tests; see [C04 evidence](../../instawards/Deliverable-2-C04-Participant-Route-Evidence.md).
 
 `apps/web/features/disputes/components/dispute-route-states.test.tsx` now uses query fixtures keyed by Convex function and arguments, with explicit loading, result, and thrown-error states. Its 12 tests cover wallet-scoped list refresh/disconnect behavior; accessible recovery through the real participant route fallback for list, permission, detail, and agreement reads without exposing raw errors; permission-gated detail loading, missing and revoked access, dispute-ID navigation, current-wallet arguments, and suppression of evidence/actions/timeline before access; and every typed review and on-chain marking badge label while keeping the two status vocabularies separate. `apps/web/app/disputes/[disputeId]/page.test.tsx` adds 2 route-entry tests proving malformed IDs call `notFound()` before the detail panel and valid-looking IDs reach the existing participant permission flow.
 

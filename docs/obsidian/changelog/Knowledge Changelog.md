@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-14
+
+- **Deliverable 2 C04:** recover the participant route error boundary when the active wallet changes or disconnects; preserve manual retry without automatic retry loops for the same wallet. Three new regressions reproduce the stale error screen and verify recovery. See [C04 evidence](../../instawards/Deliverable-2-C04-Participant-Route-Evidence.md).
 
 ## 2026-10-09
 
