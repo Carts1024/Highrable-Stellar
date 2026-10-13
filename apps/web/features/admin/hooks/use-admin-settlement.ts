@@ -698,9 +698,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         await refreshAfterStateChange(token);
       }
     } finally {
-      if (isCurrent()) {
-        executingRef.current = false;
-        setIsExecuting(false);
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        if (isCurrent()) {
+          setIsExecuting(false);
+        }
       }
     }
   }, [
