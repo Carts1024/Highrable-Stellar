@@ -5,10 +5,22 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import React from "react";
 
 import type { TDisputeOnChainStatus } from "../types";
+import type { TParticipantMarkRecordingContext } from "./participant-marking";
 
 export type TLocalMarkOutcome =
-  | { kind: "pending"; transactionHash?: string }
-  | { kind: "confirmed_sync_pending"; transactionHash: string; recordingFailed?: boolean };
+  | {
+      kind: "pending";
+      disputeId: string;
+      transactionHash?: string;
+      recordingContext?: TParticipantMarkRecordingContext;
+    }
+  | {
+      kind: "confirmed_sync_pending";
+      disputeId: string;
+      transactionHash: string;
+      recordingContext: TParticipantMarkRecordingContext;
+      recordingFailed?: boolean;
+    };
 
 export function getDisputeMarkingPresentation(
   status: TDisputeOnChainStatus,
@@ -16,14 +28,6 @@ export function getDisputeMarkingPresentation(
   localOutcome?: TLocalMarkOutcome | null,
   terminal = false,
 ) {
-  if (status === "marked") {
-    return {
-      message: "Escrow dispute marking is confirmed on Stellar.",
-      transactionHash,
-      canRetry: false,
-      tone: "success" as const,
-    };
-  }
   if (localOutcome?.kind === "confirmed_sync_pending") {
     return {
       message:
@@ -40,6 +44,14 @@ export function getDisputeMarkingPresentation(
       transactionHash: localOutcome.transactionHash ?? transactionHash,
       canRetry: false,
       tone: "pending" as const,
+    };
+  }
+  if (status === "marked") {
+    return {
+      message: "Escrow dispute marking is confirmed on Stellar.",
+      transactionHash,
+      canRetry: false,
+      tone: "success" as const,
     };
   }
   if (status === "marking") {

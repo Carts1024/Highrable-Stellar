@@ -678,7 +678,15 @@ describe("protected administrator pages", () => {
             if (body.phase === "started")
               return pauseAt === "started"
                 ? started.promise
-                : Promise.resolve(response(startedBody));
+                : Promise.resolve(
+                    response({
+                      ...startedBody,
+                      result: {
+                        operationId: body.operationId,
+                        freelancerShareBps: body.freelancerShareBps,
+                      },
+                    }),
+                  );
             return Promise.resolve(response({ success: true, phase: "failed", result: true }));
           }
           return Promise.resolve(
