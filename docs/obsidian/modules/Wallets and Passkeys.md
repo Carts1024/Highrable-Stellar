@@ -2,7 +2,7 @@
 type: module
 area: wallet
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-10
 source_of_truth: repository
 ---
 
@@ -29,6 +29,8 @@ Both identity modes are implemented. Passkey escrow execution is compatibility-s
 ## Responsibilities
 
 - Connect/persist external wallet sessions through Stellar Wallets Kit.
+- Retain one WalletConnect module instance and poll its asynchronous readiness before picker use or session restoration; a timed-out picker attempt leaves other wallets available and can be retried.
+- Preserve the kit's configured Testnet/Mainnet WalletConnect chain and its phone handoff/desktop QR flow. WalletConnect is omitted on the local network and without a project ID.
 - Detect network/funding and use Friendbot only for testnet account funding.
 - Create, silently restore, reconnect, and choose among discovered smart accounts.
 - Persist `walletType` and active address to Convex.
@@ -63,6 +65,7 @@ Identity selection: `use-highrable-wallet-identity.ts`; external connection: wal
 - A `C...` address is a contract account and is not a classic RPC source account.
 - Changing WASM hash, verifier, or RP ID may require clearing namespaced local session storage and reconnecting.
 - Browser wallet connection state is not a substitute for signed backend authorization.
+- Freighter Mobile and desktop QR handoff still require manual device verification; source and mocked tests do not prove the configured project ID or relay works in deployment.
 
 ## Related Notes
 

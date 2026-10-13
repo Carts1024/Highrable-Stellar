@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-06
+last_updated: 2026-10-09
 source_of_truth: repository
 ---
 
@@ -38,6 +38,10 @@ Assignment, claim, and review actions reject overlapping submissions, clear stal
 - Shared admin checks: `packages/backend/convex/_shared/adminAuth.ts`
 
 ## Responsibilities
+
+Deliverable 2 C23 adds a coherent protected queue-to-resolution acceptance test, including a denied review write, access retry, uncertain saved transaction, verified recovery, and terminal queue/timeline refresh. Real Convex settlement and server recovery tests are linked as separate evidence; this is not a live end-to-end run. See [C23 evidence](../../instawards/Deliverable-2-C23-Admin-Acceptance-Evidence.md).
+
+Deliverable 2 C21 guards settlement continuation against wallet/case changes after asynchronous membership checks, start recording, hashing, simulation, signing, and signed-identity persistence. The signer and submission callback reject stale origins; saved attempts use the existing recovery path. Nine protected-page integration regressions supplement the existing phase/basis-point matrix. See [C21 evidence](../../instawards/Deliverable-2-C21-Admin-Resolution-Evidence.md).
 
 - Aggregate bounded metrics across users/jobs/escrows/disputes/submissions/revisions/reminders.
 - List and inspect disputes with filters.
@@ -96,6 +100,7 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - C14 settlement eligibility accepts `open`, `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`, but requires `marked` dispute state plus a `disputed` escrow mirror. Invalid bps text is retained for correction, and active settlement attempts disable new settlement while preserving reconciliation controls. Stellar simulation remains authoritative when the local mirror is stale.
 - C17 validates integer resolution basis points, 64-hex hashes, positive safe-integer expiries, normalized operation IDs, saved escrow/scope/terms, and non-empty failure messages. Matching callbacks are authorized before replay no-ops; signed/unknown callbacks retain their first phase and error, while owner recovery preserves the initiating administrator as the settlement actor.
 - Settlement audit events carry the operation identity and failure events carry any known transaction hash. Existing event types, public callback arguments, table fields, and server-side RPC verification boundary are unchanged.
+- Deliverable 2 C17 regression coverage expands the earlier implementation evidence to 32 focused tests. It covers normalized active-start identity, conflicting operation terms, failed-ID reuse, all active-attempt phases including compatibility `submitted`, same-escrow dispute locking, independent escrows, signed hash/expiry identity, missing callbacks, phase guards, terminal/non-disputed replay paths, scoped authorization, participant conflicts, full-record rollback, and one-time side effects. Focused C17+C21 coverage passes 50 tests and the full backend passes 330 tests across 12 files; no production violation was demonstrated or fixed. See the [C17 settlement-attempt evidence map](../evidence/C17-Settlement%20Attempt%20Regression%20Evidence.md).
 - Whole-unit payout truncation remains a known bookkeeping limitation; token-precision settlement arithmetic is a separate follow-up.
 - A marking failure retry starts a new chain operation; the `mark_failed` label alone does not establish transaction retry safety. C13 permits a retry only when no failed transaction hash is recorded, makes same-hash success replay harmless, and ignores stale failures after confirmation while rejecting conflicting hashes.
 - Review controls are limited to the three nonterminal review targets `under_review`, `awaiting_client_response`, and `awaiting_freelancer_response`. An `open` case initializes the selector to `under_review`; loaded review status is reapplied when the case or server status changes, while unsaved selection remains local until submission.
