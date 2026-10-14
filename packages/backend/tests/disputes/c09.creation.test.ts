@@ -10,6 +10,7 @@ import {
   seedAcceptedDisputeAgreement,
   seedDisputeFixture,
   seedDisputeReferences,
+  snapshotDisputeCreationState,
   type BackendTest,
   type DisputeFixture,
 } from "../fixtures/disputes";
@@ -25,20 +26,6 @@ function createArgs(fixture: DisputeFixture, overrides: Record<string, unknown> 
     description: "  First line\r\nsecond line  ",
     ...overrides,
   };
-}
-
-async function countCreationSideEffects(t: BackendTest) {
-  return await t.run(async (ctx) => ({
-    attachments: (await ctx.db.query("attachments").collect()).length,
-    conversations: (await ctx.db.query("conversations").collect()).length,
-    disputeEvents: (await ctx.db.query("disputeEvents").collect()).length,
-    disputes: (await ctx.db.query("disputes").collect()).length,
-    messages: (await ctx.db.query("messages").collect()).length,
-    notifications: (await ctx.db.query("notifications").collect()).length,
-    revisionRequests: (await ctx.db.query("revisionRequests").collect()).length,
-    workAgreementVersions: (await ctx.db.query("workAgreementVersions").collect()).length,
-    workSubmissions: (await ctx.db.query("workSubmissions").collect()).length,
-  }));
 }
 
 async function insertMessageForParent(
@@ -251,19 +238,24 @@ describe("C09 dispute creation references and opening audit", () => {
 
     const directTest = convexTest(schema, modules);
     const directFixture = await seedDisputeFixture(directTest, { label: "c09-direct-chat" });
+    await seedAcceptedDisputeAgreement(directTest, directFixture);
+    const directReferences = await seedDisputeReferences(directTest, directFixture);
     const directMessage = await insertMessageForParent(directTest, directFixture, {
       parentType: "direct",
       parentId: "client-freelancer",
     });
-    const before = await countCreationSideEffects(directTest);
+    const before = await snapshotDisputeCreationState(directTest);
 
     await expect(
       directTest.mutation(
         api.disputes.createDispute,
-        createArgs(directFixture, { relatedMessageIds: [directMessage.messageId] }),
+        createArgs(directFixture, {
+          evidenceAttachmentIds: [directReferences.attachmentId],
+          relatedMessageIds: [directMessage.messageId],
+        }),
       ),
-    ).rejects.toThrow(/Direct conversations/);
-    expect(await countCreationSideEffects(directTest)).toEqual(before);
+    ).rejects.toThrow(/Direct conversations cannot be used as dispute references\./);
+    expect(await snapshotDisputeCreationState(directTest)).toEqual(before);
   });
 
   it("accepts legacy records with omitted optional links and same-work previous disputes", async () => {
@@ -351,49 +343,65 @@ describe("C09 dispute creation references and opening audit", () => {
   it("rejects missing, wrong-table, participant-mismatched, and conflicting references atomically", async () => {
     const missingTest = convexTest(schema, modules);
     const missingFixture = await seedDisputeFixture(missingTest, { label: "c09-missing" });
+    await seedAcceptedDisputeAgreement(missingTest, missingFixture);
     const missingReferences = await seedDisputeReferences(missingTest, missingFixture);
     await missingTest.run(async (ctx) => ctx.db.delete(missingReferences.submissionId));
-    const missingBefore = await countCreationSideEffects(missingTest);
+    const missingBefore = await snapshotDisputeCreationState(missingTest);
 
     await expect(
       missingTest.mutation(
         api.disputes.createDispute,
-        createArgs(missingFixture, { relatedWorkSubmissionIds: [missingReferences.submissionId] }),
+        createArgs(missingFixture, {
+          evidenceAttachmentIds: [missingReferences.attachmentId],
+          relatedWorkSubmissionIds: [missingReferences.submissionId],
+        }),
       ),
-    ).rejects.toThrow(/Work submission not found/);
-    expect(await countCreationSideEffects(missingTest)).toEqual(missingBefore);
+    ).rejects.toThrow(/Work submission not found\./);
+    expect(await snapshotDisputeCreationState(missingTest)).toEqual(missingBefore);
 
     const wrongTableTest = convexTest(schema, modules);
     const wrongTableFixture = await seedDisputeFixture(wrongTableTest, {
       label: "c09-wrong-table",
     });
+    await seedAcceptedDisputeAgreement(wrongTableTest, wrongTableFixture);
+    const wrongTableReferences = await seedDisputeReferences(wrongTableTest, wrongTableFixture);
     const wrongTableId = wrongTableFixture.jobId as unknown as Id<"workSubmissions">;
+    const wrongTableBefore = await snapshotDisputeCreationState(wrongTableTest);
     await expect(
       wrongTableTest.mutation(
         api.disputes.createDispute,
-        createArgs(wrongTableFixture, { relatedWorkSubmissionIds: [wrongTableId] }),
+        createArgs(wrongTableFixture, {
+          evidenceAttachmentIds: [wrongTableReferences.attachmentId],
+          relatedWorkSubmissionIds: [wrongTableId],
+        }),
       ),
-    ).rejects.toThrow(/workSubmissions|Expected ID/i);
+    ).rejects.toThrow(/Expected ID for table "workSubmissions", got/);
+    expect(await snapshotDisputeCreationState(wrongTableTest)).toEqual(wrongTableBefore);
 
     const mismatchTest = convexTest(schema, modules);
     const mismatchFixture = await seedDisputeFixture(mismatchTest, { label: "c09-mismatch" });
+    await seedAcceptedDisputeAgreement(mismatchTest, mismatchFixture);
     const mismatchReferences = await seedDisputeReferences(mismatchTest, mismatchFixture);
     await mismatchTest.run(async (ctx) =>
       ctx.db.patch(mismatchReferences.submissionId, {
         clientWallet: mismatchFixture.unrelatedWallet,
       }),
     );
+    const mismatchBefore = await snapshotDisputeCreationState(mismatchTest);
     await expect(
       mismatchTest.mutation(
         api.disputes.createDispute,
         createArgs(mismatchFixture, {
+          evidenceAttachmentIds: [mismatchReferences.attachmentId],
           relatedWorkSubmissionIds: [mismatchReferences.submissionId],
         }),
       ),
-    ).rejects.toThrow(/participants do not match/);
+    ).rejects.toThrow(/Work submission participants do not match the disputed work\./);
+    expect(await snapshotDisputeCreationState(mismatchTest)).toEqual(mismatchBefore);
 
     const conflictTest = convexTest(schema, modules);
     const conflictFixture = await seedDisputeFixture(conflictTest, { label: "c09-conflict" });
+    await seedAcceptedDisputeAgreement(conflictTest, conflictFixture);
     const conflictReferences = await seedDisputeReferences(conflictTest, conflictFixture);
     const unrelatedFixture = await seedDisputeFixture(conflictTest, {
       label: "c09-conflicting-work",
@@ -403,32 +411,38 @@ describe("C09 dispute creation references and opening audit", () => {
         escrowId: unrelatedFixture.escrowId,
       }),
     );
+    const conflictBefore = await snapshotDisputeCreationState(conflictTest);
     await expect(
       conflictTest.mutation(
         api.disputes.createDispute,
         createArgs(conflictFixture, {
+          evidenceAttachmentIds: [conflictReferences.attachmentId],
           relatedWorkSubmissionIds: [conflictReferences.submissionId],
         }),
       ),
-    ).rejects.toThrow(/escrow link|valid escrow/i);
+    ).rejects.toThrow(/Work submission escrow link does not match the disputed work\./);
+    expect(await snapshotDisputeCreationState(conflictTest)).toEqual(conflictBefore);
   });
 
   it("checks raw count limits before deduplicating evidence and related records", async () => {
     const t = convexTest(schema, modules);
     const fixture = await seedDisputeFixture(t, { label: "c09-limits" });
+    await seedAcceptedDisputeAgreement(t, fixture);
     const references = await seedDisputeReferences(t, fixture);
-    const before = await countCreationSideEffects(t);
+    const relatedBefore = await snapshotDisputeCreationState(t);
 
     await expect(
       t.mutation(
         api.disputes.createDispute,
         createArgs(fixture, {
+          evidenceAttachmentIds: [references.attachmentId],
           relatedWorkSubmissionIds: Array.from({ length: 21 }, () => references.submissionId),
         }),
       ),
-    ).rejects.toThrow(/20 records or fewer/);
-    expect(await countCreationSideEffects(t)).toEqual(before);
+    ).rejects.toThrow(/Proof references can include 20 records or fewer\./);
+    expect(await snapshotDisputeCreationState(t)).toEqual(relatedBefore);
 
+    const evidenceBefore = await snapshotDisputeCreationState(t);
     await expect(
       t.mutation(
         api.disputes.createDispute,
@@ -436,29 +450,36 @@ describe("C09 dispute creation references and opening audit", () => {
           evidenceAttachmentIds: Array.from({ length: 26 }, () => references.attachmentId),
         }),
       ),
-    ).rejects.toThrow(/25 files or fewer/);
-    expect(await countCreationSideEffects(t)).toEqual(before);
+    ).rejects.toThrow(/Attach 25 files or fewer\./);
+    expect(await snapshotDisputeCreationState(t)).toEqual(evidenceBefore);
   });
 
   it("rejects hidden messages and exact-parent deadline mismatches without opening a dispute", async () => {
     const messageTest = convexTest(schema, modules);
     const messageFixture = await seedDisputeFixture(messageTest, { label: "c09-hidden-message" });
+    await seedAcceptedDisputeAgreement(messageTest, messageFixture);
     const messageReferences = await seedDisputeReferences(messageTest, messageFixture);
     await messageTest.run(async (ctx) =>
       ctx.db.patch(messageReferences.messageId, { status: "hidden" }),
     );
+    const messageBefore = await snapshotDisputeCreationState(messageTest);
     await expect(
       messageTest.mutation(
         api.disputes.createDispute,
-        createArgs(messageFixture, { relatedMessageIds: [messageReferences.messageId] }),
+        createArgs(messageFixture, {
+          evidenceAttachmentIds: [messageReferences.attachmentId],
+          relatedMessageIds: [messageReferences.messageId],
+        }),
       ),
-    ).rejects.toThrow(/Message not found/);
+    ).rejects.toThrow(/Message not found or no longer available\./);
+    expect(await snapshotDisputeCreationState(messageTest)).toEqual(messageBefore);
 
     const deadlineTest = convexTest(schema, modules);
     const deadlineFixture = await seedDisputeFixture(deadlineTest, {
       parentType: "milestone",
       label: "c09-sibling-milestone",
     });
+    await seedAcceptedDisputeAgreement(deadlineTest, deadlineFixture);
     const deadlineReferences = await seedDisputeReferences(deadlineTest, deadlineFixture);
     const siblingMilestoneId = await deadlineTest.run(async (ctx) =>
       ctx.db.insert("milestones", {
@@ -478,15 +499,16 @@ describe("C09 dispute creation references and opening audit", () => {
         parentId: siblingMilestoneId,
       }),
     );
-    const before = await countCreationSideEffects(deadlineTest);
+    const before = await snapshotDisputeCreationState(deadlineTest);
     await expect(
       deadlineTest.mutation(
         api.disputes.createDispute,
         createArgs(deadlineFixture, {
+          evidenceAttachmentIds: [deadlineReferences.attachmentId],
           relatedDeadlineEventIds: [deadlineReferences.deadlineEventId],
         }),
       ),
-    ).rejects.toThrow(/different work parent/);
-    expect(await countCreationSideEffects(deadlineTest)).toEqual(before);
+    ).rejects.toThrow(/Deadline event is linked to a different work parent\./);
+    expect(await snapshotDisputeCreationState(deadlineTest)).toEqual(before);
   });
 });
