@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   IAdminDisputeDetail,
+  IAdminDisputeListItem,
+  IAdminDisputesResponse,
   IAdminResolutionStartedResponse,
   IAdminResolutionSignedResponse,
   IAdminResolutionPendingResponse,
@@ -14,6 +16,7 @@ import type {
   TAdminReviewStatus,
   TAdminResolutionRequest,
 } from "./types";
+import type { TConvexDoc, TConvexId, TConvexTableName } from "@repo/convex-client";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
 const walletA = `G${"A".repeat(55)}`;
@@ -175,6 +178,14 @@ import { AdminDisputesPage } from "./admin-disputes-page";
 
 type TProtectedPage = "queue" | "detail";
 
+type TAdminJob = NonNullable<IAdminDisputeDetail["job"]>;
+type TAdminMilestone = NonNullable<IAdminDisputeDetail["milestone"]>;
+type TAdminEscrow = NonNullable<IAdminDisputeDetail["escrow"]>;
+
+function syntheticId<TTable extends TConvexTableName>(value: string): TConvexId<TTable> {
+  return value as TConvexId<TTable>;
+}
+
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -196,11 +207,15 @@ function createQueryClient(): QueryClient {
   });
 }
 
-function renderPage(page: TProtectedPage, queryClient = createQueryClient()) {
+function renderPage(
+  page: TProtectedPage,
+  queryClient = createQueryClient(),
+  disputeId = "dispute-1",
+) {
   const element =
     page === "queue"
       ? createElement(AdminDisputesPage)
-      : createElement(AdminDisputeDetailPage, { disputeId: "dispute-1" });
+      : createElement(AdminDisputeDetailPage, { disputeId });
   const rendered = render(createElement(QueryClientProvider, { client: queryClient }, element));
   return { ...rendered, queryClient };
 }
@@ -326,6 +341,242 @@ const detailWithEvidenceResponse = {
     },
   ],
 };
+
+const c07OpenedAt = 1_700_001_000_000;
+const c07ClientDisputeId = syntheticId<"disputes">("c07-client-micro-gig");
+const c07FreelancerDisputeId = syntheticId<"disputes">("c07-freelancer-milestone");
+const c07ClientJobId = syntheticId<"jobs">("c07-client-job");
+const c07MilestoneJobId = syntheticId<"jobs">("c07-milestone-job");
+const c07MilestoneId = syntheticId<"milestones">("c07-milestone");
+const c07ClientEscrowId = syntheticId<"escrows">("c07-client-escrow");
+const c07FreelancerEscrowId = syntheticId<"escrows">("c07-freelancer-escrow");
+
+const c07ClientDisputeDocument = {
+  _id: c07ClientDisputeId,
+  _creationTime: c07OpenedAt,
+  disputeNumber: "DSP-C07-CLIENT",
+  parentType: "micro_gig",
+  parentId: c07ClientJobId,
+  jobId: c07ClientJobId,
+  microGigId: c07ClientJobId,
+  escrowId: c07ClientEscrowId,
+  onChainEscrowId: "c07-client-chain-escrow",
+  clientWallet: "GCLIENT",
+  clientWalletType: "external_wallet",
+  freelancerWallet: "GFREELANCER",
+  freelancerWalletType: "external_wallet",
+  openedByWallet: "GCLIENT",
+  openedByWalletType: "external_wallet",
+  openedByRole: "client",
+  reasonCategory: "work_not_delivered",
+  title: "C07 client micro-gig case",
+  description: "A newly opened client dispute for a micro-gig.",
+  evidenceAttachmentIds: [],
+  relatedWorkSubmissionIds: [],
+  relatedRevisionRequestIds: [],
+  assignedAdminWallet: undefined,
+  assignedAt: undefined,
+  status: "open",
+  onChainStatus: "not_marked",
+  openedAt: c07OpenedAt,
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TConvexDoc<"disputes">;
+
+const c07FreelancerDisputeDocument = {
+  _id: c07FreelancerDisputeId,
+  _creationTime: c07OpenedAt + 1,
+  disputeNumber: "DSP-C07-FREELANCER",
+  parentType: "milestone",
+  parentId: c07MilestoneId,
+  jobId: c07MilestoneJobId,
+  milestoneId: c07MilestoneId,
+  escrowId: c07FreelancerEscrowId,
+  onChainEscrowId: "c07-freelancer-chain-escrow",
+  clientWallet: "GCLIENT",
+  clientWalletType: "external_wallet",
+  freelancerWallet: "GFREELANCER",
+  freelancerWalletType: "external_wallet",
+  openedByWallet: "GFREELANCER",
+  openedByWalletType: "external_wallet",
+  openedByRole: "freelancer",
+  reasonCategory: "payment_release_disagreement",
+  title: "C07 freelancer milestone case",
+  description: "A newly opened freelancer dispute for a milestone.",
+  evidenceAttachmentIds: [],
+  relatedWorkSubmissionIds: [],
+  relatedRevisionRequestIds: [],
+  assignedAdminWallet: undefined,
+  assignedAt: undefined,
+  status: "open",
+  onChainStatus: "not_marked",
+  openedAt: c07OpenedAt + 1,
+  createdAt: c07OpenedAt + 1,
+  updatedAt: c07OpenedAt + 1,
+} satisfies TConvexDoc<"disputes">;
+
+const c07ClientJob = {
+  _id: c07ClientJobId,
+  _creationTime: c07OpenedAt,
+  title: "C07 client micro-gig title",
+  description: "A typed C07 micro-gig parent.",
+  budget: 100,
+  asset: "USDC",
+  jobType: "micro_gig",
+  clientWallet: "GCLIENT",
+  selectedFreelancerWallet: "GFREELANCER",
+  status: "disputed",
+  jobHash: "c07-client-job-hash",
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TAdminJob;
+
+const c07MilestoneJob = {
+  _id: c07MilestoneJobId,
+  _creationTime: c07OpenedAt,
+  title: "C07 freelancer milestone project title",
+  description: "A typed C07 milestone parent job.",
+  budget: 500,
+  asset: "USDC",
+  jobType: "milestone_project",
+  totalBudget: 500,
+  milestoneCount: 1,
+  clientWallet: "GCLIENT",
+  selectedFreelancerWallet: "GFREELANCER",
+  status: "disputed",
+  jobHash: "c07-milestone-job-hash",
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TAdminJob;
+
+const c07Milestone = {
+  _id: c07MilestoneId,
+  _creationTime: c07OpenedAt,
+  jobId: c07MilestoneJobId,
+  order: 1,
+  title: "C07 freelancer milestone title",
+  description: "A typed C07 milestone.",
+  amount: 500,
+  asset: "USDC",
+  status: "disputed",
+  assignedFreelancerWallet: "GFREELANCER",
+  escrowId: "c07-freelancer-chain-escrow",
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TAdminMilestone;
+
+const c07ClientEscrow = {
+  _id: c07ClientEscrowId,
+  _creationTime: c07OpenedAt,
+  jobId: c07ClientJobId,
+  escrowId: "c07-client-chain-escrow",
+  clientWallet: "GCLIENT",
+  freelancerWallet: "GFREELANCER",
+  amount: 100,
+  asset: "USDC",
+  status: "disputed",
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TAdminEscrow;
+
+const c07FreelancerEscrow = {
+  _id: c07FreelancerEscrowId,
+  _creationTime: c07OpenedAt,
+  jobId: c07MilestoneJobId,
+  milestoneId: c07MilestoneId,
+  escrowId: "c07-freelancer-chain-escrow",
+  clientWallet: "GCLIENT",
+  freelancerWallet: "GFREELANCER",
+  amount: 500,
+  asset: "USDC",
+  status: "disputed",
+  createdAt: c07OpenedAt,
+  updatedAt: c07OpenedAt,
+} satisfies TAdminEscrow;
+
+const c07ClientOpeningEvent = {
+  _id: syntheticId<"disputeEvents">("c07-client-opened"),
+  _creationTime: c07OpenedAt,
+  disputeId: c07ClientDisputeId,
+  type: "dispute_opened",
+  actorWallet: "GCLIENT",
+  actorWalletType: "external_wallet",
+  actorRole: "client",
+  message: "Client opened the C07 micro-gig case.",
+  attachmentIds: [],
+  newStatus: "open",
+  createdAt: c07OpenedAt,
+  attachments: [],
+} satisfies IAdminDisputeDetail["timeline"][number];
+
+const c07FreelancerOpeningEvent = {
+  _id: syntheticId<"disputeEvents">("c07-freelancer-opened"),
+  _creationTime: c07OpenedAt + 1,
+  disputeId: c07FreelancerDisputeId,
+  type: "dispute_opened",
+  actorWallet: "GFREELANCER",
+  actorWalletType: "external_wallet",
+  actorRole: "freelancer",
+  message: "Freelancer opened the C07 milestone case.",
+  attachmentIds: [],
+  newStatus: "open",
+  createdAt: c07OpenedAt + 1,
+  attachments: [],
+} satisfies IAdminDisputeDetail["timeline"][number];
+
+const c07ClientDetail = {
+  dispute: { ...c07ClientDisputeDocument, attachments: [] },
+  timeline: [c07ClientOpeningEvent],
+  assignmentEvents: [],
+  settlementAttempts: [],
+  job: c07ClientJob,
+  milestone: null,
+  escrow: c07ClientEscrow,
+} satisfies IAdminDisputeDetail;
+
+const c07FreelancerDetail = {
+  dispute: { ...c07FreelancerDisputeDocument, attachments: [] },
+  timeline: [c07FreelancerOpeningEvent],
+  assignmentEvents: [],
+  settlementAttempts: [],
+  job: c07MilestoneJob,
+  milestone: c07Milestone,
+  escrow: c07FreelancerEscrow,
+} satisfies IAdminDisputeDetail;
+
+const c07ClientQueueItem = {
+  disputeId: c07ClientDisputeDocument._id,
+  disputeNumber: c07ClientDisputeDocument.disputeNumber,
+  title: c07ClientDisputeDocument.title,
+  status: c07ClientDisputeDocument.status,
+  onChainStatus: c07ClientDisputeDocument.onChainStatus,
+  reasonCategory: c07ClientDisputeDocument.reasonCategory,
+  clientWallet: c07ClientDisputeDocument.clientWallet,
+  freelancerWallet: c07ClientDisputeDocument.freelancerWallet,
+  openedAt: c07ClientDisputeDocument.openedAt,
+  updatedAt: c07ClientDisputeDocument.updatedAt,
+  assignedAdminWallet: c07ClientDisputeDocument.assignedAdminWallet,
+  assignedAt: c07ClientDisputeDocument.assignedAt,
+} satisfies IAdminDisputeListItem;
+
+const c07FreelancerQueueItem = {
+  disputeId: c07FreelancerDisputeDocument._id,
+  disputeNumber: c07FreelancerDisputeDocument.disputeNumber,
+  title: c07FreelancerDisputeDocument.title,
+  status: c07FreelancerDisputeDocument.status,
+  onChainStatus: c07FreelancerDisputeDocument.onChainStatus,
+  reasonCategory: c07FreelancerDisputeDocument.reasonCategory,
+  clientWallet: c07FreelancerDisputeDocument.clientWallet,
+  freelancerWallet: c07FreelancerDisputeDocument.freelancerWallet,
+  openedAt: c07FreelancerDisputeDocument.openedAt,
+  updatedAt: c07FreelancerDisputeDocument.updatedAt,
+  assignedAdminWallet: c07FreelancerDisputeDocument.assignedAdminWallet,
+  assignedAt: c07FreelancerDisputeDocument.assignedAt,
+} satisfies IAdminDisputeListItem;
+
+const c07QueueResponse = {
+  disputes: [c07ClientQueueItem, c07FreelancerQueueItem],
+} satisfies IAdminDisputesResponse;
 
 function sessionFor(wallet: string, isOwner = false) {
   return { adminWallet: wallet, isOwner, isDisputeAdmin: true };
@@ -875,6 +1126,124 @@ describe("protected administrator pages", () => {
       });
     },
   );
+
+  it.each([false, true] as const)(
+    "opens typed client and freelancer cases through the protected queue for %s sessions",
+    async (isOwner) => {
+      const details = new Map<string, IAdminDisputeDetail>([
+        [String(c07ClientDisputeId), c07ClientDetail],
+        [String(c07FreelancerDisputeId), c07FreelancerDetail],
+      ]);
+      const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/admin/session") {
+          return Promise.resolve(response(sessionFor(walletA, isOwner)));
+        }
+        if (url === "/api/admin/admins") {
+          return Promise.resolve(response({ admins: [], operations: [] }));
+        }
+        if (url.startsWith("/api/admin/disputes/")) {
+          const detail = details.get(decodeURIComponent(url.split("/").at(-1) ?? ""));
+          return Promise.resolve(detail ? response(detail) : response({ error: "Not found" }, 404));
+        }
+        if (url.startsWith("/api/admin/disputes")) {
+          return Promise.resolve(response(c07QueueResponse));
+        }
+        throw new Error(`Unexpected admin request: ${url}`);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const queue = renderPage("queue");
+      expect(await screen.findByText(c07ClientDisputeDocument.title)).toBeTruthy();
+      expect(await screen.findByText(c07FreelancerDisputeDocument.title)).toBeTruthy();
+
+      const reviewLinks = screen.getAllByRole("link", { name: "Review" });
+      expect(reviewLinks.map((link) => link.getAttribute("href"))).toEqual([
+        `/admin/disputes/${c07ClientDisputeId}`,
+        `/admin/disputes/${c07FreelancerDisputeId}`,
+      ]);
+
+      queue.unmount();
+      const clientDetail = renderPage("detail", queue.queryClient, String(c07ClientDisputeId));
+      expect(await screen.findByText(c07ClientDisputeDocument.title)).toBeTruthy();
+      expect(screen.getByText("Client · GCLIENT")).toBeTruthy();
+      expect(screen.getByText(`Micro-gig · ${c07ClientJobId}`)).toBeTruthy();
+      expect(screen.getByText(c07ClientJob.title)).toBeTruthy();
+      expect(screen.getByText("Not linked")).toBeTruthy();
+      expect(screen.getByText(c07ClientOpeningEvent.message)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Resolve On-Chain" }).hasAttribute("disabled"),
+      ).toBe(true);
+      clientDetail.unmount();
+
+      const freelancerDetail = renderPage(
+        "detail",
+        queue.queryClient,
+        String(c07FreelancerDisputeId),
+      );
+      expect(await screen.findByText(c07FreelancerDisputeDocument.title)).toBeTruthy();
+      expect(screen.getByText("Freelancer · GFREELANCER")).toBeTruthy();
+      expect(screen.getByText(`Milestone · ${c07MilestoneId}`)).toBeTruthy();
+      expect(screen.getByText(c07MilestoneJob.title)).toBeTruthy();
+      expect(screen.getByText(c07Milestone.title)).toBeTruthy();
+      expect(screen.getByText(c07FreelancerOpeningEvent.message)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: "Resolve On-Chain" }).hasAttribute("disabled"),
+      ).toBe(true);
+
+      expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(
+        true,
+      );
+      expect(runtime.wallet.signTransaction).not.toHaveBeenCalled();
+      expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+      freelancerDetail.unmount();
+    },
+  );
+
+  it("fails closed on a conflicting refresh and exposes only read recovery controls", async () => {
+    let detailReads = 0;
+    const conflictingDetail = {
+      ...c07ClientDetail,
+      dispute: {
+        ...c07ClientDetail.dispute,
+        _id: syntheticId<"disputes">("c07-different-case"),
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/admin/session") {
+        return Promise.resolve(response(sessionFor(walletA)));
+      }
+      if (url === `/api/admin/disputes/${c07ClientDisputeId}`) {
+        detailReads += 1;
+        return Promise.resolve(response(detailReads === 2 ? conflictingDetail : c07ClientDetail));
+      }
+      throw new Error(`Unexpected admin request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rendered = renderPage("detail", undefined, String(c07ClientDisputeId));
+    expect(await screen.findByText(c07ClientDisputeDocument.title)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh detail" }));
+
+    expect(
+      await screen.findByText("Dispute detail could not be verified for consistency."),
+    ).toBeTruthy();
+    expect(screen.queryByText(c07ClientDisputeDocument.title)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resolve On-Chain" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Return to the dispute queue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry read" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry read" }));
+    expect(await screen.findByText(c07ClientDisputeDocument.title)).toBeTruthy();
+    expect(detailReads).toBe(3);
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(
+      true,
+    );
+    expect(runtime.wallet.signTransaction).not.toHaveBeenCalled();
+    expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
+    rendered.unmount();
+  });
 
   it("renders assigned-admin case and event evidence through the real session gate", async () => {
     const fetchMock = vi

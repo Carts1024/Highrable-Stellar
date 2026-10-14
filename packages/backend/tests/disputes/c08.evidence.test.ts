@@ -72,6 +72,58 @@ async function insertAttachment(
 
 describe("C08 dispute evidence association and validation", () => {
   it.each([
+    ["micro_gig", "clientWallet"],
+    ["micro_gig", "freelancerWallet"],
+    ["milestone", "clientWallet"],
+    ["milestone", "freelancerWallet"],
+  ] as const)(
+    "rejects previous-dispute message evidence with a conflicting %s %s atomically",
+    async (parentType, participantField) => {
+      const t = convexTest(schema, modules);
+      const fixture = await seedDisputeFixture(t, {
+        parentType,
+        label: `c08-prior-${parentType}-${participantField}`,
+      });
+      const previousId = await createDispute(t, fixture);
+      const references = await seedDisputeReferences(t, fixture);
+      const attachmentId = await insertAttachment(t, fixture, { label: "prior-dispute" });
+      await t.run(async (ctx) => {
+        await ctx.db.patch(previousId, {
+          status: "cancelled",
+          [participantField]: fixture.unrelatedWallet,
+        });
+        // The conversation still contains both current participants. Its parent must
+        // independently belong to those participants as well as the same work.
+        await ctx.db.patch(references.conversationId, {
+          parentType: "dispute",
+          parentId: previousId,
+        });
+        await ctx.db.patch(references.messageId, { parentType: "dispute", parentId: previousId });
+      });
+      const before = await snapshotState(t);
+      await expect(
+        createDispute(t, fixture, {
+          evidenceAttachmentIds: [attachmentId],
+          relatedMessageIds: [references.messageId],
+        }),
+      ).rejects.toThrow(/Previous dispute participants do not match/);
+      expect(await snapshotState(t)).toEqual(before);
+
+      await t.run(async (ctx) =>
+        ctx.db.patch(previousId, {
+          [participantField]: fixture[participantField],
+        }),
+      );
+      const disputeId = await createDispute(t, fixture, {
+        evidenceAttachmentIds: [attachmentId],
+        relatedMessageIds: [references.messageId],
+      });
+      const created = await t.run(async (ctx) => ctx.db.get(disputeId));
+      expect(created?.relatedMessageIds).toEqual([references.messageId]);
+    },
+  );
+
+  it.each([
     {
       parentType: "micro_gig" as const,
       role: "client" as const,

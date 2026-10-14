@@ -2,14 +2,34 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AdminApiError,
+  fetchAdminDispute,
   fetchAdminDisputes,
   fetchAdminSession,
+  isAdminConsistencyError,
   isAdminNetworkError,
   postAdminResolution,
   shouldRetryAdminRead,
 } from "./admin-api";
 
 const validAdminWallet = `G${"A".repeat(55)}`;
+
+const consistentDetail = {
+  dispute: {
+    _id: "requested-dispute",
+    parentType: "micro_gig",
+    parentId: "job-1",
+    jobId: "job-1",
+    microGigId: "job-1",
+    escrowId: "escrow-1",
+    onChainEscrowId: "chain-1",
+  },
+  job: { _id: "job-1", jobType: "micro_gig" },
+  milestone: null,
+  escrow: { _id: "escrow-1", jobId: "job-1", escrowId: "chain-1" },
+  timeline: [],
+  assignmentEvents: [],
+  settlementAttempts: [],
+};
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -145,6 +165,86 @@ describe("admin API client errors", () => {
       "/api/admin/disputes?status=under_review&onChainStatus=mark_failed&limit=120",
       expect.objectContaining({ credentials: "include", cache: "no-store" }),
     );
+  });
+
+  it.each([
+    [
+      "wrong case identity",
+      {
+        ...consistentDetail,
+        dispute: { ...consistentDetail.dispute, _id: "other-dispute" },
+      },
+    ],
+    [
+      "declared parent reference",
+      {
+        ...consistentDetail,
+        dispute: { ...consistentDetail.dispute, jobId: "other-job" },
+      },
+    ],
+    [
+      "returned escrow relationship",
+      {
+        ...consistentDetail,
+        escrow: { ...consistentDetail.escrow, jobId: "other-job" },
+      },
+    ],
+    [
+      "returned on-chain escrow reference",
+      {
+        ...consistentDetail,
+        escrow: { ...consistentDetail.escrow, escrowId: "other-chain-escrow" },
+      },
+    ],
+    [
+      "linked milestone/escrow relationship",
+      {
+        ...consistentDetail,
+        dispute: {
+          ...consistentDetail.dispute,
+          parentType: "milestone",
+          parentId: "milestone-1",
+          microGigId: undefined,
+          milestoneId: "milestone-1",
+        },
+        job: { ...consistentDetail.job, jobType: "milestone_project" },
+        milestone: { _id: "milestone-1", jobId: "job-1", escrowId: "chain-1" },
+        escrow: { ...consistentDetail.escrow, milestoneId: "other-milestone" },
+      },
+    ],
+  ] as const)("rejects %s without exposing protected payload details", async (_reason, payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(payload, 200)));
+
+    const error = await fetchAdminDispute("requested-dispute").catch(
+      (nextError: unknown) => nextError,
+    );
+
+    expect(isAdminConsistencyError(error)).toBe(true);
+    expect(error).toMatchObject({
+      name: "AdminApiError",
+      status: 409,
+      message: "Admin API returned an inconsistent dispute detail.",
+      details: undefined,
+    });
+    expect(shouldRetryAdminRead(0, error)).toBe(false);
+    expect(JSON.stringify(error)).not.toContain("other");
+  });
+
+  it("preserves nullable parent records and absent optional references", async () => {
+    const nullableDetail = {
+      ...consistentDetail,
+      dispute: {
+        _id: consistentDetail.dispute._id,
+        parentType: consistentDetail.dispute.parentType,
+        parentId: consistentDetail.dispute.parentId,
+      },
+      job: null,
+      milestone: null,
+      escrow: null,
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(nullableDetail, 200)));
+
+    await expect(fetchAdminDispute("requested-dispute")).resolves.toEqual(nullableDetail);
   });
 
   it.each([
