@@ -48,6 +48,7 @@ describe("dispute index contracts", () => {
           type: "moderator_note_added",
           actorWallet: TEST_WALLETS.admin,
           actorRole: "moderator",
+          requestId: "request-contract-1",
           createdAt: 1_768_480_800_001,
         }),
       ),
@@ -113,6 +114,15 @@ describe("dispute index contracts", () => {
           q.eq("type", "moderator_note_added").eq("createdAt", 1_768_480_800_001),
         )
         .first();
+      const eventByResponseRequest = await ctx.db
+        .query("disputeEvents")
+        .withIndex("by_dispute_actor_requestId", (q) =>
+          q
+            .eq("disputeId", disputeId)
+            .eq("actorWallet", TEST_WALLETS.admin)
+            .eq("requestId", "request-contract-1"),
+        )
+        .first();
 
       return {
         disputeByClient,
@@ -124,6 +134,7 @@ describe("dispute index contracts", () => {
         disputeByParent,
         disputeByStatus,
         eventByDispute,
+        eventByResponseRequest,
         eventByType,
       };
     });

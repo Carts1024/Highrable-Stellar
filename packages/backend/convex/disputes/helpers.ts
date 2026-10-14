@@ -22,6 +22,7 @@ import { ACTIVE_DISPUTE_STATUSES } from "./schema";
 const MAX_TITLE_LENGTH = 160;
 const MAX_DESCRIPTION_LENGTH = 10_000;
 const MAX_EVENT_MESSAGE_LENGTH = 4_000;
+const MAX_RESPONSE_REQUEST_ID_LENGTH = 128;
 const MAX_ATTACHMENTS = 25;
 const MAX_RELATED_RECORDS = 20;
 const ACTIVE_DISPUTE_STATUS_SET = new Set<string>(ACTIVE_DISPUTE_STATUSES);
@@ -64,6 +65,18 @@ export function sanitizeDisputeMessage(message: string): string {
     .replace(/\r\n?/g, "\n")
     .trim()
     .slice(0, MAX_EVENT_MESSAGE_LENGTH);
+}
+
+export function sanitizeOptionalDisputeResponseRequestId(requestId?: string): string | undefined {
+  const sanitizedRequestId = optionalNonEmptyString(requestId, "requestId");
+  if (
+    sanitizedRequestId !== undefined &&
+    sanitizedRequestId.length > MAX_RESPONSE_REQUEST_ID_LENGTH
+  ) {
+    throw new BadRequestError("requestId must be 128 characters or fewer.");
+  }
+
+  return sanitizedRequestId;
 }
 
 export function sanitizeOptionalProofHash(proofHash?: string): string | undefined {
@@ -978,6 +991,7 @@ export async function createDisputeEvent(
     oldStatus?: TDisputeStatus;
     newStatus?: TDisputeStatus;
     transactionHash?: string;
+    requestId?: string;
     metadata?: unknown;
     createdAt?: number;
   },
@@ -994,6 +1008,7 @@ export async function createDisputeEvent(
     ...(input.oldStatus !== undefined ? { oldStatus: input.oldStatus } : {}),
     ...(input.newStatus !== undefined ? { newStatus: input.newStatus } : {}),
     ...(input.transactionHash !== undefined ? { transactionHash: input.transactionHash } : {}),
+    ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
     createdAt: input.createdAt ?? Date.now(),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   });

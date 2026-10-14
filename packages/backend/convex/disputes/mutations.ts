@@ -33,6 +33,7 @@ import {
   isTerminalDisputeStatus,
   sanitizeDisputeDescription,
   sanitizeDisputeMessage,
+  sanitizeOptionalDisputeResponseRequestId,
   sanitizeOptionalDisputeTransactionHash,
   sanitizeDisputeTitle,
   sanitizeOptionalProofHash,
@@ -627,18 +628,46 @@ export const addDisputeResponse = mutation({
     responderWalletType: walletTypeValidator,
     message: v.string(),
     attachmentIds: v.optional(v.array(v.id("attachments"))),
+    requestId: v.optional(v.string()),
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
     const responderRole = await assertCanRespondToDispute(ctx, dispute, args.responderWallet);
+    const responderWallet = normalizeWalletAddress(args.responderWallet);
     const message = sanitizeDisputeMessage(args.message);
+    const requestId = sanitizeOptionalDisputeResponseRequestId(args.requestId);
 
     const attachmentIds = await validateDisputeAttachmentIds(ctx, {
       attachmentIds: args.attachmentIds ?? [],
       walletAddress: args.responderWallet,
       parentId: dispute._id,
     });
+
+    if (requestId !== undefined) {
+      const existingResponse = await ctx.db
+        .query("disputeEvents")
+        .withIndex("by_dispute_actor_requestId", (q) =>
+          q
+            .eq("disputeId", dispute._id)
+            .eq("actorWallet", responderWallet)
+            .eq("requestId", requestId),
+        )
+        .first();
+
+      if (existingResponse) {
+        const matches =
+          existingResponse.message === message &&
+          existingResponse.actorWalletType === args.responderWalletType &&
+          existingResponse.attachmentIds.length === attachmentIds.length &&
+          existingResponse.attachmentIds.every(
+            (attachmentId, index) => attachmentId === attachmentIds[index],
+          );
+        if (matches) return true;
+        throw new ConflictError("requestId was already used for a different dispute response.");
+      }
+    }
+
     await attachEvidenceToDispute(ctx, { attachmentIds, disputeId: dispute._id });
     const evidenceAttachmentIds = Array.from(
       new Set([...dispute.evidenceAttachmentIds, ...attachmentIds]),
@@ -656,6 +685,7 @@ export const addDisputeResponse = mutation({
       actorRole: responderRole,
       message,
       attachmentIds,
+      ...(requestId !== undefined ? { requestId } : {}),
     });
 
     const recipientWallet =
