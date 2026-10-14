@@ -30,6 +30,14 @@ assert exact errors plus unchanged before/after state after the invalid
 condition is arranged. Valid attachment and accepted-agreement context is
 seeded for related-record creation rejections. See the [C06 evidence map](../../instawards/Deliverable-3-C06-Creation-Rejection-and-Atomicity-Evidence.md).
 
+## Deliverable 3 C10 — Evidence Association and Protected Reads
+
+Participant dispute reads and evidence/response writes now authorize against the saved dispute's current parent graph and current participants through one shared resolver. Terminal cases remain readable while those relationships still match; reassignment, missing/deleted parents, and contradictory saved links fail closed. Omitted, blank, or unrelated viewers receive `null` from protected context reads, and invalid submissions, linked revisions, or exact-parent deadlines are omitted without changing the bounded result shape.
+
+Case and timeline attachments must be active, belong to the exact dispute, and have a valid client/freelancer participant uploader before viewer or uploader shortcuts. Administrator evidence review preserves its secret, capability, and scope checks and filters invalid historical attachments. Raw limits remain 25 attachments and 20 related references before deduplication, with no cumulative case limit; explicit escrow aliases and legacy optional links remain supported. `addDisputeEvidence` passes validated deduplicated attachment IDs into reassignment.
+
+The focused C10 suite passes 13 tests and the full backend suite passes 381 tests across 14 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. This is local `convex-test` evidence only; caller-supplied wallet possession, live storage, deployed Convex, Stellar, and transaction behavior remain outside scope. See the [C10 evidence report](../../instawards/Deliverable-3-C10-Evidence.md).
+
 ## Primary Locations
 
 - `packages/backend/convex/disputes/`

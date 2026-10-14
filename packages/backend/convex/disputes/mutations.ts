@@ -571,7 +571,7 @@ export const addDisputeEvidence = mutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const actorRole = assertCanRespondToDispute(dispute, args.actorWallet);
+    const actorRole = await assertCanRespondToDispute(ctx, dispute, args.actorWallet);
     const message = args.message !== undefined ? sanitizeDisputeMessage(args.message) : undefined;
     const attachmentIds = await validateDisputeAttachmentIds(ctx, {
       attachmentIds: args.attachmentIds,
@@ -579,7 +579,7 @@ export const addDisputeEvidence = mutation({
       parentId: dispute._id,
     });
     await attachEvidenceToDispute(ctx, {
-      attachmentIds: args.attachmentIds,
+      attachmentIds,
       disputeId: dispute._id,
     });
 
@@ -631,7 +631,7 @@ export const addDisputeResponse = mutation({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     const dispute = await getDisputeOrThrow(ctx, args.disputeId);
-    const responderRole = assertCanRespondToDispute(dispute, args.responderWallet);
+    const responderRole = await assertCanRespondToDispute(ctx, dispute, args.responderWallet);
     const message = sanitizeDisputeMessage(args.message);
 
     const attachmentIds = await validateDisputeAttachmentIds(ctx, {
