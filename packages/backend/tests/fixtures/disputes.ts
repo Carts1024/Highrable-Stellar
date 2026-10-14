@@ -1,4 +1,4 @@
-import type { Id, Doc } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 import type { TestConvex } from "convex-test";
 
 import schema from "../../convex/schema";
@@ -54,6 +54,25 @@ export type SiblingMilestoneFixture = {
 
 export type DisputeFields = Omit<Doc<"disputes">, "_id" | "_creationTime">;
 export type DisputeEventFields = Omit<Doc<"disputeEvents">, "_id" | "_creationTime">;
+
+export type DisputeCreationStateSnapshot = {
+  attachments: Doc<"attachments">[];
+  conversations: Doc<"conversations">[];
+  deadlineAuditEvents: Doc<"deadlineAuditEvents">[];
+  deadlineReminders: Doc<"deadlineReminders">[];
+  disputes: Doc<"disputes">[];
+  disputeEvents: Doc<"disputeEvents">[];
+  escrows: Doc<"escrows">[];
+  jobs: Doc<"jobs">[];
+  messages: Doc<"messages">[];
+  milestones: Doc<"milestones">[];
+  notifications: Doc<"notifications">[];
+  revisionRequests: Doc<"revisionRequests">[];
+  workAgreements: Doc<"workAgreements">[];
+  workAgreementEvents: Doc<"workAgreementEvents">[];
+  workAgreementVersions: Doc<"workAgreementVersions">[];
+  workSubmissions: Doc<"workSubmissions">[];
+};
 
 type FixtureOptions = {
   escrowStatus?: EscrowFixtureStatus;
@@ -343,6 +362,29 @@ export async function seedAcceptedDisputeAgreement(
       updatedAt: createdAt,
     });
   });
+}
+
+export async function snapshotDisputeCreationState(
+  t: BackendTest,
+): Promise<DisputeCreationStateSnapshot> {
+  return await t.run(async (ctx) => ({
+    attachments: await ctx.db.query("attachments").collect(),
+    conversations: await ctx.db.query("conversations").collect(),
+    deadlineAuditEvents: await ctx.db.query("deadlineAuditEvents").collect(),
+    deadlineReminders: await ctx.db.query("deadlineReminders").collect(),
+    disputes: await ctx.db.query("disputes").collect(),
+    disputeEvents: await ctx.db.query("disputeEvents").collect(),
+    escrows: await ctx.db.query("escrows").collect(),
+    jobs: await ctx.db.query("jobs").collect(),
+    messages: await ctx.db.query("messages").collect(),
+    milestones: await ctx.db.query("milestones").collect(),
+    notifications: await ctx.db.query("notifications").collect(),
+    revisionRequests: await ctx.db.query("revisionRequests").collect(),
+    workAgreements: await ctx.db.query("workAgreements").collect(),
+    workAgreementEvents: await ctx.db.query("workAgreementEvents").collect(),
+    workAgreementVersions: await ctx.db.query("workAgreementVersions").collect(),
+    workSubmissions: await ctx.db.query("workSubmissions").collect(),
+  }));
 }
 
 export function makeDisputeFields(

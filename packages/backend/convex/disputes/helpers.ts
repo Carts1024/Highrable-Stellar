@@ -736,6 +736,7 @@ function assertPreviousDisputeBelongsToWork(
 ) {
   assertRelatedParentId(ctx, previousDispute, parent, "Previous dispute");
   assertRelatedWorkLinks(ctx, previousDispute, parent, "Previous dispute");
+  assertRelatedParticipants(previousDispute, parent, "Previous dispute");
 }
 
 function assertConversationIncludesParticipants(
