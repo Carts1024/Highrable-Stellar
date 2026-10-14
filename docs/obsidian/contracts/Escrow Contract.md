@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
@@ -112,6 +112,14 @@ Resolution amounts are raw token base units (`i128`); the client amount includes
 Rust tests decode the SDK-generated function specifications and lock `mark_disputed(caller: Address, escrow_id: u64)` and `resolve_dispute(dispute_admin: Address, escrow_id: u64, freelancer_share_bps: u32, _resolution_hash: BytesN<32>)`, including argument order/types and `Result<(), Error>` returns. They also freeze all six status names and their one-symbol vector encoding, plus every existing error name/code (`Unauthorized = 3`, `EscrowNotFound = 5`, `InvalidStatus = 6`, `InvalidShareBps = 10`). Host authorization aborts remain tested separately from returned contract errors.
 
 Mark and resolve event checks build complete expected maps from literal field names and explicit value types rather than from the production event structs. They preserve typed decoding assertions and verify emitter, ordered topics, version, exact field set, status encoding, addresses, hash bytes, and `i128` token amounts. The amount-301 examples lock `0 bps → 0/301`, `3,333 bps → 100/201`, and `10,000 bps → 301/0` freelancer/client amounts. Existing success, rejection, and rollback coverage continues to supply the behavior matrix. The full evidence and local-only limits are in the C01 handoff.
+
+## Deliverable 3 C01 participant marking compatibility
+
+`d3_c01_mark_event_spec_is_frozen` decodes the generated SDK specification for `DisputeMarkedEvent` and independently freezes its name and exact `version: u32`, `actor: Address`, and `status: TEscrowStatus` fields. `d3_c01_uninitialized_mark_returns_error_before_authorization` confirms an uninitialized call returns `NotInitialized` before requesting caller authorization and emits no events. The existing role/state/event tests listed above remain the behavior baseline. See the [Deliverable 3 C01 participant marking handoff](../../instawards/Deliverable-3-C01-Participant-Marking-Contract-Handoff.md) for the authorization and error matrix, validation results, and local-test limits.
+
+## Deliverable 3 C05 participant marking guards
+
+Three `d3_c05_` Rust tests cover unassigned open escrows in `Created` and both separately and atomically funded `Funded` states; eligibility after public assignment from `Funded`/`Submitted`; and client/freelancer isolation across two escrows. Rejections preserve records, balances, and dispute/transfer event counts. Successful marking changes only status, and repeated marking returns `InvalidStatus`. Existing tests continue to cover missing authorization, outsiders, invalid and terminal states, and platform-owner marking. The workspace passes 80 escrow and 9 reputation tests, both WASM contracts build, and Rust formatting passes. See the [C05 evidence](../../instawards/Deliverable-3-C05-Participant-Marking-Guards-Evidence.md). Results use mocked local authorization; they do not prove wallet signatures or deployed behavior.
 
 ## C07 marking event/state regression
 

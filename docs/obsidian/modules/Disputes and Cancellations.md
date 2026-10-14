@@ -18,6 +18,18 @@ Convex participant/admin workflow and Soroban dispute marking/settlement are imp
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, C13 hardens idempotent on-chain marking callbacks, and C17 hardens all five administrator settlement callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
 Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C16 adds versioned Soroban `dispute/marked` and `dispute/resolved` events to the escrow source; their frozen interface is in `docs/instawards/C16-Dispute-Event-Handoff.md`. No indexer or backend event ingestion consumes them, and existing deployments do not emit them. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. This remains a platform-reviewed workflow, not decentralized arbitration.
 
+Deliverable 3 C06 closes a test-coverage gap in creation rejection and
+atomicity. `packages/backend/tests/fixtures/disputes.ts` now provides the
+typed `snapshotDisputeCreationState` helper used by the existing C05, C08, and
+C09 suites. It compares complete documents, including timestamps, across the
+dispute, evidence, related work, agreement, parent, conversation, message,
+notification, and deadline graph. Rejected missing/wrong-table references,
+participant and parent conflicts, revision-linked submission conflicts, hidden
+messages, conversation mismatches, deadline isolation, and input limits now
+assert exact errors plus unchanged before/after state after the invalid
+condition is arranged. Valid attachment and accepted-agreement context is
+seeded for related-record creation rejections. See the [C06 evidence map](../../instawards/Deliverable-3-C06-Creation-Rejection-and-Atomicity-Evidence.md).
+
 ## Primary Locations
 
 - `packages/backend/convex/disputes/`
