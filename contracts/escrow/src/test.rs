@@ -324,17 +324,26 @@ fn dispute_event_count(context: &TTestContext) -> usize {
     dispute_events(context).len()
 }
 
-fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address, escrow_id: u64) {
-    let records = dispute_events(context);
-    assert_eq!(records.len(), event_index + 1);
-    let (emitter, topics, data) = &records[event_index];
-    assert_eq!(emitter, &context.escrow_contract_id);
+fn assert_mark_event(
+    context: &TTestContext,
+    pre_mark_event_count: u32,
+    actor: &Address,
+    escrow_id: u64,
+) {
+    let records = context.env.events().all();
+    assert_eq!(
+        records.len(),
+        pre_mark_event_count + 1,
+        "mark_disputed must emit exactly one event"
+    );
+    let (emitter, topics, data) = records.last().unwrap();
+    assert_eq!(emitter, context.escrow_contract_id);
 
     let mut expected_topics: Vec<Val> = Vec::new(&context.env);
     expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
     expected_topics.push_back(Symbol::new(&context.env, "marked").into_val(&context.env));
     expected_topics.push_back(escrow_id.into_val(&context.env));
-    assert_eq!(topics, &expected_topics);
+    assert_eq!(topics, expected_topics);
 
     let expected_payload = DisputeMarkedEvent {
         version: 1,
@@ -633,6 +642,7 @@ fn assert_mark_disputed_with_auth(
     expected_error: Option<Error>,
 ) {
     let event_count_before = dispute_event_count(context);
+    let all_event_count_before = context.env.events().all().len();
     let token_transfer_count_before =
         events_from_topic(context, &context.mock_usdc_token, "transfer").len();
     install_mock_dispute_auth(context, authorized_address, caller, escrow_id);
@@ -650,7 +660,7 @@ fn assert_mark_disputed_with_auth(
         None => {
             assert_dispute_auth(context, authorized_address, caller, escrow_id);
             assert_eq!(result, Ok(Ok(())));
-            assert_mark_event(context, 0, caller, escrow_id);
+            assert_mark_event(context, all_event_count_before, caller, escrow_id);
             assert_eq!(
                 events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
                 token_transfer_count_before
