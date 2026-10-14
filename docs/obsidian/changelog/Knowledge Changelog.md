@@ -16,6 +16,8 @@ source_of_truth: repository
 
 ## 2026-10-14
 
+- **Deliverable 2 C16 follow-up:** authoritative marking confirmation supersedes stale uncertainty while keeping incomplete bookkeeping recoverable; saved hashes block blind retry even under `not_marked`. The new known-hash regression and existing C24 recovery journeys pass. Full web suite: 429 tests across 27 files with Node 25 native Web Storage disabled for jsdom compatibility.
+
 - **Deliverable 2 C12 follow-up:** isolate administrator detail action state by case identity. Deferred review success/conflict responses cannot leak pending locks, feedback, or draft updates into a replacement case. Two regressions reproduce the inherited lock and verify the fix; administrator detail coverage passes 84 tests.
 
 - **Deliverable 3 C07 — Protected Administrator Case Visibility:** extended the real protected admin queue/detail harness with generated-type-backed client micro-gig and freelancer milestone fixtures, owner/dispute-admin session coverage, identity-preserving navigation, opening context, nullable parents, and disabled settlement for new `open`/`not_marked` cases. Added a pre-cache detail consistency guard for wrong-case and contradictory parent/job/milestone/escrow references, with generic non-retryable errors and queue/read-retry fail-closed UI. Focused admin coverage passes 247 tests; web TypeScript, scoped oxlint/oxfmt, and the production build pass. The full web suite is 421/423 passing because two existing participant assertions still expect older marking-success copy. This is mocked local frontend/API/session evidence only; see the [C07 evidence report](../../instawards/Deliverable-3-C07-Admin-Protected-Case-Visibility-Evidence.md).
