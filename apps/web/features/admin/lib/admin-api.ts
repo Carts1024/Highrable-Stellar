@@ -37,6 +37,9 @@ export class AdminApiError extends Error {
   }
 }
 
+const ADMIN_DETAIL_CONSISTENCY_ERROR_STATUS = 409;
+const ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE = "Admin API returned an inconsistent dispute detail.";
+
 export function isAdminApiError(error: unknown): error is AdminApiError {
   return error instanceof AdminApiError;
 }
@@ -51,6 +54,14 @@ export function isAdminNotFoundError(error: unknown): error is AdminApiError {
 
 export function isAdminNetworkError(error: unknown): error is AdminApiError {
   return isAdminApiError(error) && error.status === 0;
+}
+
+export function isAdminConsistencyError(error: unknown): boolean {
+  return (
+    isAdminApiError(error) &&
+    error.status === ADMIN_DETAIL_CONSISTENCY_ERROR_STATUS &&
+    error.message === ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE
+  );
 }
 
 export function getAdminApiErrorMessage(error: AdminApiError): string {
@@ -161,6 +172,108 @@ async function fetchAdminResponse(input: RequestInfo | URL, init: RequestInit): 
     }
     throw normalizeAdminRequestError(error);
   }
+}
+
+function getOptionalReference(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): string | undefined {
+  if (!record) {
+    return undefined;
+  }
+
+  const value = record[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function assertNoConflictingReferences(left: unknown, right: unknown): void {
+  if (
+    left !== undefined &&
+    left !== null &&
+    right !== undefined &&
+    right !== null &&
+    left !== right
+  ) {
+    throw new AdminApiError(
+      ADMIN_DETAIL_CONSISTENCY_ERROR_STATUS,
+      ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE,
+    );
+  }
+}
+
+function assertAdminDisputeDetailConsistency(
+  requestedDisputeId: string,
+  detail: IAdminDisputeDetail,
+): void {
+  const detailRecord = isRecord(detail) ? detail : null;
+  const disputeRecord =
+    detailRecord && isRecord(detailRecord.dispute) ? detailRecord.dispute : null;
+  const jobRecord = detailRecord && isRecord(detailRecord.job) ? detailRecord.job : null;
+  const milestoneRecord =
+    detailRecord && isRecord(detailRecord.milestone) ? detailRecord.milestone : null;
+  const escrowRecord = detailRecord && isRecord(detailRecord.escrow) ? detailRecord.escrow : null;
+
+  if (getOptionalReference(disputeRecord, "_id") !== requestedDisputeId) {
+    throw new AdminApiError(
+      ADMIN_DETAIL_CONSISTENCY_ERROR_STATUS,
+      ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE,
+    );
+  }
+
+  const parentType = getOptionalReference(disputeRecord, "parentType");
+  const parentId = getOptionalReference(disputeRecord, "parentId");
+  const disputeJobId = getOptionalReference(disputeRecord, "jobId");
+  const disputeMicroGigId = getOptionalReference(disputeRecord, "microGigId");
+  const disputeMilestoneId = getOptionalReference(disputeRecord, "milestoneId");
+  const disputeEscrowId = getOptionalReference(disputeRecord, "escrowId");
+  const disputeOnChainEscrowId = getOptionalReference(disputeRecord, "onChainEscrowId");
+  const returnedJobId = getOptionalReference(jobRecord, "_id");
+  const returnedMilestoneId = getOptionalReference(milestoneRecord, "_id");
+  const returnedEscrowId = getOptionalReference(escrowRecord, "_id");
+  const returnedJobType = getOptionalReference(jobRecord, "jobType");
+  const returnedMilestoneJobId = getOptionalReference(milestoneRecord, "jobId");
+  const returnedMilestoneEscrowId = getOptionalReference(milestoneRecord, "escrowId");
+  const returnedEscrowJobId = getOptionalReference(escrowRecord, "jobId");
+  const returnedEscrowMilestoneId = getOptionalReference(escrowRecord, "milestoneId");
+  const returnedOnChainEscrowId = getOptionalReference(escrowRecord, "escrowId");
+
+  if (parentType === "micro_gig" || parentType === "job") {
+    assertNoConflictingReferences(parentId, disputeJobId);
+    assertNoConflictingReferences(parentId, disputeMicroGigId);
+    assertNoConflictingReferences(parentId, returnedJobId);
+  }
+  if (parentType === "milestone") {
+    assertNoConflictingReferences(parentId, disputeMilestoneId);
+    assertNoConflictingReferences(parentId, returnedMilestoneId);
+  }
+  if (parentType === "escrow") {
+    assertNoConflictingReferences(parentId, disputeEscrowId);
+    assertNoConflictingReferences(parentId, returnedEscrowId);
+  }
+
+  assertNoConflictingReferences(disputeJobId, disputeMicroGigId);
+  assertNoConflictingReferences(disputeJobId, returnedJobId);
+  assertNoConflictingReferences(disputeMicroGigId, returnedJobId);
+  assertNoConflictingReferences(disputeMilestoneId, returnedMilestoneId);
+  assertNoConflictingReferences(disputeEscrowId, returnedEscrowId);
+  assertNoConflictingReferences(disputeOnChainEscrowId, returnedOnChainEscrowId);
+
+  if (parentType === "micro_gig") {
+    assertNoConflictingReferences(returnedJobType, "micro_gig");
+  }
+  if (parentType === "milestone") {
+    assertNoConflictingReferences(returnedJobType, "milestone_project");
+  }
+
+  assertNoConflictingReferences(returnedJobId, returnedMilestoneJobId);
+  assertNoConflictingReferences(returnedJobId, returnedEscrowJobId);
+  assertNoConflictingReferences(returnedMilestoneJobId, returnedEscrowJobId);
+  assertNoConflictingReferences(disputeJobId, returnedMilestoneJobId);
+  assertNoConflictingReferences(disputeJobId, returnedEscrowJobId);
+  assertNoConflictingReferences(returnedMilestoneId, returnedEscrowMilestoneId);
+  assertNoConflictingReferences(disputeMilestoneId, returnedEscrowMilestoneId);
+  assertNoConflictingReferences(returnedMilestoneEscrowId, returnedOnChainEscrowId);
+  assertNoConflictingReferences(disputeOnChainEscrowId, returnedMilestoneEscrowId);
 }
 
 export async function fetchAdminSession(
@@ -329,7 +442,9 @@ export async function fetchAdminDispute(
     },
   );
 
-  return await readJsonOrThrow<IAdminDisputeDetail>(response);
+  const detail = await readJsonOrThrow<IAdminDisputeDetail>(response);
+  assertAdminDisputeDetailConsistency(disputeId, detail);
+  return detail;
 }
 
 export async function postAdminModeratorNote(disputeId: string, message: string): Promise<void> {
