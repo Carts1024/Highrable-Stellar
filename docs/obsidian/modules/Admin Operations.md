@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
@@ -31,6 +31,12 @@ C07 extends the C03 generated-type approach into the real protected queue/detail
 `fetchAdminDispute` now rejects wrong-case results and contradictory supplied/returned parent, job, milestone, and escrow references before TanStack Query can cache them. Nullable parent records and absent optional references remain valid when no contradiction is present. Consistency failures use a generic non-retryable `AdminApiError`; the detail surface renders no case content or actions and provides only a return-to-queue link and manual read retry. See the [C07 evidence report](../../instawards/Deliverable-3-C07-Admin-Protected-Case-Visibility-Evidence.md).
 
 C07 local validation passes the focused administrator suite (8 files, 247 tests), web TypeScript, scoped oxlint/oxfmt, and the web production build. The full web suite is 421/423 passing across 27 files; the two preserved failures are the existing participant assertions documented by C03. This remains mocked frontend/session/API evidence and does not prove participant creation, backend authorization, wallet possession, or live-chain behavior.
+
+## Deliverable 3 C11 — Protected Administrator Evidence Review
+
+C11 completes the protected administrator evidence presentation. `AdminEvidenceList` now distinguishes `Available`, `Missing`, `Blocked`, `Deleted`, `Invalid`, and `URL unavailable` states while preserving attachment metadata, stable deduplication/order, descriptive validated HTTP/HTTPS links, and independent case/timeline rendering. Missing records do not imply deletion; blocked/deleted records never open; invalid or unsafe URLs fail closed; and active attachments without an opening URL explain that refresh may recover it without promising success.
+
+The detail page also renders grouped, deduplicated submission, revision, message, and deadline IDs as reference-only records with `Content unavailable in this view.` Optional arrays behave as empty, and no record content or links are invented. The existing verified-session, wallet-scoped query, protected refresh, denied-session eviction, late-response, read-only retry, no-write, and no-Stellar behavior remains in force. Focused administrator coverage passes 250 tests across 8 files; web TypeScript, scoped oxlint/oxfmt, scoped oxfmt, and the production build pass. The full web suite is 427/429 passing because the same two historical participant integration assertions still expect obsolete marking-success copy. See the [Deliverable 3 C11 evidence report](../../instawards/Deliverable-3-C11-Admin-Evidence-Review-Evidence.md). This is mocked local frontend/session/API evidence; live storage, backend authorization, Testnet, and chain behavior were not verified.
 
 ## Deliverable 2 C11 - Admin Evidence Review
 
