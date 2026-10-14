@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
@@ -39,6 +39,8 @@ The protected admin detail page now renders `IAdminDisputeDetail.dispute.attachm
 Detail refresh uses the existing protected GET query, shows in-progress feedback, prevents duplicate refreshes, replaces returned evidence/status, and fail-closes on 404 or authorization failures while preserving recoverable network/5xx retry behavior. The focused administrator suite passes 173 tests; the full web suite passes 286 tests; web TypeScript, scoped oxlint/oxfmt, and the production build pass. This is mocked local UI/session/API evidence only; no live deployment or chain verification was performed. See `docs/instawards/Deliverable-2-C11-Admin-Evidence-Review-Evidence.md`.
 
 ## Deliverable 2 C12 - Admin Assignment and Review Controls
+
+The 2026-10-14 follow-up keys the detail content by dispute ID so pending writes, feedback, and drafts are local to one case. Deferred successful or rejected review responses cannot disable controls, erase drafts, or display old feedback on the replacement case. Existing requests finish against their original case and existing cache keys. Two regression cases cover the transition; see [C12 evidence](../evidence/C12-Administrator%20Assignment%20Review%20Evidence.md).
 
 Queue and detail controls now mirror the existing backend policy before issuing writes: claim requires an unassigned, nonterminal case and a verified nonparticipant admin; assignment requires a verified nonparticipant owner; review-status changes require the assigned, nonparticipant admin on a nonterminal case. Assignee wallets are normalized and deduplicated, participant wallets are excluded, inactive historical assignees remain visible only as disabled unavailable options, and owner assignment stays disabled until membership loading succeeds. Detail reassignment is disabled during active settlement attempts while preserving backend-permitted terminal-case owner reassignment.
 

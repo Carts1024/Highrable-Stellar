@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { cloneElement, createElement, isValidElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -696,6 +696,51 @@ describe("AdminDisputeDetailPage", () => {
       fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/assignment")),
     ).toHaveLength(1);
   });
+
+  it.each([200, 409])(
+    "isolates a late review response (%s) from a replacement case",
+    async (status) => {
+      const pending = createDeferred<Response>();
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/status")) return pending.promise;
+        return Promise.resolve(
+          response(
+            createActiveDetail({
+              dispute: {
+                _id: url.endsWith("dispute-2") ? "dispute-2" : "dispute-1",
+              },
+            }),
+          ),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const view = renderDetail();
+      fireEvent.click(await screen.findByRole("button", { name: "Update Status" }));
+      rerenderDetail(view, "dispute-2");
+      const update = await screen.findByRole("button", { name: "Update Status" });
+      expect(update.hasAttribute("disabled")).toBe(false);
+      fireEvent.change(screen.getByLabelText("Optional review message"), {
+        target: { value: "New case draft" },
+      });
+      await act(async () => {
+        pending.resolve(
+          response(status === 200 ? { success: true } : { error: "Old case conflict" }, status),
+        );
+        await pending.promise;
+      });
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/status")),
+        ).toHaveLength(1),
+      );
+      expect(screen.queryByText("Dispute review status updated.")).toBeNull();
+      expect(screen.queryByText("Old case conflict")).toBeNull();
+      expect((screen.getByLabelText("Optional review message") as HTMLTextAreaElement).value).toBe(
+        "New case draft",
+      );
+    },
+  );
 
   it("resets the local review selection when the case changes", async () => {
     const firstDetail = createActiveDetail({
