@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-15
+
+- **Deliverable 3 C19 — Participant-to-administrator acceptance:** added the real frontend cross-interface acceptance suite at `apps/web/features/admin/admin-cross-interface-acceptance.integration.test.tsx`. Typed accepted-write projections now cover participant micro-gig/milestone opening, follow-up evidence, protected administrator queue/detail/review, shared evidence/timeline rendering, wallet-scoped propagation, 401/403 closure, forbidden-write cache eviction, rejected drafts, pending duplicate suppression, and no review-triggered marking/signing/settlement. C19 passes 7 tests; participant opening/detail/evidence and server-auth regressions pass 45/45; the full web suite passes 450/450 across 29 files; TypeScript, scoped lint/format, production build, and `git diff --check` pass. Evidence is mocked frontend/session/API/upload/Convex/Stellar transport only; existing backend authorization evidence remains separate. See the [C19 evidence report](../evidence/C19-Participant-to-Administrator%20Acceptance%20Evidence.md).
 
 ## 2026-10-13
 

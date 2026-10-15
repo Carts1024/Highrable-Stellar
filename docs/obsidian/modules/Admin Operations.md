@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -45,6 +45,12 @@ C15 adds administrator-owned cross-interface coverage for the existing review-st
 Accepted writes explicitly publish the wallet-scoped participant subscription after the simulated save. Pending and duplicate requests, rejected writes, and mutation 401/403 responses do not fabricate participant updates; rejected drafts remain recoverable and protected content closes on authorization failure. A saved write followed by a failed administrator refresh remains visible to participants, while administrator read retry does not repeat the write. Review changes are isolated from escrow marking and settlement, with no signing, submission, settlement, or Convex mutation call in the harness.
 
 The C15 file passes 11 tests; the focused administrator suite passes 261 tests across 9 files; web TypeScript, scoped oxlint/oxfmt, scoped formatting, and the production build pass. The full web suite is 438/440 passing across 28 files. The two failures are the independently reproduced historical participant assertions at lines 880 and 919 of `dispute-participant-integration.test.tsx`, which still expect obsolete marking-success copy while the current UI renders `Outcome Pending` and `Recording Confirmation`. See the [C15 review-state propagation evidence report](../evidence/Deliverable 3 C15 Review-State Propagation Evidence.md). This is mocked frontend/session/API/subscription evidence only; live Convex propagation, backend audit/notification atomicity, wallet possession, Testnet, and chain behavior remain unverified.
+
+## C19 — Participant-to-administrator acceptance
+
+C19 adds `admin-cross-interface-acceptance.integration.test.tsx`, connecting real participant opening and evidence controls to the protected administrator queue/detail and back to both participant wallets. The typed test-local case/event/attachment store is populated only after accepted mocked mutations, and administrator projections plus participant subscriptions are derived from that shared store. Coverage includes client-opened micro-gig and freelancer-opened milestone cases, both opener roles, isolated case evidence, exact attachment IDs/metadata/safe links, protected 401/403 reads, forbidden review-write cache eviction, claim-before-review, accepted `under_review` identity propagation, rejected-write draft recovery, pending duplicate suppression, and no marking/signing/settlement from review actions.
+
+The C19 file passes 7 tests. Participant opening/detail/evidence regressions and server-auth tests pass 45/45; the full web suite passes 450/450 across 29 files; web TypeScript, scoped oxlint/oxfmt, scoped formatting, `git diff --check`, and the production build pass. The directory-scoped administrator run had one order-dependent existing protected-page failure; the exact test passes alone and passes in the full web run. See the [C19 evidence report](../evidence/C19-Participant-to-Administrator%20Acceptance%20Evidence.md). Mocked HTTP rejection is frontend behavior evidence only; backend authorization, wallet possession, live Convex propagation, storage, Testnet, deployed contracts, and settlement remain separate boundaries.
 
 ## Deliverable 2 C11 - Admin Evidence Review
 
