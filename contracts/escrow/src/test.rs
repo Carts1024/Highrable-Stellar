@@ -275,6 +275,23 @@ fn submitted_escrow_fixture(
 
 type DisputeTokenBalances = (i128, i128, i128);
 
+struct RejectedMarkSnapshot {
+    escrows: std::vec::Vec<(
+        u64,
+        Result<
+            Result<TEscrow, soroban_sdk::ConversionError>,
+            Result<soroban_sdk::Error, InvokeError>,
+        >,
+    )>,
+    completions: std::vec::Vec<(u64, Option<TCompletionRecord>)>,
+    balances: DisputeTokenBalances,
+    freelancer_stats: TFreelancerStatsView,
+    next_escrow_id: u64,
+    total_event_count: u32,
+    dispute_event_count: usize,
+    transfer_event_count: usize,
+}
+
 fn dispute_token_balances_for(
     context: &TTestContext,
     client: &Address,
@@ -324,17 +341,88 @@ fn dispute_event_count(context: &TTestContext) -> usize {
     dispute_events(context).len()
 }
 
-fn assert_mark_event(context: &TTestContext, event_index: usize, actor: &Address, escrow_id: u64) {
-    let records = dispute_events(context);
-    assert_eq!(records.len(), event_index + 1);
-    let (emitter, topics, data) = &records[event_index];
-    assert_eq!(emitter, &context.escrow_contract_id);
+fn rejected_mark_snapshot(
+    context: &TTestContext,
+    escrow_ids: &[u64],
+    asset: &Address,
+) -> RejectedMarkSnapshot {
+    RejectedMarkSnapshot {
+        escrows: escrow_ids
+            .iter()
+            .map(|escrow_id| (*escrow_id, context.escrow_client.try_get_escrow(escrow_id)))
+            .collect(),
+        completions: escrow_ids
+            .iter()
+            .map(|escrow_id| {
+                (
+                    *escrow_id,
+                    context.reputation_client.get_completion(escrow_id),
+                )
+            })
+            .collect(),
+        balances: dispute_token_balances(context),
+        freelancer_stats: context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        next_escrow_id: context.escrow_client.get_next_escrow_id(),
+        total_event_count: context.env.events().all().len(),
+        dispute_event_count: dispute_event_count(context),
+        transfer_event_count: events_from_topic(context, asset, "transfer").len(),
+    }
+}
+
+fn assert_rejected_mark_has_no_side_effects(
+    context: &TTestContext,
+    snapshot: &RejectedMarkSnapshot,
+    asset: &Address,
+) {
+    // Check event output before making any follow-up contract calls.
+    assert_eq!(context.env.events().all().len(), snapshot.total_event_count);
+    assert_eq!(dispute_event_count(context), snapshot.dispute_event_count);
+    assert_eq!(
+        events_from_topic(context, asset, "transfer").len(),
+        snapshot.transfer_event_count
+    );
+
+    for (escrow_id, before) in &snapshot.escrows {
+        assert_eq!(context.escrow_client.try_get_escrow(escrow_id), *before);
+    }
+    for (escrow_id, before) in &snapshot.completions {
+        assert_eq!(context.reputation_client.get_completion(escrow_id), *before);
+    }
+    assert_eq!(dispute_token_balances(context), snapshot.balances);
+    assert_eq!(
+        context
+            .reputation_client
+            .get_freelancer_stats(&context.freelancer),
+        snapshot.freelancer_stats
+    );
+    assert_eq!(
+        context.escrow_client.get_next_escrow_id(),
+        snapshot.next_escrow_id
+    );
+}
+
+fn assert_mark_event(
+    context: &TTestContext,
+    pre_mark_event_count: u32,
+    actor: &Address,
+    escrow_id: u64,
+) {
+    let records = context.env.events().all();
+    assert_eq!(
+        records.len(),
+        pre_mark_event_count + 1,
+        "mark_disputed must emit exactly one event"
+    );
+    let (emitter, topics, data) = records.last().unwrap();
+    assert_eq!(emitter, context.escrow_contract_id);
 
     let mut expected_topics: Vec<Val> = Vec::new(&context.env);
     expected_topics.push_back(Symbol::new(&context.env, "dispute").into_val(&context.env));
     expected_topics.push_back(Symbol::new(&context.env, "marked").into_val(&context.env));
     expected_topics.push_back(escrow_id.into_val(&context.env));
-    assert_eq!(topics, &expected_topics);
+    assert_eq!(topics, expected_topics);
 
     let expected_payload = DisputeMarkedEvent {
         version: 1,
@@ -538,6 +626,9 @@ fn assert_d3_c05_mark_rejected(
     before: &TEscrow,
     balances_before: DisputeTokenBalances,
 ) {
+    let snapshot = rejected_mark_snapshot(context, &[escrow_id], &before.asset);
+    assert_eq!(snapshot.escrows[0].1, Ok(Ok(before.clone())));
+    assert_eq!(snapshot.balances, balances_before);
     let dispute_events_before = dispute_event_count(context);
     let token_transfer_count_before = events_from_topic(context, &before.asset, "transfer").len();
     install_mock_dispute_auth(context, authorized_address, caller, escrow_id);
@@ -545,6 +636,7 @@ fn assert_d3_c05_mark_rejected(
     let result = context.escrow_client.try_mark_disputed(caller, &escrow_id);
 
     assert_eq!(result, Err(Ok(expected_error)));
+    assert_rejected_mark_has_no_side_effects(context, &snapshot, &before.asset);
     assert_eq!(dispute_event_count(context), dispute_events_before);
     assert_eq!(
         events_from_topic(context, &before.asset, "transfer").len(),
@@ -632,7 +724,10 @@ fn assert_mark_disputed_with_auth(
     escrow_id: u64,
     expected_error: Option<Error>,
 ) {
+    let snapshot = expected_error
+        .map(|_| rejected_mark_snapshot(context, &[escrow_id], &context.mock_usdc_token));
     let event_count_before = dispute_event_count(context);
+    let all_event_count_before = context.env.events().all().len();
     let token_transfer_count_before =
         events_from_topic(context, &context.mock_usdc_token, "transfer").len();
     install_mock_dispute_auth(context, authorized_address, caller, escrow_id);
@@ -641,6 +736,11 @@ fn assert_mark_disputed_with_auth(
     match expected_error {
         Some(error) => {
             assert_eq!(result, Err(Ok(error)));
+            assert_rejected_mark_has_no_side_effects(
+                context,
+                snapshot.as_ref().expect("rejected call has a snapshot"),
+                &context.mock_usdc_token,
+            );
             assert_eq!(dispute_event_count(context), event_count_before);
             assert_eq!(
                 events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
@@ -650,7 +750,7 @@ fn assert_mark_disputed_with_auth(
         None => {
             assert_dispute_auth(context, authorized_address, caller, escrow_id);
             assert_eq!(result, Ok(Ok(())));
-            assert_mark_event(context, 0, caller, escrow_id);
+            assert_mark_event(context, all_event_count_before, caller, escrow_id);
             assert_eq!(
                 events_from_topic(context, &context.mock_usdc_token, "transfer").len(),
                 token_transfer_count_before
@@ -986,7 +1086,7 @@ fn assert_c20_rejected_action_preserves_state(
     actor: &Address,
 ) {
     let before = context.escrow_client.get_escrow(&escrow_id);
-    let balances_before = dispute_token_balances(context);
+    let snapshot = rejected_mark_snapshot(context, &[escrow_id], &before.asset);
     let completion_before = context.reputation_client.get_completion(&escrow_id);
     let stats_before = context
         .reputation_client
@@ -1052,12 +1152,12 @@ fn assert_c20_rejected_action_preserves_state(
         "{action:?} from {:?}",
         before.status
     );
+    assert_rejected_mark_has_no_side_effects(context, &snapshot, &before.asset);
     assert_eq!(dispute_event_count(context), dispute_events_before);
     assert_eq!(
         events_from_topic(context, &before.asset, "transfer").len(),
         transfers_before
     );
-    assert_dispute_attempt_preserved_state(context, escrow_id, &before, balances_before);
     assert_eq!(
         context.reputation_client.get_completion(&escrow_id),
         completion_before
@@ -1324,6 +1424,59 @@ fn c20_ordinary_terminal_outcomes_cannot_be_reentered() {
         );
         assert_eq!(context.reputation_client.get_completion(&escrow_id), None);
         assert_c20_terminal_actions(&context, escrow_id);
+    }
+}
+
+#[test]
+fn d3_c13_rejected_marking_preserves_existing_reputation_and_other_work() {
+    let context = setup();
+    let completed_id = submitted_escrow_fixture(&context, 301, 231, 10, 20, 30);
+    let review_hash = hash_from_byte(&context.env, 232);
+    set_timestamp(&context.env, 40);
+    context
+        .escrow_client
+        .approve_and_release(&context.client, &completed_id, &5, &review_hash);
+
+    let completion_before = context
+        .reputation_client
+        .get_completion(&completed_id)
+        .expect("ordinary release should record completion");
+    let stats_before = context
+        .reputation_client
+        .get_freelancer_stats(&context.freelancer);
+    assert_eq!(completion_before.amount, 301);
+    assert_eq!(completion_before.review_hash, review_hash);
+    assert_eq!(stats_before.completed_jobs_count, 1);
+    assert_eq!(stats_before.total_earned, 301);
+    assert_eq!(stats_before.average_rating, 5);
+
+    // Keep a separate assigned escrow in Created so both participants are
+    // authorized actors, while marking remains invalid for its current state.
+    let target_id = create_escrow(&context, 150, 233);
+    let target_before = context.escrow_client.get_escrow(&target_id);
+    assert_eq!(target_before.status, TEscrowStatus::Created);
+
+    for actor in [&context.client, &context.freelancer] {
+        let snapshot = rejected_mark_snapshot(
+            &context,
+            &[target_id, completed_id],
+            &context.mock_usdc_token,
+        );
+        install_mock_dispute_auth(&context, actor, actor, target_id);
+        let result = context.escrow_client.try_mark_disputed(actor, &target_id);
+
+        assert_eq!(result, Err(Ok(Error::InvalidStatus)));
+        assert_rejected_mark_has_no_side_effects(&context, &snapshot, &context.mock_usdc_token);
+        assert_eq!(
+            context.reputation_client.get_completion(&completed_id),
+            Some(completion_before.clone())
+        );
+        assert_eq!(
+            context
+                .reputation_client
+                .get_freelancer_stats(&context.freelancer),
+            stats_before
+        );
     }
 }
 
@@ -2299,6 +2452,7 @@ fn c07_missing_escrow_mark_preserves_records_balances_and_reputation() {
     let context = setup();
     let existing_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 242);
     let existing_before = context.escrow_client.get_escrow(&existing_id);
+    let snapshot = rejected_mark_snapshot(&context, &[existing_id], &context.mock_usdc_token);
     let missing_id = context.escrow_client.get_next_escrow_id();
     let next_id_before = missing_id;
     let balances_before = dispute_token_balances(&context);
@@ -2317,6 +2471,7 @@ fn c07_missing_escrow_mark_preserves_records_balances_and_reputation() {
         .try_mark_disputed(&context.client, &missing_id);
 
     assert_eq!(result, Err(Ok(Error::EscrowNotFound)));
+    assert_rejected_mark_has_no_side_effects(&context, &snapshot, &context.mock_usdc_token);
     assert_eq!(dispute_event_count(&context), dispute_events_before);
     assert_eq!(
         events_from_topic(&context, &context.mock_usdc_token, "transfer").len(),
@@ -2364,6 +2519,8 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
             );
             let missing_auth_before = context.escrow_client.get_escrow(&missing_auth_id);
             let missing_auth_balances = dispute_token_balances(&context);
+            let missing_auth_snapshot =
+                rejected_mark_snapshot(&context, &[missing_auth_id], &context.mock_usdc_token);
             let missing_auth_event_count = dispute_event_count(&context);
 
             context.env.set_auths(&[]);
@@ -2371,8 +2528,13 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
                 .escrow_client
                 .try_mark_disputed(caller, &missing_auth_id);
             assert_eq!(missing_auth, Err(Err(InvokeError::Abort)));
-            context.env.mock_all_auths();
+            assert_rejected_mark_has_no_side_effects(
+                &context,
+                &missing_auth_snapshot,
+                &context.mock_usdc_token,
+            );
             assert_eq!(dispute_event_count(&context), missing_auth_event_count);
+            context.env.mock_all_auths();
             assert_dispute_attempt_preserved_state(
                 &context,
                 missing_auth_id,
@@ -2387,14 +2549,21 @@ fn mark_disputed_requires_host_authorization_for_each_role_and_valid_status() {
             );
             let mismatched_auth_before = context.escrow_client.get_escrow(&mismatched_auth_id);
             let mismatched_auth_balances = dispute_token_balances(&context);
+            let mismatched_auth_snapshot =
+                rejected_mark_snapshot(&context, &[mismatched_auth_id], &context.mock_usdc_token);
             let mismatched_auth_event_count = dispute_event_count(&context);
             install_mock_dispute_auth(&context, &context.outsider, caller, mismatched_auth_id);
             let mismatched_auth = context
                 .escrow_client
                 .try_mark_disputed(caller, &mismatched_auth_id);
             assert_eq!(mismatched_auth, Err(Err(InvokeError::Abort)));
-            context.env.mock_all_auths();
+            assert_rejected_mark_has_no_side_effects(
+                &context,
+                &mismatched_auth_snapshot,
+                &context.mock_usdc_token,
+            );
             assert_eq!(dispute_event_count(&context), mismatched_auth_event_count);
+            context.env.mock_all_auths();
             assert_dispute_attempt_preserved_state(
                 &context,
                 mismatched_auth_id,
@@ -2412,6 +2581,8 @@ fn c13_mark_authorization_is_bound_to_the_escrow_id() {
     let second_id = valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 229);
     let first_before = context.escrow_client.get_escrow(&first_id);
     let second_before = context.escrow_client.get_escrow(&second_id);
+    let snapshot =
+        rejected_mark_snapshot(&context, &[first_id, second_id], &context.mock_usdc_token);
     let balances_before = dispute_token_balances(&context);
     let completion_before = [
         context.reputation_client.get_completion(&first_id),
@@ -2430,6 +2601,7 @@ fn c13_mark_authorization_is_bound_to_the_escrow_id() {
         .try_mark_disputed(&context.client, &second_id);
 
     assert_eq!(result, Err(Err(InvokeError::Abort)));
+    assert_rejected_mark_has_no_side_effects(&context, &snapshot, &context.mock_usdc_token);
     context.env.mock_all_auths();
     assert_eq!(dispute_event_count(&context), event_count_before);
     assert_eq!(
