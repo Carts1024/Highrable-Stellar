@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -28,6 +28,8 @@ Highrable has two transaction identity modes. The address used to describe a per
 - **Verifier:** configured WebAuthn verifier contract used by the smart account.
 
 Confusing these roles can produce simulation failures that look like application authorization failures. The executor and readiness checks intentionally inspect them separately.
+
+For registry signup, the contract actor is the product wallet: the external wallet's `G...` address or the passkey smart account's `C...` address. Passkey execution still simulates and pays through its configured classic source/fee path; registry reads use a classic simulation source as well. Neither source account nor fee payer is written as the registered address.
 
 ## Authentication versus transaction signing
 

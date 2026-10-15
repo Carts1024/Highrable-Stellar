@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-15
+
+- Added the Soroban user registry and gated new onboarding on RPC-verified registration while preserving existing users' access. Profile drafts are resumable; transaction and passkey recovery retain submission identities; registry sync is scoped by network and contract. Independent registry deployment and read-only verification scripts are documented but were not executed. The registry has no deployed identity yet.
 
 ## 2026-10-10
 

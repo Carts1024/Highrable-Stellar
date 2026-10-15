@@ -5,6 +5,11 @@ import { action } from "./_generated/server";
 import { requireNonEmptyString } from "./_shared/input";
 import { escrowStatusValidator } from "./escrows/schema";
 import {
+  getRegistrationFromRegistry,
+  isRegisteredInRegistry,
+  loadRegistryReadConfig,
+} from "./lib/registryReads";
+import {
   getCompletionFromContract,
   getEscrowFromContract,
   loadStellarReadConfig,
@@ -12,6 +17,31 @@ import {
   normalizeOnChainBytes32,
   normalizeOnChainEscrowStatus,
 } from "./lib/stellarReads";
+import { getConfiguredRegistryScope, sanitizeRegistryWalletAddress } from "./registry/helpers";
+
+type TApplyVerifiedRegistrationArgs = {
+  network: string;
+  registryContractId: string;
+  walletAddress: string;
+  registeredAt: number;
+  verifiedAt: number;
+};
+
+export type TSyncUserRegistrationResult = {
+  ok: boolean;
+  isRegistered: boolean;
+  network?: string;
+  registryContractId?: string;
+  registeredAt?: number;
+  reason?: string;
+  errorMessage?: string;
+};
+
+const applyVerifiedRegistrationRef = makeFunctionReference<
+  "mutation",
+  TApplyVerifiedRegistrationArgs,
+  string
+>("registry/mutations:applyVerifiedRegistration");
 
 export type TSyncResult = {
   ok: boolean;
@@ -179,6 +209,120 @@ export const syncReputationRecord = action({
       rating,
       ...(reviewHash !== undefined ? { reviewHash } : {}),
     });
+  },
+});
+
+export const syncUserRegistration = action({
+  args: {
+    walletAddress: v.string(),
+    expectedNetwork: v.string(),
+    expectedRegistryContractId: v.string(),
+  },
+  handler: async (ctx, args): Promise<TSyncUserRegistrationResult> => {
+    let walletAddress: string;
+    let config;
+    try {
+      walletAddress = sanitizeRegistryWalletAddress(args.walletAddress);
+      config = loadRegistryReadConfig();
+    } catch (error) {
+      return {
+        ok: false,
+        isRegistered: false,
+        reason: "missing_or_invalid_config",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    let expectedScope;
+    try {
+      expectedScope = getConfiguredRegistryScope();
+    } catch (error) {
+      return {
+        ok: false,
+        isRegistered: false,
+        reason: "missing_or_invalid_config",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    if (
+      args.expectedNetwork.trim().toLowerCase() !== expectedScope.network ||
+      args.expectedRegistryContractId.trim().toUpperCase() !== expectedScope.registryContractId
+    ) {
+      return {
+        ok: false,
+        isRegistered: false,
+        reason: "registry_scope_mismatch",
+        errorMessage: "Web and Convex registry network and contract settings must match.",
+      };
+    }
+
+    let registration;
+    let registeredFlag: boolean;
+    try {
+      [registration, registeredFlag] = await Promise.all([
+        getRegistrationFromRegistry(config, walletAddress),
+        isRegisteredInRegistry(config, walletAddress),
+      ]);
+    } catch (error) {
+      return {
+        ok: false,
+        isRegistered: false,
+        network: config.network,
+        registryContractId: config.registryContractId,
+        reason: "registry_read_failed",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    if ((registration !== null) !== registeredFlag) {
+      return {
+        ok: false,
+        isRegistered: false,
+        network: config.network,
+        registryContractId: config.registryContractId,
+        reason: "registry_record_mismatch",
+        errorMessage: "Registry membership and registration record disagree.",
+      };
+    }
+
+    if (!registration) {
+      return {
+        ok: true,
+        isRegistered: false,
+        network: config.network,
+        registryContractId: config.registryContractId,
+        reason: "registration_not_found",
+      };
+    }
+
+    try {
+      await ctx.runMutation(applyVerifiedRegistrationRef, {
+        network: config.network,
+        registryContractId: config.registryContractId,
+        walletAddress,
+        registeredAt: registration.registeredAt,
+        verifiedAt: Date.now(),
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        isRegistered: false,
+        network: config.network,
+        registryContractId: config.registryContractId,
+        registeredAt: registration.registeredAt,
+        reason: "registry_mirror_update_failed",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    return {
+      ok: true,
+      isRegistered: true,
+      network: config.network,
+      registryContractId: config.registryContractId,
+      registeredAt: registration.registeredAt,
+    };
   },
 });
 

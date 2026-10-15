@@ -2,7 +2,7 @@
 type: reference
 area: system
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -18,8 +18,10 @@ This classification is based on current source, tests, manifests, deployment art
 - Deliverable 2 C06 dispute guard coverage is verified locally: revoked-admin reauthorization, participant conflicts, registered-admin marking boundaries, `1`/`9_999` bps payouts across owner/admin and funded/submitted origins, invalid shares, and all non-disputed statuses are covered. `cargo test --workspace --locked` passes 67 escrow and 9 reputation tests. Mocked authorization does not prove wallet signatures or deployed behavior; the membership-enabled source remains undeployed as described below.
 - The current escrow source emits versioned `dispute/marked` and `dispute/resolved` events after successful state writes. C07 Rust regressions compare mark-event escrow identity/status to persisted state and cover target isolation plus missing-ID rejection without side effects; `cargo test --workspace --locked` passes 69 escrow and 9 reputation tests. See the [C07 evidence](../instawards/C07-Dispute-Marking-Evidence.md). The C16 event handoff remains accurate. Resolution hashes are emitted but remain absent from persistent escrow records. Local tests do not establish deployed behavior or wallet signatures.
 - Soroban reputation initialization, authorized completion recording, immutable completion lookup, existence checks, and freelancer aggregate statistics exist in `contracts/reputation/src/lib.rs`.
+- `contracts/registry` implements wallet-authorized self-registration, immutable duplicate behavior, a versioned event, and TTL extension. Six focused Rust tests pass and the registry WASM builds locally. No registry deployment or live-chain verification was performed.
 - The release path transfers the escrow asset to the freelancer and invokes reputation `record_completion`.
-- Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation mirrors, transactions, reports, and waitlist entries.
+- Convex has a composed schema for users, jobs, milestones, applications, escrows, agreements, submissions, attachments, collaboration, deadlines, revisions, cancellations, disputes, reputation and registry mirrors, transactions, reports, and waitlist entries.
+- New onboarding saves a validated profile draft, synchronizes wallet registration from the configured registry through RPC, and completes only after the scoped mirror exists. Existing completed users retain their timestamp and access and receive an optional dashboard prompt. Backend tests cover draft validation, handle uniqueness, completion gating, mirror scope/idempotency, and existing-user compatibility.
 - Convex dispute creation preserves C05 parent/participant authorization and now validates all related submissions, revisions, messages, deadline events, and evidence before writes; opening is canonical, deduplicated, atomic, and audited with one `dispute_opened` event while agreement context and notification/system-message side effects remain intact.
 - Convex dispute evidence handling is C08-hardened: raw attachment limits are checked before first-seen deduplication, the unique typed IDs are reused for reassignment, dispute evidence, and audit attachments across creation/evidence/response mutations, and supplied participant messages are sanitized before writes. Existing attachment ownership/case rules, raw related-reference limits, public contracts, schemas, indexes, statuses, optional-link compatibility, and caller-supplied wallet boundary remain unchanged. The focused C08 suite passes 23 tests; the full backend suite passes 262 tests across 11 files.
 - Convex dispute marking callbacks are C13-hardened and idempotent: accepted phase transitions preserve hashes and historical failure events, duplicate callbacks avoid repeated audit/message/notification side effects, terminal review cases cannot be reopened, and same-hash success/stale-failure replays are harmless. The frozen callback arguments, boolean returns, schema, statuses, event types, and participant/configured-admin wallet boundary remain unchanged.
@@ -39,6 +41,7 @@ This classification is based on current source, tests, manifests, deployment art
 ## Implemented but Operationally Incomplete
 
 - Convex escrow and reputation synchronization exists, but it is action-driven (`syncEscrowStatus`, `syncReputationRecord`) and manually triggered from product flows. It is not a general chain indexer or fully scheduled mirror.
+- Registry synchronization is also action-driven. Activation requires deploying the registry, verifying it, and setting matching web/backend contract IDs and network/passphrase configuration; those operational steps are not included in this implementation.
 - `transactions` stores application transaction records, but historical wallet transaction indexing is explicitly post-MVP and absent from the repository.
 - Passkey smart-account execution includes compatibility fallbacks and runtime WASM/signer checks. The current implementation is sensitive to the configured smart-account artifact and `smart-account-kit` behavior.
 - XLM-to-USDC path-payment top-up exists for classic external wallets, but requires a USDC trustline, sufficient spendable XLM, and available path liquidity. XLM escrow is optional and requires a configured native XLM token contract.

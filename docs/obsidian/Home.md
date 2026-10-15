@@ -2,13 +2,13 @@
 type: reference
 area: navigation
 status: current
-last_updated: 2026-10-01
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Highrable Knowledge Vault
 
-Highrable is a Stellar-native freelance marketplace. Next.js and React provide the wallet-first product UI; Convex stores real-time product state and workflow history; Soroban contracts own escrow funds and immutable completion reputation. The browser can call Stellar directly, so the chain path and the Convex mirror must be understood together.
+Highrable is a Stellar-native freelance marketplace. Next.js and React provide the wallet-first product UI; Convex stores real-time product state and workflow history; Soroban contracts own escrow funds and immutable completion reputation, with a separate wallet registry prepared for signup. The browser can call Stellar directly, so the chain path and the Convex mirror must be understood together.
 
 This vault is a navigation and context index for humans and coding agents. It reduces repeated repository-wide exploration; it does not replace source code, tests, generated APIs, or deployment artifacts.
 
@@ -54,6 +54,7 @@ This vault is a navigation and context index for humans and coding agents. It re
 - [[contracts/Contracts Overview]]
 - [[contracts/Escrow Contract]]
 - [[contracts/Reputation Contract]]
+- [[contracts/User Registry Contract]]
 - [[contracts/Deployment Artifacts]]
 
 ## Frontend and Backend

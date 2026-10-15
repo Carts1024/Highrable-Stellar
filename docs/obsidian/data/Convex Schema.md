@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -41,7 +41,8 @@ The authoritative schema entry point is `packages/backend/convex/schema.ts`, whi
 | `disputeAssignmentEvents` | `admin/schema.ts` | Audit log for case claims, releases, and owner reassignment. |
 | `settlementAttempts` | `admin/schema.ts` | Settlement identity, actor, immutable resolution terms, transaction, and phase; one active attempt per escrow. |
 | `reputationRecords` | `reputation_records/schema.ts` | Convex mirror/display record for released escrow reputation. |
-| `transactions` | `transactions/schema.ts` | Application transaction audit records, fee-path metadata, and optional Velo recovery identity/status (`gasRequestId`, inner/outer hashes, actual fee, reconciliation flag). Signed XDR is not stored. |
+| `registryRegistrations` | `registry/schema.ts` | Verified wallet registration timestamp scoped by Stellar network and registry contract, plus verification time. |
+| `transactions` | `transactions/schema.ts` | Application transaction audit records, fee-path metadata, and optional Velo/registry recovery identity, scope, and expiry. Signed XDR is not stored. |
 | `jobReports` | `reports/schema.ts` | Scam/off-platform/spam/fake-job reports. |
 | `waitlistEntries` | `waitlist/schema.ts` | Normalized waitlist email and timestamps. |
 

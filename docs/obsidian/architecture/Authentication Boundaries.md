@@ -2,7 +2,7 @@
 type: architecture
 area: security
 status: current
-last_updated: 2026-10-05
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -41,6 +41,8 @@ Membership grants become active only after the saved contract transaction succee
 ## Public Convex limitation
 
 The session cookie is not automatically attached as Convex identity for all public mutations. Several public mutations accept a `walletAddress`/`clientWallet`/`freelancerWallet` argument and compare it to stored participants. Source comments mark these as TODOs for signed-session replacement. This is a known authorization limitation.
+
+`saveProfileDraft` and `completeOnboarding` retain the repository's caller-supplied-wallet boundary. Completion additionally requires a registry mirror row created by the internal mutation called from `syncUserRegistration`; that public action validates configured scope and reads the public chain record through Stellar RPC. The sync action is permissionless and records only public chain facts. It does not authenticate its caller or accept profile edits. The registry contract itself requires `user.require_auth()` for both first-time and duplicate registration calls; anyone may invoke it directly, and registration is not Highrable identity approval.
 
 ## Route gate distinction
 
