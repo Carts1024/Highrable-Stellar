@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-10-13
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
@@ -124,6 +124,14 @@ Three `d3_c05_` Rust tests cover unassigned open escrows in `Created` and both s
 ## C07 marking event/state regression
 
 `assert_mark_event` independently checks the literal wire payload and also compares the event topic escrow ID and decoded `Disputed` status with the persisted record. C07 exercises two distinct escrows from `Funded` and `Submitted` with different authorized callers, then verifies the untargeted escrow, token balances, reputation completion records, and freelancer statistics remain unchanged. A separately authorized missing-ID call must return `EscrowNotFound` without emitting dispute or transfer events or changing records, balances, reputation, or the next escrow ID. Existing tests continue to cover authorization, unassigned escrows, invalid statuses, and repeat marking. See the [C07 evidence](../../instawards/C07-Dispute-Marking-Evidence.md); local tests do not verify deployed behavior or wallet signatures.
+
+## Deliverable 3 C09 marking event payload regression
+
+The C09 assertion checks the full Soroban event output and requires a successful mark to add exactly one event, so unexpected events under other topics are rejected. It retains independent literal-map/XDR and typed-payload checks for the emitting escrow, ordered `(dispute, marked, escrow_id)` topics, version `1`, authorized actor, and final `Disputed` status, which must agree with the persisted record. Existing client/freelancer `Funded`/`Submitted` cases and owner compatibility coverage are reused. `cargo test --locked -p highrable-escrow mark` passes 13 tests; the workspace passes 80 escrow and 9 reputation tests, formatting passes, and both WASM contracts build. See the [C09 evidence](../../instawards/Deliverable-3-C09-Dispute-Marking-Event-Evidence.md). This is local mocked-authorization evidence and does not prove signatures, deployed behavior, Testnet execution, or event indexing.
+
+## Deliverable 3 C13 rejected-marking no-side-effects regression
+
+The shared rejection snapshot in `contracts/escrow/src/test.rs` compares complete escrow records, reputation completion records and freelancer statistics, client/freelancer/contract token balances, next escrow ID, and total, dispute, and token-transfer event counts. Checks inspect event counts immediately after the rejected invocation, before follow-up contract reads. Existing invocation-scoped authorization, unassigned-work, missing-ID, invalid-status, outsider, and C20 terminal/repeat cases use this coverage. A dedicated C13 test first records a normal completion, then rejects client and freelancer marking calls against separate `Created` work and verifies that both work records and the nonzero reputation state remain unchanged. Focused marking tests pass 14, C20 passes 6, the C13 test passes 1, and the contract workspace passes 81 escrow and 9 reputation tests. Formatting and both WASM builds pass. See the [C13 evidence](../../instawards/Deliverable-3-C13-Participant-Marking-No-Side-Effects-Evidence.md). This is local mocked-authorization evidence; it does not prove wallet signatures or deployed behavior.
 
 ## Tests
 
