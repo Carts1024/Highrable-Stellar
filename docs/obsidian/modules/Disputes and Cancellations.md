@@ -56,6 +56,14 @@ The distinct C14 suite covers both roles, wallet types, micro-gig/milestone pare
 
 The distinct C18 suite contains 23 local `convex-test` cases across micro-gig and milestone parents, both participants, and external-wallet/passkey bookkeeping. It verifies complete callback snapshots, exact event/message/notification counts, metadata/hash/URL/timestamp preservation, terminal and invalid-argument replay paths, sibling isolation, and real `syncEscrowStatus` RPC-mocked reads in both callback orders. Sync may update its own escrow metadata and mirror a disputed parent status, but it cannot submit, invent a hash, confirm the dispute callback, or finalize a disputed escrow. See the [C18 evidence report](../../instawards/Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md).
 
+## Deliverable 3 C22 — Participant Backend Acceptance Matrix
+
+The participant backend now has 18 deterministic acceptance cases spanning connected create/evidence/response/history journeys, all four active review states, both parent kinds, both participant roles, and both wallet-type bookkeeping values. Revocation coverage reauthorizes detail, list, parent/escrow, evidence, timeline, permission, and attachment-access requests after participant reassignment, parent deletion, and conflicting saved links; stale evidence and response writes reject. Independent cases, micro-gig/milestone parents, and sibling milestones remain isolated, and foreign or revoked attachment mixtures leave complete snapshots unchanged.
+
+Terminal `resolved_client`, `resolved_freelancer`, `split_resolution`, and `cancelled` cases retain readable participant history while rejecting evidence, responses, keyed-response replays, and active-case lookups. C22 also closed a demonstrated `getAttachmentAccessLogs` gap: a stale former attachment owner now receives the existing `NotFound` denial when the current dispute authorization no longer permits access. The focused C22 suite passes 18 tests; the full backend passes 497 tests across 17 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. See the [C22 evidence report](../../instawards/Deliverable-3-C22-Participant-Acceptance-Evidence.md).
+
+This remains local deterministic `convex-test` evidence. Caller-supplied wallet possession, browser cache races, live Convex/storage, notification delivery, Stellar, Testnet, and deployed contract behavior remain outside scope.
+
 ## Primary Locations
 
 - `packages/backend/convex/disputes/`

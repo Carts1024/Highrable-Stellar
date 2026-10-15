@@ -180,6 +180,9 @@ export const getAttachmentAccessLogs = query({
     }
     const viewerWallet = normalizeWalletAddress(args.viewerWallet);
     const policy = await resolveAttachmentAccessPolicy(ctx, attachment, viewerWallet);
+    if (!policy.canView) {
+      throw new NotFoundError("Attachment not found.");
+    }
     if (
       attachment.uploadedByWallet !== viewerWallet &&
       policy.viewerRole !== "admin" &&
