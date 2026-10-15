@@ -1640,7 +1640,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
   return (
     <AdminSessionGate>
-      <AdminDisputeDetailContent disputeId={disputeId} />
+      <AdminDisputeDetailContent key={disputeId} disputeId={disputeId} />
     </AdminSessionGate>
   );
 }
