@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { cloneElement, createElement, isValidElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -697,6 +697,51 @@ describe("AdminDisputeDetailPage", () => {
     ).toHaveLength(1);
   });
 
+  it.each([200, 409])(
+    "isolates a late review response (%s) from a replacement case",
+    async (status) => {
+      const pending = createDeferred<Response>();
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/status")) return pending.promise;
+        return Promise.resolve(
+          response(
+            createActiveDetail({
+              dispute: {
+                _id: url.endsWith("dispute-2") ? "dispute-2" : "dispute-1",
+              },
+            }),
+          ),
+        );
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const view = renderDetail();
+      fireEvent.click(await screen.findByRole("button", { name: "Update Status" }));
+      rerenderDetail(view, "dispute-2");
+      const update = await screen.findByRole("button", { name: "Update Status" });
+      expect(update.hasAttribute("disabled")).toBe(false);
+      fireEvent.change(screen.getByLabelText("Optional review message"), {
+        target: { value: "New case draft" },
+      });
+      await act(async () => {
+        pending.resolve(
+          response(status === 200 ? { success: true } : { error: "Old case conflict" }, status),
+        );
+        await pending.promise;
+      });
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/status")),
+        ).toHaveLength(1),
+      );
+      expect(screen.queryByText("Dispute review status updated.")).toBeNull();
+      expect(screen.queryByText("Old case conflict")).toBeNull();
+      expect((screen.getByLabelText("Optional review message") as HTMLTextAreaElement).value).toBe(
+        "New case draft",
+      );
+    },
+  );
+
   it("resets the local review selection when the case changes", async () => {
     const firstDetail = createActiveDetail({
       dispute: { _id: "dispute-1", status: "under_review" },
@@ -975,6 +1020,7 @@ describe("AdminDisputeDetailPage", () => {
     expect(await screen.findByText("case-proof.pdf")).toBeTruthy();
     expect(screen.getByText("Design reference")).toBeTruthy();
     expect(screen.getByText("event-proof.pdf")).toBeTruthy();
+    expect(screen.getAllByText("Available")).toHaveLength(3);
     expect(screen.getAllByText("Uploaded by: GCLIENT")).toHaveLength(3);
     expect(screen.getAllByText("Size: 2 KB")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Open case-proof.pdf" }).getAttribute("href")).toBe(
@@ -991,10 +1037,17 @@ describe("AdminDisputeDetailPage", () => {
     ).not.toContain("event-proof.pdf");
   });
 
-  it("distinguishes empty evidence from missing, unusable, deleted, and blocked evidence", async () => {
+  it("renders explicit evidence presentation states and fails closed for unsafe links", async () => {
     const detail = createActiveDetail({
       dispute: {
-        evidenceAttachmentIds: ["missing", "null-url", "unsafe-link", "deleted", "blocked"],
+        evidenceAttachmentIds: [
+          "missing",
+          "null-url",
+          "unsafe-link",
+          "deleted",
+          "blocked",
+          "unsupported",
+        ],
         attachments: [
           createAttachment("null-url", { name: "No storage URL.pdf" }),
           createAttachment("unsafe-link", {
@@ -1012,6 +1065,11 @@ describe("AdminDisputeDetailPage", () => {
             status: "blocked",
             url: "https://files.example.test/blocked.pdf",
           }),
+          createAttachment("unsupported", {
+            name: "Unsupported state.pdf",
+            status: "hidden",
+            url: "https://files.example.test/unsupported.pdf",
+          }),
         ],
       },
     });
@@ -1019,12 +1077,85 @@ describe("AdminDisputeDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findAllByText("Evidence unavailable")).toHaveLength(5);
+    expect(await screen.findByText("Missing")).toBeTruthy();
+    expect(screen.getByText("URL unavailable")).toBeTruthy();
+    expect(screen.getAllByText("Invalid")).toHaveLength(2);
+    expect(screen.getByText("Deleted")).toBeTruthy();
+    expect(screen.getByText("Blocked")).toBeTruthy();
+    expect(screen.getByText("Unsupported state.pdf")).toBeTruthy();
+    expect(screen.getByText(/does not indicate deletion/)).toBeTruthy();
+    expect(screen.getByText(/Refreshing the detail may recover it/)).toBeTruthy();
     expect(screen.queryByText("No evidence attached.")).toBeNull();
     expect(screen.queryByRole("link", { name: "Open No storage URL.pdf" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Open Unsafe reference" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Open Deleted evidence.pdf" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Open Blocked evidence.pdf" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Unsupported state.pdf" })).toBeNull();
+  });
+
+  it("preserves stable deduplicated evidence reference order", async () => {
+    const detail = createActiveDetail({
+      dispute: {
+        evidenceAttachmentIds: ["second", "first", "second", "missing", "first"],
+        attachments: [
+          createAttachment("second", { name: "Second evidence.pdf" }),
+          createAttachment("first", { name: "First evidence.pdf" }),
+        ],
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(detail)));
+
+    renderDetail();
+
+    expect(await screen.findByText("Second evidence.pdf")).toBeTruthy();
+    const caseEvidence = screen.getByRole("heading", { name: "Case evidence" }).parentElement;
+    if (!caseEvidence) {
+      throw new Error("Expected case evidence section.");
+    }
+    const caseEvidenceText = caseEvidence.textContent ?? "";
+    expect(caseEvidenceText.indexOf("Second evidence.pdf")).toBeLessThan(
+      caseEvidenceText.indexOf("First evidence.pdf"),
+    );
+    expect(screen.getAllByText("Second evidence.pdf")).toHaveLength(1);
+    expect(screen.getAllByText("First evidence.pdf")).toHaveLength(1);
+    expect(screen.getAllByText("Missing")).toHaveLength(1);
+  });
+
+  it("renders grouped linked references without hydrating content or inventing links", async () => {
+    const detail = createActiveDetail({
+      dispute: {
+        title: "<img src=x onerror=alert(1)> protected case",
+        description: "<script>alert(1)</script>",
+        openedByWallet: "<script>participant</script>",
+        relatedWorkSubmissionIds: ["submission-1", "submission-1", "submission-2"],
+        relatedRevisionRequestIds: ["revision-1", "revision-1"],
+        relatedMessageIds: ["message-1", "message-1"],
+        relatedDeadlineEventIds: ["deadline-1", "deadline-1"],
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(detail)));
+
+    renderDetail();
+
+    expect(await screen.findByRole("heading", { name: "Linked records" })).toBeTruthy();
+    expect(screen.getByText("submission-1")).toBeTruthy();
+    expect(screen.getByText("submission-2")).toBeTruthy();
+    expect(screen.getByText("revision-1")).toBeTruthy();
+    expect(screen.getByText("message-1")).toBeTruthy();
+    expect(screen.getByText("deadline-1")).toBeTruthy();
+    expect(screen.getAllByText("Content unavailable in this view.")).toHaveLength(5);
+    expect(screen.queryByRole("link", { name: "submission-1" })).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByRole("script")).toBeNull();
+    expect(screen.getByText(/<script>participant<\/script>/)).toBeTruthy();
+  });
+
+  it("treats omitted optional linked-reference arrays as empty", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(createActiveDetail())));
+
+    renderDetail();
+
+    expect(await screen.findByText("No linked records.")).toBeTruthy();
   });
 
   it("renders an explicit empty case-evidence state", async () => {

@@ -6,6 +6,14 @@ import type { IAdminDisputeDetail } from "./types";
 
 type TAdminEvidenceAttachment = IAdminDisputeDetail["dispute"]["attachments"][number];
 
+type TAdminEvidencePresentationState =
+  | "available"
+  | "missing"
+  | "blocked"
+  | "deleted"
+  | "invalid"
+  | "url_unavailable";
+
 interface IAdminEvidenceListProps {
   readonly attachmentIds?: readonly string[];
   readonly attachments?: readonly TAdminEvidenceAttachment[];
@@ -15,12 +23,38 @@ function formatAttachmentType(type: string): string {
   return type.replaceAll("_", " ");
 }
 
-function getAttachmentUrl(attachment: TAdminEvidenceAttachment): string | null {
-  const candidateUrl =
+function getAttachmentCandidateUrl(attachment: TAdminEvidenceAttachment): string | null {
+  return (
     attachment.url ??
-    (["link", "video_link"].includes(attachment.type) ? (attachment.externalUrl ?? null) : null);
+    (["link", "video_link"].includes(attachment.type) ? (attachment.externalUrl ?? null) : null)
+  );
+}
 
-  return candidateUrl && isValidHttpUrl(candidateUrl) ? candidateUrl : null;
+function getAttachmentPresentation(attachment: TAdminEvidenceAttachment | undefined): {
+  readonly state: TAdminEvidencePresentationState;
+  readonly url: string | null;
+} {
+  if (!attachment) {
+    return { state: "missing", url: null };
+  }
+
+  const status = String(attachment.status);
+  if (status === "blocked" || status === "deleted") {
+    return { state: status, url: null };
+  }
+  if (status !== "active") {
+    return { state: "invalid", url: null };
+  }
+
+  const candidateUrl = getAttachmentCandidateUrl(attachment);
+  if (!candidateUrl) {
+    return { state: "url_unavailable", url: null };
+  }
+  if (!isValidHttpUrl(candidateUrl)) {
+    return { state: "invalid", url: null };
+  }
+
+  return { state: "available", url: candidateUrl };
 }
 
 function getEvidenceReferences(
@@ -34,16 +68,56 @@ function getEvidenceReferences(
   return Array.from(new Set(references));
 }
 
-function EvidenceUnavailable({ referenceId }: { readonly referenceId?: string }) {
+function EvidenceStateMessage({
+  state,
+  referenceId,
+}: {
+  readonly state: TAdminEvidencePresentationState;
+  readonly referenceId?: string;
+}) {
+  const stateLabel =
+    state === "url_unavailable"
+      ? "URL unavailable"
+      : state.charAt(0).toUpperCase() + state.slice(1);
+
   return (
     <div className="space-y-1">
-      <p className="text-sm font-semibold text-[#7f1d1d]">Evidence unavailable</p>
+      <p className="text-sm font-semibold text-[#7f1d1d]">{stateLabel}</p>
+      {state === "missing" ? (
+        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+          The referenced attachment was not returned. This does not indicate deletion.
+        </p>
+      ) : null}
+      {state === "blocked" || state === "deleted" ? (
+        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+          The returned attachment is {state} and cannot be opened from this view.
+        </p>
+      ) : null}
+      {state === "invalid" ? (
+        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+          The attachment has a malformed or unsafe opening URL, or an unsupported status.
+        </p>
+      ) : null}
+      {state === "url_unavailable" ? (
+        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+          No opening URL is available. Refreshing the detail may recover it, but recovery is not
+          guaranteed.
+        </p>
+      ) : null}
       {referenceId ? (
         <p className="font-mono text-xs break-all text-[#7f7f7f]">
           Referenced record: {referenceId}
         </p>
       ) : null}
     </div>
+  );
+}
+
+function AvailableEvidenceState() {
+  return (
+    <p className="text-xs font-semibold text-emerald-700" aria-label="Evidence state: Available">
+      Available
+    </p>
   );
 }
 
@@ -57,14 +131,12 @@ function AdminEvidenceItem({
   if (!attachment) {
     return (
       <li className="border border-dashed border-[#e8e8e8] bg-[#fafafa] px-3 py-3">
-        <EvidenceUnavailable referenceId={referenceId} />
+        <EvidenceStateMessage state="missing" referenceId={referenceId} />
       </li>
     );
   }
 
-  const isActive = attachment.status === "active";
-  const url = isActive ? getAttachmentUrl(attachment) : null;
-  const isUsable = Boolean(url);
+  const presentation = getAttachmentPresentation(attachment);
 
   return (
     <li className="flex min-w-0 flex-wrap items-start justify-between gap-4 border border-[#e8e8e8] bg-[#fafafa] px-3 py-3">
@@ -90,11 +162,15 @@ function AdminEvidenceItem({
             <dd>Added: {formatDisputeDate(attachment.createdAt)}</dd>
           </div>
         </dl>
-        {!isActive || !isUsable ? <EvidenceUnavailable /> : null}
+        {presentation.state === "available" ? (
+          <AvailableEvidenceState />
+        ) : (
+          <EvidenceStateMessage state={presentation.state} />
+        )}
       </div>
-      {url ? (
+      {presentation.url ? (
         <a
-          href={url}
+          href={presentation.url}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Open ${attachment.name}`}
