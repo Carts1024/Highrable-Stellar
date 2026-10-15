@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-15
+
+- **Deliverable 3 C17 — Participant Address Authorization:** added Rust coverage for all four account/contract client-freelancer address combinations, both marking roles, both eligible states, and six authorization mismatch cases with full target/sibling no-side-effects checks. The focused C17 tests pass 2, marking tests pass 16, C20 passes 6, and the full contract workspace passes 83 escrow and 9 reputation tests; formatting passes. The `pnpm contracts:build` wrapper encountered registry DNS failures, but the underlying `stellar contract build` produced both WASM contracts successfully. SDK 22 account-address mocks use `mock_all_auths` with exact recorded invocation assertions; local tests do not prove signatures or deployment behavior. See the [C17 evidence](../../instawards/Deliverable-3-C17-Participant-Address-Authorization-Evidence.md).
 
 ## 2026-10-13
 
