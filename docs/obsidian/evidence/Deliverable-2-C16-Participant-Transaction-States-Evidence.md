@@ -2,13 +2,21 @@
 type: evidence
 area: disputes
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
 # Deliverable 2 C16 — Participant Transaction States and Safe Retry
 
 ## Scope
+
+### 2026-10-14 follow-up — authoritative confirmation and known-hash retry guard
+
+The shared marking presentation now prioritizes persisted `marked` confirmation over an older local uncertain result. Its badge also stops showing `Outcome Pending` after confirmation. Local incomplete bookkeeping remains explicit as a separate recording message and retry action, using the original recording context and without another Stellar submission.
+
+A saved transaction hash blocks a fresh operation even when the persisted status still says `not_marked`. The UI shows reconciliation guidance, a matching badge, and an explorer link instead of a blind retry button. A new detail-panel regression reproduces that gap; the existing C24 integration journeys reproduce uncertainty-to-confirmation and confirmed-parent-bookkeeping recovery. All pass after the fix, including the earlier C16 recording-recovery regression.
+
+Validation: combined administrator/participant suites pass **327 tests across 17 files**; full web suite passes **429 tests across 27 files** with `NODE_OPTIONS=--no-experimental-webstorage` and bounded workers (`--maxWorkers=2 --minWorkers=1`). The option avoids Node 25 native Web Storage shadowing jsdom; without it nine unrelated wallet-client tests fail at `localStorage.clear`. Web TypeScript, scoped formatting, and participant-file lint pass. The pnpm launcher is broken on this machine, so installed workspace binaries were used after attempting `pnpm lint:fix`. No live wallet, RPC, or deployment verification was performed.
 
 This evidence covers the participant `mark_disputed` browser lifecycle in the opening dialog and participant detail retry flow. It is separate from the older C16 Soroban event-emission work. No public Convex arguments, schema, generated file, contract, environment, wallet executor, or confirmation semantics changed.
 
@@ -17,7 +25,7 @@ This evidence covers the participant `mark_disputed` browser lifecycle in the op
 - `apps/web/features/disputes/components/participant-marking.ts` centralizes the participant scope key, transaction-hash extraction, uncertainty classification, and original recording context.
 - `open-dispute-dialog.tsx` holds one execution lock from dispute creation through marking and all recording mutations, retains the saved dispute after any marking/bookkeeping failure, and guards late completions and external-wallet signing.
 - `dispute-detail-panel.tsx` uses the same generation and signed barrier, keeps the lock through confirmation recording, and retries only Convex bookkeeping with the original actor, wallet mode, hash, operation ID, escrow, job, and milestone references.
-- `dispute-marking-status.tsx` and `dispute-status-badge.tsx` keep local pending/recording recovery visible even if the subscription reports `marked`; persisted Convex timeline events remain the only timeline source.
+- `dispute-marking-status.tsx` and `dispute-status-badge.tsx` retain local recording recovery even if the subscription reports `marked`, while authoritative confirmation supersedes older uncertainty; persisted Convex timeline events remain the only timeline source.
 
 ## Regression matrix
 
@@ -31,14 +39,14 @@ This evidence covers the participant `mark_disputed` browser lifecycle in the op
 
 ## Validation
 
-| Command | Result |
-| --- | --- |
-| `pnpm --filter web test features/disputes` | Pass — 68 tests across 9 files |
-| `pnpm --filter web test` | Pass — 347 tests across 23 files |
-| `pnpm --filter web exec tsc --noEmit` | Pass |
-| Scoped `oxlint` on participant dispute files | Pass — 0 warnings, 0 errors |
-| Scoped `oxfmt --check` on participant dispute files | Pass |
-| `pnpm --filter web build` | Pass — Next.js production build and static generation completed |
+| Command                                             | Result                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------- |
+| `pnpm --filter web test features/disputes`          | Pass — 68 tests across 9 files                                  |
+| `pnpm --filter web test`                            | Pass — 347 tests across 23 files                                |
+| `pnpm --filter web exec tsc --noEmit`               | Pass                                                            |
+| Scoped `oxlint` on participant dispute files        | Pass — 0 warnings, 0 errors                                     |
+| Scoped `oxfmt --check` on participant dispute files | Pass                                                            |
+| `pnpm --filter web build`                           | Pass — Next.js production build and static generation completed |
 
 ## Remaining limitations
 

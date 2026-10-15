@@ -189,6 +189,18 @@ describe("C23 participant transaction states", () => {
     expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
   });
 
+  it("blocks a new operation when a saved hash arrives before the marking status", () => {
+    queries.detail = detail("not_marked", hash);
+    render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+    expect(screen.getByText(/Reconcile its outcome before retrying/)).toBeTruthy();
+    expect(screen.getByText("Chain: Reconciliation Required")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "View transaction on Stellar Expert" }).getAttribute("href"),
+    ).toContain(hash);
+    expect(markOnChain).not.toHaveBeenCalled();
+  });
+
   it("locks retry after a submitted transaction has an uncertain outcome", async () => {
     markOnChain.mockImplementationOnce(
       async (args: {
