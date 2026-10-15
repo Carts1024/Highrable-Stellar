@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-15
+
+- **Deliverable 3 C18 — Participant Marking Recovery and Reconciliation:** added the missing saved-hash guard for `not_marked` starts while preserving the existing `mark_failed` guard, write-free `marking` acknowledgments, authorization/argument ordering, callback statuses, schemas, and side-effect semantics. Added 23 focused Convex regressions for both parent types, participant roles, external-wallet/passkey bookkeeping, stored-hash and hashless recovery, exact side-effect preservation, terminal/authorization/argument/sibling isolation, and callback/RPC sync ordering. The focused suite passes 23 tests; the full backend passes 479 tests across 16 files; backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. Sync metadata may change during mocked reads, but sync cannot confirm the dispute callback, invent a hash, submit a transaction, or finalize a disputed escrow. Evidence is local bookkeeping plus mocked RPC only; no reconciliation service or deployment was added. See the [C18 evidence report](../../instawards/Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md).
 
 ## 2026-10-13
 
