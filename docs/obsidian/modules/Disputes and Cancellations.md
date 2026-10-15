@@ -34,6 +34,22 @@ assert exact errors plus unchanged before/after state after the invalid
 condition is arranged. Valid attachment and accepted-agreement context is
 seeded for related-record creation rejections. See the [C06 evidence map](../../instawards/Deliverable-3-C06-Creation-Rejection-and-Atomicity-Evidence.md).
 
+## Deliverable 3 C10 — Evidence Association and Protected Reads
+
+Participant dispute reads and evidence/response writes now authorize against the saved dispute's current parent graph and current participants through one shared resolver. Terminal cases remain readable while those relationships still match; reassignment, missing/deleted parents, and contradictory saved links fail closed. Omitted, blank, or unrelated viewers receive `null` from protected context reads, and invalid submissions, linked revisions, or exact-parent deadlines are omitted without changing the bounded result shape.
+
+Case and timeline attachments must be active, belong to the exact dispute, and have a valid client/freelancer participant uploader before viewer or uploader shortcuts. Administrator evidence review preserves its secret, capability, and scope checks and filters invalid historical attachments. Raw limits remain 25 attachments and 20 related references before deduplication, with no cumulative case limit; explicit escrow aliases and legacy optional links remain supported. `addDisputeEvidence` passes validated deduplicated attachment IDs into reassignment.
+
+The focused C10 suite passes 13 tests and the full backend suite passes 381 tests across 14 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. This is local `convex-test` evidence only; caller-supplied wallet possession, live storage, deployed Convex, Stellar, and transaction behavior remain outside scope. See the [C10 evidence report](../../instawards/Deliverable-3-C10-Evidence.md).
+
+## Deliverable 3 C14 — Participant Response Hardening
+
+`addDisputeResponse` now accepts an optional trimmed request ID with a 128-character limit. After current parent/participant authorization, active-status, message, and attachment ownership/association checks, a dedicated `(disputeId, actorWallet, requestId)` index detects replay. Matching keyed responses compare the sanitized message, wallet type, and first-seen deduplicated attachment IDs in saved order and return `true` without writes; conflicting reuse rejects atomically. New responses retain the existing evidence association, response event, opposite-participant notification, review status, notification copy, and no-conversation-message behavior. Omitted request IDs retain legacy non-idempotent behavior.
+
+Timeline reads still use the dispute-scoped ascending `(disputeId, createdAt)` index, existing tie ordering, protected attachment serialization, and first-200-event bound. Replay lookup is independent of that bound. C16 must generate and retain one request ID per logical response; the application key does not establish caller wallet possession.
+
+The distinct C14 suite covers both roles, wallet types, micro-gig/milestone parents, all active and terminal statuses, authorization/parent/message/attachment rejection, exact side-effect attribution, matching/conflicting/concurrent retries, key isolation, complete snapshots including timestamps/access logs, and timeline ordering/boundaries. It passes 74 tests; the full backend passes 456 tests across 15 files. See the [C14 evidence report](../../instawards/Deliverable-3-C14-Participant-Response-Evidence.md).
+
 ## Primary Locations
 
 - `packages/backend/convex/disputes/`
@@ -57,7 +73,7 @@ Disputes: `createDispute`, `markDisputeOnChainStarted/Succeeded/Failed`, `addDis
 
 ## Data Model
 
-`disputes` stores optional assignee wallet/time/actor fields in addition to participants, parent links, evidence, status, on-chain status, settlement, and timestamps. `disputeAssignmentEvents` records claims, release, and owner reassignment. `settlementAttempts` fixes the actor, share, note, operation ID, signed hash/expiry, scope, and phase. `disputeAdmins` and `disputeAdminOperations` hold owner-managed network/contract-scoped membership and recovery state. `disputeEvents` remains the dispute timeline; cancellations use their separate policy/status model.
+`disputes` stores optional assignee wallet/time/actor fields in addition to participants, parent links, evidence, status, on-chain status, settlement, and timestamps. `disputeAssignmentEvents` records claims, release, and owner reassignment. `settlementAttempts` fixes the actor, share, note, operation ID, signed hash/expiry, scope, and phase. `disputeAdmins` and `disputeAdminOperations` hold owner-managed network/contract-scoped membership and recovery state. `disputeEvents` remains the dispute timeline and optionally stores keyed participant response request IDs; cancellations use their separate policy/status model.
 
 ## External Dependencies
 

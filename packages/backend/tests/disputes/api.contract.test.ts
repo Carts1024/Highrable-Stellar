@@ -188,6 +188,7 @@ type ExpectedResponseArgs = {
   responderWalletType: ExpectedWalletType;
   message: string;
   attachmentIds?: Id<"attachments">[];
+  requestId?: string;
 };
 
 type ExpectedGetDisputeArgs = {
