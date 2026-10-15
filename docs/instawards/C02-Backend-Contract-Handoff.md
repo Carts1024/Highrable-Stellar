@@ -2,13 +2,13 @@
 type: handoff
 area: backend
 status: verified
-last_updated: 2026-10-05
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
 # Deliverable 2 C02 Backend Contract Handoff
 
-This handoff records the Deliverable 2 C02 compatibility boundary for the Convex dispute API. It extends the existing in-memory harness with source-verified schema, index, generated-API, validator, and participant-result-shape coverage. It does not change production behavior, schema fields, indexes, public arguments, statuses, dependencies, environment configuration, or generated Convex output.
+This handoff records the Deliverable 2 C02 compatibility boundary for the Convex dispute API. It extends the existing in-memory harness with source-verified schema, index, generated-API, validator, and participant-result-shape coverage. Deliverable 3 C14 adds the response-specific optional request ID and dedicated replay index documented below; all other C02 contracts remain unchanged.
 
 This is distinct from Deliverable 1 C02. Deliverable 1 C02 established the initial `disputes`/`disputeEvents` schema and index contract plus the backend fixture foundation. Deliverable 2 C02 preserves that harness and closes compatibility gaps at the accepted vocabulary, assigned-admin index, public export, malformed-argument, rejected-write, and query-shape boundaries.
 
@@ -52,6 +52,7 @@ The dispute indexes and field order are:
 | `disputes` | `by_assignedAdmin_updatedAt` | `assignedAdminWallet`, `updatedAt` |
 | `disputes` | `by_status` | `status`, `updatedAt` |
 | `disputeEvents` | `by_dispute` | `disputeId`, `createdAt` |
+| `disputeEvents` | `by_dispute_actor_requestId` | `disputeId`, `actorWallet`, `requestId` |
 | `disputeEvents` | `by_type` | `type`, `createdAt` |
 
 The assigned-admin test seeds three timestamps for one administrator and a separate administrator, then proves compound-index descending order and administrator isolation.
@@ -86,11 +87,19 @@ The omitted-versus-null `canViewDispute.role` distinction is intentional and is 
 | `markDisputeOnChainSucceeded` | `{ disputeId, actorWallet, actorWalletType, transactionHash, stellarExpertUrl? }` | Runtime return validator: `v.boolean()` |
 | `markDisputeOnChainFailed` | `{ disputeId, actorWallet, actorWalletType, errorMessage, transactionHash? }` | Runtime return validator: `v.boolean()` |
 | `addDisputeEvidence` | `{ disputeId, actorWallet, actorWalletType, attachmentIds, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
-| `addDisputeResponse` | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds? }` | Result is TypeScript-inferred; current successful handler result is `true` |
+| `addDisputeResponse` | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds?, requestId? }` | Result is TypeScript-inferred; current successful handler result is `true` |
 | `changeDisputeStatus` | `{ disputeId, actorWallet, actorWalletType, status, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
 | `cancelDispute` | `{ disputeId, actorWallet, actorWalletType, message? }` | Result is TypeScript-inferred; current successful handler result is `true` |
 
 `addModeratorNote` and `recordDisputeResolution` remain public compatibility placeholders under `api.disputes`. Their argument names are preserved, but their handlers reject with the documented future-phase errors and have no successful result contract. They are not aliases for the working administrator functions.
+
+### Deliverable 3 C14 response extension
+
+`addDisputeResponse` accepts an optional `requestId`, trims it, rejects blank values and values longer than 128 characters, and continues to return `true`. When supplied, the sanitized ID is stored only on the response audit event. Existing events remain valid without it; no backfill is required.
+
+After current parent/participant authorization, active-status, message, and attachment validation, a keyed response lookup uses `by_dispute_actor_requestId`. A matching saved response compares the sanitized message, responder wallet type, and first-seen deduplicated attachment IDs in saved order, then returns `true` without writes. Reusing a key with different content rejects atomically. New keyed responses preserve the existing evidence update, response event, opposite-participant notification, review status, and no-conversation-message behavior. The existing `by_dispute` ascending timeline index and 200-event bound are unchanged, so replay lookup also works for events outside the timeline window.
+
+C16 must generate one request ID per logical participant response and retain it across retries. Calls that omit `requestId` remain legacy non-idempotent calls: retrying them can create another response event and notification. The request ID is an application replay key only and does not prove possession of the caller-supplied wallet.
 
 ## Working administrator APIs
 
@@ -127,4 +136,12 @@ Deliverable 2 C02 additions:
 - backend test type-check: `pnpm --filter @repo/backend exec tsc --project tests/tsconfig.json --noEmit`;
 - formatting: `pnpm exec oxfmt --write` on the three changed test files.
 
-No deployment, migration, live transaction, generated-file edit, frontend change, contract change, dependency change, or environment change is part of this handoff.
+Deliverable 3 C14 additions:
+
+- focused response suite: `pnpm --filter @repo/backend exec vitest run tests/disputes/c14.response.test.ts` — 74 tests passed;
+- full backend suite: `pnpm --filter @repo/backend test` — 456 tests passed across 15 files;
+- backend source and test TypeScript checks passed;
+- scoped oxlint, scoped oxfmt check, and `git diff --check` passed;
+- evidence report: [`Deliverable-3-C14-Participant-Response-Evidence.md`](Deliverable-3-C14-Participant-Response-Evidence.md).
+
+No deployment, migration, live transaction, generated-file edit, frontend implementation, contract, dependency, or environment change is part of C14.
