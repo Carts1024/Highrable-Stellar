@@ -57,6 +57,7 @@ export type DisputeEventFields = Omit<Doc<"disputeEvents">, "_id" | "_creationTi
 
 export type DisputeCreationStateSnapshot = {
   attachments: Doc<"attachments">[];
+  attachmentAccessLogs: Doc<"attachmentAccessLogs">[];
   conversations: Doc<"conversations">[];
   deadlineAuditEvents: Doc<"deadlineAuditEvents">[];
   deadlineReminders: Doc<"deadlineReminders">[];
@@ -369,6 +370,7 @@ export async function snapshotDisputeCreationState(
 ): Promise<DisputeCreationStateSnapshot> {
   return await t.run(async (ctx) => ({
     attachments: await ctx.db.query("attachments").collect(),
+    attachmentAccessLogs: await ctx.db.query("attachmentAccessLogs").collect(),
     conversations: await ctx.db.query("conversations").collect(),
     deadlineAuditEvents: await ctx.db.query("deadlineAuditEvents").collect(),
     deadlineReminders: await ctx.db.query("deadlineReminders").collect(),

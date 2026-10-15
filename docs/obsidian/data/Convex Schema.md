@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-14
 source_of_truth: repository
 ---
 
@@ -45,7 +45,7 @@ The authoritative schema entry point is `packages/backend/convex/schema.ts`, whi
 | `jobReports` | `reports/schema.ts` | Scam/off-platform/spam/fake-job reports. |
 | `waitlistEntries` | `waitlist/schema.ts` | Normalized waitlist email and timestamps. |
 
-The disputes table has optional assignee wallet/time/actor fields and the `by_assignedAdmin_updatedAt` index. Existing rows remain valid without assignment fields.
+The disputes table has optional assignee wallet/time/actor fields and the `by_assignedAdmin_updatedAt` index. Existing rows remain valid without assignment fields. `disputeEvents` has an optional `requestId` for keyed participant response events; the dedicated `by_dispute_actor_requestId` index covers `(disputeId, actorWallet, requestId)`. Existing events need no backfill, and the regular `by_dispute` timeline index remains `(disputeId, createdAt)`.
 
 ## Common schema conventions
 
