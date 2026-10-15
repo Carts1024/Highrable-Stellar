@@ -42,6 +42,8 @@ export type TAdminSettlementAttemptContext = {
   readonly operationId: string;
   readonly transactionHash: string | null;
   readonly transactionValidUntil: number | null;
+  readonly resolutionStatus: TAdminResolutionStatus | null;
+  readonly freelancerShareBps: number | null;
 };
 
 export interface IUseAdminSettlementParams {
@@ -151,6 +153,38 @@ function assertSettlementOutcome(
   }
 
   throw new Error("Settlement recording did not return a verified outcome.");
+}
+
+function assertSuccessfulOutcomeMatchesAttempt(
+  outcome: TAdminResolutionOutcomeResponse,
+  attempt: TAdminSettlementAttemptContext | null,
+): void {
+  if (outcome.status !== "succeeded") {
+    return;
+  }
+
+  if (
+    !attempt ||
+    !attempt.transactionHash ||
+    !attempt.resolutionStatus ||
+    attempt.freelancerShareBps === null
+  ) {
+    throw new Error("Successful settlement does not match a saved settlement attempt.");
+  }
+
+  const result = outcome.result;
+  if (
+    result.status !== attempt.resolutionStatus ||
+    result.freelancerShareBps !== attempt.freelancerShareBps ||
+    normalizeTransactionHash(result.resolutionTxHash) !==
+      normalizeTransactionHash(attempt.transactionHash)
+  ) {
+    throw new Error("Successful settlement does not match the saved settlement attempt.");
+  }
+}
+
+function normalizeTransactionHash(transactionHash: string): string {
+  return transactionHash.trim().toLowerCase();
 }
 
 function getOutcomeMessage(outcome: TAdminResolutionOutcomeResponse): string {
@@ -298,6 +332,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         return;
       }
 
+      assertSuccessfulOutcomeMatchesAttempt(outcome, readAttemptContext(attemptRef));
       updatePhase(outcome.status, token);
       setError(outcome.status === "succeeded" ? null : getOutcomeMessage(outcome));
       setSuccess(outcome.status === "succeeded" ? getOutcomeMessage(outcome) : null);
@@ -340,6 +375,10 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
         generation: generationRef.current,
         operationId,
       };
+      const savedAttempt = params.detail?.settlementAttempts.find(
+        (settlementAttempt) => settlementAttempt.operationId === operationId,
+      );
+      const currentAttempt = readAttemptContext(attemptRef);
       executionRef.current = token;
       setIsExecuting(true);
       setError(null);
@@ -347,8 +386,17 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       updateAttempt(
         {
           operationId,
-          transactionHash: transactionHash ?? attemptRef.current?.transactionHash ?? null,
-          transactionValidUntil: attemptRef.current?.transactionValidUntil ?? null,
+          transactionHash:
+            savedAttempt?.transactionHash ??
+            transactionHash ??
+            currentAttempt?.transactionHash ??
+            null,
+          transactionValidUntil:
+            savedAttempt?.transactionValidUntil ?? currentAttempt?.transactionValidUntil ?? null,
+          resolutionStatus:
+            savedAttempt?.resolutionStatus ?? currentAttempt?.resolutionStatus ?? null,
+          freelancerShareBps:
+            savedAttempt?.freelancerShareBps ?? currentAttempt?.freelancerShareBps ?? null,
         },
         token,
       );
@@ -438,7 +486,16 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     setSuccess(null);
     setRefreshError(null);
     updatePhase("preparing", token);
-    updateAttempt({ operationId, transactionHash: null, transactionValidUntil: null }, token);
+    updateAttempt(
+      {
+        operationId,
+        transactionHash: null,
+        transactionValidUntil: null,
+        resolutionStatus: params.resolutionStatus,
+        freelancerShareBps,
+      },
+      token,
+    );
 
     let startRequestConfirmed = false;
     let failureRecorded = false;
@@ -599,7 +656,13 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
               "Settlement context changed before submission. Reconcile the saved attempt.",
             );
           }
-          updateAttempt({ operationId, transactionHash, transactionValidUntil });
+          updateAttempt({
+            operationId,
+            transactionHash,
+            transactionValidUntil,
+            resolutionStatus: params.resolutionStatus,
+            freelancerShareBps,
+          });
           updatePhase("recording_signed_identity");
           const signedResponse = await postAdminResolution(params.disputeId, {
             phase: "signed",
@@ -650,6 +713,8 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
             operationId,
             transactionHash,
             transactionValidUntil: null,
+            resolutionStatus: params.resolutionStatus,
+            freelancerShareBps,
           },
           token,
         );

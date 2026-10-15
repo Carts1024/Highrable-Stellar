@@ -10,6 +10,8 @@ import type {
   IAdminDisputeDetail,
   IAdminDisputeListItem,
   IAdminDisputesResponse,
+  TAdminResolutionRequest,
+  TAdminResolutionSucceededResult,
   IAdminSessionResponse,
   TAdminReviewStatus,
 } from "./types";
@@ -41,7 +43,10 @@ const runtime = vi.hoisted(() => ({
     returnedDisputeIds: [] as string[],
     mutations: new Map<string, ReturnType<typeof vi.fn>>(),
   },
-  stellar: { markDisputedOnChain: vi.fn() },
+  stellar: {
+    markDisputedOnChain: vi.fn(),
+    resolveDisputeOnChain: vi.fn(),
+  },
   upload: { fetches: 0 },
 }));
 
@@ -106,7 +111,7 @@ vi.mock("@/core/config/stellar-contracts", () => ({
 vi.mock("@/core/stellar/escrow-contract", () => ({
   isDisputeAdminOnChain: vi.fn().mockResolvedValue(true),
   markDisputedOnChain: runtime.stellar.markDisputedOnChain,
-  resolveDisputeOnChain: vi.fn(),
+  resolveDisputeOnChain: runtime.stellar.resolveDisputeOnChain,
 }));
 vi.mock("@/core/stellar/explorer", () => ({
   getTxExplorerUrl: (hash: string) => `https://stellar.expert/explorer/testnet/tx/${hash}`,
@@ -382,8 +387,18 @@ type THttpRuntime = {
   statusMode: "accepted" | "forbidden";
   createMode: "accepted" | "rejected" | "pending";
   evidenceMode: "accepted" | "rejected" | "pending";
+  resolutionMode: "accepted" | "pending" | "failed" | "rejected" | "malformed";
   pendingCreateResolve: ((value: TConvexId<"disputes">) => void) | null;
   pendingEvidenceResolve: (() => void) | null;
+  pendingResolution: {
+    readonly disputeId: string;
+    readonly operationId: string;
+    readonly status: TAdminResolutionSucceededResult["status"];
+    readonly freelancerShareBps: number;
+    transactionHash: string | null;
+  } | null;
+  resolutionResult: TAdminResolutionSucceededResult | null;
+  resolutionRequests: TAdminResolutionRequest[];
   statusRequests: Array<{ readonly status: TAdminReviewStatus; readonly message?: string }>;
   claimRequests: string[];
 };
@@ -508,8 +523,12 @@ function resetHarness(fixture = createFixture("micro_gig", "client", "primary"))
     statusMode: "accepted",
     createMode: "accepted",
     evidenceMode: "accepted",
+    resolutionMode: "accepted",
     pendingCreateResolve: null,
     pendingEvidenceResolve: null,
+    pendingResolution: null,
+    resolutionResult: null,
+    resolutionRequests: [],
     statusRequests: [],
     claimRequests: [],
   };
@@ -525,6 +544,7 @@ function resetHarness(fixture = createFixture("micro_gig", "client", "primary"))
   runtime.convex.returnedDisputeIds.length = 0;
   runtime.convex.mutations.clear();
   runtime.stellar.markDisputedOnChain.mockReset().mockResolvedValue({ txHash: "a".repeat(64) });
+  runtime.stellar.resolveDisputeOnChain.mockReset();
   runtime.upload.fetches = 0;
 }
 
@@ -940,6 +960,122 @@ function installHttpMock(): ReturnType<typeof vi.fn> {
         response(projectAdminDetail(decodeURIComponent(detailMatch[1] ?? ""))),
       );
     }
+    const resolutionMatch = url.match(/^\/api\/admin\/disputes\/([^/]+)\/resolve$/);
+    if (resolutionMatch) {
+      const disputeId = decodeURIComponent(resolutionMatch[1] ?? "");
+      const body = JSON.parse(String(init?.body)) as TAdminResolutionRequest;
+      httpRuntime.resolutionRequests.push(body);
+
+      if (body.phase === "started") {
+        if (httpRuntime.resolutionMode === "rejected") {
+          return Promise.resolve(response({ error: "Settlement start rejected." }, 409));
+        }
+        httpRuntime.pendingResolution = {
+          disputeId,
+          operationId: body.operationId,
+          status: body.status,
+          freelancerShareBps: body.freelancerShareBps,
+          transactionHash: null,
+        };
+        return Promise.resolve(
+          response({
+            success: true,
+            phase: "started",
+            result: { operationId: body.operationId, freelancerShareBps: body.freelancerShareBps },
+          }),
+        );
+      }
+
+      if (body.phase === "signed") {
+        if (httpRuntime.pendingResolution) {
+          httpRuntime.pendingResolution.transactionHash = body.transactionHash;
+        }
+        return Promise.resolve(
+          response({
+            success: true,
+            phase: "signed",
+            result: { operationId: body.operationId, transactionHash: body.transactionHash },
+          }),
+        );
+      }
+
+      if (body.phase === "failed") {
+        return Promise.resolve(response({ success: true, phase: "failed", result: true }));
+      }
+
+      if (body.phase === "reconcile") {
+        return Promise.resolve(
+          response({ status: "pending", result: { status: "submission_unknown" } }, 202),
+        );
+      }
+
+      if (httpRuntime.resolutionMode === "pending") {
+        return Promise.resolve(
+          response({ status: "pending", result: { status: "submission_unknown" } }, 202),
+        );
+      }
+      if (httpRuntime.resolutionMode === "failed") {
+        return Promise.resolve(response({ status: "failed", result: { status: "failed" } }, 409));
+      }
+      if (httpRuntime.resolutionMode === "malformed") {
+        return Promise.resolve(
+          response({ status: "succeeded", result: { status: "resolved_client" } }),
+        );
+      }
+
+      const pending = httpRuntime.pendingResolution;
+      if (!pending?.transactionHash) {
+        return Promise.resolve(
+          response({ status: "pending", result: { status: "submission_unknown" } }, 202),
+        );
+      }
+      const result =
+        httpRuntime.resolutionResult ??
+        ({
+          status: pending.status,
+          freelancerShareBps: pending.freelancerShareBps,
+          freelancerPayoutAmount: 123,
+          clientRefundAmount: 456,
+          resolutionTxHash: pending.transactionHash,
+          resolutionStellarExpertUrl: `https://stellar.expert/explorer/testnet/tx/${pending.transactionHash}`,
+        } satisfies TAdminResolutionSucceededResult);
+      const current = getCase(disputeId);
+      const now = current.updatedAt + 40;
+      store.cases.set(disputeId, {
+        ...current,
+        status: result.status,
+        resolutionTxHash: result.resolutionTxHash,
+        resolutionStellarExpertUrl: result.resolutionStellarExpertUrl,
+        resolvedByWallet: ADMIN_WALLET,
+        freelancerShareBps: result.freelancerShareBps,
+        freelancerPayoutAmount: result.freelancerPayoutAmount,
+        clientRefundAmount: result.clientRefundAmount,
+        resolvedAt: now,
+        updatedAt: now,
+      });
+      appendEvent(
+        disputeId,
+        createEvent(disputeId, {
+          type: result.status,
+          actorWallet: ADMIN_WALLET,
+          actorWalletType: "external_wallet",
+          actorRole: "moderator",
+          message: `Administrator recorded ${result.status} settlement.`,
+          attachmentIds: [],
+          oldStatus: current.status,
+          newStatus: result.status,
+          transactionHash: result.resolutionTxHash,
+          createdAt: now,
+          metadata: {
+            source: "administrator-settlement",
+            moderatorWallet: ADMIN_WALLET,
+            freelancerPayoutAmount: result.freelancerPayoutAmount,
+            clientRefundAmount: result.clientRefundAmount,
+          },
+        }),
+      );
+      return Promise.resolve(response({ status: "succeeded", result }));
+    }
     const claimMatch = url.match(/^\/api\/admin\/disputes\/([^/]+)\/claim$/);
     if (claimMatch) {
       const disputeId = decodeURIComponent(claimMatch[1] ?? "");
@@ -1069,6 +1205,49 @@ function renderParticipant(viewer: "client" | "freelancer", disputeId: string) {
   runtime.activeWalletContext = viewer;
   publishParticipantSubscriptions();
   return render(createElement(DisputeDetailPanel, { disputeId }));
+}
+
+function seedSettlementCase(fixture: TParentFixture, suffix: string): string {
+  activeFixture = fixture;
+  const disputeId = createCaseFromArgs({
+    parentType: fixture.parentType,
+    parentId: fixture.parentId,
+    openedByWallet: fixture.openedByWallet,
+    openedByWalletType: "external_wallet",
+    reasonCategory: "work_not_delivered",
+    title: `${fixture.parentType} C23 settlement ${suffix}`,
+    description: `C23 settlement case for ${fixture.parentType}.`,
+    evidenceAttachmentIds: [],
+    relatedWorkSubmissionIds: [],
+    relatedRevisionRequestIds: [],
+    escrowContractId: `C${"A".repeat(55)}`,
+  });
+  const current = getCase(String(disputeId));
+  store.cases.set(String(disputeId), {
+    ...current,
+    status: "under_review",
+    onChainStatus: "marked",
+    assignedAdminWallet: ADMIN_WALLET,
+    assignedAt: current.updatedAt + 5,
+    assignedByWallet: ADMIN_WALLET,
+    updatedAt: current.updatedAt + 5,
+  });
+  publishParticipantSubscriptions();
+  return String(disputeId);
+}
+
+function setAdminResolution(
+  scope: HTMLElement,
+  status: TAdminResolutionSucceededResult["status"],
+  freelancerShareBps: number,
+): void {
+  const resolution = within(scope).getByLabelText("Resolution");
+  fireEvent.change(resolution, { target: { value: status } });
+  if (status === "split_resolution") {
+    fireEvent.change(within(scope).getByLabelText("Freelancer share in basis points"), {
+      target: { value: String(freelancerShareBps) },
+    });
+  }
 }
 
 function getUploadInput(scope: HTMLElement): HTMLInputElement {
@@ -1510,4 +1689,170 @@ describe("C19 participant-to-administrator acceptance", () => {
     ).toBeTruthy();
     participant.unmount();
   });
+});
+
+describe("C23 administrator resolution-result contract", () => {
+  beforeEach(() => {
+    vi.stubGlobal("React", React);
+    resetHarness();
+    installHttpMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    runtime.activeWalletContext = "client";
+  });
+
+  it.each([
+    ["micro_gig", "resolved_client", 0, 12.34, 87.66, "1"],
+    ["micro_gig", "resolved_freelancer", 10_000, 98.76, 1.24, "2"],
+    ["micro_gig", "split_resolution", 4_321, 43.21, 56.79, "3"],
+    ["milestone", "resolved_client", 0, 111.11, 388.89, "4"],
+    ["milestone", "resolved_freelancer", 10_000, 499.99, 0.01, "5"],
+    ["milestone", "split_resolution", 6_789, 321.09, 178.91, "6"],
+  ] as const)(
+    "publishes %s %s results to both participants after accepted recording",
+    async (
+      parentType,
+      status,
+      freelancerShareBps,
+      freelancerPayoutAmount,
+      clientRefundAmount,
+      digit,
+    ) => {
+      const fixture = createFixture(parentType, "client", `c23-${parentType}-${digit}`);
+      const disputeId = seedSettlementCase(fixture, digit);
+      const resolutionTxHash = digit.repeat(64);
+      const result = {
+        status,
+        freelancerShareBps,
+        freelancerPayoutAmount,
+        clientRefundAmount,
+        resolutionTxHash,
+        resolutionStellarExpertUrl: `https://stellar.expert/explorer/testnet/tx/${resolutionTxHash}`,
+      } satisfies TAdminResolutionSucceededResult;
+      httpRuntime.resolutionResult = result;
+      runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          await args.onSigned({ transactionHash: resolutionTxHash, transactionValidUntil: 123 });
+          return { txHash: resolutionTxHash };
+        },
+      );
+
+      const admin = renderAdminDetail(disputeId);
+      await within(admin.container).findByRole("button", { name: "Resolve On-Chain" });
+      setAdminResolution(admin.container, status, freelancerShareBps);
+      fireEvent.click(within(admin.container).getByRole("button", { name: "Resolve On-Chain" }));
+      expect(
+        await within(admin.container).findByText(
+          "Dispute settlement was verified on Stellar and recorded.",
+        ),
+      ).toBeTruthy();
+
+      expect(httpRuntime.resolutionRequests.map((request) => request.phase)).toEqual([
+        "started",
+        "signed",
+        "succeeded",
+      ]);
+      expect(getCase(disputeId)).toMatchObject({
+        status,
+        resolutionTxHash,
+        resolutionStellarExpertUrl: result.resolutionStellarExpertUrl,
+        resolvedByWallet: ADMIN_WALLET,
+        freelancerShareBps,
+        freelancerPayoutAmount,
+        clientRefundAmount,
+      });
+      expect(projectAdminDetail(disputeId).dispute).toMatchObject(result);
+
+      publishParticipantSubscriptions();
+      const client = renderParticipant("client", disputeId);
+      const expectedStatus =
+        status === "resolved_client"
+          ? "Resolved: Client"
+          : status === "resolved_freelancer"
+            ? "Resolved: Freelancer"
+            : "Split Resolution";
+      expect(await within(client.container).findByText(expectedStatus)).toBeTruthy();
+      expect(within(client.container).getByText("Dispute opened")).toBeTruthy();
+      expect(within(client.container).getByText(expectedStatus)).toBeTruthy();
+      expect(within(client.container).getByText(new RegExp(ADMIN_WALLET))).toBeTruthy();
+      expect(
+        within(client.container).getByRole("link", { name: resolutionTxHash }).getAttribute("href"),
+      ).toBe(result.resolutionStellarExpertUrl);
+      expect(
+        within(client.container).getByRole("list", { name: "Dispute evidence timeline" }).children,
+      ).toHaveLength(2);
+      client.unmount();
+
+      const freelancer = renderParticipant("freelancer", disputeId);
+      expect(await within(freelancer.container).findByText(expectedStatus)).toBeTruthy();
+      expect(within(freelancer.container).getByText(new RegExp(ADMIN_WALLET))).toBeTruthy();
+      expect(
+        within(freelancer.container)
+          .getByRole("link", { name: resolutionTxHash })
+          .getAttribute("href"),
+      ).toBe(result.resolutionStellarExpertUrl);
+      expect(
+        within(freelancer.container).getByRole("list", { name: "Dispute evidence timeline" })
+          .children,
+      ).toHaveLength(2);
+      freelancer.unmount();
+      admin.unmount();
+    },
+  );
+
+  it.each(["pending", "failed", "rejected", "malformed"] as const)(
+    "does not fabricate participant terminal state for %s settlement results",
+    async (resolutionMode) => {
+      const fixture = createFixture("micro_gig", "client", `c23-${resolutionMode}`);
+      const disputeId = seedSettlementCase(fixture, resolutionMode);
+      httpRuntime.resolutionMode = resolutionMode;
+      runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+        async (args: {
+          readonly onSigned: (value: {
+            readonly transactionHash: string;
+            readonly transactionValidUntil: number;
+          }) => Promise<void>;
+        }) => {
+          const transactionHash = "f".repeat(64);
+          await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+          return { txHash: transactionHash };
+        },
+      );
+
+      const admin = renderAdminDetail(disputeId);
+      await within(admin.container).findByRole("button", { name: "Resolve On-Chain" });
+      fireEvent.click(within(admin.container).getByRole("button", { name: "Resolve On-Chain" }));
+      await waitFor(() => expect(httpRuntime.resolutionRequests.length).toBeGreaterThan(0));
+      await waitFor(() => expect(getCase(disputeId).status).toBe("under_review"));
+
+      expect(getCase(disputeId).resolutionTxHash).toBeUndefined();
+      expect(
+        (store.events.get(disputeId) ?? []).some((event) =>
+          ["resolved_client", "resolved_freelancer", "split_resolution"].includes(event.type),
+        ),
+      ).toBe(false);
+      publishParticipantSubscriptions();
+      const client = renderParticipant("client", disputeId);
+      const freelancer = renderParticipant("freelancer", disputeId);
+      expect(await within(client.container).findByText("Under Review")).toBeTruthy();
+      expect(await within(freelancer.container).findByText("Under Review")).toBeTruthy();
+      expect(within(client.container).queryByText("Resolved: Client")).toBeNull();
+      expect(within(client.container).queryByText("Resolved: Freelancer")).toBeNull();
+      expect(within(client.container).queryByText("Split Resolution")).toBeNull();
+      expect(within(freelancer.container).queryByText("Resolved: Client")).toBeNull();
+      expect(within(freelancer.container).queryByText("Resolved: Freelancer")).toBeNull();
+      expect(within(freelancer.container).queryByText("Split Resolution")).toBeNull();
+      client.unmount();
+      freelancer.unmount();
+      admin.unmount();
+    },
+  );
 });
