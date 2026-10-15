@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Disputes and Cancellations
 
+## Deliverable 2 C16 follow-up — marking confirmation and safe retry
+
+Persisted `marked` state now supersedes an older local uncertain message/badge. Incomplete confirmation bookkeeping remains separately visible and can be retried without submitting Stellar again. Any saved marking hash also blocks a new transaction when the status is still `not_marked`; the participant receives reconciliation guidance and the explorer link. The new known-hash regression and existing real-detail C24 confirmation/recovery journeys pass. See [C16 evidence](../evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence.md) for local validation and runtime limits.
+
 ## Purpose
 
 Capture participant disputes/cancellations, evidence, responses, timeline events, on-chain state, and admin settlement/review operations.

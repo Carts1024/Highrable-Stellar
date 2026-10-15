@@ -339,6 +339,89 @@ function AdminCaseEvidence({ detail }: IAdminCaseBriefProps) {
   );
 }
 
+type TAdminLinkedRecordGroup = {
+  readonly label: string;
+  readonly ids: readonly string[];
+};
+
+function dedupeLinkedRecordIds(ids: readonly string[] | undefined): readonly string[] {
+  return ids ? Array.from(new Set(ids.map(String))) : [];
+}
+
+function getAdminLinkedRecordGroups(
+  detail: IAdminDisputeDetail,
+): readonly TAdminLinkedRecordGroup[] {
+  return [
+    {
+      label: "Submissions",
+      ids: dedupeLinkedRecordIds(detail.dispute.relatedWorkSubmissionIds),
+    },
+    {
+      label: "Revisions",
+      ids: dedupeLinkedRecordIds(detail.dispute.relatedRevisionRequestIds),
+    },
+    {
+      label: "Messages",
+      ids: dedupeLinkedRecordIds(detail.dispute.relatedMessageIds),
+    },
+    {
+      label: "Deadlines",
+      ids: dedupeLinkedRecordIds(detail.dispute.relatedDeadlineEventIds),
+    },
+  ];
+}
+
+function AdminLinkedRecordGroup({ group }: { readonly group: TAdminLinkedRecordGroup }) {
+  if (group.ids.length === 0) {
+    return null;
+  }
+
+  return (
+    <section aria-labelledby={`linked-records-${group.label.toLowerCase()}`} className="space-y-2">
+      <h3
+        id={`linked-records-${group.label.toLowerCase()}`}
+        className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
+      >
+        {group.label}
+      </h3>
+      <ul className="space-y-2">
+        {group.ids.map((id) => (
+          <li
+            key={id}
+            className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-[#e8e8e8] bg-[#fafafa] px-3 py-2"
+          >
+            <span className="min-w-0 font-mono text-xs break-all text-[#0a0a0a]">{id}</span>
+            <span className="text-xs text-[#5f5f5f]">Content unavailable in this view.</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function AdminLinkedRecords({ detail }: IAdminCaseBriefProps) {
+  const groups = getAdminLinkedRecordGroups(detail);
+  const hasLinkedRecords = groups.some((group) => group.ids.length > 0);
+
+  return (
+    <AdminSection
+      label="Linked records"
+      title="Linked records"
+      description="Reference IDs are shown without hydrating protected submission, revision, message, or deadline content."
+    >
+      {hasLinkedRecords ? (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {groups.map((group) => (
+            <AdminLinkedRecordGroup key={group.label} group={group} />
+          ))}
+        </div>
+      ) : (
+        <RouteEmptyState description="No linked records." />
+      )}
+    </AdminSection>
+  );
+}
+
 function AdminAssignmentWorkspace({
   detail,
   verifiedWallet,
@@ -1511,6 +1594,8 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
       <AdminCaseEvidence detail={detail} />
 
+      <AdminLinkedRecords detail={detail} />
+
       <AdminAssignmentWorkspace
         detail={detail}
         verifiedWallet={verifiedWallet}
@@ -1640,7 +1725,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 export function AdminDisputeDetailPage({ disputeId }: { readonly disputeId: string }) {
   return (
     <AdminSessionGate>
-      <AdminDisputeDetailContent disputeId={disputeId} />
+      <AdminDisputeDetailContent key={disputeId} disputeId={disputeId} />
     </AdminSessionGate>
   );
 }
