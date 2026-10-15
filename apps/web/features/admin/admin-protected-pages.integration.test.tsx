@@ -276,6 +276,10 @@ const detailWithEvidenceResponse = {
   dispute: {
     ...detailResponse.dispute,
     evidenceAttachmentIds: ["case-proof", "case-link"],
+    relatedWorkSubmissionIds: ["submission-c07", "submission-c07"],
+    relatedRevisionRequestIds: ["revision-c07"],
+    relatedMessageIds: ["message-c07", "message-c07"],
+    relatedDeadlineEventIds: ["deadline-c07"],
     attachments: [
       {
         _id: "case-proof",
@@ -1259,6 +1263,11 @@ describe("protected administrator pages", () => {
     expect(screen.getByText("event-proof.docx")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open case-proof.pdf" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open Case design reference" })).toBeTruthy();
+    expect(screen.getByText("submission-c07")).toBeTruthy();
+    expect(screen.getByText("revision-c07")).toBeTruthy();
+    expect(screen.getByText("message-c07")).toBeTruthy();
+    expect(screen.getByText("deadline-c07")).toBeTruthy();
+    expect(screen.getAllByText("Content unavailable in this view.")).toHaveLength(4);
     expect(
       fetchMock.mock.calls.slice(1).every(([, init]) => (init as RequestInit).method === "GET"),
     ).toBe(true);
