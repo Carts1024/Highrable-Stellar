@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@/core/analytics/google-analytics";
 import { AppProviders } from "@/core/providers/app-providers";
 import {
   buildCanonicalUrl,
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <SeoJsonLd id="organization-json-ld" data={buildOrganizationJsonLd()} />
           <AppShell>{children}</AppShell>
         </AppProviders>
+        <GoogleAnalytics />
         <Analytics />
       </body>
     </html>
