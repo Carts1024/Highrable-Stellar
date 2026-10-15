@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-15
 
+- **Deliverable 3 C21 — Deployment Identity CLI Acceptance:** extended the existing identity-verifier suite with child-process coverage for scope/provenance files, paths with spaces, a separate working directory, read-only loopback RPC, match/mismatch/unavailable results, sanitized JSON, and repeatable runs that preserve inputs. The verifier suite passes 57 tests; Node syntax, scoped oxlint/oxfmt, and `git diff --check` pass. Fixtures use synthetic WASM and ledger records; live Testnet identity and production build provenance remain unverified. See the [C21 evidence](../../instawards/Deliverable-3-C21-Deployment-Identity-CLI-Evidence.md).
 - **Deliverable 3 C17 — Participant Address Authorization:** added Rust coverage for all four account/contract client-freelancer address combinations, both marking roles, both eligible states, and six authorization mismatch cases with full target/sibling no-side-effects checks. The focused C17 tests pass 2, marking tests pass 16, C20 passes 6, and the full contract workspace passes 83 escrow and 9 reputation tests; formatting passes. The `pnpm contracts:build` wrapper encountered registry DNS failures, but the underlying `stellar contract build` produced both WASM contracts successfully. SDK 22 account-address mocks use `mock_all_auths` with exact recorded invocation assertions; local tests do not prove signatures or deployment behavior. See the [C17 evidence](../../instawards/Deliverable-3-C17-Participant-Address-Authorization-Evidence.md).
 
 ## 2026-10-13

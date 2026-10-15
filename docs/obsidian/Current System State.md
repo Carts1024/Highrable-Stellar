@@ -49,6 +49,7 @@ This classification is based on current source, tests, manifests, deployment art
 
 ## Implemented but Operationally Incomplete
 
+- Deliverable 3 C21 adds CLI-level acceptance coverage for the read-only deployment-identity verifier. The identity suite passes 57 tests, including temporary scope/build files, relative WASM paths from a different working directory, repeat-run/input-preservation checks, sanitized output, and mismatch/unavailable exit codes. RPC is a synthetic loopback fixture and artifacts are synthetic; production build provenance and live Testnet identity remain unverified. See the [C21 evidence](../instawards/Deliverable-3-C21-Deployment-Identity-CLI-Evidence.md).
 - Convex escrow and reputation synchronization exists, but it is action-driven (`syncEscrowStatus`, `syncReputationRecord`) and manually triggered from product flows. It is not a general chain indexer or fully scheduled mirror.
 - `transactions` stores application transaction records, but historical wallet transaction indexing is explicitly post-MVP and absent from the repository.
 - Passkey smart-account execution includes compatibility fallbacks and runtime WASM/signer checks. The current implementation is sensitive to the configured smart-account artifact and `smart-account-kit` behavior.

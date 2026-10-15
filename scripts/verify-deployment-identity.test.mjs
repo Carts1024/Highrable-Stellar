@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   createReadOnlyRpc,
@@ -119,6 +124,336 @@ function fixture() {
     readBytes: async (path) => (path.endsWith("escrow.wasm") ? escrowBytes : reputationBytes),
   };
 }
+
+const verifierPath = fileURLToPath(new URL("./verify-deployment-identity.mjs", import.meta.url));
+
+async function runCli(args, cwd) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [verifierPath, ...args], {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout = [];
+    const stderr = [];
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, 15_000);
+    child.stdout.on("data", (chunk) => stdout.push(chunk));
+    child.stderr.on("data", (chunk) => stderr.push(chunk));
+    child.once("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.once("close", (code, signal) => {
+      clearTimeout(timeout);
+      if (timedOut) {
+        reject(new Error("Deployment identity CLI exceeded its 15 second test timeout"));
+        return;
+      }
+      resolve({
+        code,
+        signal,
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
+      });
+    });
+  });
+}
+
+async function withCliFixture(callback, { mode = "match" } = {}) {
+  const rpcFixture = fixture();
+  const methods = [];
+  const server = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    const rpcRequest = JSON.parse(body);
+    methods.push(rpcRequest.method);
+    const send = (value) => {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: rpcRequest.id, ...value }));
+    };
+
+    if (rpcRequest.method === "getNetwork") {
+      if (mode === "rpc-error") {
+        send({ error: { code: -32000, message: "UPSTREAM_SECRET rpc.internal/private" } });
+      } else {
+        send({
+          result: {
+            passphrase:
+              mode === "network-mismatch"
+                ? "Public Global Stellar Network ; September 2015"
+                : "Test SDF Network ; September 2015",
+          },
+        });
+      }
+      return;
+    }
+
+    if (rpcRequest.method !== "getLedgerEntries") {
+      send({ error: { code: -32601, message: "Unexpected non-read RPC method" } });
+      return;
+    }
+    const firstKey = xdr.LedgerKey.fromXDR(rpcRequest.params.keys[0], "base64");
+    let entries;
+    if (mode === "missing-ledger" && firstKey.switch().name !== "contractCode") {
+      entries = [];
+    } else if (firstKey.switch().name === "contractCode") {
+      entries = rpcFixture.codes;
+    } else {
+      entries = rpcFixture.instances;
+    }
+    send({
+      result: {
+        latestLedger: 100,
+        entries: entries.map((entry) => ({
+          key: entry.key.toXDR("base64"),
+          xdr: entry.val.toXDR("base64"),
+          lastModifiedLedgerSeq: 99,
+          liveUntilLedgerSeq: entry.liveUntilLedgerSeq,
+        })),
+      },
+    });
+  });
+
+  let root;
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    root = await mkdtemp(join(tmpdir(), "highrable C21 LOCAL_PATH_SECRET "));
+    const inputDirectory = join(root, "input files with spaces");
+    const artifactDirectory = join(inputDirectory, "artifacts");
+    const cwd = join(root, "different working directory with spaces");
+    await Promise.all([mkdir(artifactDirectory, { recursive: true }), mkdir(cwd)]);
+    const scopePath = join(inputDirectory, "backend scope.json");
+    const buildPath = join(inputDirectory, "build provenance.json");
+    const wasmPaths = {
+      escrow: join(artifactDirectory, "escrow local fixture.wasm"),
+      reputation: join(artifactDirectory, "reputation local fixture.wasm"),
+    };
+    await Promise.all([
+      writeFile(wasmPaths.escrow, escrowBytes),
+      writeFile(wasmPaths.reputation, reputationBytes),
+    ]);
+    const scopeData = {
+      ...structuredClone(scope),
+      STELLAR_RPC_URL: `http://127.0.0.1:${server.address().port}/rpc?token=RPC_TOKEN_SECRET`,
+    };
+    const buildData = {
+      ...structuredClone(provenance),
+      buildCommand: "stellar contract build --token BUILD_COMMAND_SECRET",
+      escrow: { ...provenance.escrow, wasmPath: "artifacts/escrow local fixture.wasm" },
+      reputation: { ...provenance.reputation, wasmPath: "artifacts/reputation local fixture.wasm" },
+    };
+    const writeScope = (value = scopeData) =>
+      writeFile(scopePath, typeof value === "string" ? value : JSON.stringify(value));
+    const writeBuild = (value = buildData) =>
+      writeFile(buildPath, typeof value === "string" ? value : JSON.stringify(value));
+    await Promise.all([writeScope(), writeBuild()]);
+
+    if (mode === "deployed-code-mismatch") {
+      rpcFixture.instances[0].val
+        .contractData()
+        .val()
+        .instance()
+        .executable(xdr.ContractExecutable.contractExecutableWasm(Buffer.alloc(32, 8)));
+    } else if (mode === "contract-link-mismatch") {
+      rpcFixture.instances[0] = instanceEntry(
+        escrowId,
+        escrowBytes,
+        "ReputationContract",
+        escrowId,
+      );
+    } else if (mode === "remote-bytes-mismatch") {
+      rpcFixture.codes[0].val.contractCode().code(reputationBytes);
+    }
+
+    const run = (args = ["--scope", scopePath, "--build", buildPath]) => runCli(args, cwd);
+    const captureInputs = async () =>
+      await Promise.all([readFile(scopePath, "utf8"), readFile(buildPath, "utf8")]);
+    await callback({
+      root,
+      cwd,
+      scopePath,
+      buildPath,
+      buildValue: buildData,
+      methods,
+      run,
+      writeScope,
+      writeBuild,
+      captureInputs,
+    });
+  } finally {
+    if (server.listening)
+      await new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          server.closeAllConnections();
+          resolve();
+        }, 5_000);
+        server.close(() => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
+    if (root) await rm(root, { recursive: true, force: true });
+  }
+}
+
+function parseCliResult(result, expectedExitCode) {
+  assert.equal(result.code, expectedExitCode, result.stderr || result.stdout);
+  assert.equal(result.signal, null);
+  assert.equal(result.stderr, "");
+  return JSON.parse(result.stdout);
+}
+
+test("CLI matches the selected identity from files and repeats without modifying inputs", async () => {
+  await withCliFixture(async ({ root, methods, run, captureInputs }) => {
+    const before = await captureInputs();
+    const first = parseCliResult(await run(), 0);
+    const second = parseCliResult(await run(), 0);
+    const stableFields = (record) => ({
+      status: record.status,
+      readOnly: record.readOnly,
+      code: record.code,
+      ledger: record.ledger,
+      scopeSha256: record.scopeSha256,
+      provenanceSha256: record.provenanceSha256,
+      sourceRevision: record.sourceRevision,
+      networkPassphraseSha256: record.networkPassphraseSha256,
+      contracts: record.contracts,
+    });
+    assert.equal(first.status, "matched");
+    assert.equal(first.code, "deployment_identity_matched");
+    assert.equal(first.readOnly, true);
+    assert.equal(first.contracts.escrow.contractId, escrowId);
+    assert.equal(first.contracts.reputation.contractId, reputationId);
+    assert.equal(first.contracts.escrow.localSha256, hash(escrowBytes));
+    assert.equal(first.contracts.escrow.remoteSha256, hash(escrowBytes));
+    assert.equal(first.contracts.reputation.localSha256, hash(reputationBytes));
+    assert.equal(first.contracts.reputation.remoteSha256, hash(reputationBytes));
+    assert.deepEqual(stableFields(second), stableFields(first));
+    assert.deepEqual(methods, [
+      "getNetwork",
+      "getLedgerEntries",
+      "getLedgerEntries",
+      "getLedgerEntries",
+      "getNetwork",
+      "getLedgerEntries",
+      "getLedgerEntries",
+      "getLedgerEntries",
+    ]);
+    const output = JSON.stringify([first, second]);
+    for (const secret of [
+      "LOCAL_PATH_SECRET",
+      "RPC_TOKEN_SECRET",
+      "BUILD_COMMAND_SECRET",
+      "UPSTREAM_SECRET",
+      root,
+      "rpc.internal/private",
+    ])
+      assert.equal(output.includes(secret), false, `CLI output leaked ${secret}`);
+    assert.deepEqual(await captureInputs(), before);
+  });
+});
+
+for (const [mode, expectedCode] of [
+  ["network-mismatch", "network_mismatch"],
+  ["deployed-code-mismatch", "escrow_deployed_code_mismatch"],
+  ["contract-link-mismatch", "contract_link_mismatch"],
+  ["remote-bytes-mismatch", "escrow_remote_bytes_mismatch"],
+])
+  test(`CLI reports ${expectedCode} with mismatch exit status`, async () => {
+    await withCliFixture(
+      async ({ methods, run }) => {
+        const result = parseCliResult(await run(), 1);
+        assert.equal(result.status, "mismatch");
+        assert.equal(result.code, expectedCode);
+        assert.ok(methods.every((method) => ["getNetwork", "getLedgerEntries"].includes(method)));
+      },
+      { mode },
+    );
+  });
+
+test("CLI rejects arguments and local files before making RPC calls", async () => {
+  const cases = [
+    {
+      name: "missing arguments",
+      args: [],
+      expectedCode: "usage_expected_scope_and_build_json_paths",
+    },
+    {
+      name: "malformed JSON",
+      prepare: ({ writeScope }) => writeScope("{"),
+      expectedCode: "unreadable_input_json",
+    },
+    {
+      name: "unreadable scope file",
+      args: ({ buildPath }) => [
+        "--scope",
+        join(tmpdir(), "missing C21 scope file.json"),
+        "--build",
+        buildPath,
+      ],
+      expectedCode: "unreadable_input_json",
+    },
+    {
+      name: "missing WASM",
+      prepare: ({ buildValue, writeBuild }) =>
+        writeBuild({
+          ...buildValue,
+          escrow: { ...buildValue.escrow, wasmPath: "artifacts/absent local fixture.wasm" },
+        }),
+      expectedCode: "unreadable_escrow_wasm",
+    },
+    {
+      name: "local hash mismatch",
+      prepare: ({ buildValue, writeBuild }) =>
+        writeBuild({
+          ...buildValue,
+          escrow: { ...buildValue.escrow, sha256: "0".repeat(64) },
+        }),
+      expectedCode: "escrow_local_build_hash_mismatch",
+      expectedStatus: "mismatch",
+      expectedExitCode: 1,
+    },
+  ];
+
+  for (const scenario of cases) {
+    await withCliFixture(async (fixtureData) => {
+      if (scenario.prepare) await scenario.prepare(fixtureData);
+      const args = typeof scenario.args === "function" ? scenario.args(fixtureData) : scenario.args;
+      const result = parseCliResult(await fixtureData.run(args), scenario.expectedExitCode ?? 2);
+      assert.equal(result.code, scenario.expectedCode, scenario.name);
+      assert.equal(result.status, scenario.expectedStatus ?? "unknown", scenario.name);
+      assert.deepEqual(fixtureData.methods, [], `${scenario.name} unexpectedly contacted RPC`);
+    }).catch((error) => {
+      error.message = `${scenario.name}: ${error.message}`;
+      throw error;
+    });
+  }
+});
+
+for (const [mode, expectedCode, expectedStatus] of [
+  ["rpc-error", "network_rpc_unavailable", "unavailable"],
+  ["missing-ledger", "ledger_entry_absent_or_archived", "unavailable"],
+])
+  test(`CLI reports ${expectedCode} with unavailable exit status`, async () => {
+    await withCliFixture(
+      async ({ methods, run }) => {
+        const result = parseCliResult(await run(), 2);
+        assert.equal(result.status, expectedStatus);
+        assert.equal(result.code, expectedCode);
+        const output = JSON.stringify(result);
+        assert.equal(output.includes("UPSTREAM_SECRET"), false);
+        assert.equal(output.includes("rpc.internal/private"), false);
+        assert.ok(methods.every((method) => ["getNetwork", "getLedgerEntries"].includes(method)));
+      },
+      { mode },
+    );
+  });
 
 test("matches both identities and reciprocal links in an active deployment using only reads", async () => {
   const f = fixture();
