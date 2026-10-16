@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -132,6 +132,10 @@ The C09 assertion checks the full Soroban event output and requires a successful
 ## Deliverable 3 C13 rejected-marking no-side-effects regression
 
 The shared rejection snapshot in `contracts/escrow/src/test.rs` compares complete escrow records, reputation completion records and freelancer statistics, client/freelancer/contract token balances, next escrow ID, and total, dispute, and token-transfer event counts. Checks inspect event counts immediately after the rejected invocation, before follow-up contract reads. Existing invocation-scoped authorization, unassigned-work, missing-ID, invalid-status, outsider, and C20 terminal/repeat cases use this coverage. A dedicated C13 test first records a normal completion, then rejects client and freelancer marking calls against separate `Created` work and verifies that both work records and the nonzero reputation state remain unchanged. Focused marking tests pass 14, C20 passes 6, the C13 test passes 1, and the contract workspace passes 81 escrow and 9 reputation tests. Formatting and both WASM builds pass. See the [C13 evidence](../../instawards/Deliverable-3-C13-Participant-Marking-No-Side-Effects-Evidence.md). This is local mocked-authorization evidence; it does not prove wallet signatures or deployed behavior.
+
+## Deliverable 3 C17 participant address authorization
+
+C17 explicitly covers account (`G…`) and contract (`C…`) participant addresses across all four client/freelancer kind combinations, both participant roles, and `Funded`/`Submitted` entry states. Six invocation mismatch cases reject absent auth, another actor's auth, changed caller/escrow arguments, the wrong method, and the wrong contract target while preserving complete target/sibling snapshots. Account-address success uses SDK 22 `mock_all_auths` and verifies the exact recorded authorization tree because `MockAuth` registers a mock contract at the authorized address; contract-address and mismatch cases use invocation-scoped `MockAuth`. The two C17 tests, 16 marking tests, six C20 tests, full workspace (83 escrow and 9 reputation tests), Rust formatting, and both WASM builds pass. `pnpm contracts:build` could not finish because workspace dependency downloads failed DNS lookup; the underlying local `stellar contract build` succeeded. See the [C17 evidence](../../instawards/Deliverable-3-C17-Participant-Address-Authorization-Evidence.md). This is local mocked-host coverage and does not prove signatures, WebAuthn, browser transaction construction, or deployed behavior.
 
 ## Tests
 

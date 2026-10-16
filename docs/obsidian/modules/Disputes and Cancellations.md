@@ -54,6 +54,20 @@ Timeline reads still use the dispute-scoped ascending `(disputeId, createdAt)` i
 
 The distinct C14 suite covers both roles, wallet types, micro-gig/milestone parents, all active and terminal statuses, authorization/parent/message/attachment rejection, exact side-effect attribution, matching/conflicting/concurrent retries, key isolation, complete snapshots including timestamps/access logs, and timeline ordering/boundaries. It passes 74 tests; the full backend passes 456 tests across 15 files. See the [C14 evidence report](../../instawards/Deliverable-3-C14-Participant-Response-Evidence.md).
 
+## Deliverable 3 C18 — Participant Marking Recovery and Reconciliation
+
+`markDisputeOnChainStarted` now rejects a stored transaction hash from `not_marked` with reconciliation guidance, while preserving the existing `mark_failed` known-hash guard. Authorization and argument validation remain ahead of replay returns, duplicate `marking` starts remain write-free, and the existing success/failure transitions retain matching-success idempotency, conflicting-hash rejection, late-success recovery, stale-failure suppression, and original side effects.
+
+The distinct C18 suite contains 23 local `convex-test` cases across micro-gig and milestone parents, both participants, and external-wallet/passkey bookkeeping. It verifies complete callback snapshots, exact event/message/notification counts, metadata/hash/URL/timestamp preservation, terminal and invalid-argument replay paths, sibling isolation, and real `syncEscrowStatus` RPC-mocked reads in both callback orders. Sync may update its own escrow metadata and mirror a disputed parent status, but it cannot submit, invent a hash, confirm the dispute callback, or finalize a disputed escrow. See the [C18 evidence report](../../instawards/Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md).
+
+## Deliverable 3 C22 — Participant Backend Acceptance Matrix
+
+The participant backend now has 18 deterministic acceptance cases spanning connected create/evidence/response/history journeys, all four active review states, both parent kinds, both participant roles, and both wallet-type bookkeeping values. Revocation coverage reauthorizes detail, list, parent/escrow, evidence, timeline, permission, and attachment-access requests after participant reassignment, parent deletion, and conflicting saved links; stale evidence and response writes reject. Independent cases, micro-gig/milestone parents, and sibling milestones remain isolated, and foreign or revoked attachment mixtures leave complete snapshots unchanged.
+
+Terminal `resolved_client`, `resolved_freelancer`, `split_resolution`, and `cancelled` cases retain readable participant history while rejecting evidence, responses, keyed-response replays, and active-case lookups. C22 also closed a demonstrated `getAttachmentAccessLogs` gap: a stale former attachment owner now receives the existing `NotFound` denial when the current dispute authorization no longer permits access. The focused C22 suite passes 18 tests; the full backend passes 497 tests across 17 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. See the [C22 evidence report](../../instawards/Deliverable-3-C22-Participant-Acceptance-Evidence.md).
+
+This remains local deterministic `convex-test` evidence. Caller-supplied wallet possession, browser cache races, live Convex/storage, notification delivery, Stellar, Testnet, and deployed contract behavior remain outside scope.
+
 ## Primary Locations
 
 - `packages/backend/convex/disputes/`
@@ -100,7 +114,7 @@ participant opens dispute
   → idempotent Convex settlement record and parent terminal-state patch
 ```
 
-On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking`; a start in `mark_failed` is retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
+On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking` only when no transaction hash is recorded; a saved hash in `not_marked` or `mark_failed` requires reconciliation. A start in `mark_failed` is otherwise retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
 
 Cancellation is blocked by submitted proof or active disputes according to its eligibility helpers. Contract cancellation is only valid for `Created` or `Funded`; a `Submitted` escrow must use dispute/review paths.
 
