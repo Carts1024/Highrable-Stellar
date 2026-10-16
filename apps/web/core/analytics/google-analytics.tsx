@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useRef } from "react";
 
 const GA_MEASUREMENT_ID = "G-VLGZ3N3N99";
 const DYNAMIC_ROUTE_PATTERNS = [
@@ -66,6 +66,7 @@ function GoogleAnalyticsPageViews() {
         const script = document.createElement("script");
         script.id = "google-analytics-script";
         script.async = true;
+        script.setAttribute("async", "");
         script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
         document.head.appendChild(script);
       }

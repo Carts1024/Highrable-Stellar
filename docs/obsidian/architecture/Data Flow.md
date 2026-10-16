@@ -2,7 +2,7 @@
 type: architecture
 area: data-flow
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -36,7 +36,18 @@ The exact order varies by action. For example, `createEscrowRecord` accepts an o
 
 - Browser contract reads use `simulateContractCall` with a classic source account where RPC requires one.
 - Backend sync actions use `packages/backend/convex/lib/stellarReads.ts`, which builds a simulation transaction from `STELLAR_READ_SOURCE_ACCOUNT`.
+- Registry sync uses `packages/backend/convex/lib/registryReads.ts` and its registry-only configuration. It checks both `get_registration` and `is_registered`, validates the wallet and timestamp, then calls an internal mutation to update the network/contract-scoped Convex mirror. It does not require escrow or reputation contract IDs.
 - The backend normalizes Soroban enum/address/bytes values and then calls internal mutations.
+
+## Signup and registry flow
+
+```text
+wallet/passkey → save sanitized profile draft → read configured registry
+  → shared transaction executor → signed register(user) → save transaction identity/status
+  → permissionless RPC sync → internal scoped mirror → completeOnboarding
+```
+
+The profile draft is saved before avatar upload and chain execution so cancellation or RPC failure leaves resumable profile data. The browser checks existing registry state and any pending transaction before creating a new one. A transaction callback is bookkeeping only; successful onboarding depends on the RPC-verified mirror. Existing completed users keep their completion timestamp and may register voluntarily.
 
 ## Dispute flow
 

@@ -2,9 +2,14 @@
 
 import { executeWithPasskeySmartAccount } from "@/core/stellar/passkeySmartAccountExecutor";
 import { invokeContract } from "@/core/stellar/transaction";
+import {
+  StellarTransactionError,
+  StellarTransactionPendingError,
+} from "@/core/stellar/transaction";
 
 import type {
   TConfirmedContractTx,
+  TStellarSubmissionIdentity,
   TSignedTransactionSubmitter,
   TStellarExecutionPhase,
 } from "@/core/stellar/transaction";
@@ -23,11 +28,7 @@ export interface IExecuteHighrableContractCallParams {
   readonly networkPassphrase: string;
   readonly signTransaction?: TSignedTransactionSubmitter;
   readonly operationId?: string;
-  readonly onSigned?: (identity: {
-    readonly operationId?: string;
-    readonly transactionHash: string;
-    readonly transactionValidUntil: number;
-  }) => Promise<void>;
+  readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   readonly onPhase?: (phase: TStellarExecutionPhase) => void;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
@@ -62,10 +63,24 @@ export async function executeHighrableContractCall(
     args: params.args,
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
+    onSigned: params.onSigned,
     onPhase: params.onPhase,
   });
 
+  if (result.status === "pending") {
+    throw new StellarTransactionPendingError(
+      result.errorMessage ?? "Transaction submission is still being confirmed.",
+      result.txHash || undefined,
+    );
+  }
   if (result.status !== "success") {
+    throw new StellarTransactionError(
+      result.errorMessage ?? "Passkey smart account transaction failed.",
+      result.txHash || undefined,
+    );
+  }
+
+  if (!result.txHash) {
     throw new Error(result.errorMessage ?? "Passkey smart account transaction failed.");
   }
 

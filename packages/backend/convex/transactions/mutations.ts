@@ -10,6 +10,7 @@ import {
 import {
   feePathValidator,
   gasStatusValidator,
+  submissionIdentityTypeValidator,
   transactionStatusValidator,
   transactionTypeValidator,
   walletTypeValidator,
@@ -33,6 +34,9 @@ export const createTransaction = mutation({
     asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
     amount: v.optional(v.string()),
     network: v.optional(v.string()),
+    contractId: v.optional(v.string()),
+    transactionValidUntil: v.optional(v.number()),
+    submissionIdentityType: v.optional(submissionIdentityTypeValidator),
     feePath: v.optional(feePathValidator),
     sourceAccount: v.optional(v.string()),
     status: transactionStatusValidator,
@@ -52,6 +56,7 @@ export const createTransaction = mutation({
     );
     const amount = sanitizeOptionalTransactionRef(args.amount, "amount");
     const network = sanitizeOptionalTransactionRef(args.network, "network");
+    const contractId = sanitizeOptionalTransactionRef(args.contractId, "contractId");
     const sourceAccount = sanitizeOptionalTransactionRef(args.sourceAccount, "sourceAccount");
     const errorMessage = sanitizeOptionalTransactionRef(args.errorMessage, "errorMessage");
 
@@ -76,6 +81,13 @@ export const createTransaction = mutation({
       ...(args.asset !== undefined ? { asset: args.asset } : {}),
       ...(amount !== undefined ? { amount } : {}),
       ...(network !== undefined ? { network } : {}),
+      ...(contractId !== undefined ? { contractId } : {}),
+      ...(args.transactionValidUntil !== undefined
+        ? { transactionValidUntil: args.transactionValidUntil }
+        : {}),
+      ...(args.submissionIdentityType !== undefined
+        ? { submissionIdentityType: args.submissionIdentityType }
+        : {}),
       ...(args.feePath !== undefined ? { feePath: args.feePath } : {}),
       ...(sourceAccount !== undefined ? { sourceAccount } : {}),
       ...(args.jobId !== undefined ? { jobId: args.jobId } : {}),
@@ -93,6 +105,8 @@ export const updateTransactionStatus = mutation({
     status: transactionStatusValidator,
     errorMessage: v.optional(v.string()),
     confirmedAt: v.optional(v.number()),
+    transactionValidUntil: v.optional(v.number()),
+    submissionIdentityType: v.optional(submissionIdentityTypeValidator),
   },
   handler: async (ctx, args) => {
     const txHash = sanitizeOptionalTransactionRef(args.txHash, "txHash");
@@ -114,6 +128,12 @@ export const updateTransactionStatus = mutation({
       ...(args.confirmedAt !== undefined ? { confirmedAt: args.confirmedAt } : {}),
       ...(txHash !== undefined ? { txHash } : {}),
       ...(transactionHash !== undefined ? { transactionHash } : {}),
+      ...(args.transactionValidUntil !== undefined
+        ? { transactionValidUntil: args.transactionValidUntil }
+        : {}),
+      ...(args.submissionIdentityType !== undefined
+        ? { submissionIdentityType: args.submissionIdentityType }
+        : {}),
       ...(errorMessage !== undefined ? { errorMessage } : {}),
     });
 

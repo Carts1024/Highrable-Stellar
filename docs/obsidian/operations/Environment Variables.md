@@ -2,7 +2,7 @@
 type: reference
 area: operations
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -18,7 +18,7 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 | Convex/app | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_WAITLIST_MODE`, `NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER` |
 | Optional Velo feature flag | `NEXT_PUBLIC_ENABLE_VELO_GAS_STATION` — must remain false unless the Testnet Velo policy and deployment are verified. |
 | Convex/app | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_WAITLIST_MODE` (explicit `true` enables route gate; otherwise app routes remain open), `NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER` |
-| Contracts | `NEXT_PUBLIC_ESCROW_CONTRACT_ID`, `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` |
+| Contracts | `NEXT_PUBLIC_ESCROW_CONTRACT_ID`, `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`, `NEXT_PUBLIC_REGISTRY_CONTRACT_ID` |
 | Assets | `NEXT_PUBLIC_STABLECOIN_ASSET_CODE`, `NEXT_PUBLIC_STABLECOIN_ISSUER`, `NEXT_PUBLIC_USDC_ASSET_CODE`, `NEXT_PUBLIC_USDC_ASSET_ISSUER`, `NEXT_PUBLIC_STABLECOIN_SYMBOL`, `NEXT_PUBLIC_STABLECOIN_DECIMALS`, `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID`, `NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID` |
 | Wallets | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` — required to enable WalletConnect on Testnet or Mainnet; WalletConnect is omitted on the unsupported local network. The kit uses this project ID for its mobile handoff and desktop QR flow. |
 | Smart accounts | `NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH`, `NEXT_PUBLIC_SMART_ACCOUNT_FACTORY_CONTRACT_ID`, `NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_LABEL`, `NEXT_PUBLIC_SMART_ACCOUNT_DEPLOYMENT_VERSION`, `NEXT_PUBLIC_SMART_ACCOUNT_SOURCE_REPO`, `NEXT_PUBLIC_SMART_ACCOUNT_WASM_SHA256`, `NEXT_PUBLIC_WEBAUTHN_VERIFIER_WASM_SHA256`, `NEXT_PUBLIC_WEBAUTHN_VERIFIER_CONTRACT_ID`, `NEXT_PUBLIC_PASSKEY_RP_NAME`, `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_URL`, `NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND` |
@@ -35,7 +35,7 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 
 Before enabling the Velo flag, an operator must verify the Testnet policy is enabled with a positive cap/quota, every target contract is allowlisted, the relayer is active and funded, the configured public relayer matches the signer, and the key is scoped to gas operations. This repository does not invent or verify those credentials or live provider settings.
 
-Convex chain reads use server-side names such as `STELLAR_NETWORK`, `STELLAR_RPC_URL`, `STELLAR_NETWORK_PASSPHRASE`, `ESCROW_CONTRACT_ID`, `REPUTATION_CONTRACT_ID`, and `STELLAR_READ_SOURCE_ACCOUNT` as defined by `packages/backend/convex/lib/stellarReads.ts`.
+Convex escrow/reputation reads use server-side names such as `STELLAR_NETWORK`, `STELLAR_RPC_URL`, `STELLAR_NETWORK_PASSPHRASE`, `ESCROW_CONTRACT_ID`, `REPUTATION_CONTRACT_ID`, and `STELLAR_READ_SOURCE_ACCOUNT` as defined by `packages/backend/convex/lib/stellarReads.ts`. Registry sync uses `STELLAR_NETWORK`, `STELLAR_RPC_URL`, optional `STELLAR_NETWORK_PASSPHRASE` for testnet/mainnet (required for local), `REGISTRY_CONTRACT_ID`, and `STELLAR_READ_SOURCE_ACCOUNT`; it does not require escrow or reputation IDs. Keep the public and backend registry IDs and network aligned.
 
 ## Precedence and drift
 

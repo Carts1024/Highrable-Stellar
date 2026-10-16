@@ -10,6 +10,10 @@ source_of_truth: repository
 
 ## 2026-10-15
 
+- Added the Soroban user registry and gated new onboarding on RPC-verified registration while preserving existing users' access. Profile drafts are resumable; transaction and passkey recovery retain submission identities; registry sync is scoped by network and contract. Independent registry deployment and read-only verification scripts are documented but were not executed. The registry has no deployed identity yet.
+
+## 2026-10-10
+
 - **Deliverable 2 C24 follow-up:** add six participant acceptance cases for reopening saved known-hash disputes after denied access, preserving timeline evidence and blocking transaction retry through authoritative confirmation. Participant integration passes 19 tests; full web passes 449; focused real backend evidence/marking suites pass 70. TypeScript and scoped lint/format checks pass. Live deployment identity remains unverified.
 
 - **Deliverable 2 C20 follow-up:** reject a deployment identity match when observed code lifetime does not reach the final verification ledger. The new expiry regression reproduced a false match; inclusive-boundary and full verifier coverage pass (51 tests). Live verification still requires actual tested WASM provenance and explicit backend scope.

@@ -679,6 +679,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "highrable-registry"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "highrable-reputation"
 version = "0.1.0"
 dependencies = [
