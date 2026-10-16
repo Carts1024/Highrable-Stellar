@@ -363,6 +363,11 @@ export const markDisputeOnChainStarted = mutation({
     if (dispute.onChainStatus === "marked") {
       throw new ConflictError("A confirmed on-chain dispute cannot be reopened.");
     }
+    if (dispute.onChainStatus === "not_marked" && dispute.transactionHash !== undefined) {
+      throw new ConflictError(
+        "An on-chain mark with a recorded transaction hash requires reconciliation before retrying.",
+      );
+    }
     if (dispute.onChainStatus === "mark_failed" && dispute.transactionHash !== undefined) {
       throw new ConflictError(
         "A failed on-chain mark with a recorded transaction hash requires reconciliation before retrying.",

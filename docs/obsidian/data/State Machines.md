@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -47,7 +47,8 @@ Convex review statuses are `open`, `under_review`, `awaiting_client_response`, `
 | started | `not_marked` | Enter `marking`; record one start event. |
 | started | `mark_failed` without a hash | Enter `marking`; clear the current error and record one retry-start event. |
 | started | `marking` | Return success without a write or duplicate event. |
-| started | `mark_failed` with a hash or `marked` | Reject; confirmed data and known hashes stay unchanged. |
+| started | `not_marked` with a hash or `mark_failed` with a hash | Reject with reconciliation guidance; preserve confirmed data and known hashes. |
+| started | `marked` | Reject; confirmed data and known hashes stay unchanged. |
 | succeeded | `marking` or `mark_failed` | Enter `marked` when the supplied hash does not conflict; clear the current error and run success side effects once. |
 | succeeded | `marked` with the same hash | Return success without writes or side effects. |
 | succeeded | `not_marked` or conflicting hash | Reject without writes. |
@@ -57,6 +58,8 @@ Convex review statuses are `open`, `under_review`, `awaiting_client_response`, `
 | failed | `not_marked` or conflicting hash | Reject without writes. |
 
 New starts and state-changing callbacks are rejected for terminal review statuses. Participant and configured-admin authorization, caller-supplied wallet limitations, original audit actors/wallet types, and historical failure events remain unchanged.
+
+Deliverable 3 C18 regression coverage verifies the saved-hash `not_marked` guard alongside existing `mark_failed` reconciliation, write-free `marking` replays, late hash enrichment, matching success recovery, conflicting/stale callbacks, terminal and authorization ordering, sibling isolation, and the separate RPC sync boundary. See the [C18 evidence report](../../instawards/Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md).
 
 ## Administrator settlement attempts
 
