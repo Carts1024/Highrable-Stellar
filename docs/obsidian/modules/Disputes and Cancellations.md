@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Disputes and Cancellations
 
+## Deliverable 2 C24 follow-up — saved-case reopening acceptance
+
+Six integration cases now verify client/freelancer access after outsider denial, saved marking hashes across `not_marked`/`marking`/`mark_failed`, component remount without local execution state, preserved historical events, and authoritative confirmation. None permits a blind marking retry or issues a mutation/Stellar call. The existing implementation passes these added paths; this is regression evidence, not a new runtime state model. See [C24 acceptance evidence](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) for current local results and live-verification limits.
+
 ## Deliverable 2 C16 follow-up — marking confirmation and safe retry
 
 Persisted `marked` state now supersedes an older local uncertain message/badge. Incomplete confirmation bookkeeping remains separately visible and can be retried without submitting Stellar again. Any saved marking hash also blocks a new transaction when the status is still `not_marked`; the participant receives reconciliation guidance and the explorer link. The new known-hash regression and existing real-detail C24 confirmation/recovery journeys pass. See [C16 evidence](../evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence.md) for local validation and runtime limits.
