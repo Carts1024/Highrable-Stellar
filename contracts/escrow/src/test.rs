@@ -10,8 +10,8 @@ use highrable_reputation::{
     ReputationContract, ReputationContractClient, TCompletionRecord, TFreelancerStatsView,
 };
 use soroban_sdk::xdr::{
-    Limits, ReadXdr, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef, ScSpecTypeResult,
-    ScSpecTypeTuple, ScSpecTypeUdt,
+    AccountId, Limits, PublicKey, ReadXdr, ScAddress, ScSpecEntry, ScSpecTypeBytesN, ScSpecTypeDef,
+    ScSpecTypeResult, ScSpecTypeTuple, ScSpecTypeUdt, ScVal, Uint256,
 };
 use soroban_sdk::{
     contract, contractimpl, contracttype,
@@ -19,7 +19,8 @@ use soroban_sdk::{
         Address as _, AuthorizedFunction, AuthorizedInvocation, Events as _, Ledger, MockAuth,
         MockAuthInvoke,
     },
-    token, Address, BytesN, Env, IntoVal, InvokeError, Map, Symbol, TryIntoVal, Val, Vec,
+    token, Address, BytesN, Env, IntoVal, InvokeError, Map, Symbol, TryFromVal, TryIntoVal, Val,
+    Vec,
 };
 use std::boxed::Box;
 use std::string::ToString;
@@ -96,6 +97,46 @@ struct TTestContext {
     mock_xlm_token: Address,
 }
 
+#[derive(Clone, Copy)]
+enum ParticipantAddressKind {
+    Account,
+    Contract,
+}
+
+fn participant_address(env: &Env, kind: ParticipantAddressKind, seed: u8) -> Address {
+    match kind {
+        ParticipantAddressKind::Account => Address::try_from_val(
+            env,
+            &ScAddress::Account(AccountId(PublicKey::PublicKeyTypeEd25519(Uint256(
+                [seed; 32],
+            )))),
+        )
+        .unwrap(),
+        ParticipantAddressKind::Contract => Address::generate(env),
+    }
+}
+
+fn assert_participant_address_kind(address: &Address, expected: ParticipantAddressKind) {
+    let value: ScVal = address.into();
+    let ScVal::Address(actual) = value else {
+        panic!("expected an address value");
+    };
+    match (expected, actual) {
+        (ParticipantAddressKind::Account, ScAddress::Account(_))
+        | (ParticipantAddressKind::Contract, ScAddress::Contract(_)) => {}
+        (ParticipantAddressKind::Account, ScAddress::Contract(_)) => {
+            panic!("expected an account address")
+        }
+        (ParticipantAddressKind::Contract, ScAddress::Account(_)) => {
+            panic!("expected a contract address")
+        }
+    }
+}
+
+fn is_contract_address(address: &Address) -> bool {
+    matches!(ScVal::from(address), ScVal::Address(ScAddress::Contract(_)))
+}
+
 fn hash_from_byte(env: &Env, value: u8) -> BytesN<32> {
     BytesN::from_array(env, &[value; 32])
 }
@@ -158,20 +199,43 @@ fn set_timestamp(env: &Env, timestamp: u64) {
 }
 
 fn setup() -> TTestContext {
+    setup_internal(
+        ParticipantAddressKind::Contract,
+        ParticipantAddressKind::Contract,
+        false,
+    )
+}
+
+fn setup_with_participant_address_kinds(
+    client_kind: ParticipantAddressKind,
+    freelancer_kind: ParticipantAddressKind,
+) -> TTestContext {
+    setup_internal(client_kind, freelancer_kind, true)
+}
+
+fn setup_internal(
+    client_kind: ParticipantAddressKind,
+    freelancer_kind: ParticipantAddressKind,
+    use_mock_token: bool,
+) -> TTestContext {
     let env = Env::default();
     env.mock_all_auths();
 
     set_timestamp(&env, 1);
 
     let platform_admin = Address::generate(&env);
-    let client = Address::generate(&env);
-    let freelancer = Address::generate(&env);
+    let client = participant_address(&env, client_kind, 41);
+    let freelancer = participant_address(&env, freelancer_kind, 42);
     let outsider = Address::generate(&env);
 
     // Mock USDC token contract used for stablecoin-oriented escrow tests.
     let mock_usdc_admin = Address::generate(&env);
-    let mock_usdc_token_contract = env.register_stellar_asset_contract_v2(mock_usdc_admin.clone());
-    let mock_usdc_token = mock_usdc_token_contract.address();
+    let mock_usdc_token = if use_mock_token {
+        env.register(FailingToken, ())
+    } else {
+        env.register_stellar_asset_contract_v2(mock_usdc_admin.clone())
+            .address()
+    };
     let mock_xlm_admin = Address::generate(&env);
     let mock_xlm_token_contract = env.register_stellar_asset_contract_v2(mock_xlm_admin.clone());
     let mock_xlm_token = mock_xlm_token_contract.address();
@@ -187,10 +251,15 @@ fn setup() -> TTestContext {
     reputation_client.initialize(&escrow_contract_id);
     escrow_client.initialize(&reputation_contract_id, &platform_admin);
 
-    let token_admin_client = token::StellarAssetClient::new(env_ref, &mock_usdc_token);
-    token_admin_client.mint(&client, &10_000);
-    let xlm_admin_client = token::StellarAssetClient::new(env_ref, &mock_xlm_token);
-    xlm_admin_client.mint(&client, &20_000);
+    if use_mock_token {
+        let token_admin_client = FailingTokenClient::new(env_ref, &mock_usdc_token);
+        token_admin_client.mint(&client, &10_000);
+    } else {
+        let token_admin_client = token::StellarAssetClient::new(env_ref, &mock_usdc_token);
+        token_admin_client.mint(&client, &10_000);
+        let xlm_admin_client = token::StellarAssetClient::new(env_ref, &mock_xlm_token);
+        xlm_admin_client.mint(&client, &20_000);
+    }
 
     TTestContext {
         env: env_ref.clone(),
@@ -679,10 +748,25 @@ fn install_mock_dispute_auth(
     caller: &Address,
     escrow_id: u64,
 ) {
-    let args = (caller.clone(), escrow_id).into_val(&context.env);
+    install_mock_dispute_auth_for(
+        context,
+        authorized_address,
+        &context.escrow_contract_id,
+        "mark_disputed",
+        (caller.clone(), escrow_id).into_val(&context.env),
+    );
+}
+
+fn install_mock_dispute_auth_for(
+    context: &TTestContext,
+    authorized_address: &Address,
+    contract: &Address,
+    fn_name: &'static str,
+    args: Vec<Val>,
+) {
     let invocation = MockAuthInvoke {
-        contract: &context.escrow_contract_id,
-        fn_name: "mark_disputed",
+        contract,
+        fn_name,
         args,
         sub_invokes: &[],
     };
@@ -2625,6 +2709,196 @@ fn c13_mark_authorization_is_bound_to_the_escrow_id() {
             .get_freelancer_stats(&context.freelancer),
         stats_before
     );
+}
+
+#[test]
+fn d3_c17_participant_address_kinds_authorize_both_marking_roles_and_states() {
+    let address_kind_pairs = [
+        (
+            ParticipantAddressKind::Account,
+            ParticipantAddressKind::Account,
+        ),
+        (
+            ParticipantAddressKind::Account,
+            ParticipantAddressKind::Contract,
+        ),
+        (
+            ParticipantAddressKind::Contract,
+            ParticipantAddressKind::Account,
+        ),
+        (
+            ParticipantAddressKind::Contract,
+            ParticipantAddressKind::Contract,
+        ),
+    ];
+
+    for (pair_index, (client_kind, freelancer_kind)) in address_kind_pairs.into_iter().enumerate() {
+        let context = setup_with_participant_address_kinds(client_kind, freelancer_kind);
+        assert_participant_address_kind(&context.client, client_kind);
+        assert_participant_address_kind(&context.freelancer, freelancer_kind);
+
+        for (status_index, status) in [TEscrowStatus::Funded, TEscrowStatus::Submitted]
+            .into_iter()
+            .enumerate()
+        {
+            for (role_index, actor) in [&context.client, &context.freelancer]
+                .into_iter()
+                .enumerate()
+            {
+                let hash_byte = 100 + (pair_index * 4 + status_index * 2 + role_index) as u8;
+                let escrow_id = valid_dispute_entry_fixture(&context, status.clone(), hash_byte);
+                let sibling_id =
+                    valid_dispute_entry_fixture(&context, status.clone(), hash_byte + 20);
+                let before = context.escrow_client.get_escrow(&escrow_id);
+                let sibling_before = context.escrow_client.get_escrow(&sibling_id);
+                let balances_before = dispute_token_balances(&context);
+                let completion_before = [
+                    context.reputation_client.get_completion(&escrow_id),
+                    context.reputation_client.get_completion(&sibling_id),
+                ];
+                let stats_before = context
+                    .reputation_client
+                    .get_freelancer_stats(&context.freelancer);
+                let next_escrow_id_before = context.escrow_client.get_next_escrow_id();
+                let event_count_before = context.env.events().all().len() as u32;
+
+                if is_contract_address(actor) {
+                    install_mock_dispute_auth(&context, actor, actor, escrow_id);
+                } else {
+                    // SDK 22's MockAuth registers a mock contract at the signer address;
+                    // account addresses instead use the host's mock-all auth mode.
+                    context.env.mock_all_auths();
+                }
+                let result = context.escrow_client.try_mark_disputed(actor, &escrow_id);
+                let recorded_auths = context.env.auths();
+                let args = (actor.clone(), escrow_id).into_val(&context.env);
+                assert_eq!(
+                    recorded_auths,
+                    std::vec![(
+                        actor.clone(),
+                        AuthorizedInvocation {
+                            function: AuthorizedFunction::Contract((
+                                context.escrow_contract_id.clone(),
+                                Symbol::new(&context.env, "mark_disputed"),
+                                args,
+                            )),
+                            sub_invocations: std::vec![],
+                        }
+                    )]
+                );
+                assert_eq!(result, Ok(Ok(())));
+                assert_mark_event(&context, event_count_before, actor, escrow_id);
+                assert_dispute_mark_changed_only_status(
+                    &context,
+                    escrow_id,
+                    &before,
+                    balances_before,
+                );
+                assert_eq!(
+                    context.escrow_client.get_escrow(&sibling_id),
+                    sibling_before
+                );
+                assert_eq!(
+                    context.reputation_client.get_completion(&escrow_id),
+                    completion_before[0]
+                );
+                assert_eq!(
+                    context.reputation_client.get_completion(&sibling_id),
+                    completion_before[1]
+                );
+                assert_eq!(
+                    context
+                        .reputation_client
+                        .get_freelancer_stats(&context.freelancer),
+                    stats_before
+                );
+                assert_eq!(
+                    context.escrow_client.get_next_escrow_id(),
+                    next_escrow_id_before
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn d3_c17_rejects_inexact_participant_mark_authorization_without_side_effects() {
+    #[derive(Clone, Copy)]
+    enum AuthorizationMismatch {
+        Missing,
+        OtherActor,
+        CallerArgument,
+        EscrowIdArgument,
+        Method,
+        Contract,
+    }
+
+    let mismatches = [
+        AuthorizationMismatch::Missing,
+        AuthorizationMismatch::OtherActor,
+        AuthorizationMismatch::CallerArgument,
+        AuthorizationMismatch::EscrowIdArgument,
+        AuthorizationMismatch::Method,
+        AuthorizationMismatch::Contract,
+    ];
+
+    for (index, mismatch) in mismatches.into_iter().enumerate() {
+        let context = setup_with_participant_address_kinds(
+            ParticipantAddressKind::Contract,
+            ParticipantAddressKind::Contract,
+        );
+        let escrow_id =
+            valid_dispute_entry_fixture(&context, TEscrowStatus::Funded, 160 + index as u8);
+        let sibling_id =
+            valid_dispute_entry_fixture(&context, TEscrowStatus::Submitted, 180 + index as u8);
+        let snapshot =
+            rejected_mark_snapshot(&context, &[escrow_id, sibling_id], &context.mock_usdc_token);
+        let caller = &context.client;
+        let actual_args = (caller.clone(), escrow_id).into_val(&context.env);
+
+        match mismatch {
+            AuthorizationMismatch::Missing => context.env.set_auths(&[]),
+            AuthorizationMismatch::OtherActor => {
+                install_mock_dispute_auth(&context, &context.outsider, caller, escrow_id)
+            }
+            AuthorizationMismatch::CallerArgument => install_mock_dispute_auth_for(
+                &context,
+                caller,
+                &context.escrow_contract_id,
+                "mark_disputed",
+                (context.outsider.clone(), escrow_id).into_val(&context.env),
+            ),
+            AuthorizationMismatch::EscrowIdArgument => {
+                install_mock_dispute_auth(&context, caller, caller, sibling_id)
+            }
+            AuthorizationMismatch::Method => install_mock_dispute_auth_for(
+                &context,
+                caller,
+                &context.escrow_contract_id,
+                "resolve_dispute",
+                actual_args,
+            ),
+            AuthorizationMismatch::Contract => {
+                let other_contract = Address::generate(&context.env);
+                install_mock_dispute_auth_for(
+                    &context,
+                    caller,
+                    &other_contract,
+                    "mark_disputed",
+                    actual_args,
+                );
+            }
+        }
+
+        let result = context.escrow_client.try_mark_disputed(caller, &escrow_id);
+        let recorded_auths = context.env.auths();
+        assert_eq!(result, Err(Err(InvokeError::Abort)));
+        assert!(
+            recorded_auths.is_empty(),
+            "rejected authorization must not be recorded"
+        );
+        assert_rejected_mark_has_no_side_effects(&context, &snapshot, &context.mock_usdc_token);
+    }
 }
 
 fn assert_c13_resolve_auth_rejected(
