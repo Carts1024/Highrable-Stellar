@@ -29,6 +29,14 @@ The older `contracts:verify:testnet` remains a separate post-deployment wiring c
 
 ## Validation and limits
 
+### 2026-10-15 follow-up
+
+The verifier now checks every observed code entry's lifetime against the final instance-read ledger before reporting a match. Previously, code valid at the earlier code-read ledger could expire before the final observation and still receive a successful identity record. Insufficient lifetime now produces `unknown` / `code_expired_during_verification` (exit 2), without a claimed matching ledger. A fresh read is required; the verifier never extends TTL or restores entries.
+
+Two regressions cover the inclusive lifetime boundary and expiry one ledger before the final observation. The latter returned `matched` before the fix. All **51 verifier tests pass**, including the installed-SDK loopback RPC test. This remains synthetic local evidence. No Rust/Stellar executable was found on PATH in this follow-up, and no actual tested build provenance or backend scope was supplied for live verification.
+
+The required `pnpm lint:fix` command could not start because the installed launcher points to a missing executable. Installed workspace binaries are used for scoped formatting/lint verification.
+
 - `node --test scripts/verify-deployment-identity.test.mjs`: 49 tests passed, including real SDK decoding against a loopback HTTP JSON-RPC fixture. Tests use synthetic WASM/XDR, not production build artifacts.
 - Syntax checks, scoped oxlint, and oxfmt checks passed.
 - Repository `pnpm lint:fix` passed with existing warnings. The local pnpm launcher required a wrapper around the installed 12.5.1 Node entry point, with automatic dependency installation disabled. An earlier automatic install was interrupted and the dependency environment restored from cache using pnpm 10.33.2; tracked manifests and lockfile were preserved. Installed versions within declared ranges were re-resolved, so prior test totals are not treated as current evidence.

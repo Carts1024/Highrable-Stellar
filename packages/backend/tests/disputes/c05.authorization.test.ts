@@ -11,6 +11,7 @@ import {
   seedAcceptedDisputeAgreement,
   seedDisputeReferences,
   seedDisputeFixture,
+  snapshotDisputeCreationState as snapshotCreationDocuments,
   type BackendTest,
   type DisputeFixture,
   type DisputeReferenceFixture,
@@ -117,23 +118,6 @@ async function seedRejectedCreationContext(
 ): Promise<DisputeReferenceFixture> {
   await seedAcceptedDisputeAgreement(t, fixture);
   return await seedDisputeReferences(t, fixture);
-}
-
-async function snapshotCreationDocuments(t: BackendTest) {
-  return await t.run(async (ctx) => ({
-    attachments: await ctx.db.query("attachments").collect(),
-    conversations: await ctx.db.query("conversations").collect(),
-    disputes: await ctx.db.query("disputes").collect(),
-    disputeEvents: await ctx.db.query("disputeEvents").collect(),
-    escrows: await ctx.db.query("escrows").collect(),
-    jobs: await ctx.db.query("jobs").collect(),
-    messages: await ctx.db.query("messages").collect(),
-    milestones: await ctx.db.query("milestones").collect(),
-    notifications: await ctx.db.query("notifications").collect(),
-    workAgreementEvents: await ctx.db.query("workAgreementEvents").collect(),
-    workAgreementVersions: await ctx.db.query("workAgreementVersions").collect(),
-    workAgreements: await ctx.db.query("workAgreements").collect(),
-  }));
 }
 
 function withReferenceArgs(

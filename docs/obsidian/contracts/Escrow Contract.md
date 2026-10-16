@@ -2,7 +2,7 @@
 type: contract
 area: contracts
 status: current
-last_updated: 2026-10-07
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -113,9 +113,29 @@ Rust tests decode the SDK-generated function specifications and lock `mark_dispu
 
 Mark and resolve event checks build complete expected maps from literal field names and explicit value types rather than from the production event structs. They preserve typed decoding assertions and verify emitter, ordered topics, version, exact field set, status encoding, addresses, hash bytes, and `i128` token amounts. The amount-301 examples lock `0 bps → 0/301`, `3,333 bps → 100/201`, and `10,000 bps → 301/0` freelancer/client amounts. Existing success, rejection, and rollback coverage continues to supply the behavior matrix. The full evidence and local-only limits are in the C01 handoff.
 
+## Deliverable 3 C01 participant marking compatibility
+
+`d3_c01_mark_event_spec_is_frozen` decodes the generated SDK specification for `DisputeMarkedEvent` and independently freezes its name and exact `version: u32`, `actor: Address`, and `status: TEscrowStatus` fields. `d3_c01_uninitialized_mark_returns_error_before_authorization` confirms an uninitialized call returns `NotInitialized` before requesting caller authorization and emits no events. The existing role/state/event tests listed above remain the behavior baseline. See the [Deliverable 3 C01 participant marking handoff](../../instawards/Deliverable-3-C01-Participant-Marking-Contract-Handoff.md) for the authorization and error matrix, validation results, and local-test limits.
+
+## Deliverable 3 C05 participant marking guards
+
+Three `d3_c05_` Rust tests cover unassigned open escrows in `Created` and both separately and atomically funded `Funded` states; eligibility after public assignment from `Funded`/`Submitted`; and client/freelancer isolation across two escrows. Rejections preserve records, balances, and dispute/transfer event counts. Successful marking changes only status, and repeated marking returns `InvalidStatus`. Existing tests continue to cover missing authorization, outsiders, invalid and terminal states, and platform-owner marking. The workspace passes 80 escrow and 9 reputation tests, both WASM contracts build, and Rust formatting passes. See the [C05 evidence](../../instawards/Deliverable-3-C05-Participant-Marking-Guards-Evidence.md). Results use mocked local authorization; they do not prove wallet signatures or deployed behavior.
+
 ## C07 marking event/state regression
 
 `assert_mark_event` independently checks the literal wire payload and also compares the event topic escrow ID and decoded `Disputed` status with the persisted record. C07 exercises two distinct escrows from `Funded` and `Submitted` with different authorized callers, then verifies the untargeted escrow, token balances, reputation completion records, and freelancer statistics remain unchanged. A separately authorized missing-ID call must return `EscrowNotFound` without emitting dispute or transfer events or changing records, balances, reputation, or the next escrow ID. Existing tests continue to cover authorization, unassigned escrows, invalid statuses, and repeat marking. See the [C07 evidence](../../instawards/C07-Dispute-Marking-Evidence.md); local tests do not verify deployed behavior or wallet signatures.
+
+## Deliverable 3 C09 marking event payload regression
+
+The C09 assertion checks the full Soroban event output and requires a successful mark to add exactly one event, so unexpected events under other topics are rejected. It retains independent literal-map/XDR and typed-payload checks for the emitting escrow, ordered `(dispute, marked, escrow_id)` topics, version `1`, authorized actor, and final `Disputed` status, which must agree with the persisted record. Existing client/freelancer `Funded`/`Submitted` cases and owner compatibility coverage are reused. `cargo test --locked -p highrable-escrow mark` passes 13 tests; the workspace passes 80 escrow and 9 reputation tests, formatting passes, and both WASM contracts build. See the [C09 evidence](../../instawards/Deliverable-3-C09-Dispute-Marking-Event-Evidence.md). This is local mocked-authorization evidence and does not prove signatures, deployed behavior, Testnet execution, or event indexing.
+
+## Deliverable 3 C13 rejected-marking no-side-effects regression
+
+The shared rejection snapshot in `contracts/escrow/src/test.rs` compares complete escrow records, reputation completion records and freelancer statistics, client/freelancer/contract token balances, next escrow ID, and total, dispute, and token-transfer event counts. Checks inspect event counts immediately after the rejected invocation, before follow-up contract reads. Existing invocation-scoped authorization, unassigned-work, missing-ID, invalid-status, outsider, and C20 terminal/repeat cases use this coverage. A dedicated C13 test first records a normal completion, then rejects client and freelancer marking calls against separate `Created` work and verifies that both work records and the nonzero reputation state remain unchanged. Focused marking tests pass 14, C20 passes 6, the C13 test passes 1, and the contract workspace passes 81 escrow and 9 reputation tests. Formatting and both WASM builds pass. See the [C13 evidence](../../instawards/Deliverable-3-C13-Participant-Marking-No-Side-Effects-Evidence.md). This is local mocked-authorization evidence; it does not prove wallet signatures or deployed behavior.
+
+## Deliverable 3 C17 participant address authorization
+
+C17 explicitly covers account (`G…`) and contract (`C…`) participant addresses across all four client/freelancer kind combinations, both participant roles, and `Funded`/`Submitted` entry states. Six invocation mismatch cases reject absent auth, another actor's auth, changed caller/escrow arguments, the wrong method, and the wrong contract target while preserving complete target/sibling snapshots. Account-address success uses SDK 22 `mock_all_auths` and verifies the exact recorded authorization tree because `MockAuth` registers a mock contract at the authorized address; contract-address and mismatch cases use invocation-scoped `MockAuth`. The two C17 tests, 16 marking tests, six C20 tests, full workspace (83 escrow and 9 reputation tests), Rust formatting, and both WASM builds pass. `pnpm contracts:build` could not finish because workspace dependency downloads failed DNS lookup; the underlying local `stellar contract build` succeeded. See the [C17 evidence](../../instawards/Deliverable-3-C17-Participant-Address-Authorization-Evidence.md). This is local mocked-host coverage and does not prove signatures, WebAuthn, browser transaction construction, or deployed behavior.
 
 ## Tests
 

@@ -4,10 +4,7 @@ import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { markDisputedOnChain } from "@/core/stellar/escrow-contract";
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
 import { getPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import {
-  isPendingStellarTransactionError,
-  normalizeStellarError,
-} from "@/core/stellar/transaction";
+import { normalizeStellarError } from "@/core/stellar/transaction";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -28,7 +25,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import React, { useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import type { TDisputeParentType, TDisputeReasonCategory } from "../types";
 import type { TDraftAttachment } from "@/features/attachments/types";
@@ -36,6 +33,11 @@ import type { TConvexDoc, TConvexId } from "@repo/convex-client";
 
 import { DISPUTE_REASON_OPTIONS, formatDisputeDate } from "../lib";
 import { validateDisputeDraft } from "./open-dispute-validation";
+import {
+  createParticipantMarkingScopeKey,
+  getParticipantTransactionHash,
+  isParticipantOutcomeUncertain,
+} from "./participant-marking";
 
 type TOpenDisputeDialogProps = {
   readonly isOpen: boolean;
@@ -148,6 +150,50 @@ export function OpenDisputeDialog({
   const [error, setError] = useState<string | null>(null);
   const [submissionFailed, setSubmissionFailed] = useState(false);
   const submissionInFlight = useRef(false);
+  type TExecutionToken = { readonly generation: number; readonly operationId: string };
+  const executionContextKey = createParticipantMarkingScopeKey({
+    caseId: parentId,
+    parentId,
+    escrowId: escrow.escrowId,
+    walletAddress: walletIdentity.walletAddress,
+    walletType: walletIdentity.walletType,
+    connectedWalletAddress: address,
+    isConnected: walletIdentity.isConnected && walletState.isConnected,
+    network: walletState.network,
+    isTestnet: walletState.isTestnet,
+    canWriteContracts: walletState.canWriteContracts,
+    hasSigner: Boolean(signTransaction),
+    permission: undefined,
+  });
+  const contextKeyRef = useRef(executionContextKey);
+  const generationRef = useRef(0);
+  const mountedRef = useRef(true);
+  const executionRef = useRef<TExecutionToken | null>(null);
+
+  if (contextKeyRef.current !== executionContextKey) {
+    contextKeyRef.current = executionContextKey;
+    generationRef.current += 1;
+    executionRef.current = null;
+    submissionInFlight.current = false;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      generationRef.current += 1;
+      executionRef.current = null;
+      submissionInFlight.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setSubmissionPhase("idle");
+    setMarkExecutionPhase(null);
+    setMarkTransactionHash(null);
+    setError(null);
+    setSubmissionFailed(false);
+  }, [executionContextKey]);
 
   const isSubmitting = submissionPhase !== "idle";
   const activeWalletAddress = walletIdentity.walletAddress;
@@ -155,7 +201,6 @@ export function OpenDisputeDialog({
   const titleId = useId();
   const descriptionId = useId();
   const errorId = useId();
-  const activeWalletType = walletIdentity.walletType ?? "external_wallet";
   const ownerRole = useMemo(() => {
     if (!activeWalletAddress) return "client";
     return activeWalletAddress.toUpperCase() === escrow.clientWallet.toUpperCase()
@@ -173,15 +218,33 @@ export function OpenDisputeDialog({
     !isSubmitting &&
     !createdDisputeId;
 
-  const runOnChainMark = async (disputeId: TConvexId<"disputes">) => {
+  const isCurrent = (): boolean =>
+    mountedRef.current && contextKeyRef.current === executionContextKey;
+  const isExecutionCurrent = (token: TExecutionToken): boolean =>
+    isCurrent() && generationRef.current === token.generation && executionRef.current === token;
+  const assertExecutionCurrent = (token: TExecutionToken): void => {
+    if (!isExecutionCurrent(token)) {
+      throw new Error("Dispute opening context changed; stopping the obsolete attempt.");
+    }
+  };
+
+  const runOnChainMark = async (
+    disputeId: TConvexId<"disputes">,
+    token: TExecutionToken,
+    clientRequestId: string,
+  ) => {
     const config = getRequiredEscrowActionConfig();
-    if (!activeWalletAddress || !walletIdentity.isConnected || !walletIdentity.walletType) {
+    const actorWallet = activeWalletAddress;
+    const actorWalletType = walletIdentity.walletType;
+    assertExecutionCurrent(token);
+    if (!actorWallet || !walletIdentity.isConnected || !actorWalletType) {
       throw new Error(
         "Connect a Stellar wallet or passkey smart account before opening a dispute.",
       );
     }
-    if (walletIdentity.walletType === "passkey_smart_account") {
+    if (actorWalletType === "passkey_smart_account") {
       const readiness = await getPasskeyEscrowExecutionReadiness();
+      assertExecutionCurrent(token);
       if (!readiness.canExecute) {
         throw new Error(
           readiness.reason ?? "Smart account fee funding or relayer configuration is missing.",
@@ -191,7 +254,7 @@ export function OpenDisputeDialog({
       if (
         !address ||
         !walletState.isConnected ||
-        address.toUpperCase() !== activeWalletAddress.toUpperCase()
+        address.toUpperCase() !== actorWallet.toUpperCase()
       ) {
         throw new Error("Connect the wallet for this dispute before marking its escrow.");
       }
@@ -203,10 +266,9 @@ export function OpenDisputeDialog({
       }
     }
 
-    const clientRequestId = createClientRequestId(escrow.escrowId);
     await createTransaction({
-      walletAddress: activeWalletAddress,
-      walletType: walletIdentity.walletType,
+      walletAddress: actorWallet,
+      walletType: actorWalletType,
       type: "mark_disputed",
       clientRequestId,
       escrowId: escrow.escrowId,
@@ -214,19 +276,23 @@ export function OpenDisputeDialog({
       ...(milestone ? { milestoneId: milestone._id } : {}),
       status: "pending",
     });
+    assertExecutionCurrent(token);
     try {
       await markStarted({
         disputeId,
-        actorWallet: activeWalletAddress,
-        actorWalletType: walletIdentity.walletType,
+        actorWallet,
+        actorWalletType,
       });
+      assertExecutionCurrent(token);
     } catch (error) {
+      if (!isExecutionCurrent(token)) throw error;
       try {
         await updateTransactionStatus({
           clientRequestId,
           status: "failed",
           errorMessage: normalizeStellarError(error),
         });
+        assertExecutionCurrent(token);
       } catch {
         // Keep the original start error visible.
       }
@@ -241,13 +307,20 @@ export function OpenDisputeDialog({
         rpcUrl: config.rpcUrl,
         networkPassphrase: config.networkPassphrase,
         escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress,
-        signTransaction,
-        walletType: activeWalletType,
+        sourceAddress: actorWallet,
+        signTransaction: async (xdr, options) => {
+          void options;
+          assertExecutionCurrent(token);
+          const signedXdr = await signTransaction(xdr);
+          assertExecutionCurrent(token);
+          return signedXdr;
+        },
+        walletType: actorWalletType,
         operationId: clientRequestId,
-        caller: activeWalletAddress,
+        caller: actorWallet,
         escrowId: escrow.escrowId,
         onSigned: async ({ transactionHash }) => {
+          assertExecutionCurrent(token);
           knownHash = transactionHash;
           setMarkTransactionHash(transactionHash);
           await updateTransactionStatus({
@@ -255,8 +328,10 @@ export function OpenDisputeDialog({
             txHash: transactionHash,
             status: "pending",
           });
+          assertExecutionCurrent(token);
         },
         onPhase: (phase) => {
+          if (!isExecutionCurrent(token)) return;
           setMarkExecutionPhase(
             {
               simulation: "Simulating transaction...",
@@ -268,18 +343,16 @@ export function OpenDisputeDialog({
           if (phase === "submission" || phase === "confirmation") mayHaveSubmitted = true;
         },
       });
+      assertExecutionCurrent(token);
     } catch (error) {
       const errorMessage = normalizeStellarError(error);
-      const failedTxHash =
-        knownHash ??
-        (typeof error === "object" &&
-        error !== null &&
-        "txHash" in error &&
-        typeof error.txHash === "string"
-          ? error.txHash
-          : undefined);
-      const uncertain =
-        isPendingStellarTransactionError(error) || mayHaveSubmitted || Boolean(failedTxHash);
+      if (!isExecutionCurrent(token)) throw error;
+      const failedTxHash = knownHash ?? getParticipantTransactionHash(error);
+      const uncertain = isParticipantOutcomeUncertain({
+        error,
+        mayHaveSubmitted,
+        transactionHash: failedTxHash,
+      });
       if (failedTxHash) setMarkTransactionHash(failedTxHash);
       try {
         await updateTransactionStatus({
@@ -288,18 +361,21 @@ export function OpenDisputeDialog({
           status: uncertain ? "pending" : "failed",
           errorMessage,
         });
-      } catch {
-        // Keep the original chain error visible.
+        assertExecutionCurrent(token);
+      } catch (recordingError) {
+        if (!isExecutionCurrent(token)) throw recordingError;
       }
       if (!uncertain) {
         try {
           await markFailed({
             disputeId,
-            actorWallet: activeWalletAddress,
-            actorWalletType: walletIdentity.walletType,
+            actorWallet,
+            actorWalletType,
             errorMessage,
           });
-        } catch {
+          assertExecutionCurrent(token);
+        } catch (recordingError) {
+          if (!isExecutionCurrent(token)) throw recordingError;
           throw new Error(
             "Escrow marking failed, but its failure could not be recorded. Check the saved dispute before retrying.",
           );
@@ -312,17 +388,20 @@ export function OpenDisputeDialog({
       );
     }
 
+    assertExecutionCurrent(token);
     setMarkTransactionHash(result.txHash);
     setMarkExecutionPhase("Recording confirmed transaction...");
     try {
       await markSucceeded({
         disputeId,
-        actorWallet: activeWalletAddress,
-        actorWalletType: walletIdentity.walletType,
+        actorWallet,
+        actorWalletType,
         transactionHash: result.txHash,
         stellarExpertUrl: getTxExplorerUrl(result.txHash),
       });
+      assertExecutionCurrent(token);
       await updateTransactionStatus({ clientRequestId, txHash: result.txHash, status: "success" });
+      assertExecutionCurrent(token);
       if (milestone) {
         await updateMilestoneEscrowStatus({
           milestoneId: milestone._id,
@@ -339,6 +418,7 @@ export function OpenDisputeDialog({
           txType: "mark_disputed",
         });
       }
+      assertExecutionCurrent(token);
     } catch (error) {
       throw new Error(
         `Stellar confirmed the transaction, but Highrable could not finish recording it: ${normalizeStellarError(error)}`,
@@ -348,7 +428,8 @@ export function OpenDisputeDialog({
   };
 
   const handleSubmit = async () => {
-    if (submissionInFlight.current || createdDisputeId) return;
+    if (submissionInFlight.current || executionRef.current || createdDisputeId || !isCurrent())
+      return;
     const setWarning = (message: string) => {
       setError(message);
       showWarningToast(message);
@@ -378,6 +459,12 @@ export function OpenDisputeDialog({
       return;
     }
 
+    const clientRequestId = createClientRequestId(escrow.escrowId);
+    const token: TExecutionToken = {
+      generation: generationRef.current,
+      operationId: clientRequestId,
+    };
+    executionRef.current = token;
     submissionInFlight.current = true;
     setSubmissionPhase("creating");
     setMarkExecutionPhase(null);
@@ -386,6 +473,7 @@ export function OpenDisputeDialog({
     setSubmissionFailed(false);
     let savedDisputeId: TConvexId<"disputes"> | null = null;
     try {
+      assertExecutionCurrent(token);
       const disputeId = await createDispute({
         parentType,
         parentId,
@@ -406,10 +494,12 @@ export function OpenDisputeDialog({
           : {}),
         escrowContractId: getRequiredEscrowActionConfig().escrowContractId,
       });
+      assertExecutionCurrent(token);
       savedDisputeId = disputeId;
       setCreatedDisputeId(disputeId);
       setSubmissionPhase("marking");
-      await runOnChainMark(disputeId);
+      await runOnChainMark(disputeId, token, clientRequestId);
+      assertExecutionCurrent(token);
       setTitle("");
       setDescription("");
       setSelectedRevisionIds([]);
@@ -417,6 +507,7 @@ export function OpenDisputeDialog({
       setCreatedDisputeId(null);
       onOpenChange(false);
     } catch (error) {
+      if (!isExecutionCurrent(token)) return;
       setSubmissionFailed(!savedDisputeId);
       setError(
         savedDisputeId
@@ -424,8 +515,11 @@ export function OpenDisputeDialog({
           : getReadableAttachmentError(error, "Dispute could not be opened. Please retry."),
       );
     } finally {
-      submissionInFlight.current = false;
-      setSubmissionPhase("idle");
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        submissionInFlight.current = false;
+        if (isCurrent()) setSubmissionPhase("idle");
+      }
     }
   };
 
@@ -489,6 +583,7 @@ export function OpenDisputeDialog({
                   required
                   disabled={isSubmitting || Boolean(createdDisputeId)}
                   onChange={(event) => setTitle(event.target.value)}
+                  aria-label="Title"
                   className="h-10 rounded-lg border border-[#d8d8d8] bg-white px-3 text-sm text-[#0a0a0a] disabled:opacity-60"
                   placeholder="Briefly summarize the dispute"
                 />
@@ -525,6 +620,7 @@ export function OpenDisputeDialog({
                     checked={includeLatestSubmission}
                     disabled={isSubmitting || Boolean(createdDisputeId)}
                     onChange={(event) => setIncludeLatestSubmission(event.target.checked)}
+                    aria-label={`Include latest work submission from ${formatDisputeDate(latestSubmission.createdAt)}`}
                   />
                   Include latest work submission ({formatDisputeDate(latestSubmission.createdAt)})
                 </label>
@@ -551,6 +647,7 @@ export function OpenDisputeDialog({
                               : current.filter((id) => id !== revision._id),
                           )
                         }
+                        aria-label={`Revision ${revision.revisionNumber}: ${revision.reason}`}
                       />
                       Revision {revision.revisionNumber}: {revision.reason}
                     </label>
