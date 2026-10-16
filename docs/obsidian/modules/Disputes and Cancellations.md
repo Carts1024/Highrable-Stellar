@@ -2,11 +2,15 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Disputes and Cancellations
+
+## Deliverable 2 C24 follow-up — saved-case reopening acceptance
+
+Six integration cases now verify client/freelancer access after outsider denial, saved marking hashes across `not_marked`/`marking`/`mark_failed`, component remount without local execution state, preserved historical events, and authoritative confirmation. None permits a blind marking retry or issues a mutation/Stellar call. The existing implementation passes these added paths; this is regression evidence, not a new runtime state model. See [C24 acceptance evidence](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) for current local results and live-verification limits.
 
 ## Deliverable 2 C16 follow-up — marking confirmation and safe retry
 

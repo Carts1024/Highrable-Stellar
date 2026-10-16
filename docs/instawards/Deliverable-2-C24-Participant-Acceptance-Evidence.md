@@ -4,6 +4,21 @@ Verified locally on 2026-10-09 on `instawards/dev/sherwin`.
 
 ## Acceptance journey and correction
 
+### 2026-10-15 follow-up — reopened saved cases
+
+Six added real-detail integration cases cover client/freelancer access to saved `not_marked`, `marking`, and `mark_failed` records with a known transaction hash. Each starts with denied outsider access, restores participant access, shows saved timeline evidence and the explorer link, remounts the component without local operation state, and consumes authoritative `marked` status plus a confirmation event. Historical evidence remains visible. No mutation or Stellar operation runs, and no blind marking retry is exposed before or after remount.
+
+The existing implementation satisfies these added acceptance paths; this follow-up adds regression coverage without another production state machine. The earlier C24 uncertain-submission and bookkeeping-only retry journeys are retained.
+
+Current local results:
+
+- Participant integration: **19 tests passed**, including six new reopening cases.
+- Full web: **449 tests passed across 28 files** using `NODE_OPTIONS=--no-experimental-webstorage` and `vitest run --maxWorkers=2 --minWorkers=1` (Node 25/jsdom compatibility).
+- Real backend `c19.participant-evidence`, `c13.idempotency`, and `c14.marking`: **70 tests passed across 3 files**.
+- Web TypeScript, scoped oxlint/oxfmt, and whitespace checks passed. The pnpm launcher still points to a missing executable, so installed workspace binaries were used after the required `pnpm lint:fix` attempt.
+
+Remounting is a component-level approximation of reopening a page, with mocked query/wallet transport. It does not prove browser reload persistence, live signing, or deployed identity. C20's separate follow-up passes 51 verifier tests, but actual tested WASM provenance and matching backend scope remain required for live verification.
+
 `dispute-participant-integration.test.tsx` now exercises an unrelated wallet's denied case access, permitted evidence/response writes with associated timeline updates, and a saved case's uncertain marking attempt. The real detail coordinator saves the signed hash, preserves the case and draft after a submission timeout, blocks a second transaction, recovers a failed timeline read, and consumes authoritative confirmed status for the same hash.
 
 The journey reproduced a real inconsistency: confirmed marking displayed alongside the obsolete `Transaction outcome is uncertain` alert. `dispute-marking-status.tsx` suppresses only that superseded pending-outcome error when status is `marked`. A separate regression proves that a confirmed transaction with unfinished parent bookkeeping still shows its error and recording retry, without another Stellar submission.
@@ -12,13 +27,13 @@ Existing opening-dialog regressions cover saved/uncertain case recovery without 
 
 ## Evidence across layers
 
-| Boundary | Evidence |
-| --- | --- |
-| Participant UI acceptance | New C24 journey and marked-with-bookkeeping-failure test in `dispute-participant-integration.test.tsx` |
-| No duplicate saved-case creation | Existing `open-dispute-dialog.test.tsx` saved-case and uncertain-submission cases |
+| Boundary                                | Evidence                                                                                                                                      |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Participant UI acceptance               | New C24 journey and marked-with-bookkeeping-failure test in `dispute-participant-integration.test.tsx`                                        |
+| No duplicate saved-case creation        | Existing `open-dispute-dialog.test.tsx` saved-case and uncertain-submission cases                                                             |
 | Real backend permission/evidence checks | `c19.participant-evidence.test.ts` permitted/denied actors and protected reads; `c08.evidence.test.ts` terminal rejection and unchanged graph |
-| Real backend marking recovery | `c13.idempotency.test.ts` and `c14.marking.test.ts` known-hash retry blocking, matching success, and replay behavior |
-| Actual server recovery boundary | `core/admin/settlement-recovery.test.ts`, using real route/SDK verification with mocked RPC and Convex transport |
+| Real backend marking recovery           | `c13.idempotency.test.ts` and `c14.marking.test.ts` known-hash retry blocking, matching success, and replay behavior                          |
+| Actual server recovery boundary         | `core/admin/settlement-recovery.test.ts`, using real route/SDK verification with mocked RPC and Convex transport                              |
 
 UI Convex subscriptions/mutations, wallet/Stellar transport, upload transport, and some primitives are mocked. The backend tests execute real domain functions locally. These linked checks do not prove live browser-to-chain execution, deployed source identity, or private-key possession for public wallet arguments.
 
@@ -33,14 +48,14 @@ UI Convex subscriptions/mutations, wallet/Stellar transport, upload transport, a
 
 ## Chronological commit map
 
-| Deliverable | Commit | Result |
-| --- | --- | --- |
-| D2 C19 | `cc779dd` | Existing implementation retained; focused checks revalidated |
-| D2 C20 | `e742265` | Read-only deployment verifier and local tests; real build/live identity evidence unavailable |
-| D2 C21 | `efffc4b` | Administrator integration coverage and stale-wallet settlement guard fix |
-| D2 C22 | `b974d56` | Participant integration/accessibility regressions |
-| D2 C23 | `e3f8c5b` | Protected administrator acceptance journey |
-| D2 C24 | Commit containing this report | Participant acceptance and obsolete uncertainty feedback correction |
+| Deliverable | Commit                        | Result                                                                                       |
+| ----------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
+| D2 C19      | `cc779dd`                     | Existing implementation retained; focused checks revalidated                                 |
+| D2 C20      | `e742265`                     | Read-only deployment verifier and local tests; real build/live identity evidence unavailable |
+| D2 C21      | `efffc4b`                     | Administrator integration coverage and stale-wallet settlement guard fix                     |
+| D2 C22      | `b974d56`                     | Participant integration/accessibility regressions                                            |
+| D2 C23      | `e3f8c5b`                     | Protected administrator acceptance journey                                                   |
+| D2 C24      | Commit containing this report | Participant acceptance and obsolete uncertainty feedback correction                          |
 
 All new commits are local on the requested branch. No new branch, Git worktree, push, PR, deployment, or transaction submission was performed. Temporary agent source copies had no independent Git history; only the coordinator integrated and committed.
 
