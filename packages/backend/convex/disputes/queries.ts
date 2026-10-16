@@ -10,12 +10,41 @@ import {
   assertCanOpenDispute,
   assertCanRespondToDispute,
   assertCanViewDispute,
+  assertCurrentDisputeAccess,
   getActiveDisputeForEscrowId,
   isActiveDisputeStatus,
+  validateDisputeDeadlineEventIds,
+  validateDisputeRevisionRequestIds,
+  validateDisputeWorkSubmissionIds,
   resolveDisputeParticipants,
-  withDisputeAttachments,
 } from "./helpers";
 import { disputeParentTypeValidator } from "./schema";
+
+function hasViewerWallet(viewerWallet?: string): viewerWallet is string {
+  return viewerWallet !== undefined && viewerWallet.trim().length > 0;
+}
+
+async function withDisputeAttachments(
+  ctx: QueryCtx,
+  dispute: Doc<"disputes">,
+  viewerWallet?: string,
+) {
+  await assertCanViewDispute(ctx, dispute, viewerWallet);
+  const attachments = [];
+
+  for (const attachmentId of dispute.evidenceAttachmentIds) {
+    const attachment = await ctx.db.get(attachmentId);
+    if (!attachment) continue;
+    try {
+      await assertCanViewAttachment(ctx, attachment, viewerWallet, dispute._id);
+      attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
+    } catch {
+      // Hide inaccessible evidence.
+    }
+  }
+
+  return { ...dispute, attachments };
+}
 
 async function withEventAttachments(
   ctx: QueryCtx,
@@ -27,7 +56,7 @@ async function withEventAttachments(
     const attachment = await ctx.db.get(attachmentId);
     if (!attachment) continue;
     try {
-      await assertCanViewAttachment(ctx, attachment, viewerWallet);
+      await assertCanViewAttachment(ctx, attachment, viewerWallet, event.disputeId);
       attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
     } catch {
       // Hide inaccessible event evidence.
@@ -42,6 +71,7 @@ export const getDispute = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!hasViewerWallet(args.viewerWallet)) return null;
     const dispute = await ctx.db.get(args.disputeId);
     if (!dispute) return null;
     return await withDisputeAttachments(ctx, dispute, args.viewerWallet);
@@ -55,6 +85,7 @@ export const getDisputeByParent = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!hasViewerWallet(args.viewerWallet)) return null;
     const disputes = await ctx.db
       .query("disputes")
       .withIndex("by_parent_status", (q) =>
@@ -68,7 +99,7 @@ export const getDisputeByParent = query({
       try {
         return await withDisputeAttachments(ctx, dispute, args.viewerWallet);
       } catch {
-        return null;
+        continue;
       }
     }
 
@@ -82,9 +113,14 @@ export const getActiveDisputeForEscrow = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!hasViewerWallet(args.viewerWallet)) return null;
     const dispute = await getActiveDisputeForEscrowId(ctx, args.escrowId);
     if (!dispute) return null;
-    return await withDisputeAttachments(ctx, dispute, args.viewerWallet);
+    try {
+      return await withDisputeAttachments(ctx, dispute, args.viewerWallet);
+    } catch {
+      return null;
+    }
   },
 });
 
@@ -93,6 +129,7 @@ export const getDisputesForWallet = query({
     walletAddress: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.walletAddress.trim().length === 0) return [];
     const walletAddress = normalizeWalletAddress(args.walletAddress);
     const [clientDisputes, freelancerDisputes] = await Promise.all([
       ctx.db
@@ -109,7 +146,12 @@ export const getDisputesForWallet = query({
 
     const byId = new Map<string, Doc<"disputes">>();
     for (const dispute of [...clientDisputes, ...freelancerDisputes]) {
-      byId.set(dispute._id, dispute);
+      try {
+        await assertCurrentDisputeAccess(ctx, dispute, walletAddress);
+        byId.set(dispute._id, dispute);
+      } catch {
+        // Omit disputes whose saved participants or parent graph is stale.
+      }
     }
 
     return Array.from(byId.values()).sort((left, right) => right.updatedAt - left.updatedAt);
@@ -124,7 +166,7 @@ export const getDisputeTimeline = query({
   handler: async (ctx, args) => {
     const dispute = await ctx.db.get(args.disputeId);
     if (!dispute) return [];
-    assertCanViewDispute(dispute, args.viewerWallet);
+    await assertCanViewDispute(ctx, dispute, args.viewerWallet);
 
     const events = await ctx.db
       .query("disputeEvents")
@@ -187,7 +229,7 @@ export const canViewDispute = query({
     const dispute = await ctx.db.get(args.disputeId);
     if (!dispute) return { allowed: false, reason: "Dispute not found." };
     try {
-      const role = assertCanViewDispute(dispute, args.viewerWallet);
+      const role = await assertCanViewDispute(ctx, dispute, args.viewerWallet);
       return { allowed: true, reason: null, role };
     } catch (error) {
       return {
@@ -208,7 +250,7 @@ export const canRespondToDispute = query({
     const dispute = await ctx.db.get(args.disputeId);
     if (!dispute) return { allowed: false, reason: "Dispute not found.", role: null };
     try {
-      const role = assertCanRespondToDispute(dispute, args.walletAddress);
+      const role = await assertCanRespondToDispute(ctx, dispute, args.walletAddress);
       return { allowed: true, reason: null, role };
     } catch (error) {
       return {
@@ -227,12 +269,11 @@ export const getDisputeContextByParent = query({
     viewerWallet: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!hasViewerWallet(args.viewerWallet)) return null;
     const parent = await resolveDisputeParticipants(ctx, args);
-    if (args.viewerWallet) {
-      const viewer = normalizeWalletAddress(args.viewerWallet);
-      if (viewer !== parent.clientWallet && viewer !== parent.freelancerWallet) {
-        return null;
-      }
+    const viewer = normalizeWalletAddress(args.viewerWallet);
+    if (viewer !== parent.clientWallet && viewer !== parent.freelancerWallet) {
+      return null;
     }
 
     const [submissions, revisions, deadlineEvents] = await Promise.all([
@@ -254,6 +295,50 @@ export const getDisputeContextByParent = query({
         .take(50),
     ]);
 
-    return { parent, submissions, revisions, deadlineEvents };
+    const validSubmissions = [];
+    for (const submission of submissions) {
+      try {
+        await validateDisputeWorkSubmissionIds(ctx, {
+          submissionIds: [submission._id],
+          parent,
+        });
+        validSubmissions.push(submission);
+      } catch {
+        // Omit stale or contradictory protected context.
+      }
+    }
+
+    const validRevisions = [];
+    for (const revision of revisions) {
+      try {
+        await validateDisputeRevisionRequestIds(ctx, {
+          revisionRequestIds: [revision._id],
+          parent,
+        });
+        validRevisions.push(revision);
+      } catch {
+        // Omit stale or contradictory protected context.
+      }
+    }
+
+    const validDeadlineEvents = [];
+    for (const deadlineEvent of deadlineEvents) {
+      try {
+        await validateDisputeDeadlineEventIds(ctx, {
+          deadlineEventIds: [deadlineEvent._id],
+          parent,
+        });
+        validDeadlineEvents.push(deadlineEvent);
+      } catch {
+        // Omit stale or contradictory protected context.
+      }
+    }
+
+    return {
+      parent,
+      submissions: validSubmissions,
+      revisions: validRevisions,
+      deadlineEvents: validDeadlineEvents,
+    };
   },
 });

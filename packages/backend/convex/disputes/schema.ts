@@ -160,8 +160,10 @@ export const disputeEvents = defineTable({
   oldStatus: v.optional(disputeStatusValidator),
   newStatus: v.optional(disputeStatusValidator),
   transactionHash: v.optional(v.string()),
+  requestId: v.optional(v.string()),
   createdAt: v.number(),
   metadata: v.optional(v.any()),
 })
   .index("by_dispute", ["disputeId", "createdAt"])
+  .index("by_dispute_actor_requestId", ["disputeId", "actorWallet", "requestId"])
   .index("by_type", ["type", "createdAt"]);

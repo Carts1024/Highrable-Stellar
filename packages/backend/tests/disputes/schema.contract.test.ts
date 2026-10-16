@@ -218,6 +218,26 @@ describe("dispute schema contracts", () => {
     expect(eventId).toBeDefined();
   });
 
+  it("accepts an optional response request ID on dispute events", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t);
+    const disputeId = await t.run(async (ctx) =>
+      ctx.db.insert("disputes", makeDisputeFields(fixture)),
+    );
+
+    const eventId = await t.run(async (ctx) =>
+      ctx.db.insert(
+        "disputeEvents",
+        makeDisputeEventFields(disputeId, {
+          type: "client_response_added",
+          requestId: "response-request-1",
+        }),
+      ),
+    );
+
+    expect(eventId).toBeDefined();
+  });
+
   it("rejects unknown enum values, missing fields, and incorrect field types", async () => {
     const t = convexTest(schema, modules);
     const fixture = await seedDisputeFixture(t);

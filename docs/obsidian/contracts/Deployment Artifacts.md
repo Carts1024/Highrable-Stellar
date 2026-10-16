@@ -41,6 +41,8 @@ The web readiness code expects public metadata such as account WASM hash, verifi
 
 ## Production distinction
 
+The read-only `scripts/verify-deployment-identity.mjs` compares explicit backend scope and operator-attested tested build hashes against RPC network, instance identities, reciprocal links, and actual code bytes. Its final observation also requires each code entry's observed lifetime to reach the final ledger; insufficient lifetime yields an unknown result instead of a false match. See [Deliverable 2 C20 evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md). Local fixture tests do not establish live deployment identity.
+
 Recorded contract IDs, configured environment, readiness checks, and a successful deployment are separate claims. None alone proves audited production infrastructure, funded relayer operation, or safe mainnet passkey escrow.
 
 ## Dispute-admin contract version
@@ -48,6 +50,7 @@ Recorded contract IDs, configured environment, readiness checks, and a successfu
 The canonical deployments/testnet.json and deployments/mainnet.json files still contain the earlier deployments. The separate testnet-multi-admin.json records a Testnet contract ID and a deployedAt timestamp of 2026-09-29T01:41:27Z (09:41 +08). That timestamp precedes commit c6cc7e1 at 10:03 +08, which adds dispute-admin membership to source. The file has no WASM hash, deployment transaction link, or verification output, so it does not establish that the membership-enabled build was deployed.
 
 Soroban dispute events were added on September 30, after the separate artifact timestamp. The artifact therefore does not establish that the event-enabled source is deployed. Verify the deployed contract identity and behavior before activating the matching Convex network/contract scope; use an isolated deployment/database for the event-enabled version. The C20 evidence note reports no deployment during that regression/build run. Existing deployment records still do not verify the membership/event-enabled source.
+
 ## Related Notes
 
 [[operations/Deployment]], [[stellar/Mainnet Readiness and Relayers]], [[contracts/Contracts Overview]]

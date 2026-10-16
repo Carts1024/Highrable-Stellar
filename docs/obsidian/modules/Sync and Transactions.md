@@ -68,6 +68,8 @@ Use `lib/stellarReads.ts` and `lib/registryReads.ts` for independent RPC decodin
 
 Deliverable 2 C19 validates decoded escrow/completion IDs against the requested u64 ID, Stellar addresses, integer bounds, 32-byte hashes, status encodings, and completion ratings. Missing completion data remains distinct from a malformed record. A failed escrow read records failure metadata while preserving parent state; a valid retry can reconcile to disputed and clear that error. Generic sync still cannot finalize disputed escrow. See `docs/instawards/Deliverable-2-C19-RPC-Recovery-Evidence.md` for local RPC-mocked and Convex action coverage.
 
+Deliverable 3 C18 interleaves real participant marking callbacks with RPC-mocked `syncEscrowStatus` reads. Failed, successful disputed-state, and repeated reads may change sync metadata and mirror safe parent status, but they do not write dispute confirmation data, marking side effects, transaction hashes, or release/cancellation finalization. Callback-before-sync and sync-before-callback orders remain separate; only the marking success callback confirms the dispute bookkeeping.
+
 ## Risks / Gotchas
 
 - Terminal local statuses are protected against unsafe downgrades, but a failed sync still requires investigation.

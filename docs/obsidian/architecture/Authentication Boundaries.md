@@ -43,6 +43,11 @@ Membership grants become active only after the saved contract transaction succee
 The session cookie is not automatically attached as Convex identity for all public mutations. Several public mutations accept a `walletAddress`/`clientWallet`/`freelancerWallet` argument and compare it to stored participants. Source comments mark these as TODOs for signed-session replacement. This is a known authorization limitation.
 
 `saveProfileDraft` and `completeOnboarding` retain the repository's caller-supplied-wallet boundary. Completion additionally requires a registry mirror row created by the internal mutation called from `syncUserRegistration`; that public action validates configured scope and reads the public chain record through Stellar RPC. The sync action is permissionless and records only public chain facts. It does not authenticate its caller or accept profile edits. The registry contract itself requires `user.require_auth()` for both first-time and duplicate registration calls; anyone may invoke it directly, and registration is not Highrable identity approval.
+## C10 current-work and protected-read boundary
+
+Dispute participant reads and evidence/response writes still accept caller-supplied wallet values; C10 does not prove possession. Those values are now checked against the saved dispute participants and the current resolved parent graph, including populated legacy links and explicit escrow aliases. Terminal cases remain readable only while those relationships still match; reassignment does not grant the former or replacement participant access to the old case.
+
+Protected context reads return `null` before loading protected context for omitted, blank, or unrelated viewers. Returned submissions, revisions and their linked submissions, and deadlines are filtered against the resolved work. Case/timeline attachment access requires an active attachment associated with the exact dispute and a valid participant uploader role before the uploader shortcut, including preview, download, and direct upload paths. Administrator review retains its existing secret, capability, and scope checks and applies the same case-association validation while preserving historical review access.
 
 ## Route gate distinction
 

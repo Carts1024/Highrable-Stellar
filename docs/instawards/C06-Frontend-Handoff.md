@@ -79,12 +79,14 @@ The following names and argument contracts are frozen from the generated API and
 | --- | --- |
 | `api.disputes.createDispute` | `{ parentType, parentId, openedByWallet, openedByWalletType, reasonCategory, title, description, evidenceAttachmentIds?, relatedWorkSubmissionIds?, relatedRevisionRequestIds?, relatedMessageIds?, relatedDeadlineEventIds?, proofHash?, escrowContractId?, metadata? }` |
 | `api.disputes.addDisputeEvidence` | `{ disputeId, actorWallet, actorWalletType, attachmentIds, message? }` |
-| `api.disputes.addDisputeResponse` | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds? }` |
+| `api.disputes.addDisputeResponse` | `{ disputeId, responderWallet, responderWalletType, message, attachmentIds?, requestId? }` |
 | `api.disputes.markDisputeOnChainStarted` | `{ disputeId, actorWallet, actorWalletType }` |
 | `api.disputes.markDisputeOnChainSucceeded` | `{ disputeId, actorWallet, actorWalletType, transactionHash, stellarExpertUrl? }` |
 | `api.disputes.markDisputeOnChainFailed` | `{ disputeId, actorWallet, actorWalletType, errorMessage, transactionHash? }` |
 
 The precise typed aliases for these mutation arguments are `TParticipantCreateDisputeArgs`, `TParticipantAddDisputeEvidenceArgs`, `TParticipantAddDisputeResponseArgs`, and the three `TParticipantMarkDispute*Args` exports in `features/disputes/types.ts`.
+
+The backend C14 response extension accepts an optional trimmed `requestId` (1–128 characters). C16 owns generating one ID per logical response and retaining it across retries. Legacy calls that omit it remain non-idempotent, and the key does not establish wallet possession.
 
 ## Admin HTTP boundary
 

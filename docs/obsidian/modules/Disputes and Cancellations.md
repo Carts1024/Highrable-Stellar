@@ -2,11 +2,19 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
 # Disputes and Cancellations
+
+## Deliverable 2 C24 follow-up — saved-case reopening acceptance
+
+Six integration cases now verify client/freelancer access after outsider denial, saved marking hashes across `not_marked`/`marking`/`mark_failed`, component remount without local execution state, preserved historical events, and authoritative confirmation. None permits a blind marking retry or issues a mutation/Stellar call. The existing implementation passes these added paths; this is regression evidence, not a new runtime state model. See [C24 acceptance evidence](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) for current local results and live-verification limits.
+
+## Deliverable 2 C16 follow-up — marking confirmation and safe retry
+
+Persisted `marked` state now supersedes an older local uncertain message/badge. Incomplete confirmation bookkeeping remains separately visible and can be retried without submitting Stellar again. Any saved marking hash also blocks a new transaction when the status is still `not_marked`; the participant receives reconciliation guidance and the explorer link. The new known-hash regression and existing real-detail C24 confirmation/recovery journeys pass. See [C16 evidence](../evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence.md) for local validation and runtime limits.
 
 ## Purpose
 
@@ -14,8 +22,51 @@ Capture participant disputes/cancellations, evidence, responses, timeline events
 
 ## Current Status
 
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. C15 keeps the participant list scoped to the active wallet, renders readable actor and status transitions from Convex dispute events, and isolates timeline read errors so the dispute detail remains visible with a timeline retry. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens dispute parent authorization, C09 hardens related-record validation and the opening audit, C13 hardens idempotent on-chain marking callbacks, and C17 hardens all five administrator settlement callbacks without changing public arguments, persisted schema, statuses, indexes, or requiring a migration. This remains a platform-reviewed workflow, not decentralized arbitration.
+Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C16 adds versioned Soroban `dispute/marked` and `dispute/resolved` events to the escrow source; their frozen interface is in `docs/instawards/C16-Dispute-Event-Handoff.md`. No indexer or backend event ingestion consumes them, and existing deployments do not emit them. The owner-managed dispute-admin team, assignment workflow, and server-side settlement recovery are implemented in source but require a fresh isolated contract deployment/database before activation. C06 centralizes the frontend dispute contract in `apps/web/features/disputes/types.ts` and `lib.ts` and publishes the frozen handoff at `docs/instawards/C06-Frontend-Handoff.md`. C07 gates participant detail reads on `canViewDispute`, validates the detail route parameter, and adds explicit participant loading, forbidden, missing, empty, and failed-read route states. C11 adds explicit title and bounded related-record selection to the participant opening form, requires backend escrow eligibility before creation, shows creation/marking phases, and preserves the saved dispute ID after a marking failure so the form cannot create a duplicate case. This remains a platform-reviewed workflow, not decentralized arbitration.
 
-Convex participant/admin workflow and Soroban dispute marking/settlement are implemented. C05 hardens parent authorization; C09 validates related records and the opening audit; C13 makes on-chain marking callbacks idempotent; and C17 hardens settlement callbacks and recovery. C16 adds versioned Soroban dispute events, but no indexer or backend event ingestion consumes them. C06 freezes the shared frontend contract; C07 adds protected participant detail states; C11 adds eligibility-first creation and saved-case recovery; and C15 adds the participant timeline. A separate deployments/testnet-multi-admin.json records a Testnet contract ID and a September 29 timestamp at 09:41 +08, before commit c6cc7e1 added dispute-admin membership at 10:03 +08; canonical testnet.json remains the earlier deployment. The artifact has no code hash or deployment link, so it does not verify the membership-enabled build. C16 added events on September 30. Verify the contract identity and use a matching isolated contract/database scope before activation. This remains a platform-reviewed workflow, not decentralized arbitration.
+Deliverable 3 C06 closes a test-coverage gap in creation rejection and
+atomicity. `packages/backend/tests/fixtures/disputes.ts` now provides the
+typed `snapshotDisputeCreationState` helper used by the existing C05, C08, and
+C09 suites. It compares complete documents, including timestamps, across the
+dispute, evidence, related work, agreement, parent, conversation, message,
+notification, and deadline graph. Rejected missing/wrong-table references,
+participant and parent conflicts, revision-linked submission conflicts, hidden
+messages, conversation mismatches, deadline isolation, and input limits now
+assert exact errors plus unchanged before/after state after the invalid
+condition is arranged. Valid attachment and accepted-agreement context is
+seeded for related-record creation rejections. See the [C06 evidence map](../../instawards/Deliverable-3-C06-Creation-Rejection-and-Atomicity-Evidence.md).
+
+## Deliverable 3 C10 — Evidence Association and Protected Reads
+
+Participant dispute reads and evidence/response writes now authorize against the saved dispute's current parent graph and current participants through one shared resolver. Terminal cases remain readable while those relationships still match; reassignment, missing/deleted parents, and contradictory saved links fail closed. Omitted, blank, or unrelated viewers receive `null` from protected context reads, and invalid submissions, linked revisions, or exact-parent deadlines are omitted without changing the bounded result shape.
+
+Case and timeline attachments must be active, belong to the exact dispute, and have a valid client/freelancer participant uploader before viewer or uploader shortcuts. Administrator evidence review preserves its secret, capability, and scope checks and filters invalid historical attachments. Raw limits remain 25 attachments and 20 related references before deduplication, with no cumulative case limit; explicit escrow aliases and legacy optional links remain supported. `addDisputeEvidence` passes validated deduplicated attachment IDs into reassignment.
+
+The focused C10 suite passes 13 tests and the full backend suite passes 381 tests across 14 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. This is local `convex-test` evidence only; caller-supplied wallet possession, live storage, deployed Convex, Stellar, and transaction behavior remain outside scope. See the [C10 evidence report](../../instawards/Deliverable-3-C10-Evidence.md).
+
+## Deliverable 3 C14 — Participant Response Hardening
+
+`addDisputeResponse` now accepts an optional trimmed request ID with a 128-character limit. After current parent/participant authorization, active-status, message, and attachment ownership/association checks, a dedicated `(disputeId, actorWallet, requestId)` index detects replay. Matching keyed responses compare the sanitized message, wallet type, and first-seen deduplicated attachment IDs in saved order and return `true` without writes; conflicting reuse rejects atomically. New responses retain the existing evidence association, response event, opposite-participant notification, review status, notification copy, and no-conversation-message behavior. Omitted request IDs retain legacy non-idempotent behavior.
+
+Timeline reads still use the dispute-scoped ascending `(disputeId, createdAt)` index, existing tie ordering, protected attachment serialization, and first-200-event bound. Replay lookup is independent of that bound. C16 must generate and retain one request ID per logical response; the application key does not establish caller wallet possession.
+
+The distinct C14 suite covers both roles, wallet types, micro-gig/milestone parents, all active and terminal statuses, authorization/parent/message/attachment rejection, exact side-effect attribution, matching/conflicting/concurrent retries, key isolation, complete snapshots including timestamps/access logs, and timeline ordering/boundaries. It passes 74 tests; the full backend passes 456 tests across 15 files. See the [C14 evidence report](../../instawards/Deliverable-3-C14-Participant-Response-Evidence.md).
+
+## Deliverable 3 C18 — Participant Marking Recovery and Reconciliation
+
+`markDisputeOnChainStarted` now rejects a stored transaction hash from `not_marked` with reconciliation guidance, while preserving the existing `mark_failed` known-hash guard. Authorization and argument validation remain ahead of replay returns, duplicate `marking` starts remain write-free, and the existing success/failure transitions retain matching-success idempotency, conflicting-hash rejection, late-success recovery, stale-failure suppression, and original side effects.
+
+The distinct C18 suite contains 23 local `convex-test` cases across micro-gig and milestone parents, both participants, and external-wallet/passkey bookkeeping. It verifies complete callback snapshots, exact event/message/notification counts, metadata/hash/URL/timestamp preservation, terminal and invalid-argument replay paths, sibling isolation, and real `syncEscrowStatus` RPC-mocked reads in both callback orders. Sync may update its own escrow metadata and mirror a disputed parent status, but it cannot submit, invent a hash, confirm the dispute callback, or finalize a disputed escrow. See the [C18 evidence report](../../instawards/Deliverable-3-C18-Participant-Marking-Reconciliation-Evidence.md).
+
+## Deliverable 3 C22 — Participant Backend Acceptance Matrix
+
+The participant backend now has 18 deterministic acceptance cases spanning connected create/evidence/response/history journeys, all four active review states, both parent kinds, both participant roles, and both wallet-type bookkeeping values. Revocation coverage reauthorizes detail, list, parent/escrow, evidence, timeline, permission, and attachment-access requests after participant reassignment, parent deletion, and conflicting saved links; stale evidence and response writes reject. Independent cases, micro-gig/milestone parents, and sibling milestones remain isolated, and foreign or revoked attachment mixtures leave complete snapshots unchanged.
+
+Terminal `resolved_client`, `resolved_freelancer`, `split_resolution`, and `cancelled` cases retain readable participant history while rejecting evidence, responses, keyed-response replays, and active-case lookups. C22 also closed a demonstrated `getAttachmentAccessLogs` gap: a stale former attachment owner now receives the existing `NotFound` denial when the current dispute authorization no longer permits access. The focused C22 suite passes 18 tests; the full backend passes 497 tests across 17 files. Backend/test TypeScript, scoped oxlint/oxfmt, and `git diff --check` pass. See the [C22 evidence report](../../instawards/Deliverable-3-C22-Participant-Acceptance-Evidence.md).
+
+This remains local deterministic `convex-test` evidence. Caller-supplied wallet possession, browser cache races, live Convex/storage, notification delivery, Stellar, Testnet, and deployed contract behavior remain outside scope.
 
 ## Primary Locations
 
@@ -40,7 +91,7 @@ Disputes: `createDispute`, `markDisputeOnChainStarted/Succeeded/Failed`, `addDis
 
 ## Data Model
 
-`disputes` stores optional assignee wallet/time/actor fields in addition to participants, parent links, evidence, status, on-chain status, settlement, and timestamps. `disputeAssignmentEvents` records claims, release, and owner reassignment. `settlementAttempts` fixes the actor, share, note, operation ID, signed hash/expiry, scope, and phase. `disputeAdmins` and `disputeAdminOperations` hold owner-managed network/contract-scoped membership and recovery state. `disputeEvents` remains the dispute timeline; cancellations use their separate policy/status model.
+`disputes` stores optional assignee wallet/time/actor fields in addition to participants, parent links, evidence, status, on-chain status, settlement, and timestamps. `disputeAssignmentEvents` records claims, release, and owner reassignment. `settlementAttempts` fixes the actor, share, note, operation ID, signed hash/expiry, scope, and phase. `disputeAdmins` and `disputeAdminOperations` hold owner-managed network/contract-scoped membership and recovery state. `disputeEvents` remains the dispute timeline and optionally stores keyed participant response request IDs; cancellations use their separate policy/status model.
 
 ## External Dependencies
 
@@ -63,7 +114,7 @@ participant opens dispute
   → idempotent Convex settlement record and parent terminal-state patch
 ```
 
-On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking`; a start in `mark_failed` is retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
+On-chain dispute marking callbacks are phase-guarded. A start in `not_marked` enters `marking` only when no transaction hash is recorded; a saved hash in `not_marked` or `mark_failed` requires reconciliation. A start in `mark_failed` is otherwise retryable only when no transaction hash is recorded; duplicate starts while `marking` are no-ops. Success is accepted from `marking` or `mark_failed` only when its hash does not conflict with the stored hash, while a same-hash success replay after `marked` is a no-op. Failure is accepted from `marking`, preserves the first failure and any known hash, and does not repeat messages or notifications on replay. A failure may fill an absent hash without repeating side effects. Stale failures after `marked` are ignored; conflicting hashes, known-hash retries, impossible phase transitions, and state-changing callbacks for terminal review statuses are rejected. Accepted retries and successes clear only the current `onChainMarkError`; historical failure events remain.
 
 Cancellation is blocked by submitted proof or active disputes according to its eligibility helpers. Contract cancellation is only valid for `Created` or `Funded`; a `Submitted` escrow must use dispute/review paths.
 
@@ -117,6 +168,8 @@ The manual detail refresh is read-only and identity-scoped through the existing 
 
 ## C04 participant route regression coverage
 
+Deliverable 2 follow-up (2026-10-14): the shared participant route error fallback resets when the active wallet address changes, including disconnect. A failed read for the previous wallet therefore cannot strand the current wallet on the old error screen. Unchanged-wallet renders do not automatically retry, and the explicit Retry button remains available. Three added regressions bring the route-state file to 15 tests; see [C04 evidence](../../instawards/Deliverable-2-C04-Participant-Route-Evidence.md).
+
 `apps/web/features/disputes/components/dispute-route-states.test.tsx` now uses query fixtures keyed by Convex function and arguments, with explicit loading, result, and thrown-error states. Its 12 tests cover wallet-scoped list refresh/disconnect behavior; accessible recovery through the real participant route fallback for list, permission, detail, and agreement reads without exposing raw errors; permission-gated detail loading, missing and revoked access, dispute-ID navigation, current-wallet arguments, and suppression of evidence/actions/timeline before access; and every typed review and on-chain marking badge label while keeping the two status vocabularies separate. `apps/web/app/disputes/[disputeId]/page.test.tsx` adds 2 route-entry tests proving malformed IDs call `notFound()` before the detail panel and valid-looking IDs reach the existing participant permission flow.
 
 The requested focused command, `pnpm --filter web test features/disputes`, passes 41 tests across 8 files. The route-entry file passes 2/2 with `pnpm --filter web exec vitest run 'app/disputes/[disputeId]/page.test.tsx'`; web TypeScript, focused oxlint, and focused oxfmt checks pass. This is mocked component and route-entry regression evidence only; it does not verify browser behavior, live Convex, Stellar RPC, transactions, or deployed contracts. No production dispute API, schema, status vocabulary, wallet identity handling, or contract behavior changed.
@@ -126,7 +179,7 @@ The requested focused command, `pnpm --filter web test features/disputes`, passe
 - `resolve_dispute` emits the supplied resolution hash in its Soroban event but does not store it in the escrow record.
 - App case assignment is enforced by Convex. As selected, the contract permits any active, non-conflicted dispute admin to settle directly without checking app assignment.
 - Existing cases are unassigned. Owner assignment/release is blocked during a pending or submission-unknown settlement. A revoked admin's assignment remains visible for owner reassignment.
-- The separate multi-admin artifact records a Testnet contract ID, but its timestamp predates the committed membership change and it has no code hash or deployment link. It does not verify the membership-enabled or event-enabled source. Verify the deployment and keep Convex's network/contract scope aligned. Existing ID lookup/synchronization is not safe across overlapping contract ID spaces.
+- The new membership and contract conflict rules are not present in currently recorded deployments; activate only with a fresh isolated deployment/database. Existing ID lookup/synchronization is not safe across overlapping contract ID spaces.
 - C16 event emission is present only in current source, not existing deployments; reputation events and event indexing/ingestion remain absent.
 - `freelancer_share_bps == 0` becomes contract `Cancelled`; any positive share becomes `Released`, including a client-refund split.
 - Contract settlement does not write a reputation completion record.
@@ -142,6 +195,8 @@ The requested focused command, `pnpm --filter web test features/disputes`, passe
 - The original C05 coverage extends the C02 in-memory harness with participant/status/parent combinations, malformed and wrong-table IDs, missing and conflicting records, aliases and legacy jobs, ambiguous and unassigned escrows, >50 closed disputes, nonparticipants, admin credentials, and creation side-effect rollback. Deliverable 2 C05 expands that matrix and preserves the caller-supplied participant wallet limitation because this flow does not prove wallet possession.
 
 ## C08 Verified Invariants
+
+- Deliverable 2 follow-up (2026-10-14): message evidence from a previous dispute now validates that dispute's normalized client and freelancer against the resolved work participants, in addition to its work links and conversation membership. Four added public-mutation regressions cover both participant mismatches for micro-gigs and milestones, unchanged side-effect snapshots on rejection, and successful creation once participants match. C08 passes 27 tests; C08+C09 passes 36; the full backend passes 365 across 13 files. See [C08 evidence](../../instawards/Deliverable-2-C08-Evidence-Validation-Evidence.md).
 
 - `validateDisputeAttachmentIds` enforces the raw 25-item request limit before deduplicating IDs in first-seen order, validates each unique active caller-owned attachment, and returns typed attachment IDs. Creation still requires unlinked attachments; subsequent evidence/response writes accept an attachment unlinked or already attached to the same dispute.
 - `createDispute`, `addDisputeEvidence`, and `addDisputeResponse` use the returned IDs for attachment reassignment, dispute evidence arrays, and audit-event attachments. Supplied evidence/response messages are sanitized before any mutation write. The public arguments, result values, statuses, schemas, and indexes remain unchanged; the two participant mutations now declare their existing boolean result validators explicitly.
