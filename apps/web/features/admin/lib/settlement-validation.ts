@@ -24,6 +24,12 @@ export interface IResolutionShareValidation {
   readonly error: string | null;
 }
 
+export interface ISettlementTermsValidation {
+  readonly isValid: boolean;
+  readonly freelancerShareBps: number | null;
+  readonly error: string | null;
+}
+
 export interface ISettlementEligibility {
   readonly canSettle: boolean;
   readonly blockingReason: string | null;
@@ -122,6 +128,79 @@ export function resolveShareBps(status: TAdminResolutionStatus, input: string): 
   const validation = validateResolutionShare(status, input);
   if (!validation.isValid || validation.freelancerShareBps === null) {
     throw new Error(validation.error ?? "Invalid freelancer share.");
+  }
+
+  return validation.freelancerShareBps;
+}
+
+/**
+ * Validate the terms at the execution boundary as well as in the form. The
+ * coordinator receives runtime values, so this intentionally accepts unknown
+ * inputs and does not rely on the page's selected-option state.
+ */
+export function validateSettlementTerms(
+  status: unknown,
+  freelancerShareBps: unknown,
+): ISettlementTermsValidation {
+  if (
+    status !== "resolved_client" &&
+    status !== "resolved_freelancer" &&
+    status !== "split_resolution"
+  ) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Choose a recognized settlement outcome before settling.",
+    };
+  }
+
+  if (typeof freelancerShareBps !== "number" || !Number.isFinite(freelancerShareBps)) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Settlement terms must use a finite whole-number freelancer share in bps.",
+    };
+  }
+
+  if (!Number.isSafeInteger(freelancerShareBps)) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Settlement terms must use a whole-number freelancer share in bps.",
+    };
+  }
+
+  if (status === "resolved_client" && freelancerShareBps !== CLIENT_RESOLUTION_BPS) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Client resolution must use a freelancer share of 0 bps.",
+    };
+  }
+
+  if (status === "resolved_freelancer" && freelancerShareBps !== FREELANCER_RESOLUTION_BPS) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Freelancer resolution must use a freelancer share of 10000 bps.",
+    };
+  }
+
+  if (status === "split_resolution" && (freelancerShareBps < 1 || freelancerShareBps > 9999)) {
+    return {
+      isValid: false,
+      freelancerShareBps: null,
+      error: "Split resolution must use a freelancer share from 1 to 9999 bps.",
+    };
+  }
+
+  return { isValid: true, freelancerShareBps, error: null };
+}
+
+export function resolveSettlementTerms(status: unknown, freelancerShareBps: unknown): number {
+  const validation = validateSettlementTerms(status, freelancerShareBps);
+  if (!validation.isValid || validation.freelancerShareBps === null) {
+    throw new Error(validation.error ?? "Invalid settlement terms.");
   }
 
   return validation.freelancerShareBps;

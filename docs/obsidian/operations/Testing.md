@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-13
 source_of_truth: repository
 ---
 
@@ -31,6 +31,14 @@ Dispute fixtures seed users, a client, an assigned freelancer, an unrelated wall
 The Deliverable 2 C02 extension adds parameterized parent/reason/wallet/status/event vocabulary checks, optional event-status fields, unknown/type/wrong-table rejection checks, `by_assignedAdmin_updatedAt` isolation and ordering, generated `api.disputes` export references, malformed public arguments with rejected-write preservation, participant present/missing/denied result shapes, and the legacy rejecting moderator-note/resolution placeholders. Working administrator APIs remain under `api.admin`.
 
 At the Deliverable 2 C02 checkpoint, the focused schema/index/API contract run passed 59 tests and the backend suite passed 154 tests across 10 files. The backend source and test TypeScript projects both type-check; local tests use deterministic in-memory Convex state and do not prove Stellar RPC execution, transaction signing/submission, deployed contract identity, or chain event ingestion.
+
+## Deliverable 3 C02 participant API contract coverage
+
+The Deliverable 3 C02 extension keeps the existing public dispute API and adds compile-time drift checks in [`api.contract.test.ts`](../../packages/backend/tests/disputes/api.contract.test.ts). The generated `api.disputes` key set and all 20 public function names are checked, and `FunctionArgs`/`FunctionReturnType` plus Vitest `expectTypeOf` assertions cover ten participant queries and six creation/evidence/response/marking mutations. Expected types are local to the test: typed IDs, required versus optional arguments, mutation returns, nullability, serialized attachment enrichment, permission-result shapes, and the current status, marking-phase, reason, and event unions are frozen without adding competing application types.
+
+The same suite sends otherwise-valid inputs with an unexpected top-level argument to all ten participant queries and six participant mutations. Rejected mutations are checked against complete before/after snapshots of every current Convex table. The focused three-file contract run passes 62 tests, three above the Deliverable 2 C02 baseline of 59; the full backend run passes 364 tests across 13 files. Existing C05 authorization, C08/C09 evidence and creation, C13/C14 marking, C19 participant evidence, and C21 reconciliation suites remain the behavioral evidence rather than being duplicated. See the [Deliverable 3 C02 evidence map](../../instawards/Deliverable-3-C02-Participant-API-Contract-Evidence.md).
+
+Backend source and test-project TypeScript checks, scoped oxlint, and scoped oxfmt pass. This is local in-memory Convex contract evidence only. It does not prove frontend accessibility or responsive behavior, wallet signing or possession, Stellar execution, deployed contract identity, or live-chain acceptance; caller-supplied wallet addresses retain the existing identity limitation.
 
 ## Deliverable 2 C05 authorization and creation matrix
 

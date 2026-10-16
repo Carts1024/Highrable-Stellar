@@ -15,7 +15,6 @@ import {
   optionalNonEmptyString,
   requireNonEmptyString,
 } from "../_shared/input";
-import { assertCanViewAttachment, serializeAttachmentForViewer } from "../attachments/helpers";
 import { createSystemMessageForEvent } from "../conversations/helpers";
 import { getJobType } from "../jobs/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "./schema";
@@ -23,6 +22,7 @@ import { ACTIVE_DISPUTE_STATUSES } from "./schema";
 const MAX_TITLE_LENGTH = 160;
 const MAX_DESCRIPTION_LENGTH = 10_000;
 const MAX_EVENT_MESSAGE_LENGTH = 4_000;
+const MAX_RESPONSE_REQUEST_ID_LENGTH = 128;
 const MAX_ATTACHMENTS = 25;
 const MAX_RELATED_RECORDS = 20;
 const ACTIVE_DISPUTE_STATUS_SET = new Set<string>(ACTIVE_DISPUTE_STATUSES);
@@ -65,6 +65,18 @@ export function sanitizeDisputeMessage(message: string): string {
     .replace(/\r\n?/g, "\n")
     .trim()
     .slice(0, MAX_EVENT_MESSAGE_LENGTH);
+}
+
+export function sanitizeOptionalDisputeResponseRequestId(requestId?: string): string | undefined {
+  const sanitizedRequestId = optionalNonEmptyString(requestId, "requestId");
+  if (
+    sanitizedRequestId !== undefined &&
+    sanitizedRequestId.length > MAX_RESPONSE_REQUEST_ID_LENGTH
+  ) {
+    throw new BadRequestError("requestId must be 128 characters or fewer.");
+  }
+
+  return sanitizedRequestId;
 }
 
 export function sanitizeOptionalProofHash(proofHash?: string): string | undefined {
@@ -203,7 +215,7 @@ async function getMilestoneById(ctx: QueryCtx, milestoneId: Id<"milestones">) {
 
 async function getDisputeParentRecords(
   ctx: QueryCtx,
-  input: { parentType: TDisputeParentType; parentId: string },
+  input: { parentType: TDisputeParentType; parentId: string; escrowId?: Id<"escrows"> },
 ): Promise<TDisputeParentRecords> {
   const parentId = requireNonEmptyString(input.parentId, "parentId");
 
@@ -239,7 +251,10 @@ async function getDisputeParentRecords(
       throw new BadRequestError("This milestone has an invalid parent job ID.");
     }
     const job = await getJobById(ctx, storedJobId);
-    const escrow = await getUniqueEscrowByMilestoneId(ctx, milestone._id);
+    const escrow =
+      input.escrowId !== undefined
+        ? await ctx.db.get(input.escrowId)
+        : await getUniqueEscrowByMilestoneId(ctx, milestone._id);
     return { escrow, job, milestone };
   }
 
@@ -251,7 +266,10 @@ async function getDisputeParentRecords(
     );
   }
 
-  const escrow = await getUniqueEscrowByJobId(ctx, job._id);
+  const escrow =
+    input.escrowId !== undefined
+      ? await ctx.db.get(input.escrowId)
+      : await getUniqueEscrowByJobId(ctx, job._id);
   let milestone: Doc<"milestones"> | null = null;
   if (escrow?.milestoneId !== undefined) {
     const storedMilestoneId = ctx.db.normalizeId("milestones", escrow.milestoneId);
@@ -266,7 +284,7 @@ async function getDisputeParentRecords(
 
 export async function resolveDisputeParticipants(
   ctx: QueryCtx,
-  input: { parentType: TDisputeParentType; parentId: string },
+  input: { parentType: TDisputeParentType; parentId: string; escrowId?: Id<"escrows"> },
 ): Promise<TResolvedDisputeParent> {
   const { escrow, job, milestone } = await getDisputeParentRecords(ctx, input);
   if (!escrow) {
@@ -350,21 +368,79 @@ export function getDisputeRole(
   throw new ForbiddenError("Only the client or assigned freelancer can use this dispute.");
 }
 
-export function assertCanViewDispute(
-  dispute: Pick<Doc<"disputes">, "clientWallet" | "freelancerWallet">,
-  viewerWallet?: string,
-) {
-  if (!viewerWallet) {
-    throw new ForbiddenError("You do not have permission to view this dispute.");
+function assertDisputeMatchesCurrentWork(dispute: Doc<"disputes">, parent: TResolvedDisputeParent) {
+  const parentTypeMatches =
+    dispute.parentType === parent.parentType ||
+    (dispute.parentType === "job" && parent.parentType === "micro_gig");
+  if (!parentTypeMatches || dispute.parentId !== parent.parentId) {
+    throw new ForbiddenError("This dispute is no longer linked to the current work.");
   }
-  return getDisputeRole(viewerWallet, dispute);
+
+  const populatedLinks: Array<[string, string | undefined, string | undefined]> = [
+    ["job", dispute.jobId, parent.jobId],
+    ["micro-gig", dispute.microGigId, parent.microGigId],
+    ["milestone", dispute.milestoneId, parent.milestoneId],
+    ["escrow", dispute.escrowId, parent.escrowId],
+    ["on-chain escrow", dispute.onChainEscrowId, parent.onChainEscrowId],
+  ];
+  for (const [label, savedLink, currentLink] of populatedLinks) {
+    if (savedLink !== undefined && savedLink !== currentLink) {
+      throw new ForbiddenError(`This dispute has a conflicting ${label} link.`);
+    }
+  }
+
+  if (
+    normalizeWalletAddress(dispute.clientWallet) !== parent.clientWallet ||
+    normalizeWalletAddress(dispute.freelancerWallet) !== parent.freelancerWallet
+  ) {
+    throw new ForbiddenError("This dispute participants no longer match the current work.");
+  }
 }
 
-export function assertCanRespondToDispute(dispute: Doc<"disputes">, walletAddress: string) {
+export async function resolveCurrentDisputeWork(
+  ctx: QueryCtx,
+  dispute: Doc<"disputes">,
+): Promise<{ dispute: Doc<"disputes">; parent: TResolvedDisputeParent }> {
+  const parent = await resolveDisputeParticipants(ctx, {
+    parentType: dispute.parentType,
+    parentId: dispute.parentId,
+    ...(dispute.escrowId !== undefined ? { escrowId: dispute.escrowId } : {}),
+  });
+  assertDisputeMatchesCurrentWork(dispute, parent);
+  return { dispute, parent };
+}
+
+export async function assertCurrentDisputeAccess(
+  ctx: QueryCtx,
+  dispute: Doc<"disputes">,
+  viewerWallet?: string,
+) {
+  if (!viewerWallet || viewerWallet.trim().length === 0) {
+    throw new ForbiddenError("You do not have permission to view this dispute.");
+  }
+
+  const current = await resolveCurrentDisputeWork(ctx, dispute);
+  const role = getDisputeRole(viewerWallet, current.parent);
+  return { ...current, role };
+}
+
+export async function assertCanViewDispute(
+  ctx: QueryCtx,
+  dispute: Doc<"disputes">,
+  viewerWallet?: string,
+) {
+  return (await assertCurrentDisputeAccess(ctx, dispute, viewerWallet)).role;
+}
+
+export async function assertCanRespondToDispute(
+  ctx: QueryCtx,
+  dispute: Doc<"disputes">,
+  walletAddress: string,
+) {
   if (!isActiveDisputeStatus(dispute.status)) {
     throw new BadRequestError("This dispute is not accepting new responses.");
   }
-  return getDisputeRole(walletAddress, dispute);
+  return (await assertCurrentDisputeAccess(ctx, dispute, walletAddress)).role;
 }
 
 export async function getActiveDisputeForEscrowId(ctx: QueryCtx, escrowId: Id<"escrows">) {
@@ -736,6 +812,7 @@ function assertPreviousDisputeBelongsToWork(
 ) {
   assertRelatedParentId(ctx, previousDispute, parent, "Previous dispute");
   assertRelatedWorkLinks(ctx, previousDispute, parent, "Previous dispute");
+  assertRelatedParticipants(previousDispute, parent, "Previous dispute");
 }
 
 function assertConversationIncludesParticipants(
@@ -914,6 +991,7 @@ export async function createDisputeEvent(
     oldStatus?: TDisputeStatus;
     newStatus?: TDisputeStatus;
     transactionHash?: string;
+    requestId?: string;
     metadata?: unknown;
     createdAt?: number;
   },
@@ -930,6 +1008,7 @@ export async function createDisputeEvent(
     ...(input.oldStatus !== undefined ? { oldStatus: input.oldStatus } : {}),
     ...(input.newStatus !== undefined ? { newStatus: input.newStatus } : {}),
     ...(input.transactionHash !== undefined ? { transactionHash: input.transactionHash } : {}),
+    ...(input.requestId !== undefined ? { requestId: input.requestId } : {}),
     createdAt: input.createdAt ?? Date.now(),
     ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
   });
@@ -1009,28 +1088,6 @@ export async function createDisputeSystemMessage(
   } catch {
     return null;
   }
-}
-
-export async function withDisputeAttachments(
-  ctx: QueryCtx,
-  dispute: Doc<"disputes">,
-  viewerWallet?: string,
-) {
-  assertCanViewDispute(dispute, viewerWallet);
-  const attachments = [];
-
-  for (const attachmentId of dispute.evidenceAttachmentIds) {
-    const attachment = await ctx.db.get(attachmentId);
-    if (!attachment) continue;
-    try {
-      await assertCanViewAttachment(ctx, attachment, viewerWallet);
-      attachments.push(await serializeAttachmentForViewer(ctx, attachment, viewerWallet));
-    } catch {
-      // Hide inaccessible evidence.
-    }
-  }
-
-  return { ...dispute, attachments };
 }
 
 export function buildDisputeNumber(now = Date.now()): string {

@@ -34,25 +34,25 @@ export function DisputeOnChainStatusBadge({
   readonly transactionHash?: string;
   readonly localOutcome?: "pending" | "confirmed_sync_pending";
 }) {
+  const effectiveOutcome =
+    status === "marked" && localOutcome === "pending" ? undefined : localOutcome;
   const className =
-    status === "marked"
+    status === "marked" && !effectiveOutcome
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-      : status === "mark_failed" && !localOutcome
+      : status === "mark_failed" && !effectiveOutcome
         ? "border-red-200 bg-red-50 text-red-700"
         : "border-[#d8d8d8] bg-[#fafafa] text-[#5f5f5f]";
 
   return (
     <span className={`rounded-md border px-2 py-1 font-mono text-xs uppercase ${className}`}>
       Chain:{" "}
-      {status === "marked"
-        ? getDisputeOnChainStatusLabel(status)
-        : localOutcome === "pending"
-          ? "Outcome Pending"
-          : localOutcome === "confirmed_sync_pending"
-            ? "Recording Confirmation"
-            : status === "mark_failed" && transactionHash
-              ? "Reconciliation Required"
-              : getDisputeOnChainStatusLabel(status)}
+      {effectiveOutcome === "pending"
+        ? "Outcome Pending"
+        : effectiveOutcome === "confirmed_sync_pending"
+          ? "Recording Confirmation"
+          : (status === "mark_failed" || status === "not_marked") && transactionHash
+            ? "Reconciliation Required"
+            : getDisputeOnChainStatusLabel(status)}
     </span>
   );
 }

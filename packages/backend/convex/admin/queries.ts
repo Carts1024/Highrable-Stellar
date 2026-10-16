@@ -6,6 +6,8 @@ import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import { assertAdminApiSecret, isConfiguredAdminWallet } from "../_shared/adminAuth";
 import { ForbiddenError } from "../_shared/errors";
+import { normalizeWalletAddress } from "../_shared/input";
+import { resolveCurrentDisputeWork } from "../disputes/helpers";
 import {
   DISPUTE_ON_CHAIN_STATUSES,
   DISPUTE_STATUSES,
@@ -128,16 +130,53 @@ async function listRecentDisputes(ctx: QueryCtx, limit: number): Promise<Doc<"di
     .slice(0, limit);
 }
 
-async function resolveAttachmentForAdmin(ctx: QueryCtx, attachmentId: Id<"attachments">) {
+async function resolveAttachmentForAdmin(
+  ctx: QueryCtx,
+  attachmentId: Id<"attachments">,
+  dispute: Doc<"disputes">,
+) {
   const attachment = await ctx.db.get(attachmentId);
-  if (!attachment) {
+  if (
+    !attachment ||
+    attachment.status !== "active" ||
+    attachment.parentType !== "dispute" ||
+    !attachment.parentId ||
+    ctx.db.normalizeId("disputes", attachment.parentId) !== dispute._id
+  ) {
     return null;
   }
 
-  return {
-    ...attachment,
-    url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-  };
+  try {
+    await resolveCurrentDisputeWork(ctx, dispute);
+  } catch {
+    return null;
+  }
+
+  const expectedUploader =
+    attachment.ownerRole === "client"
+      ? dispute.clientWallet
+      : attachment.ownerRole === "freelancer"
+        ? dispute.freelancerWallet
+        : null;
+  if (
+    expectedUploader === null ||
+    normalizeWalletAddress(attachment.uploadedByWallet) !== normalizeWalletAddress(expectedUploader)
+  ) {
+    return null;
+  }
+
+  try {
+    const url = attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null;
+    if (attachment.storageId && url === null) {
+      return null;
+    }
+    return {
+      ...attachment,
+      url,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export const getAdminDashboardMetrics = query({
@@ -315,7 +354,7 @@ export const getAdminDispute = query({
           .take(300),
         Promise.all(
           dispute.evidenceAttachmentIds.map(async (attachmentId) =>
-            resolveAttachmentForAdmin(ctx, attachmentId),
+            resolveAttachmentForAdmin(ctx, attachmentId, dispute),
           ),
         ),
         ctx.db
@@ -334,7 +373,7 @@ export const getAdminDispute = query({
       timeline.map(async (event) => {
         const attachments = await Promise.all(
           event.attachmentIds.map(async (attachmentId) =>
-            resolveAttachmentForAdmin(ctx, attachmentId),
+            resolveAttachmentForAdmin(ctx, attachmentId, dispute),
           ),
         );
 

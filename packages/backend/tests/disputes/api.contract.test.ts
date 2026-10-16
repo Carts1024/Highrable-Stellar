@@ -1,7 +1,9 @@
 import { convexTest } from "convex-test";
-import { describe, expect, it, vi } from "vitest";
+import { getFunctionName, type FunctionArgs, type FunctionReturnType } from "convex/server";
+import { v, type Infer } from "convex/values";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 
 import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
@@ -16,27 +18,223 @@ import {
 } from "../fixtures/disputes";
 
 const PUBLIC_DISPUTE_API_REFERENCES = [
-  api.disputes.createDispute,
-  api.disputes.markDisputeOnChainStarted,
-  api.disputes.markDisputeOnChainSucceeded,
-  api.disputes.markDisputeOnChainFailed,
-  api.disputes.addDisputeEvidence,
-  api.disputes.addDisputeResponse,
-  api.disputes.changeDisputeStatus,
-  api.disputes.cancelDispute,
-  api.disputes.addModeratorNote,
-  api.disputes.recordDisputeResolution,
-  api.disputes.getDispute,
-  api.disputes.getDisputeByParent,
-  api.disputes.getActiveDisputeForEscrow,
-  api.disputes.getDisputesForWallet,
-  api.disputes.getDisputeTimeline,
-  api.disputes.getDisputeEvidence,
-  api.disputes.canOpenDispute,
-  api.disputes.canViewDispute,
-  api.disputes.canRespondToDispute,
-  api.disputes.getDisputeContextByParent,
+  { name: "createDispute", reference: api.disputes.createDispute },
+  { name: "markDisputeOnChainStarted", reference: api.disputes.markDisputeOnChainStarted },
+  { name: "markDisputeOnChainSucceeded", reference: api.disputes.markDisputeOnChainSucceeded },
+  { name: "markDisputeOnChainFailed", reference: api.disputes.markDisputeOnChainFailed },
+  { name: "addDisputeEvidence", reference: api.disputes.addDisputeEvidence },
+  { name: "addDisputeResponse", reference: api.disputes.addDisputeResponse },
+  { name: "changeDisputeStatus", reference: api.disputes.changeDisputeStatus },
+  { name: "cancelDispute", reference: api.disputes.cancelDispute },
+  { name: "addModeratorNote", reference: api.disputes.addModeratorNote },
+  { name: "recordDisputeResolution", reference: api.disputes.recordDisputeResolution },
+  { name: "getDispute", reference: api.disputes.getDispute },
+  { name: "getDisputeByParent", reference: api.disputes.getDisputeByParent },
+  { name: "getActiveDisputeForEscrow", reference: api.disputes.getActiveDisputeForEscrow },
+  { name: "getDisputesForWallet", reference: api.disputes.getDisputesForWallet },
+  { name: "getDisputeTimeline", reference: api.disputes.getDisputeTimeline },
+  { name: "getDisputeEvidence", reference: api.disputes.getDisputeEvidence },
+  { name: "canOpenDispute", reference: api.disputes.canOpenDispute },
+  { name: "canViewDispute", reference: api.disputes.canViewDispute },
+  { name: "canRespondToDispute", reference: api.disputes.canRespondToDispute },
+  { name: "getDisputeContextByParent", reference: api.disputes.getDisputeContextByParent },
 ] as const;
+
+type ExpectedPublicDisputeApiName = (typeof PUBLIC_DISPUTE_API_REFERENCES)[number]["name"];
+type GeneratedPublicDisputeApiName = keyof typeof api.disputes;
+type ExpectedGeneratedPublicDisputeApiName = ExpectedPublicDisputeApiName | "mutations" | "queries";
+
+type ExpectedWalletType = "external_wallet" | "passkey_smart_account";
+type ExpectedParentType = "micro_gig" | "milestone" | "escrow" | "job";
+type ExpectedParticipantRole = "client" | "freelancer";
+type ExpectedReasonCategory =
+  | "work_not_delivered"
+  | "work_quality_issue"
+  | "client_unresponsive"
+  | "freelancer_unresponsive"
+  | "missed_deadline"
+  | "revision_disagreement"
+  | "payment_release_disagreement"
+  | "scope_disagreement"
+  | "other";
+type ExpectedDisputeStatus =
+  | "open"
+  | "under_review"
+  | "awaiting_client_response"
+  | "awaiting_freelancer_response"
+  | "resolved_client"
+  | "resolved_freelancer"
+  | "split_resolution"
+  | "cancelled";
+type ExpectedMarkingPhase = "not_marked" | "marking" | "marked" | "mark_failed";
+type ExpectedEventType =
+  | "dispute_opened"
+  | "evidence_added"
+  | "on_chain_mark_started"
+  | "on_chain_mark_succeeded"
+  | "on_chain_mark_failed"
+  | "status_changed"
+  | "client_response_added"
+  | "freelancer_response_added"
+  | "moderator_note_added"
+  | "resolution_proposed"
+  | "resolved_client"
+  | "resolved_freelancer"
+  | "split_resolution"
+  | "cancelled";
+type ExpectedAttachmentViewerRole =
+  | "client"
+  | "assigned_freelancer"
+  | "dispute_participant"
+  | "dispute_reviewer"
+  | "admin"
+  | "owner"
+  | "public";
+type ExpectedProtectionMode = "standard" | "protected_preview" | "download_restricted";
+type ConvexAny = Infer<ReturnType<typeof v.any>>;
+
+type ExpectedSerializedAttachment = Doc<"attachments"> & {
+  url: string | null;
+  protection: {
+    mode: ExpectedProtectionMode;
+    isProtected: boolean;
+    previewAllowed: boolean;
+    downloadAllowed: boolean;
+    watermarkEnabled: boolean;
+    accessLoggingEnabled: boolean;
+    viewerRole: ExpectedAttachmentViewerRole | null;
+    previewSupported: boolean;
+    downloadRestricted: boolean;
+    protectedReason: string | null;
+    notice: string | null;
+  };
+};
+type ExpectedDisputeWithAttachments = Doc<"disputes"> & {
+  attachments: ExpectedSerializedAttachment[];
+};
+type ExpectedTimelineEventWithAttachments = Doc<"disputeEvents"> & {
+  attachments: ExpectedSerializedAttachment[];
+};
+
+type ExpectedCanOpenResult =
+  | {
+      allowed: boolean;
+      reason: null;
+      openedByRole: ExpectedParticipantRole;
+      escrowId: Id<"escrows">;
+      onChainEscrowId: string;
+    }
+  | {
+      allowed: boolean;
+      reason: string;
+      openedByRole: null;
+      escrowId: null;
+      onChainEscrowId: null;
+    };
+type ExpectedCanViewResult =
+  | { allowed: boolean; reason: string; role?: undefined }
+  | { allowed: boolean; reason: null; role: ExpectedParticipantRole }
+  | { allowed: boolean; reason: string; role: null };
+type ExpectedCanRespondResult =
+  | { allowed: boolean; reason: null; role: ExpectedParticipantRole }
+  | { allowed: boolean; reason: string; role: null };
+
+type ExpectedCreateDisputeArgs = {
+  parentType: ExpectedParentType;
+  parentId: string;
+  openedByWallet: string;
+  openedByWalletType: ExpectedWalletType;
+  reasonCategory: ExpectedReasonCategory;
+  title: string;
+  description: string;
+  evidenceAttachmentIds?: Id<"attachments">[];
+  relatedWorkSubmissionIds?: Id<"workSubmissions">[];
+  relatedRevisionRequestIds?: Id<"revisionRequests">[];
+  relatedMessageIds?: Id<"messages">[];
+  relatedDeadlineEventIds?: Id<"deadlineAuditEvents">[];
+  proofHash?: string;
+  escrowContractId?: string;
+  metadata?: ConvexAny;
+};
+type ExpectedMarkStartedArgs = {
+  disputeId: Id<"disputes">;
+  actorWallet: string;
+  actorWalletType: ExpectedWalletType;
+};
+type ExpectedMarkSucceededArgs = {
+  disputeId: Id<"disputes">;
+  actorWallet: string;
+  actorWalletType: ExpectedWalletType;
+  transactionHash: string;
+  stellarExpertUrl?: string;
+};
+type ExpectedMarkFailedArgs = {
+  disputeId: Id<"disputes">;
+  actorWallet: string;
+  actorWalletType: ExpectedWalletType;
+  errorMessage: string;
+  transactionHash?: string;
+};
+type ExpectedEvidenceArgs = {
+  disputeId: Id<"disputes">;
+  actorWallet: string;
+  actorWalletType: ExpectedWalletType;
+  attachmentIds: Id<"attachments">[];
+  message?: string;
+};
+type ExpectedResponseArgs = {
+  disputeId: Id<"disputes">;
+  responderWallet: string;
+  responderWalletType: ExpectedWalletType;
+  message: string;
+  attachmentIds?: Id<"attachments">[];
+  requestId?: string;
+};
+
+type ExpectedGetDisputeArgs = {
+  disputeId: Id<"disputes">;
+  viewerWallet?: string;
+};
+type ExpectedGetDisputeByParentArgs = {
+  parentType: ExpectedParentType;
+  parentId: string;
+  viewerWallet?: string;
+};
+type ExpectedGetActiveDisputeForEscrowArgs = {
+  escrowId: Id<"escrows">;
+  viewerWallet?: string;
+};
+type ExpectedGetDisputesForWalletArgs = { walletAddress: string };
+type ExpectedGetDisputeTimelineArgs = ExpectedGetDisputeArgs;
+type ExpectedGetDisputeEvidenceArgs = ExpectedGetDisputeArgs;
+type ExpectedCanOpenArgs = {
+  parentType: ExpectedParentType;
+  parentId: string;
+  openedByWallet: string;
+};
+type ExpectedCanViewArgs = { disputeId: Id<"disputes">; viewerWallet: string };
+type ExpectedCanRespondArgs = { disputeId: Id<"disputes">; walletAddress: string };
+type ExpectedGetDisputeContextByParentArgs = ExpectedGetDisputeByParentArgs;
+
+type ExpectedDisputeParent = {
+  parentType: ExpectedParentType;
+  parentId: string;
+  jobId?: Id<"jobs">;
+  microGigId?: Id<"jobs">;
+  milestoneId?: Id<"milestones">;
+  escrowId: Id<"escrows">;
+  onChainEscrowId: string;
+  clientWallet: string;
+  freelancerWallet: string;
+  status: string;
+  escrowStatus: string;
+};
+type ExpectedDisputeContext = {
+  parent: ExpectedDisputeParent;
+  submissions: Doc<"workSubmissions">[];
+  revisions: Doc<"revisionRequests">[];
+  deadlineEvents: Doc<"deadlineAuditEvents">[];
+};
 
 function createDisputeArgs(fixture: Awaited<ReturnType<typeof seedDisputeFixture>>) {
   return {
@@ -67,9 +265,158 @@ async function readDisputeState(t: BackendTest, disputeId: Id<"disputes">) {
   }));
 }
 
+async function snapshotAllDocuments(t: BackendTest) {
+  return await t.run(async (ctx) => ({
+    attachments: await ctx.db.query("attachments").collect(),
+    attachmentAccessLogs: await ctx.db.query("attachmentAccessLogs").collect(),
+    cancellationRequests: await ctx.db.query("cancellationRequests").collect(),
+    cancellationEvents: await ctx.db.query("cancellationEvents").collect(),
+    conversations: await ctx.db.query("conversations").collect(),
+    messages: await ctx.db.query("messages").collect(),
+    conversationReads: await ctx.db.query("conversationReads").collect(),
+    users: await ctx.db.query("users").collect(),
+    jobs: await ctx.db.query("jobs").collect(),
+    milestones: await ctx.db.query("milestones").collect(),
+    applications: await ctx.db.query("applications").collect(),
+    escrows: await ctx.db.query("escrows").collect(),
+    jobReports: await ctx.db.query("jobReports").collect(),
+    reputationRecords: await ctx.db.query("reputationRecords").collect(),
+    revisionRequests: await ctx.db.query("revisionRequests").collect(),
+    transactions: await ctx.db.query("transactions").collect(),
+    waitlistEntries: await ctx.db.query("waitlistEntries").collect(),
+    workAgreements: await ctx.db.query("workAgreements").collect(),
+    workAgreementEvents: await ctx.db.query("workAgreementEvents").collect(),
+    workAgreementVersions: await ctx.db.query("workAgreementVersions").collect(),
+    workSubmissions: await ctx.db.query("workSubmissions").collect(),
+    deadlineReminders: await ctx.db.query("deadlineReminders").collect(),
+    notifications: await ctx.db.query("notifications").collect(),
+    deadlineAuditEvents: await ctx.db.query("deadlineAuditEvents").collect(),
+    disputes: await ctx.db.query("disputes").collect(),
+    disputeEvents: await ctx.db.query("disputeEvents").collect(),
+    disputeAdmins: await ctx.db.query("disputeAdmins").collect(),
+    disputeAdminOperations: await ctx.db.query("disputeAdminOperations").collect(),
+    disputeAssignmentEvents: await ctx.db.query("disputeAssignmentEvents").collect(),
+    settlementAttempts: await ctx.db.query("settlementAttempts").collect(),
+  }));
+}
+
 describe("dispute API contracts", () => {
-  it("keeps every public dispute export addressable through generated API references", () => {
-    expect(PUBLIC_DISPUTE_API_REFERENCES).toHaveLength(20);
+  it("keeps the exact generated public dispute API key set and function names", () => {
+    expectTypeOf<GeneratedPublicDisputeApiName>().toEqualTypeOf<ExpectedGeneratedPublicDisputeApiName>();
+    expect(
+      PUBLIC_DISPUTE_API_REFERENCES.map(({ reference }) => getFunctionName(reference)),
+    ).toEqual(PUBLIC_DISPUTE_API_REFERENCES.map(({ name }) => `disputes:${name}`));
+  });
+
+  it("locks participant API arguments, returns, unions, nullability, and enrichment", () => {
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.createDispute>
+    >().toEqualTypeOf<ExpectedCreateDisputeArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.markDisputeOnChainStarted>
+    >().toEqualTypeOf<ExpectedMarkStartedArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.markDisputeOnChainSucceeded>
+    >().toEqualTypeOf<ExpectedMarkSucceededArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.markDisputeOnChainFailed>
+    >().toEqualTypeOf<ExpectedMarkFailedArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.addDisputeEvidence>
+    >().toEqualTypeOf<ExpectedEvidenceArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.addDisputeResponse>
+    >().toEqualTypeOf<ExpectedResponseArgs>();
+
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDispute>
+    >().toEqualTypeOf<ExpectedGetDisputeArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDisputeByParent>
+    >().toEqualTypeOf<ExpectedGetDisputeByParentArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getActiveDisputeForEscrow>
+    >().toEqualTypeOf<ExpectedGetActiveDisputeForEscrowArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDisputesForWallet>
+    >().toEqualTypeOf<ExpectedGetDisputesForWalletArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDisputeTimeline>
+    >().toEqualTypeOf<ExpectedGetDisputeTimelineArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDisputeEvidence>
+    >().toEqualTypeOf<ExpectedGetDisputeEvidenceArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.canOpenDispute>
+    >().toEqualTypeOf<ExpectedCanOpenArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.canViewDispute>
+    >().toEqualTypeOf<ExpectedCanViewArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.canRespondToDispute>
+    >().toEqualTypeOf<ExpectedCanRespondArgs>();
+    expectTypeOf<
+      FunctionArgs<typeof api.disputes.getDisputeContextByParent>
+    >().toEqualTypeOf<ExpectedGetDisputeContextByParentArgs>();
+
+    expectTypeOf<FunctionReturnType<typeof api.disputes.createDispute>>().toEqualTypeOf<
+      Id<"disputes">
+    >();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.markDisputeOnChainStarted>
+    >().toEqualTypeOf<boolean>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.markDisputeOnChainSucceeded>
+    >().toEqualTypeOf<boolean>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.markDisputeOnChainFailed>
+    >().toEqualTypeOf<boolean>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.addDisputeEvidence>
+    >().toEqualTypeOf<boolean>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.addDisputeResponse>
+    >().toEqualTypeOf<boolean>();
+
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDispute>
+    >().branded.toEqualTypeOf<ExpectedDisputeWithAttachments | null>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDisputeByParent>
+    >().branded.toEqualTypeOf<ExpectedDisputeWithAttachments | null>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getActiveDisputeForEscrow>
+    >().branded.toEqualTypeOf<ExpectedDisputeWithAttachments | null>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDisputesForWallet>
+    >().branded.toEqualTypeOf<Doc<"disputes">[]>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDisputeTimeline>
+    >().branded.toEqualTypeOf<ExpectedTimelineEventWithAttachments[]>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDisputeEvidence>
+    >().branded.toEqualTypeOf<ExpectedSerializedAttachment[]>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.canOpenDispute>
+    >().branded.toEqualTypeOf<ExpectedCanOpenResult>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.canViewDispute>
+    >().branded.toEqualTypeOf<ExpectedCanViewResult>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.canRespondToDispute>
+    >().branded.toEqualTypeOf<ExpectedCanRespondResult>();
+    expectTypeOf<
+      FunctionReturnType<typeof api.disputes.getDisputeContextByParent>
+    >().branded.toEqualTypeOf<ExpectedDisputeContext | null>();
+
+    type GeneratedDispute = NonNullable<FunctionReturnType<typeof api.disputes.getDispute>>;
+    type GeneratedTimelineEvent = FunctionReturnType<
+      typeof api.disputes.getDisputeTimeline
+    >[number];
+    expectTypeOf<GeneratedDispute["status"]>().toEqualTypeOf<ExpectedDisputeStatus>();
+    expectTypeOf<GeneratedDispute["onChainStatus"]>().toEqualTypeOf<ExpectedMarkingPhase>();
+    expectTypeOf<GeneratedDispute["reasonCategory"]>().toEqualTypeOf<ExpectedReasonCategory>();
+    expectTypeOf<GeneratedTimelineEvent["type"]>().toEqualTypeOf<ExpectedEventType>();
   });
 
   it("rejects malformed mutation arguments without changing stored records", async () => {
@@ -163,6 +510,167 @@ describe("dispute API contracts", () => {
     ).rejects.toThrow();
 
     expect(await readDisputeState(t, disputeId)).toEqual(before);
+  });
+
+  it("rejects unexpected top-level arguments on participant queries", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t, { label: "api-query-extra-args" });
+    const disputeId = await createDispute(t, fixture);
+    const unexpected = { unexpected: true };
+
+    await expect(
+      t.query(api.disputes.getDispute, {
+        disputeId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getDisputeByParent, {
+        parentType: fixture.parentType,
+        parentId: fixture.parentId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getActiveDisputeForEscrow, {
+        escrowId: fixture.escrowId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getDisputesForWallet, {
+        walletAddress: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getDisputeTimeline, {
+        disputeId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getDisputeEvidence, {
+        disputeId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.canOpenDispute, {
+        parentType: fixture.parentType,
+        parentId: fixture.parentId,
+        openedByWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.canViewDispute, {
+        disputeId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.canRespondToDispute, {
+        disputeId,
+        walletAddress: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    await expect(
+      t.query(api.disputes.getDisputeContextByParent, {
+        parentType: fixture.parentType,
+        parentId: fixture.parentId,
+        viewerWallet: fixture.clientWallet,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+  });
+
+  it("rejects unexpected top-level arguments on participant mutations without writes", async () => {
+    const t = convexTest(schema, modules);
+    const fixture = await seedDisputeFixture(t, { label: "api-mutation-extra-args" });
+    const unexpected = { unexpected: true };
+
+    const beforeCreation = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.createDispute, {
+        ...createDisputeArgs(fixture),
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeCreation);
+
+    const disputeId = await createDispute(t, fixture);
+    const markingArgs = {
+      disputeId,
+      actorWallet: fixture.clientWallet,
+      actorWalletType: "external_wallet" as const,
+    };
+
+    const beforeStart = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.markDisputeOnChainStarted, {
+        ...markingArgs,
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeStart);
+
+    await t.mutation(api.disputes.markDisputeOnChainStarted, markingArgs);
+
+    const beforeFailure = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.markDisputeOnChainFailed, {
+        ...markingArgs,
+        errorMessage: "A deterministic marking failure.",
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeFailure);
+
+    await t.mutation(api.disputes.markDisputeOnChainFailed, {
+      ...markingArgs,
+      errorMessage: "A deterministic marking failure.",
+    });
+
+    const beforeSuccess = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.markDisputeOnChainSucceeded, {
+        ...markingArgs,
+        transactionHash: "a".repeat(64),
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeSuccess);
+
+    const beforeEvidence = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.addDisputeEvidence, {
+        ...markingArgs,
+        attachmentIds: [],
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeEvidence);
+
+    const beforeResponse = await snapshotAllDocuments(t);
+    await expect(
+      t.mutation(api.disputes.addDisputeResponse, {
+        disputeId,
+        responderWallet: fixture.clientWallet,
+        responderWalletType: "external_wallet",
+        message: "A valid response that must not be written.",
+        attachmentIds: [],
+        ...unexpected,
+      } as never),
+    ).rejects.toThrow();
+    expect(await snapshotAllDocuments(t)).toEqual(beforeResponse);
   });
 
   it("locks present, denied, and missing participant result shapes", async () => {
