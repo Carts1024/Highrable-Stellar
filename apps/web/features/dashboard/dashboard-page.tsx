@@ -10,6 +10,7 @@ import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-
 import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
 import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
+import { RegistryRegistrationCard } from "@/features/dashboard/components/registry-registration-card";
 import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
@@ -299,6 +300,10 @@ export function DashboardPage() {
       {!isRoleLoading && isModeReady && (
         <DashboardCommandBar mode={selectedMode} address={address} onModeChange={setSelectedMode} />
       )}
+
+      {!isRoleLoading && role !== "admin" && onboardingGuard.isOnboardingComplete ? (
+        <RegistryRegistrationCard />
+      ) : null}
 
       {isTestnet && isFunded === false && <UnfundedWarningBanner />}
 

@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -11,6 +11,12 @@ source_of_truth: repository
 ## Purpose
 
 Give the configured platform owner access to platform metrics and owner controls, with a separately managed team of external-wallet dispute admins for case review and settlement.
+
+## C23 — Administrator resolution-result contract
+
+C23 closes the administrator browser validation gap for terminal settlement results. The admin API client now accepts a `succeeded` response only when the generated Convex result contains a fixed client (`0` bps), fixed freelancer (`10,000` bps), or integer split (`1–9,999` bps) outcome, finite nonnegative payout/refund amounts, a 64-hex resolution hash, and the configured Stellar Expert URL. Returned amounts remain authoritative and are not recalculated. The settlement coordinator captures the selected terms before the chain call, uses the matching saved attempt during reconciliation, and compares successful responses with the saved terms and transaction hash before exposing terminal success. Malformed or conflicting results remain recoverable and do not enable a new submission.
+
+The administrator-owned integration suite uses the existing protected session and explicit participant-subscription harness. It covers all three outcomes for micro-gig and milestone cases rendered for both participant wallets, exact returned amounts, moderator timeline identity/history, Testnet explorer links, no fabricated terminal state for pending/failed/rejected/malformed results, deferred case/wallet/network/unmount responses, duplicate clicks, failed final recording, and detail-refresh recovery. Focused C23 validation passes 252 tests across seven files; the full web suite passes 486 tests across 29 files; web TypeScript, scoped Oxlint, scoped Oxfmt, production build, and `git diff --check` pass. Evidence is local and mocked: it does not establish live Convex propagation, wallet possession, Testnet settlement, deployed-contract behavior, or participant responsive/accessibility acceptance. See [C23 evidence](../evidence/C23-Administrator%20Resolution%20Result%20Evidence.md).
 
 ## Current Status
 
@@ -45,6 +51,12 @@ C15 adds administrator-owned cross-interface coverage for the existing review-st
 Accepted writes explicitly publish the wallet-scoped participant subscription after the simulated save. Pending and duplicate requests, rejected writes, and mutation 401/403 responses do not fabricate participant updates; rejected drafts remain recoverable and protected content closes on authorization failure. A saved write followed by a failed administrator refresh remains visible to participants, while administrator read retry does not repeat the write. Review changes are isolated from escrow marking and settlement, with no signing, submission, settlement, or Convex mutation call in the harness.
 
 The C15 file passes 11 tests; the focused administrator suite passes 261 tests across 9 files; web TypeScript, scoped oxlint/oxfmt, scoped formatting, and the production build pass. The full web suite is 438/440 passing across 28 files. The two failures are the independently reproduced historical participant assertions at lines 880 and 919 of `dispute-participant-integration.test.tsx`, which still expect obsolete marking-success copy while the current UI renders `Outcome Pending` and `Recording Confirmation`. See the [C15 review-state propagation evidence report](../evidence/Deliverable 3 C15 Review-State Propagation Evidence.md). This is mocked frontend/session/API/subscription evidence only; live Convex propagation, backend audit/notification atomicity, wallet possession, Testnet, and chain behavior remain unverified.
+
+## C19 — Participant-to-administrator acceptance
+
+C19 adds `admin-cross-interface-acceptance.integration.test.tsx`, connecting real participant opening and evidence controls to the protected administrator queue/detail and back to both participant wallets. The typed test-local case/event/attachment store is populated only after accepted mocked mutations, and administrator projections plus participant subscriptions are derived from that shared store. Coverage includes client-opened micro-gig and freelancer-opened milestone cases, both opener roles, isolated case evidence, exact attachment IDs/metadata/safe links, protected 401/403 reads, forbidden review-write cache eviction, claim-before-review, accepted `under_review` identity propagation, rejected-write draft recovery, pending duplicate suppression, and no marking/signing/settlement from review actions.
+
+The C19 file passes 7 tests. Participant opening/detail/evidence regressions and server-auth tests pass 45/45; the full web suite passes 450/450 across 29 files; web TypeScript, scoped oxlint/oxfmt, scoped formatting, `git diff --check`, and the production build pass. The directory-scoped administrator run had one order-dependent existing protected-page failure; the exact test passes alone and passes in the full web run. See the [C19 evidence report](../evidence/C19-Participant-to-Administrator%20Acceptance%20Evidence.md). Mocked HTTP rejection is frontend behavior evidence only; backend authorization, wallet possession, live Convex propagation, storage, Testnet, deployed contracts, and settlement remain separate boundaries.
 
 ## Deliverable 2 C11 - Admin Evidence Review
 

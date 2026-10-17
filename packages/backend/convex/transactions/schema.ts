@@ -14,6 +14,7 @@ const transactionTypeEnum = createStringEnum([
   "mark_disputed",
   "resolve_dispute",
   "wallet_transfer",
+  "register_user",
 ] as const);
 
 const transactionStatusEnum = createStringEnum(["pending", "success", "failed"] as const);
@@ -31,6 +32,7 @@ const gasStatusEnum = createStringEnum([
   "failed",
   "cancelled",
 ] as const);
+const submissionIdentityTypeEnum = createStringEnum(["transaction", "inner_transaction"] as const);
 
 export const TRANSACTION_TYPES = transactionTypeEnum.map;
 export const TRANSACTION_STATUSES = transactionStatusEnum.map;
@@ -40,12 +42,14 @@ export const transactionStatusValidator = transactionStatusEnum.validator;
 export const walletTypeValidator = walletTypeEnum.validator;
 export const feePathValidator = feePathEnum.validator;
 export const gasStatusValidator = gasStatusEnum.validator;
+export const submissionIdentityTypeValidator = submissionIdentityTypeEnum.validator;
 
 export type TTransactionType = Infer<typeof transactionTypeValidator>;
 export type TTransactionStatus = Infer<typeof transactionStatusValidator>;
 export type TWalletType = Infer<typeof walletTypeValidator>;
 export type TFeePath = Infer<typeof feePathValidator>;
 export type TGasStatus = Infer<typeof gasStatusValidator>;
+export type TSubmissionIdentityType = Infer<typeof submissionIdentityTypeValidator>;
 
 export default defineTable({
   walletAddress: v.string(),
@@ -64,6 +68,9 @@ export default defineTable({
   asset: v.optional(v.union(v.literal("XLM"), v.literal("USDC"))),
   amount: v.optional(v.string()),
   network: v.optional(v.string()),
+  contractId: v.optional(v.string()),
+  transactionValidUntil: v.optional(v.number()),
+  submissionIdentityType: v.optional(submissionIdentityTypeValidator),
   feePath: v.optional(feePathValidator),
   sourceAccount: v.optional(v.string()),
   gasRequestId: v.optional(v.string()),
@@ -85,4 +92,5 @@ export default defineTable({
   .index("by_jobId", ["jobId"])
   .index("by_milestoneId", ["milestoneId"])
   .index("by_status", ["status"])
-  .index("by_type", ["type"]);
+  .index("by_type", ["type"])
+  .index("by_registry_scope", ["walletAddress", "type", "network", "contractId"]);

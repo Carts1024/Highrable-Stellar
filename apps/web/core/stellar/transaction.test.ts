@@ -125,6 +125,24 @@ describe("invokeContract execution phases and recovery identity", () => {
     ]);
   });
 
+  it("persists the signed transaction hash and expiry before submission", async () => {
+    const onSigned = vi.fn(async () => undefined);
+
+    const result = await invokeContract({
+      ...invokeParams,
+      operationId: "registration-operation",
+      signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
+      onSigned,
+    });
+
+    expect(onSigned).toHaveBeenCalledWith({
+      operationId: "registration-operation",
+      transactionHash: "010203",
+      transactionValidUntil: 123,
+    });
+    expect(result.transactionValidUntil).toBe(123);
+  });
+
   it("does not sign or submit when simulation/preparation fails", async () => {
     runtime.prepareTransaction.mockRejectedValue(new Error("simulation failed"));
     const signTransaction = vi.fn();
@@ -133,6 +151,17 @@ describe("invokeContract execution phases and recovery identity", () => {
       "simulation failed",
     );
     expect(signTransaction).not.toHaveBeenCalled();
+    expect(runtime.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not submit when the wallet rejects the signature request", async () => {
+    const onSigned = vi.fn();
+    const signTransaction = vi.fn().mockRejectedValue(new Error("User declined the signature."));
+
+    await expect(invokeContract({ ...invokeParams, signTransaction, onSigned })).rejects.toThrow(
+      "User declined the signature.",
+    );
+    expect(onSigned).not.toHaveBeenCalled();
     expect(runtime.sendTransaction).not.toHaveBeenCalled();
   });
 

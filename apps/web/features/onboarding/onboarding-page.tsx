@@ -2,13 +2,9 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import {
-  ProductPageHero,
-  showErrorToast,
-  showSuccessToast,
-  showWarningToast,
-} from "@/features/common";
+import { ProductPageHero, showErrorToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { useRegistryRegistration } from "@/features/onboarding/hooks/use-registry-registration";
 import { TOnboardingFormSchema, type TOnboardingFormValues } from "@/features/onboarding/types";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
 import {
@@ -21,7 +17,18 @@ import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const EMPTY_FORM_VALUES: TOnboardingFormValues = {
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  publicHandle: "",
+  coreSkills: [],
+  discordHandle: "",
+  xHandle: "",
+  githubUsername: "",
+};
 
 export function OnboardingPage() {
   const router = useRouter();
@@ -33,25 +40,54 @@ export function OnboardingPage() {
     walletIdentity.walletAddress ? { walletAddress: walletIdentity.walletAddress } : "skip",
   );
   const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
-  const completeOnboarding = useMutation(api.users.completeOnboarding);
-  const [values, setValues] = useState<TOnboardingFormValues>({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    publicHandle: "",
-    coreSkills: [],
-    discordHandle: "",
-    xHandle: "",
-    githubUsername: "",
-  });
+  const saveProfileDraft = useMutation(api.users.saveProfileDraft);
+  const registration = useRegistryRegistration();
+  const [values, setValues] = useState<TOnboardingFormValues>(EMPTY_FORM_VALUES);
   const [skillsInput, setSkillsInput] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "saving">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isPreparingProfile, setIsPreparingProfile] = useState(false);
+  const restoredWalletRef = useRef<string | null>(null);
 
   const isComplete = Boolean(onboardingState?.isComplete);
   const isLoading = walletIdentity.isConnected && onboardingState === undefined;
+
+  useEffect(() => {
+    if (!walletIdentity.walletAddress) {
+      restoredWalletRef.current = null;
+      return;
+    }
+    if (
+      onboardingState === undefined ||
+      restoredWalletRef.current === walletIdentity.walletAddress
+    ) {
+      return;
+    }
+
+    const user = onboardingState.user;
+    if (user) {
+      const coreSkills = user.coreSkills ?? [];
+      setValues({
+        firstName: user.firstName ?? "",
+        middleName: user.middleName ?? "",
+        lastName: user.lastName ?? "",
+        publicHandle: user.publicHandle ?? "",
+        coreSkills,
+        discordHandle: user.discordHandle ?? "",
+        xHandle: user.xHandle ?? "",
+        githubUsername: user.githubUsername ?? "",
+      });
+      setSkillsInput(coreSkills.join(", "));
+    } else {
+      setValues(EMPTY_FORM_VALUES);
+      setSkillsInput("");
+    }
+    setAvatarFile(null);
+    setFormError(null);
+    registration.clearError();
+    restoredWalletRef.current = walletIdentity.walletAddress;
+  }, [onboardingState, registration.clearError, walletIdentity.walletAddress]);
 
   useEffect(() => {
     if (isComplete) {
@@ -61,7 +97,6 @@ export function OnboardingPage() {
 
   useEffect(() => {
     if (!avatarFile) {
-      setAvatarPreviewUrl(null);
       return;
     }
 
@@ -80,7 +115,8 @@ export function OnboardingPage() {
 
   const setField = (field: keyof TOnboardingFormValues, value: string) => {
     setValues((currentValue) => ({ ...currentValue, [field]: value }));
-    setError(null);
+    setFormError(null);
+    registration.clearError();
   };
 
   const uploadAvatar = async (): Promise<TConvexStorageId | undefined> => {
@@ -117,11 +153,15 @@ export function OnboardingPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
+    if (isPreparingProfile || registration.isBusy) {
+      return;
+    }
+    setFormError(null);
+    registration.clearError();
 
     if (!walletIdentity.walletAddress) {
       const nextWarning = "Connect a wallet or passkey account before onboarding.";
-      setError(nextWarning);
+      setFormError(nextWarning);
       showWarningToast(nextWarning);
       return;
     }
@@ -133,26 +173,30 @@ export function OnboardingPage() {
 
     if (!parsed.success) {
       const nextWarning = parsed.error.issues[0]?.message ?? "Check your onboarding details.";
-      setError(nextWarning);
+      setFormError(nextWarning);
       showWarningToast(nextWarning);
       return;
     }
 
-    setStatus("saving");
+    setIsPreparingProfile(true);
     try {
-      const avatarStorageId = await uploadAvatar();
-      await completeOnboarding({
+      const profileDraft = buildProfileIdentityMutationArgs(parsed.data, undefined);
+      await saveProfileDraft({
         walletAddress: walletIdentity.walletAddress,
         ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
-        ...buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
+        ...profileDraft,
       });
-      showSuccessToast("Onboarding completed.");
-      router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard");
+      const avatarStorageId = await uploadAvatar();
+      await registration.register({
+        profileDraft: buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
+        completeOnboarding: true,
+      });
     } catch (caughtError) {
       const nextError = getReadableErrorMessage(caughtError, "Could not complete onboarding.");
-      setError(nextError);
+      setFormError(nextError);
       showErrorToast(nextError);
-      setStatus("idle");
+    } finally {
+      setIsPreparingProfile(false);
     }
   };
 
@@ -209,31 +253,66 @@ export function OnboardingPage() {
           skillsInput={skillsInput}
           avatarFile={avatarFile}
           avatarPreviewUrl={avatarPreviewUrl}
+          currentAvatarUrl={onboardingState?.avatarUrl ?? undefined}
           displayName={[values.firstName, values.lastName].filter(Boolean).join(" ")}
           onFieldChange={setField}
           onSkillsInputChange={(value) => {
             setSkillsInput(value);
-            setError(null);
+            setFormError(null);
+            registration.clearError();
           }}
           onAvatarFileChange={(file, validationError) => {
             setAvatarFile(file);
-            setError(validationError);
+            setAvatarPreviewUrl(null);
+            setFormError(validationError);
+            registration.clearError();
           }}
         />
 
-        {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+          Before signing, note that your wallet address and registration time will be public on
+          Stellar. Transaction fees may apply.
+        </div>
+
+        {registration.stepLabel ? (
+          <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+            {registration.stepLabel}…
           </p>
         ) : null}
 
-        <div className="flex justify-end border-t border-[#e8e8e8] pt-8">
+        {registration.configurationError ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            {registration.configurationError}
+          </p>
+        ) : null}
+
+        {(formError ?? registration.error) ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {formError ?? registration.error}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap justify-end gap-3 border-t border-[#e8e8e8] pt-8">
+          {registration.hasPendingTransaction || registration.transaction?.status === "success" ? (
+            <AppButton
+              type="button"
+              variant="outline"
+              disabled={registration.isBusy || registration.isLoading}
+              onClick={() => void registration.checkRegistration({ completeOnboarding: true })}
+            >
+              Check registration
+            </AppButton>
+          ) : null}
           <AppButton
             type="submit"
-            disabled={status === "saving"}
+            disabled={isPreparingProfile || registration.isBusy || registration.isLoading}
             className="hr-v2-button-primary rounded-none"
           >
-            {status === "saving" ? "Saving..." : "Complete onboarding"}
+            {isPreparingProfile && !registration.isBusy
+              ? "Saving profile"
+              : registration.isBusy
+                ? registration.stepLabel || "Working…"
+                : "Save profile and register wallet"}
           </AppButton>
         </div>
       </form>

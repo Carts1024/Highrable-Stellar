@@ -238,6 +238,46 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
+  it("passes through the complete verified settlement result", async () => {
+    const result = {
+      status: "split_resolution",
+      freelancerShareBps: 5_000,
+      freelancerPayoutAmount: 250,
+      clientRefundAmount: 250,
+      resolutionTxHash: verificationArgs().transactionHash,
+      resolutionStellarExpertUrl: `https://stellar.expert/explorer/testnet/tx/${verificationArgs().transactionHash}`,
+    };
+    mutation.mockResolvedValueOnce(result);
+
+    const response = await recover();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ status: "succeeded", result });
+    expect(mutation).toHaveBeenCalledWith(
+      "succeeded",
+      expect.objectContaining({
+        operationId: "operation-1",
+        transactionHash: verificationArgs().transactionHash,
+      }),
+    );
+  });
+
+  it("rejects an attempt saved for a different case before verification or finalization", async () => {
+    query.mockResolvedValueOnce({
+      disputeId: "other-dispute",
+      operationId: "operation-1",
+      transactionHash: verificationArgs().transactionHash,
+      transactionValidUntil: 1000,
+      status: "submission_unknown",
+    });
+
+    const response = await recover();
+
+    expect(response.status).toBe(404);
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.getTransaction).not.toHaveBeenCalled();
+  });
+
   it("keeps an unknown attempt recoverable after an unreadable read, then verifies success", async () => {
     vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
       reply({ ...escrow(), escrow_id: 43n }),
@@ -268,6 +308,7 @@ describe("C19 recovery route with real chain verification and mocked RPC", () =>
       );
       expect((await recover()).status).toBe(409);
       expect(mutation).not.toHaveBeenCalled();
+      expect(mutation.mock.calls.some(([name]) => name === "succeeded")).toBe(false);
       vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValue(
         reply(escrow(["Disputed"])),
       );
@@ -293,6 +334,7 @@ describe("C19 recovery route with real chain verification and mocked RPC", () =>
       "unknown",
       expect.objectContaining({ operationId: "operation-1" }),
     );
+    expect(mutation.mock.calls.some(([name]) => name === "succeeded")).toBe(false);
     expect(rpc.Server.prototype.simulateTransaction).not.toHaveBeenCalled();
     expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
   });

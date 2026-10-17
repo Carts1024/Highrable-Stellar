@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@/core/analytics/google-analytics";
 import { AppProviders } from "@/core/providers/app-providers";
 import {
   buildCanonicalUrl,
@@ -7,6 +8,7 @@ import {
   SeoJsonLd,
 } from "@/core/seo";
 import { AppShell } from "@/features/common";
+import { Analytics } from "@vercel/analytics/next";
 import "@repo/ui/globals.css";
 import type { Metadata } from "next";
 
@@ -57,6 +59,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <SeoJsonLd id="organization-json-ld" data={buildOrganizationJsonLd()} />
           <AppShell>{children}</AppShell>
         </AppProviders>
+        <GoogleAnalytics />
+        <Analytics />
       </body>
     </html>
   );

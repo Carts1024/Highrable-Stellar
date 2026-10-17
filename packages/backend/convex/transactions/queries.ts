@@ -84,3 +84,31 @@ export const getGasRecoveryRecord = query({
     };
   },
 });
+
+export const getRegistryTransaction = query({
+  args: {
+    walletAddress: v.string(),
+    network: v.string(),
+    registryContractId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = sanitizeTransactionWallet(args.walletAddress);
+    const network = args.network.trim().toLowerCase();
+    const registryContractId = args.registryContractId.trim().toUpperCase();
+    if (!network || !/^C[A-Z2-7]{55}$/.test(registryContractId)) {
+      throw new Error("Registry transaction scope is invalid.");
+    }
+
+    return await ctx.db
+      .query("transactions")
+      .withIndex("by_registry_scope", (q) =>
+        q
+          .eq("walletAddress", walletAddress)
+          .eq("type", "register_user")
+          .eq("network", network)
+          .eq("contractId", registryContractId),
+      )
+      .order("desc")
+      .first();
+  },
+});

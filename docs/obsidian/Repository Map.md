@@ -2,7 +2,7 @@
 type: reference
 area: repository
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -22,8 +22,9 @@ Highrable is a pnpm workspace coordinated by Turborepo. The main architectural b
 | `packages/typescript-config` | Shared TypeScript presets (`base`, `nextjs`, `react-library`). | Change presets only when the workspace-wide compiler contract changes. | [[Development Guide]] |
 | `contracts/escrow` | Rust/Soroban escrow contract and unit tests. | `src/lib.rs` is authoritative for public methods, storage, auth, status transitions, transfers, and reputation calls; `src/test.rs` covers behavior. | [[contracts/Escrow Contract]], [[data/State Machines]] |
 | `contracts/reputation` | Rust/Soroban completion record and freelancer aggregate statistics contract. | `src/lib.rs` and `src/test.rs`; it is authorized by the escrow contract rather than by arbitrary users. | [[contracts/Reputation Contract]] |
-| `deployments` | Tracked deployment metadata for escrow/reputation and smart-account readiness metadata. | `testnet.json` and `mainnet.json` record contract deployments; `smart-accounts/*.json` are currently placeholders with empty verified fields. | [[contracts/Deployment Artifacts]], [[stellar/Mainnet Readiness and Relayers]] |
-| `scripts` | Contract deployment, verification, mainnet cost/readiness, and environment helper scripts. | `deploy-contracts.sh` contains the shared deployment workflow; wrapper scripts select network. These commands can change external chain state. | [[operations/Deployment]] |
+| `contracts/registry` | Rust/Soroban self-registration contract for wallet address and registration timestamp. | `src/lib.rs` and `src/test.rs`; registration requires wallet authorization and the contract has no admin or profile storage. | [[contracts/User Registry Contract]] |
+| `deployments` | Tracked deployment metadata for escrow/reputation and smart-account readiness metadata. | `testnet.json` and `mainnet.json` remain escrow/reputation artifacts; registry deployment writes an independent `registry-<network>.json` only when its deploy script is run. | [[contracts/Deployment Artifacts]], [[stellar/Mainnet Readiness and Relayers]] |
+| `scripts` | Contract deployment, verification, mainnet cost/readiness, and environment helper scripts. | `deploy-registry.sh` builds/deploys only the registry; `verify-registry.sh` makes read-only calls. The deploy script changes external chain state when an operator runs it. | [[operations/Deployment]] |
 | `docs` | Human-authored project documentation, plans, debug reports, and operational notes. | Link useful documents from the vault; do not assume older phase notes match source. | [[Current System State]], [[Home]] |
 | Root configuration | `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `.oxlintrc.json`, `.oxfmtrc.jsonc`, `.husky/pre-commit`, `.npmrc`, `GEMINI.md`. | Package manager/version, build graph, lint/format rules, and repository instructions are authoritative here. | [[Development Guide]], [[operations/Local Development]] |
 

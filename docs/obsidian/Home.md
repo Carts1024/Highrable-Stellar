@@ -2,13 +2,13 @@
 type: reference
 area: navigation
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-17
 source_of_truth: repository
 ---
 
 # Highrable Knowledge Vault
 
-Highrable is a Stellar-native freelance marketplace. Next.js and React provide the wallet-first product UI; Convex stores real-time product state and workflow history; Soroban contracts own escrow funds and immutable completion reputation. The browser can call Stellar directly, so the chain path and the Convex mirror must be understood together.
+Highrable is a Stellar-native freelance marketplace. Next.js and React provide the wallet-first product UI; Convex stores real-time product state and workflow history; Soroban contracts own escrow funds and immutable completion reputation, with a separate wallet registry prepared for signup. The browser can call Stellar directly, so the chain path and the Convex mirror must be understood together.
 
 This vault is a navigation and context index for humans and coding agents. It reduces repeated repository-wide exploration; it does not replace source code, tests, generated APIs, or deployment artifacts.
 
@@ -54,6 +54,7 @@ This vault is a navigation and context index for humans and coding agents. It re
 - [[contracts/Contracts Overview]]
 - [[contracts/Escrow Contract]]
 - [[contracts/Reputation Contract]]
+- [[contracts/User Registry Contract]]
 - [[contracts/Deployment Artifacts]]
 
 ## Frontend and Backend
@@ -91,6 +92,7 @@ This vault is a navigation and context index for humans and coding agents. It re
 - [[evidence/C22-Administrator Regression Evidence]]
 - [[evidence/Deliverable-2-C16-Participant-Transaction-States-Evidence]]
 - [Deliverable 3 C14 participant response evidence](../instawards/Deliverable-3-C14-Participant-Response-Evidence.md)
+- [Deliverable 3 C22 participant backend acceptance evidence](../instawards/Deliverable-3-C22-Participant-Acceptance-Evidence.md)
 
 ## Existing Documentation
 
@@ -105,6 +107,7 @@ These documents remain useful but may be older than the implementation. Read sou
 - [Mainnet smart-account readiness](../mainnet-smart-account-readiness.md)
 - [Keyless README](../README-keyless.md)
 - [Project plan](../PLAN.md)
+- [Deliverable 3 implementation review](../instawards/Highrable-Instawards-Deliverable-3-Implementation-Review.md)
 - [Audience presentation](../HIGHRABLE_AUDIENCE_PRESENTATION.md)
 - [Discussion guide](../HIGHRABLE_30_MIN_DISCUSSION_GUIDE.md)
 
