@@ -895,6 +895,80 @@ describe("participant detail integration and accessibility", () => {
     }
   });
 
+  it.each([
+    ["GCLIENT", "not_marked"],
+    ["GFREELANCER", "not_marked"],
+    ["GCLIENT", "marking"],
+    ["GFREELANCER", "marking"],
+    ["GCLIENT", "mark_failed"],
+    ["GFREELANCER", "mark_failed"],
+  ] as const)(
+    "D2 C24 reopens saved %s %s evidence without blind marking retry",
+    (participant, onChainStatus) => {
+      const hash = "e".repeat(64);
+      wallet.walletAddress = "GOUTSIDER";
+      setQueryResult("canView", permissionArgs("dispute-1", "GOUTSIDER"), {
+        allowed: false,
+        role: null,
+        reason: "Only participants may view this case.",
+      });
+      const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByRole("alert").textContent).toContain("do not have access");
+      expect(screen.queryByRole("list", { name: "Dispute evidence timeline" })).toBeNull();
+      expect(screen.queryByLabelText("Response")).toBeNull();
+
+      wallet.walletAddress = participant;
+      const savedEvent = {
+        ...timelineEvent("Saved marking attempt", participant),
+        type: "on_chain_mark_failed" as const,
+        transactionHash: hash,
+      };
+      setParticipantCase("dispute-1", participant, { timeline: [savedEvent] });
+      const savedCase = {
+        ...dispute,
+        onChainStatus,
+        transactionHash: hash,
+        onChainEscrowId: "chain-1",
+      };
+      setQueryResult("detail", detailArgs("dispute-1", participant), savedCase);
+      view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByText("DSP-1")).toBeTruthy();
+      expect(screen.getByText("Saved marking attempt")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      expect(
+        screen
+          .getByRole("link", { name: "View transaction on Stellar Expert" })
+          .getAttribute("href"),
+      ).toContain(hash);
+
+      // Recreate the component with no browser-local operation state.
+      view.unmount();
+      const reopened = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      setQueryResult("detail", detailArgs("dispute-1", participant), {
+        ...savedCase,
+        onChainStatus: "marked",
+      });
+      setQueryResult("timeline", timelineArgs("dispute-1", participant), [
+        savedEvent,
+        {
+          ...timelineEvent("Saved operation confirmed", participant),
+          type: "on_chain_mark_succeeded",
+          transactionHash: hash,
+        },
+      ]);
+      reopened.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
+      expect(screen.getByText("Saved marking attempt")).toBeTruthy();
+      expect(screen.getByText("Saved operation confirmed")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      expect(Object.values(mutations).every((mutation) => mutation.mock.calls.length === 0)).toBe(
+        true,
+      );
+      expect(stellarOperations).toHaveLength(0);
+    },
+  );
+
   it("D2 C24 keeps confirmed parent-recording failures recoverable when the case already reports marked", async () => {
     const hash = "d".repeat(64);
     markOnChain.mockResolvedValueOnce({ txHash: hash });

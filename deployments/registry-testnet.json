@@ -1,0 +1,9 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "registryContractId": "CBZN4SMQR3V5DHDAY764ZDZ24KIRBON54WSGTICULGGKZZZ6FWVOPCME",
+    "wasmHash": "59f270c3fcdae47516a7f541266044f2072827ca3bdaea28a4cdccb92d6bd1ec",
+  "salt": "f10880b74233761cd66f3a259ea2472eadd3daad5ac658bd676eac5ddad6d5b5",
+  "deployerAddress": "GDIXHECIHT6KCWFT7K4H2NIEZCILGAUTE6IXSHPJ6EYCUWMXK6AURV2M",
+  "deployedAt": "2026-10-15T03:02:17Z"
+}

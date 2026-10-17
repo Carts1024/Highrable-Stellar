@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
+import { findRegistryRegistration, getConfiguredRegistryScope } from "../registry/helpers";
 import {
   assertPublicHandleAvailable,
   ensureUserIdentity,
@@ -66,7 +67,7 @@ export const recordWalletIdentity = mutation({
   },
 });
 
-export const completeOnboarding = mutation({
+export const saveProfileDraft = mutation({
   args: {
     walletAddress: v.string(),
     walletType: v.optional(walletTypeValidator),
@@ -84,7 +85,6 @@ export const completeOnboarding = mutation({
     const walletAddress = sanitizeUserWalletAddress(args.walletAddress);
     const existingUser = await findUserByWallet(ctx, walletAddress);
     const profile = await sanitizeOnboardingProfile(ctx, args);
-
     await assertPublicHandleAvailable(ctx, profile.normalizedPublicHandle, existingUser?._id);
 
     const now = Date.now();
@@ -95,7 +95,6 @@ export const completeOnboarding = mutation({
       ...(args.walletType !== undefined ? { walletType: args.walletType } : {}),
       ...profile,
       skills: profile.coreSkills,
-      onboardingCompletedAt: existingUser?.onboardingCompletedAt ?? now,
       updatedAt: now,
     };
 
@@ -108,5 +107,56 @@ export const completeOnboarding = mutation({
       ...patch,
       createdAt: now,
     });
+  },
+});
+
+export const completeOnboarding = mutation({
+  args: {
+    walletAddress: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const walletAddress = sanitizeUserWalletAddress(args.walletAddress);
+    const existingUser = await findUserByWallet(ctx, walletAddress);
+
+    if (existingUser?.onboardingCompletedAt) {
+      return existingUser._id;
+    }
+
+    if (!existingUser) {
+      throw new Error("Save a valid profile before completing onboarding.");
+    }
+
+    const registryScope = getConfiguredRegistryScope();
+    const registration = await findRegistryRegistration(ctx, {
+      ...registryScope,
+      walletAddress,
+    });
+    if (!registration) {
+      throw new Error("Verify your on-chain wallet registration before completing onboarding.");
+    }
+
+    const profile = await sanitizeOnboardingProfile(ctx, {
+      firstName: existingUser.firstName ?? "",
+      ...(existingUser.middleName ? { middleName: existingUser.middleName } : {}),
+      lastName: existingUser.lastName ?? "",
+      publicHandle: existingUser.publicHandle ?? "",
+      coreSkills: existingUser.coreSkills ?? [],
+      ...(existingUser.discordHandle ? { discordHandle: existingUser.discordHandle } : {}),
+      ...(existingUser.xHandle ? { xHandle: existingUser.xHandle } : {}),
+      ...(existingUser.githubUsername ? { githubUsername: existingUser.githubUsername } : {}),
+      ...(existingUser.avatarStorageId ? { avatarStorageId: existingUser.avatarStorageId } : {}),
+    });
+    await assertPublicHandleAvailable(ctx, profile.normalizedPublicHandle, existingUser._id);
+
+    const now = Date.now();
+    const role = isConfiguredAdminWallet(walletAddress) ? "admin" : existingUser.role;
+    await ctx.db.patch(existingUser._id, {
+      ...(role !== undefined ? { role } : {}),
+      ...profile,
+      skills: profile.coreSkills,
+      onboardingCompletedAt: now,
+      updatedAt: now,
+    });
+    return existingUser._id;
   },
 });

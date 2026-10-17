@@ -2,7 +2,7 @@
 type: runbook
 area: operations
 status: current
-last_updated: 2026-10-09
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -16,8 +16,14 @@ The root scripts expose:
 - `pnpm contracts:deploy:testnet` → testnet wrapper around `scripts/deploy-contracts.sh`.
 - `pnpm contracts:deploy:mainnet` → guarded mainnet wrapper.
 - `pnpm contracts:verify:testnet` → `scripts/verify-testnet.sh`.
+- `bash scripts/deploy-registry.sh` → builds/deploys only `highrable-registry`, writing `deployments/registry-<network>.json` separately from escrow/reputation artifacts.
+- `bash scripts/verify-registry.sh <G...>` → read-only `get_registration` and `is_registered` calls for one wallet.
 
 `deploy-contracts.sh` validates the network/endpoints/deployer identity/public platform admin, builds both contracts, estimates fees, uploads/deploys WASM, initializes and wires reputation/escrow, optionally allowlists configured token contracts, verifies wiring, and writes a deployment artifact.
+
+The registry scripts are isolated from that workflow: they do not read, deploy, initialize, or overwrite escrow/reputation contracts or their tracked identities. The registry deployment script requires an explicit `DEPLOYER`, `NETWORK`, and `STELLAR_RPC_URL`; it refuses to overwrite an existing registry artifact and derives a deterministic ID for recovery. Do not execute it until an operator has authorized a deployment. Verify a deployment with `verify-registry.sh` and a known wallet; `get_registration` and `is_registered` should agree, showing a matching record/timestamp for a registered wallet or `null`/`false` for an unused one.
+
+Activation remains separate: set `NEXT_PUBLIC_REGISTRY_CONTRACT_ID` and Convex `REGISTRY_CONTRACT_ID` to the same verified ID, with matching `STELLAR_NETWORK`, RPC, and passphrase, then release the signup gate. No registry contract is currently deployed or configured by this implementation.
 
 ## Mainnet guardrails
 
@@ -27,7 +33,7 @@ Do not run a deployment command as a documentation validation step. It changes e
 
 ## Testnet verification
 
-Deliverable 2 C20 adds `pnpm contracts:verify:identity --scope <backend-scope.json> --build <build-provenance.json>`. It performs only network/ledger reads and compares the explicit backend scope and selected local WASM bytes with deployed code and reciprocal contract links. `pnpm contracts:test:identity` runs 49 deterministic/local-transport tests. Build/test provenance is operator-supplied and must come from an actual matching source build; the verifier cannot independently certify it. Exit 0 means a point-in-time match; mismatch is 1, unknown/unavailable is 2. See [C20 inputs and evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md). No production WASM or live identity verification was available on this host.
+Deliverable 2 C20 adds `pnpm contracts:verify:identity --scope <backend-scope.json> --build <build-provenance.json>`. It performs only network/ledger reads and compares the explicit backend scope and selected local WASM bytes with deployed code and reciprocal contract links. Deliverable 3 C21 adds child-process acceptance coverage for the actual CLI, relative artifact paths, JSON output, sanitization, repeatability, and exit codes. `pnpm contracts:test:identity` runs 57 tests, including a loopback RPC fixture that accepts only network and ledger reads. Build/test provenance is operator-supplied and must come from an actual matching source build; the verifier cannot independently certify it. Exit 0 means a point-in-time match; mismatch is 1, unknown/unavailable is 2. See [C20 inputs and evidence](../../instawards/Deliverable-2-C20-Deployment-Identity-Evidence.md) and [C21 local CLI evidence](../../instawards/Deliverable-3-C21-Deployment-Identity-CLI-Evidence.md). Synthetic fixture results do not establish production WASM provenance or live identity; no production WASM or live identity verification was available on this host.
 
 The older command below uses contract invocation and must not be treated as a read-only identity verifier.
 

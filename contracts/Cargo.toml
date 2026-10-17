@@ -1,5 +1,5 @@
 [workspace]
-members = ["reputation", "escrow"]
+members = ["reputation", "escrow", "registry"]
 resolver = "2"
 
 [workspace.package]

@@ -15,6 +15,7 @@ import { disputeEvents, disputes } from "./disputes/schema";
 import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
+import registryRegistrations from "./registry/schema";
 import jobReports from "./reports/schema";
 import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
@@ -42,6 +43,7 @@ export default defineSchema({
   escrows,
   jobReports,
   reputationRecords,
+  registryRegistrations,
   revisionRequests,
   transactions,
   waitlistEntries,
