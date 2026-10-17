@@ -2,7 +2,7 @@
 type: reference
 area: navigation
 status: current
-last_updated: 2026-10-14
+last_updated: 2026-10-17
 source_of_truth: repository
 ---
 
@@ -106,6 +106,7 @@ These documents remain useful but may be older than the implementation. Read sou
 - [Mainnet smart-account readiness](../mainnet-smart-account-readiness.md)
 - [Keyless README](../README-keyless.md)
 - [Project plan](../PLAN.md)
+- [Deliverable 3 implementation review](../instawards/Highrable-Instawards-Deliverable-3-Implementation-Review.md)
 - [Audience presentation](../HIGHRABLE_AUDIENCE_PRESENTATION.md)
 - [Discussion guide](../HIGHRABLE_30_MIN_DISCUSSION_GUIDE.md)
 
