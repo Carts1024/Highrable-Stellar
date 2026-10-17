@@ -18,6 +18,7 @@ source_of_truth: repository
 - `core/wallet` owns external wallet connection, authentication, funding checks, persistence, and identity state.
 - `core/passkeys` and `core/stellar` own passkey readiness, smart-account configuration, contract calls, asset/payment helpers, and transaction execution.
 - `features` contains domain-specific pages/hooks/components.
+- `core/analytics/google-analytics.tsx` initializes the Google Analytics 4 tag and records page views for initial loads and App Router path changes. Dynamic routes are sent as route templates; query strings and page titles are omitted. The GA4 data stream must have browser-history page changes disabled because the app sends those page views manually.
 
 ## Data access
 

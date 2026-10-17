@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-15
 source_of_truth: repository
 ---
 
@@ -20,12 +20,15 @@ source_of_truth: repository
 | `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE` | Transaction/build and contract-read network identity. |
 | `NEXT_PUBLIC_ESCROW_CONTRACT_ID` | Escrow contract address. |
 | `NEXT_PUBLIC_REPUTATION_CONTRACT_ID` | Reputation contract address. |
+| `NEXT_PUBLIC_REGISTRY_CONTRACT_ID` | Optional self-registration contract; new onboarding remains incomplete until the matching backend scope verifies a record. |
 | `NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID` | Stablecoin contract ID or classic issuer input. |
 | `NEXT_PUBLIC_NATIVE_XLM_TOKEN_CONTRACT_ID` | Optional XLM token contract used for escrow. |
 | `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL. |
 | `NEXT_PUBLIC_APP_DOMAIN` | App origin/RP-ID source and production domain check. |
 
 The client schema supplies testnet/local development defaults for some endpoints and passphrases. Production/mainnet domains are required to be HTTPS-compatible by the readiness/configuration checks. Do not copy development defaults into production without verifying every endpoint and passphrase.
+
+Registry reads use the same selected RPC/network/passphrase but do not require escrow or reputation IDs. Convex additionally requires `REGISTRY_CONTRACT_ID` and `STELLAR_READ_SOURCE_ACCOUNT`; local deployments must supply an explicit `STELLAR_NETWORK_PASSPHRASE`. `public` is normalized to `mainnet` for the registry scope. Browser and backend registry IDs and network scope must match.
 
 ## Smart-account variables
 

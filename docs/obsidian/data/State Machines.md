@@ -30,6 +30,26 @@ The contract enum is `Created`, `Funded`, `Submitted`, `Released`, `Cancelled`, 
 
 Convex uses lowercase equivalents: `created`, `funded`, `submitted`, `released`, `cancelled`, `disputed`. Escrow helpers rank `created < funded < submitted < released`; cancelled/disputed are terminal for safe sync purposes. Job mapping generally maps funded/submitted/released/cancelled/disputed to the corresponding job status (`released` becomes `completed`).
 
+## Signup and registry registration
+
+The onboarding UI coordinates profile drafts, transaction recovery, a verified registry mirror, and the existing user completion timestamp. The intermediate UI phases are not stored as a separate state machine.
+
+```text
+profile draft saved → registry read/reconciliation → transaction pending
+  → (success | failed | pending recovery) → RPC mirror verified → onboarding complete
+```
+
+| Durable value | Meaning |
+| --- | --- |
+| `users.onboardingCompletedAt` absent | New user has not completed onboarding; an incomplete profile draft may already exist. |
+| `transactions.status = pending` | A registry transaction is unresolved; the UI checks its known transaction identity and expiry before any retry. |
+| `transactions.status = success` | A transaction was confirmed; the UI still syncs the registry state before treating membership as verified. |
+| `transactions.status = failed` | A definite failure or established expiry; another registration attempt may be started. |
+| `registryRegistrations` row | RPC-verified on-chain address/timestamp for one network and registry contract. |
+| `users.onboardingCompletedAt` present | New signup completion is durable. Existing completed values are preserved and are not gated on registry configuration. |
+
+The internal mirror mutation is idempotent for the same on-chain timestamp and rejects a conflicting timestamp or scope. Client transaction callbacks never create registry mirror rows.
+
 ## Work agreements
 
 `draft → pending_preview/ready_to_send → pending_acceptance → accepted → locked` with rejection/cancellation/superseded branches. Amendments use new versions rather than mutating immutable locked content.
@@ -85,4 +105,4 @@ Requests track `draft`, `pending_freelancer_response`, `approved_for_cancel`, `r
 
 Deadline status is derived (`upcoming`, `due_soon`, `due_very_soon`, `overdue`, submitted/completed on-time/late, released, cancelled, disputed). Revision requests move through `requested`, `acknowledged`, `revision_submitted`, `accepted`, `cancelled`, or `expired`.
 
-See [[contracts/Escrow Contract]], [[modules/Disputes and Cancellations]], and [[backend/Sync and Scheduled Jobs]].
+See [[contracts/Escrow Contract]], [[contracts/User Registry Contract]], [[modules/Disputes and Cancellations]], and [[backend/Sync and Scheduled Jobs]].
