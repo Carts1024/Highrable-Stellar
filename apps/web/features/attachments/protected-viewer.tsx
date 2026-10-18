@@ -140,7 +140,7 @@ function ProtectedAttachmentShell({
       {isInactive ? (
         <div className="absolute inset-0 z-20 grid place-items-center bg-white/90 p-6 text-center">
           <div>
-            <ShieldCheck className="mx-auto h-8 w-8 text-[#FF7003]" />
+            <ShieldCheck className="hr-mode-text mx-auto h-8 w-8" />
             <p className="mt-3 text-sm font-semibold text-[#0a0a0a]">
               Protected content hidden while inactive
             </p>
@@ -244,7 +244,7 @@ function ProtectedPreviewBody({
           External sites are outside Highrable content protection controls.
         </p>
         <a
-          className="mt-2 block text-sm font-semibold break-all text-[#FF7003]"
+          className="hr-mode-text mt-2 block text-sm font-semibold break-all"
           href={url}
           target="_blank"
           rel="noreferrer"
@@ -439,7 +439,7 @@ export function ProtectedAttachmentDialog({
       <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="flex flex-wrap items-center gap-2 text-xl text-[#0a0a0a]">
-            <Eye className="h-5 w-5 text-[#FF7003]" />
+            <Eye className="hr-mode-text h-5 w-5" />
             Protected preview
             <AttachmentProtectionBadge protection={protection} />
           </ResponsiveDialogTitle>

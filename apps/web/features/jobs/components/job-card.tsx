@@ -43,7 +43,7 @@ export function JobCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }}
-      className="overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-[#FF7003]/20 hover:shadow-2xl"
+      className="overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300 hover:border-highrable-orange-2/20 hover:shadow-2xl"
     >
       <div className="border-b border-gray-50 p-6">
         <div className="mb-4 flex items-start justify-between">
@@ -67,9 +67,7 @@ export function JobCard({
               {job.status.replace("_", " ")}
             </span>
             <div className="text-right">
-              <div className="text-2xl font-bold text-[#FF7003]">
-                ${job.budget.toLocaleString()}
-              </div>
+              <div className="hr-mode-text text-2xl font-bold">${job.budget.toLocaleString()}</div>
               <div className="text-xs text-gray-500">Total Budget</div>
             </div>
           </div>
@@ -105,7 +103,7 @@ export function JobCard({
           </div>
           <div className="h-2 w-full rounded-full bg-gray-200">
             <div
-              className="h-2 rounded-full bg-linear-to-r from-[#FF7003] to-[#FF8801] transition-all duration-300"
+              className="h-2 rounded-full bg-linear-to-r from-highrable-orange-2 to-highrable-orange-1 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -128,7 +126,7 @@ export function JobCard({
             {showApplications && onViewApplications ? (
               <button
                 onClick={() => onViewApplications(job.id)}
-                className="rounded-lg border border-[#FF7003] px-4 py-2 text-sm font-medium text-[#FF7003] transition-all duration-200 hover:bg-[#FF7003] hover:text-white"
+                className="hr-mode-text rounded-lg border border-highrable-orange-2 px-4 py-2 text-sm font-medium transition-all duration-200 hover:bg-highrable-orange-2 hover:text-white"
               >
                 View Applications
               </button>
@@ -136,7 +134,7 @@ export function JobCard({
             {onApply && job.status === "open" ? (
               <button
                 onClick={() => onApply(job.id)}
-                className="rounded-lg bg-linear-to-r from-[#FF7003] to-[#FF8801] px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-[#E85D00] hover:to-[#E87A00] hover:shadow-lg"
+                className="rounded-lg bg-linear-to-r from-highrable-orange-2 to-highrable-orange-1 px-4 py-2 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-highrable-orange-3 hover:to-highrable-orange-2 hover:shadow-lg"
               >
                 Apply Now
               </button>

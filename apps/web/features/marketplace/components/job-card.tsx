@@ -5,6 +5,7 @@ import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { useAppMode } from "@/features/mode";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
@@ -41,7 +42,9 @@ export function JobCard({
   const jobType = job.jobType ?? "micro_gig";
   const isMilestoneProject = jobType === "milestone_project";
   const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
+  const { mode } = useAppMode();
   const canApply =
+    mode === "freelancer" &&
     !isMilestoneProject &&
     !!connectedWallet &&
     !hasApplied &&

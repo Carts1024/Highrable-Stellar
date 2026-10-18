@@ -627,7 +627,7 @@ export function PasskeySmartAccountCard() {
               <button
                 key={contract.contract_id}
                 type="button"
-                className="w-full rounded-xl border border-gray-300 bg-white p-4 text-left transition-all hover:border-[#FF7003]/40 hover:bg-[#FF7003]/5 hover:shadow-md focus:ring-2 focus:ring-[#FF7003]/30 focus:outline-none"
+                className="w-full rounded-xl border border-gray-300 bg-white p-4 text-left transition-all hover:border-highrable-orange-2/40 hover:bg-highrable-orange-2/5 hover:shadow-md focus:ring-2 focus:ring-ring/30 focus:outline-none"
                 aria-label={`Select contract ${contract.contract_id}`}
                 onClick={() =>
                   void runPasskeyUiAction(() =>

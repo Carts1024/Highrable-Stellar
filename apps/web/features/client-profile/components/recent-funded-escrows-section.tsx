@@ -50,7 +50,7 @@ export function RecentFundedEscrowsSection({
                   <div>
                     <Link
                       href={`/marketplace/jobs/${escrow.jobId}`}
-                      className="font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+                      className="font-semibold text-[#0a0a0a] hover:text-highrable-orange-3"
                     >
                       {escrow.jobTitle}
                     </Link>
@@ -65,7 +65,7 @@ export function RecentFundedEscrowsSection({
                     {escrow.freelancerWallet ? (
                       <Link
                         href={`/freelancers/${encodeURIComponent(escrow.freelancerWallet)}`}
-                        className="font-medium text-[#FF7003] hover:text-[#E85D00]"
+                        className="hr-mode-text font-medium hover:text-highrable-orange-4"
                       >
                         {shortenWalletAddress(escrow.freelancerWallet)}
                       </Link>
@@ -84,7 +84,7 @@ export function RecentFundedEscrowsSection({
                       href={getTxExplorerUrl(escrow.fundTxHash)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+                      className="hr-mode-text inline-flex items-center gap-1 text-sm font-medium hover:text-highrable-orange-4"
                     >
                       Fund tx <ExternalLink className="h-3.5 w-3.5" />
                     </Link>

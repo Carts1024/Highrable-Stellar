@@ -144,6 +144,10 @@ source_of_truth: repository
 - Added minimal `.obsidian/app.json` and narrowly scoped ignores for local workspace/cache state.
 - Recorded known contradictions and gaps instead of presenting roadmap or phase prose as current behavior.
 
+## 2026-10-18
+
+- Documented the UI-only Freelancer/Client mode system, yellow client theme, stepped forms, and plain-language term hints in [[frontend/Feature Slices]].
+
 ## Maintenance rule
 
 Add an entry when documentation structure or a durable system-status classification changes. Feature-level implementation history belongs in version control and the relevant source/module note; this file should stay short.

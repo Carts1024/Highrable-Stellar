@@ -21,6 +21,7 @@ import {
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { useAppMode } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
@@ -98,6 +99,8 @@ function formatBudget(budget: number) {
 /** Renders the dedicated public job browsing experience backed by Convex jobs. */
 export function JobsPage() {
   const walletIdentity = useHighrableWalletIdentity();
+  const { mode } = useAppMode();
+  const isFreelancerMode = mode === "freelancer";
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const appliedJobIds = useQuery(
     api.applications.listAppliedJobIdsByFreelancer,
@@ -196,29 +199,36 @@ export function JobsPage() {
       {/* Hero */}
       <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <ProductPageHero
-          label="Open Opportunities"
+          label={isFreelancerMode ? "Freelancer · Find work" : "Client · Open jobs"}
           title={
             <>
-              Browse Jobs <span className="text-[#FF7003]">with Escrow-Ready Terms</span>
+              {isFreelancerMode ? "Find work" : "Browse jobs"}{" "}
+              <span className="hr-mode-text">
+                {isFreelancerMode ? "you can do today" : "from other clients"}
+              </span>
             </>
           }
-          description="Find open client work, apply with your wallet, and move accepted work into contract-backed escrow once selected."
+          description={
+            isFreelancerMode
+              ? "Look through open jobs, read what the client needs, and send an application. Jobs marked Verified Funded already have the payment set aside."
+              : "You are browsing as a client. To apply for a job, switch to Freelancer mode. To hire someone, post your own job."
+          }
           actions={
-            <>
+            isFreelancerMode ? undefined : (
               <AppButton asChild className="hr-v2-button-primary rounded-lg px-6 font-mono">
                 <Link href="/post-job">Post a Job</Link>
               </AppButton>
-            </>
+            )
           }
         />
 
         {/* Metric panel */}
         <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
           {[
-            { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
-            { label: "Matching", value: visibleJobs.length },
+            { label: "Open jobs", value: marketplaceRows?.length ?? "—" },
+            { label: "Matching your search", value: visibleJobs.length },
             {
-              label: "Visible budget pool",
+              label: "Total budget shown",
               value: formatBudget(totalBudget),
               accent: true,
             },
@@ -344,6 +354,7 @@ export function JobsPage() {
                 !!walletIdentity.walletAddress && appliedJobIdSet === undefined;
               const hasApplied = appliedJobIdSet?.has(job._id) ?? false;
               const canApply =
+                isFreelancerMode &&
                 !isMilestoneProject &&
                 !!walletIdentity.walletAddress &&
                 !hasApplied &&
@@ -439,7 +450,7 @@ export function JobsPage() {
                         Type
                       </span>
                       <span className="font-semibold text-foreground">
-                        {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+                        {isMilestoneProject ? "Project in stages" : "Quick job"}
                       </span>
                     </div>
 
@@ -468,7 +479,7 @@ export function JobsPage() {
 
                     <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                      {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
+                      {isMilestoneProject ? "Payment held per stage" : "Payment can be held safely"}
                     </div>
                   </div>
 

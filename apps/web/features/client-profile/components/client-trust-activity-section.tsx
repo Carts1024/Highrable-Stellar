@@ -99,7 +99,7 @@ export function ClientTrustActivitySection(props: IClientTrustActivitySectionPro
               value={value}
               className={cn(
                 "rounded-none px-0 py-3 pr-6 font-mono text-xs tracking-[0.06em] uppercase",
-                "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-[#FF7003]",
+                "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-highrable-orange-2",
               )}
             >
               <HighrableV2Bullet aria-hidden="true" />

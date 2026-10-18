@@ -20,11 +20,11 @@ export function AppliedJobsSection() {
     <section className="space-y-5">
       <div className="space-y-0.5">
         <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Applications
+          Jobs I applied for
         </p>
         <h2 className="hr-text-primary font-sans text-lg font-semibold">Applied Jobs</h2>
         <p className="hr-text-secondary mt-1 font-sans text-sm">
-          Jobs you applied to with your current application status.
+          Every job you applied for, and what is happening with each one.
         </p>
       </div>
 
@@ -101,7 +101,7 @@ export function AppliedJobsSection() {
                 {item.escrowStatus ? (
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-                      Escrow
+                      Payment hold
                     </span>
                     <StatusPill label={item.escrowStatus} />
                   </div>

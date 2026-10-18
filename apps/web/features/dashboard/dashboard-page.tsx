@@ -4,18 +4,16 @@ import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-n
 import { AdminDashboardEntry } from "@/features/admin";
 import { ProductPageHero, RouteCallout } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
-import { DashboardModeLabel } from "@/features/dashboard/components/dashboard-mode-label";
-import { DashboardModeSwitch } from "@/features/dashboard/components/dashboard-mode-switch";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
 import { PostedJobsSection } from "@/features/dashboard/components/posted-jobs-section";
 import { RecentPayoutsList } from "@/features/dashboard/components/recent-payouts-list";
 import { RegistryRegistrationCard } from "@/features/dashboard/components/registry-registration-card";
-import { useDashboardMode } from "@/features/dashboard/hooks/use-dashboard-mode";
 import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role";
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
+import { MODE_COPY, ModeSwitch, useAppMode } from "@/features/mode";
 import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
@@ -27,7 +25,6 @@ import {
   Clock,
   DollarSign,
   Hourglass,
-  LayoutDashboard,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,26 +38,42 @@ interface IQuickAction {
   readonly icon: typeof Briefcase;
 }
 
-const QUICK_ACTIONS: readonly IQuickAction[] = [
-  {
-    href: "/marketplace",
-    title: "Browse Jobs",
-    description: "Find new opportunities",
-    icon: Briefcase,
-  },
-  {
-    href: "/post-job",
-    title: "Post a Job",
-    description: "Hire talented freelancers",
-    icon: Users,
-  },
-  {
-    href: "/disputes",
-    title: "Disputes",
-    description: "Review active cases",
-    icon: AlertTriangle,
-  },
-] as const;
+const QUICK_ACTIONS: Record<TDashboardMode, readonly IQuickAction[]> = {
+  freelancer: [
+    {
+      href: "/jobs",
+      title: "Find work",
+      description: "Browse open jobs and send an application",
+      icon: Briefcase,
+    },
+    {
+      href: "/disputes",
+      title: "Disputes",
+      description: "See problems you have raised or received",
+      icon: AlertTriangle,
+    },
+  ],
+  client: [
+    {
+      href: "/post-job",
+      title: "Post a job",
+      description: "Describe the work and set your budget",
+      icon: Users,
+    },
+    {
+      href: "/talent",
+      title: "Find freelancers",
+      description: "Look for people to hire",
+      icon: Briefcase,
+    },
+    {
+      href: "/disputes",
+      title: "Disputes",
+      description: "See problems you have raised or received",
+      icon: AlertTriangle,
+    },
+  ],
+};
 
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
@@ -70,26 +83,26 @@ function formatAssetAmountList(rows: TAssetAmount[]): string {
 function resolveDashboardHeroCopy(mode: TDashboardMode) {
   if (mode === "client") {
     return {
-      label: "Client Operations",
+      label: "Client · My Jobs",
       title: (
         <>
-          Client <span className="text-[#FF7003]">Jobs Dashboard</span>
+          Your <span className="hr-mode-text">hiring dashboard</span>
         </>
       ),
       description:
-        "Manage posted jobs, monitor application volume, and track escrow progress from a single control plane.",
+        "See the jobs you posted, who applied, and where each payment stands. Everything you need to hire is on this page.",
     };
   }
 
   return {
-    label: "Freelancer Performance",
+    label: "Freelancer · My Work",
     title: (
       <>
-        Freelancer <span className="text-[#FF7003]">Income Dashboard</span>
+        Your <span className="hr-mode-text">work and earnings</span>
       </>
     ),
     description:
-      "Track Stellar escrow earnings, pending balances, and payout momentum across your active engagements.",
+      "See how much you have earned, what is waiting to be paid, and which jobs you are working on right now.",
   };
 }
 
@@ -101,8 +114,8 @@ function UnfundedWarningBanner() {
       className="rounded-lg"
     >
       <span>
-        Your testnet wallet is not funded. You can view your dashboard, but Stellar transactions
-        require test XLM.
+        Your practice account has no test money yet. You can look around, but you need free test XLM
+        before you can make or receive payments.
       </span>
     </RouteCallout>
   );
@@ -124,33 +137,31 @@ function DashboardSkeletonCards() {
 function DashboardCommandBar({
   mode,
   address,
-  onModeChange,
 }: {
   readonly mode: TDashboardMode;
   readonly address?: string | null;
-  readonly onModeChange: (mode: TDashboardMode) => void;
 }) {
   const publicProfileHref = address
     ? `/${mode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(address)}`
     : null;
+  const copy = MODE_COPY[mode];
+  const Icon = copy.icon;
 
   return (
-    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-sm sm:rounded-2xl">
+    <div className="hr-mode-soft rounded-xl border border-highrable-orange-3/40 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
-            <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
+          <span className="hr-mode-solid flex h-11 w-11 items-center justify-center rounded-lg text-[#1a1300]">
+            <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <p className="font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-              Dashboard Mode
+            <p className="hr-text-primary font-sans text-base font-semibold">
+              You are in {copy.label}
             </p>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <DashboardModeLabel mode={mode} />
-              <p className="hr-text-secondary text-sm">
-                Switch between freelancer and client work.
-              </p>
-            </div>
+            <p className="hr-text-secondary text-sm">
+              {copy.tagline} Want to {mode === "client" ? "look for work" : "hire someone"}? Use the
+              switch.
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -158,19 +169,21 @@ function DashboardCommandBar({
             <AppButton
               asChild
               variant="outline"
-              className="h-9 rounded-lg px-4 text-xs font-semibold"
+              className="h-9 rounded-lg bg-card px-4 text-xs font-semibold"
             >
-              <Link href={publicProfileHref}>View public profile</Link>
+              <Link href={publicProfileHref}>View my public profile</Link>
             </AppButton>
           ) : null}
-          <DashboardModeSwitch selectedMode={mode} onModeChange={onModeChange} />
+          <ModeSwitch size="large" />
         </div>
       </div>
     </div>
   );
 }
 
-function QuickActions() {
+function QuickActions({ mode }: { readonly mode: TDashboardMode }) {
+  const actions = QUICK_ACTIONS[mode];
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -180,18 +193,17 @@ function QuickActions() {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Quick Actions
+          <p className="hr-mode-text font-mono text-[11px] tracking-[0.08em] uppercase">
+            Shortcuts
           </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">Common workflows</h2>
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">
+            What would you like to do?
+          </h2>
         </div>
-        <AppButton asChild variant="outline" className="h-9 rounded-lg px-4 text-xs font-semibold">
-          <Link href="/marketplace">Open Marketplace Flow</Link>
-        </AppButton>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {QUICK_ACTIONS.map((action) => {
+      <div className="grid gap-4 sm:grid-cols-2">
+        {actions.map((action) => {
           const Icon = action.icon;
 
           return (
@@ -212,7 +224,7 @@ function QuickActions() {
                 </div>
               </div>
               <span className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-                Open
+                Go
               </span>
             </Link>
           );
@@ -228,15 +240,7 @@ export function DashboardPage() {
     useFreelancerDashboard();
   const onboardingGuard = useRequireOnboarding();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
-  const {
-    selectedMode,
-    isReady: isModeReady,
-    setSelectedMode,
-  } = useDashboardMode({
-    role,
-    address,
-    isConnected,
-  });
+  const { mode: selectedMode, isReady: isModeReady } = useAppMode();
 
   const showFreelancerSections = !isRoleLoading && isModeReady && selectedMode === "freelancer";
   const showClientSections = !isRoleLoading && isModeReady && selectedMode === "client";
@@ -245,8 +249,8 @@ export function DashboardPage() {
   if (!isConnected) {
     return (
       <WalletRequiredNotice
-        title="Freelancer Income Dashboard"
-        description="Connect your Stellar wallet to view your income dashboard."
+        title="Your dashboard"
+        description="Connect your wallet to see your jobs and payments."
       />
     );
   }
@@ -272,11 +276,11 @@ export function DashboardPage() {
         {/* Metric panel */}
         <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
           {[
-            { label: "Mode", value: selectedMode === "client" ? "Client" : "Talent" },
-            { label: "Network", value: isTestnet ? "Testnet" : "Mainnet" },
+            { label: "Viewing as", value: MODE_COPY[selectedMode].shortLabel },
+            { label: "Network", value: isTestnet ? "Practice" : "Live" },
             {
-              label: "Wallet",
-              value: isFunded === false ? "Needs XLM" : "Ready",
+              label: "Account",
+              value: isFunded === false ? "Needs test XLM" : "Ready",
               accent: isFunded === false,
             },
           ].map(({ label, value, accent }) => (
@@ -298,7 +302,7 @@ export function DashboardPage() {
       </section>
 
       {!isRoleLoading && isModeReady && (
-        <DashboardCommandBar mode={selectedMode} address={address} onModeChange={setSelectedMode} />
+        <DashboardCommandBar mode={selectedMode} address={address} />
       )}
 
       {!isRoleLoading && role !== "admin" && onboardingGuard.isOnboardingComplete ? (
@@ -311,7 +315,7 @@ export function DashboardPage() {
 
       {isLoading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <p className="hr-text-secondary mb-4 text-sm">Loading income dashboard…</p>
+          <p className="hr-text-secondary mb-4 text-sm">Loading your dashboard…</p>
           <DashboardSkeletonCards />
         </motion.div>
       )}
@@ -325,41 +329,41 @@ export function DashboardPage() {
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           >
             <IncomeMetricCard
-              title="Total Earned"
+              title="Total earned"
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
-              subtitle="Completed escrow payments via Stellar"
+              subtitle="Money you have been paid for finished jobs"
               icon={DollarSign}
               animationDelay={0.3}
             />
 
             <IncomeMetricCard
-              title="Pending Escrow"
+              title="Payments on hold"
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
-              subtitle="Funds already locked by clients"
+              subtitle="Clients have set this money aside for your work"
               icon={Clock}
               animationDelay={0.35}
             />
 
             <IncomeMetricCard
-              title="Completed Jobs"
+              title="Finished jobs"
               value={summary.completedJobs.toString()}
-              subtitle="Payments released through Stellar escrow"
+              subtitle="Jobs where you have been paid"
               icon={CheckCircle}
               animationDelay={0.4}
             />
 
             <IncomeMetricCard
-              title="Active Jobs"
+              title="Jobs in progress"
               value={summary.activeJobs.toString()}
-              subtitle="Funded or submitted, awaiting release"
+              subtitle="Paid for upfront or handed in, waiting for approval"
               icon={Briefcase}
               animationDelay={0.45}
             />
 
             <IncomeMetricCard
-              title="Awaiting Funding"
+              title="Waiting for payment"
               value={summary.awaitingFunding.toString()}
-              subtitle="Escrows created but not yet funded by client"
+              subtitle="Client has picked you but has not set the money aside yet"
               icon={Hourglass}
               animationDelay={0.5}
             />
@@ -375,7 +379,7 @@ export function DashboardPage() {
 
       {showClientSections && <PostedJobsSection />}
 
-      <QuickActions />
+      <QuickActions mode={selectedMode} />
     </div>
   );
 }

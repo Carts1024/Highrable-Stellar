@@ -152,7 +152,7 @@ export function EscrowProofTimeline({ proof }: { readonly proof: TEscrowProof })
               className={cn(
                 "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
                 item.state === "complete" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-                item.state === "current" && "border-[#FF7003]/30 bg-[#FFF7ED] text-[#FF7003]",
+                item.state === "current" && "hr-mode-text border-highrable-orange-2/30 bg-accent",
                 item.state === "pending" && "border-[#e8e8e8] bg-[#fafafa] text-[#9f9f9f]",
               )}
             >
@@ -173,7 +173,7 @@ export function EscrowProofTimeline({ proof }: { readonly proof: TEscrowProof })
                   href={getTxExplorerUrl(item.txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#FF7003] hover:text-[#E85D00]"
+                  className="hr-mode-text mt-2 inline-flex items-center gap-1 text-sm font-medium hover:text-highrable-orange-4"
                 >
                   View payment receipt
                   <ExternalLink className="h-3.5 w-3.5" />

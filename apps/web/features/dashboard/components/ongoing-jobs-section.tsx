@@ -23,11 +23,11 @@ export function OngoingJobsSection() {
     <section className="space-y-5">
       <div className="space-y-0.5">
         <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Ongoing Jobs
+          Jobs in progress
         </p>
         <h2 className="hr-text-primary font-sans text-lg font-semibold">Active work</h2>
         <p className="hr-text-secondary mt-1 text-sm">
-          Active funded or submitted payment engagements in progress.
+          Jobs you are working on now, with their deadlines.
         </p>
       </div>
 

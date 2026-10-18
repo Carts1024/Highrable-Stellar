@@ -606,7 +606,7 @@ function WorkProofSubmissionDialogContent({
                   ? "Summarize the revised work and what changed from the previous submission."
                   : "Summarize completed work, delivery notes, links, or acceptance details."
               }
-              className="min-h-32 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+              className="min-h-32 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-ring/30"
             />
             <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
               <AttachmentUploader
@@ -647,7 +647,7 @@ function WorkProofSubmissionDialogContent({
         ) : null}
 
         {canAcceptPreview && (
-          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-accent/40">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
@@ -714,14 +714,14 @@ function WorkProofSubmissionDialogContent({
                 disabled={requestingRevision}
                 onChange={(event) => setRevisionReason(event.target.value)}
                 placeholder="Short reason (e.g., Code Style, Missing Assets)"
-                className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-[#FF7003]/30"
+                className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-ring/30"
               />
               <Textarea
                 value={requestedChanges}
                 disabled={requestingRevision}
                 onChange={(event) => setRequestedChanges(event.target.value)}
                 placeholder="Detailed change requests..."
-                className="min-h-28 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+                className="min-h-28 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-ring/30"
               />
             </div>
             <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
@@ -771,7 +771,7 @@ function WorkProofSubmissionDialogContent({
           </div>
         ) : latestSubmission ? (
           <div className="space-y-8">
-            <article className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+            <article className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-accent/40">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-4">
                 <div className="flex items-center gap-3">
                   <Badge className="rounded-none bg-[#0a0a0a] px-3 py-1 text-[10px] font-bold tracking-widest text-white uppercase">
@@ -822,7 +822,7 @@ function WorkProofSubmissionDialogContent({
                         href={latestSubmission.stellarExpertUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#FF7003] hover:underline"
+                        className="hr-mode-text hover:underline"
                       >
                         Stellar Explorer
                         <ArrowUpRight className="ml-0.5 inline h-3 w-3" />

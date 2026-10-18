@@ -21,7 +21,11 @@ interface IProfileIdentityFieldsProps {
   readonly onFieldChange: (field: keyof TProfileIdentityFormValues, value: string) => void;
   readonly onSkillsInputChange: (value: string) => void;
   readonly onAvatarFileChange: (file: File | null, validationError: string | null) => void;
+  /** Limits which sections are shown (used by stepped forms). Hidden sections stay mounted. */
+  readonly visibleSections?: readonly TProfileIdentitySection[];
 }
+
+export type TProfileIdentitySection = "name" | "identity" | "social" | "avatar";
 
 // Sub-components
 
@@ -71,7 +75,10 @@ export function ProfileIdentityFields({
   onFieldChange,
   onSkillsInputChange,
   onAvatarFileChange,
+  visibleSections,
 }: IProfileIdentityFieldsProps) {
+  const isVisible = (section: TProfileIdentitySection) =>
+    !visibleSections || visibleSections.includes(section);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Live handle hint
@@ -98,8 +105,8 @@ export function ProfileIdentityFields({
   return (
     <div className="space-y-10">
       {/* Name */}
-      <section aria-labelledby="section-name">
-        <SectionDivider label="Name" />
+      <section aria-labelledby="section-name" hidden={!isVisible("name")}>
+        <SectionDivider label="Your name" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="profile-first-name">First name</Label>
@@ -142,8 +149,8 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Identity & skills */}
-      <section aria-labelledby="section-identity">
-        <SectionDivider label="Identity & skills" />
+      <section aria-labelledby="section-identity" hidden={!isVisible("identity")}>
+        <SectionDivider label="Your public profile" />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="profile-handle">Public handle</Label>
@@ -185,8 +192,8 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Social links */}
-      <section aria-labelledby="section-social">
-        <SectionDivider label="Social links" />
+      <section aria-labelledby="section-social" hidden={!isVisible("social")}>
+        <SectionDivider label="Where else can people find you? (optional)" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="profile-discord">
@@ -231,8 +238,8 @@ export function ProfileIdentityFields({
       </section>
 
       {/* Avatar */}
-      <section aria-labelledby="section-avatar">
-        <SectionDivider label="Avatar" />
+      <section aria-labelledby="section-avatar" hidden={!isVisible("avatar")}>
+        <SectionDivider label="Profile picture (optional)" />
         <div className="flex flex-wrap items-center gap-4">
           {/* Preview */}
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">

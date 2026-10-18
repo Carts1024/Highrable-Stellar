@@ -21,11 +21,11 @@ export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
       <section className="space-y-5">
         <div className="space-y-0.5">
           <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Recent Payouts
+            Recent payments received
           </p>
           <h2 className="hr-text-primary font-sans text-lg font-semibold">Verified releases</h2>
           <p className="hr-text-secondary mt-1 font-sans text-sm">
-            Verified payouts are linked to completed escrow records.
+            Each payment here is linked to a finished job.
           </p>
         </div>
 

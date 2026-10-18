@@ -41,7 +41,7 @@ function ParticipantRow({
 
   return (
     <div className="flex items-start gap-3 border-t border-[#e8e8e8] py-3">
-      <div className="mt-0.5 border border-[#e8e8e8] bg-white p-2 text-[#FF7003]">
+      <div className="hr-mode-text mt-0.5 border border-[#e8e8e8] bg-white p-2">
         <UserRound className="h-4 w-4" aria-hidden="true" />
       </div>
       <div className="min-w-0">
@@ -52,7 +52,7 @@ function ParticipantRow({
         {href ? (
           <Link
             href={href}
-            className="mt-1 inline-block text-sm font-medium break-all text-[#FF7003] hover:text-[#E85D00]"
+            className="hr-mode-text mt-1 inline-block text-sm font-medium break-all hover:text-highrable-orange-4"
           >
             {shortenedWallet}
           </Link>

@@ -167,7 +167,7 @@ function TrustInfoRow({
           <button
             type="button"
             aria-label="Open trust badge details"
-            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border transition-colors hover:bg-[#fff7ed] ${toneClass}`}
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border transition-colors hover:bg-accent ${toneClass}`}
           >
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </button>

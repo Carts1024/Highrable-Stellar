@@ -102,3 +102,62 @@ html[data-snap-overflow] .landing-v2-page > main > section {
     --highrable-border: #3a3a3a;
   }
 }
+
+/* ── Mode theming ──────────────────────────────────────────────────────────
+   Freelancer mode keeps the default Highrable orange. Client mode re-points the
+   same tokens to yellow so every token-based surface changes colour together.
+   --mode-text is a darker shade used wherever the colour is applied to text. */
+[data-mode="freelancer"] {
+  --mode-text: #d95500;
+  --mode-soft: #fff1e5;
+  --mode-solid: #ff7003;
+}
+
+[data-mode="client"] {
+  --mode-text: #a16207;
+  --mode-soft: #fef9c3;
+  --mode-solid: #facc15;
+  --ring: #eab308;
+  --sidebar-ring: #eab308;
+  --accent: #fefce8;
+  --accent-foreground: #713f12;
+  --highrable-text-accent: #854d0e;
+  --highrable-surface-accent: #fefce8;
+  --highrable-orange-1: #fde047;
+  --highrable-orange-2: #facc15;
+  --highrable-orange-3: #ca8a04;
+  --highrable-orange-4: #854d0e;
+  --highrable-button-gradient: linear-gradient(to right, #fde047, #facc15);
+}
+
+[data-mode="client"] ::selection {
+  background: rgb(250 204 21 / 35%);
+}
+
+[data-mode="client"] .hr-v2-badge-accent {
+  border-color: rgb(202 138 4 / 35%);
+}
+
+/* Yellow buttons need dark text to stay readable. */
+[data-mode="client"] .hr-v2-button-primary,
+[data-mode="client"] .hr-button-primary-colors {
+  color: #3b2f00 !important;
+}
+
+.hr-mode-text {
+  color: var(--mode-text, var(--highrable-orange-3));
+}
+
+.hr-mode-soft {
+  background-color: var(--mode-soft, var(--highrable-surface-accent));
+}
+
+.hr-mode-solid {
+  background-color: var(--mode-solid, var(--highrable-orange-2));
+}
+
+/* Yellow surfaces need dark text; swap white text on mode-coloured fills. */
+[data-mode="client"] [class*="bg-highrable-orange-"][class*="text-white"],
+[data-mode="client"] [class*="from-highrable-orange-"][class*="text-white"] {
+  color: #3b2f00 !important;
+}

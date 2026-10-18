@@ -12,6 +12,7 @@ import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-stat
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { analyzeJobScamSignals } from "@/features/marketplace/lib/scam-signals";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { ModeOnly } from "@/features/mode";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
 import {
@@ -435,22 +436,26 @@ export function JobDetail({ jobId }: { jobId: string }) {
 
       {!isMilestoneProject ? (
         <>
-          <ApplyToJobForm
-            job={job}
-            hasApplied={hasAppliedToJob ?? false}
-            isCheckingApplicationStatus={
-              !!walletIdentity.walletAddress && hasAppliedToJob === undefined
-            }
-            onApplied={() => {}}
-          />
+          <ModeOnly mode="freelancer">
+            <ApplyToJobForm
+              job={job}
+              hasApplied={hasAppliedToJob ?? false}
+              isCheckingApplicationStatus={
+                !!walletIdentity.walletAddress && hasAppliedToJob === undefined
+              }
+              onApplied={() => {}}
+            />
+          </ModeOnly>
 
-          <ApplicationsList
-            job={job}
-            escrow={mergedEscrow}
-            applications={applications}
-            isLoading={applications === undefined}
-            onSelected={() => {}}
-          />
+          <ModeOnly mode="client">
+            <ApplicationsList
+              job={job}
+              escrow={mergedEscrow}
+              applications={applications}
+              isLoading={applications === undefined}
+              onSelected={() => {}}
+            />
+          </ModeOnly>
         </>
       ) : null}
     </div>

@@ -1,0 +1,204 @@
+"use client";
+
+import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { cn } from "@repo/ui/lib/utils";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { useId } from "react";
+
+import type { ReactNode } from "react";
+
+export interface IFormStep {
+  readonly id: string;
+  /** Short tab title ("Details"). */
+  readonly title: string;
+  /** One plain-language sentence that says what this step is for. */
+  readonly hint: string;
+  /** Marks the step as needing attention (for example after a failed submit). */
+  readonly hasError?: boolean;
+}
+
+interface IFormStepTabsProps {
+  readonly steps: readonly IFormStep[];
+  readonly activeIndex: number;
+  readonly onSelect: (index: number) => void;
+  readonly idPrefix?: string;
+  readonly className?: string;
+}
+
+/** Numbered tab strip that doubles as a progress indicator. Steps stay clickable. */
+export function FormStepTabs({
+  steps,
+  activeIndex,
+  onSelect,
+  idPrefix,
+  className,
+}: IFormStepTabsProps) {
+  const generatedId = useId();
+  const prefix = idPrefix ?? generatedId;
+  const active = steps[activeIndex];
+
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
+          Step {activeIndex + 1} of {steps.length}
+        </p>
+        <div
+          className="hidden h-1.5 w-40 overflow-hidden rounded-full bg-muted sm:block"
+          aria-hidden="true"
+        >
+          <div
+            className="hr-mode-solid h-full rounded-full transition-all duration-300"
+            style={{ width: `${((activeIndex + 1) / steps.length) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Form steps"
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+      >
+        {steps.map((step, index) => {
+          const isActive = index === activeIndex;
+          const isDone = index < activeIndex && !step.hasError;
+
+          return (
+            <button
+              key={step.id}
+              type="button"
+              role="tab"
+              id={`${prefix}-tab-${step.id}`}
+              aria-selected={isActive}
+              aria-controls={`${prefix}-panel-${step.id}`}
+              onClick={() => onSelect(index)}
+              className={cn(
+                "flex min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors sm:px-3",
+                isActive
+                  ? "border-highrable-orange-3 bg-accent text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-highrable-orange-3/60",
+                step.hasError ? "border-red-300 bg-red-50 text-red-700" : "",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold",
+                  step.hasError
+                    ? "bg-red-600 text-white"
+                    : isActive || isDone
+                      ? "hr-mode-solid text-[#1a1300]"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
+              </span>
+              <span className="hidden min-w-0 truncate font-sans text-sm font-semibold sm:block">
+                {step.title}
+              </span>
+              <span className="sr-only sm:hidden">{step.title}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {active ? (
+        <div className="rounded-lg bg-muted/50 px-4 py-3">
+          <p className="hr-text-primary font-sans text-base font-semibold">{active.title}</p>
+          <p className="hr-text-secondary mt-0.5 font-sans text-sm">{active.hint}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface IFormStepPanelProps {
+  readonly stepId: string;
+  readonly isActive: boolean;
+  readonly idPrefix: string;
+  readonly children: ReactNode;
+  readonly className?: string;
+}
+
+/**
+ * One tab's content. Inactive panels stay mounted (just hidden) so typed values, uploads and
+ * validation state survive moving between steps.
+ */
+export function FormStepPanel({
+  stepId,
+  isActive,
+  idPrefix,
+  children,
+  className,
+}: IFormStepPanelProps) {
+  return (
+    <div
+      role="tabpanel"
+      id={`${idPrefix}-panel-${stepId}`}
+      aria-labelledby={`${idPrefix}-tab-${stepId}`}
+      hidden={!isActive}
+      className={cn("space-y-8", className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface IFormStepNavProps {
+  readonly activeIndex: number;
+  readonly stepCount: number;
+  readonly onBack: () => void;
+  readonly onNext: () => void;
+  /** Rendered in place of the Next button on the last step (usually the submit button). */
+  readonly finalAction?: ReactNode;
+  readonly nextLabel?: string;
+  readonly nextDisabled?: boolean;
+  readonly className?: string;
+}
+
+/** Back / Next buttons shared by every stepped form. */
+export function FormStepNav({
+  activeIndex,
+  stepCount,
+  onBack,
+  onNext,
+  finalAction,
+  nextLabel = "Next step",
+  nextDisabled,
+  className,
+}: IFormStepNavProps) {
+  const isLast = activeIndex === stepCount - 1;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6",
+        className,
+      )}
+    >
+      <AppButton
+        type="button"
+        variant="outline"
+        onClick={onBack}
+        disabled={activeIndex === 0}
+        className="gap-2 rounded-lg px-5 font-mono"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back
+      </AppButton>
+      {isLast ? (
+        finalAction
+      ) : (
+        <AppButton
+          type="button"
+          onClick={onNext}
+          disabled={nextDisabled}
+          className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
+        >
+          {nextLabel}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </AppButton>
+      )}
+    </div>
+  );
+}

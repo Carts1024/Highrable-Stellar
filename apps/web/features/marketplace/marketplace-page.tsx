@@ -15,6 +15,7 @@ import {
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { useAppMode } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
@@ -73,6 +74,7 @@ function formatBudget(value: number): string {
 
 export function MarketplacePage() {
   const router = useRouter();
+  const { mode } = useAppMode();
   const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const appliedJobIds = useQuery(
@@ -196,32 +198,41 @@ export function MarketplacePage() {
       {/* Hero */}
       <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <ProductPageHero
-          label="Marketplace Workflow"
+          label={mode === "client" ? "Client · Manage your jobs" : "Freelancer · Job board"}
           title={
             <>
-              Marketplace <span className="text-[#FF7003]">for Escrow-backed Collaboration</span>
+              {mode === "client" ? "Your jobs and " : "Jobs and "}
+              <span className="hr-mode-text">
+                {mode === "client" ? "applicants" : "applications"}
+              </span>
             </>
           }
-          description="Post work, review applicants, and move selected collaborations into escrow without leaving the workflow."
+          description={
+            mode === "client"
+              ? "Post work, review the people who applied, and set the payment aside once you have chosen someone."
+              : "Browse jobs, send applications, and follow up once a client picks you."
+          }
           actions={
-            <AppButton
-              type="button"
-              className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
-              onClick={() => setIsCreateJobOpen((open) => !open)}
-            >
-              <Plus className="h-4 w-4" />
-              {isCreateJobOpen ? "Close Job Form" : "Post a Job"}
-            </AppButton>
+            mode === "client" ? (
+              <AppButton
+                type="button"
+                className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
+                onClick={() => setIsCreateJobOpen((open) => !open)}
+              >
+                <Plus className="h-4 w-4" />
+                {isCreateJobOpen ? "Close Job Form" : "Post a Job"}
+              </AppButton>
+            ) : undefined
           }
         />
 
         {/* Metric panel */}
         <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
           {[
-            { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
-            { label: "Matching", value: visibleRows.length },
+            { label: "Open jobs", value: marketplaceRows?.length ?? "—" },
+            { label: "Matching your search", value: visibleRows.length },
             {
-              label: "Visible budget pool",
+              label: "Total budget shown",
               value: formatBudget(totalBudget),
               accent: true,
             },
@@ -243,16 +254,14 @@ export function MarketplacePage() {
       </section>
 
       {/* Create job workspace */}
-      {isCreateJobOpen ? (
+      {mode === "client" && isCreateJobOpen ? (
         <section className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-0.5">
               <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-                Create Job Workspace
+                New job
               </p>
-              <h2 className="hr-text-primary font-sans text-lg font-semibold">
-                Post escrow-ready client work
-              </h2>
+              <h2 className="hr-text-primary font-sans text-lg font-semibold">Post a job</h2>
             </div>
             <AppButton
               type="button"

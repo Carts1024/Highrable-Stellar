@@ -58,7 +58,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
         label="Client Trust Profile"
         title={
           <>
-            Escrow behavior <span className="text-[#FF7003]">before commitment</span>
+            Escrow behavior <span className="hr-mode-text">before commitment</span>
           </>
         }
         description="Client trust on Highrable is based on escrow behavior, not vague ratings."

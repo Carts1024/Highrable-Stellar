@@ -38,7 +38,7 @@ export function RecentClientJobsSection({ jobs }: { readonly jobs: readonly TCli
                   </div>
                   <Link
                     href={`/marketplace/jobs/${job.jobId}`}
-                    className="font-semibold text-[#0a0a0a] hover:text-[#FF7003]"
+                    className="font-semibold text-[#0a0a0a] hover:text-highrable-orange-3"
                   >
                     {job.title}
                   </Link>

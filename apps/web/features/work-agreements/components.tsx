@@ -705,7 +705,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
         if (line.startsWith("- ")) {
           return (
             <p key={key} className="pl-3">
-              <span className="text-[#FF7003]">-</span> {line.slice(2)}
+              <span className="hr-mode-text">-</span> {line.slice(2)}
             </p>
           );
         }
@@ -964,7 +964,7 @@ export function AgreementVersionTimeline({
     <section className="border border-border bg-white">
       <div className="flex items-center justify-between gap-3 border-b border-border p-4">
         <div className="flex items-center gap-2">
-          <GitBranch className="h-4 w-4 text-[#FF7003]" />
+          <GitBranch className="hr-mode-text h-4 w-4" />
           <h3 className="text-hr-text-primary/50 font-mono text-xs tracking-[0.08em] uppercase">
             Agreement Version History
           </h3>
@@ -1258,7 +1258,7 @@ function AgreementActions({
           type="button"
           disabled={disabled}
           onClick={() => void onLock()}
-          className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+          className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
         >
           <Lock className="mr-1 h-4 w-4" />
           Lock Agreement
@@ -1365,7 +1365,7 @@ function AgreementFreelancerResponsePanel({
           type="button"
           disabled={isSubmitting || !accepted}
           onClick={() => void run("accept")}
-          className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+          className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
         >
           {isSubmitting ? (
             <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -1820,7 +1820,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                                       type="button"
                                       disabled={isSubmitting}
                                       onClick={() => void saveAgreementContent()}
-                                      className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+                                      className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
                                     >
                                       {isSubmitting ? (
                                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />

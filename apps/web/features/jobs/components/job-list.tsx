@@ -96,7 +96,7 @@ export function JobList({
               placeholder="Search jobs, skills, or descriptions..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              className="w-full rounded-lg border border-gray-200 py-3 pr-4 pl-10 transition-all duration-200 focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]"
+              className="w-full rounded-lg border border-gray-200 py-3 pr-4 pl-10 transition-all duration-200 focus:border-highrable-orange-2 focus:ring-2 focus:ring-ring"
             />
           </div>
 
@@ -104,7 +104,7 @@ export function JobList({
             <select
               value={filterStatus}
               onChange={(event) => setFilterStatus(event.target.value as JobStatusFilter)}
-              className="rounded-lg border border-gray-200 px-4 py-3 transition-all duration-200 focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]"
+              className="rounded-lg border border-gray-200 px-4 py-3 transition-all duration-200 focus:border-highrable-orange-2 focus:ring-2 focus:ring-ring"
             >
               <option value="all">All Status</option>
               <option value="open">Open</option>
@@ -115,7 +115,7 @@ export function JobList({
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as JobSortOption)}
-              className="rounded-lg border border-gray-200 px-4 py-3 transition-all duration-200 focus:border-[#FF7003] focus:ring-2 focus:ring-[#FF7003]"
+              className="rounded-lg border border-gray-200 px-4 py-3 transition-all duration-200 focus:border-highrable-orange-2 focus:ring-2 focus:ring-ring"
             >
               <option value="newest">Newest First</option>
               <option value="budget_high">Highest Budget</option>
@@ -128,7 +128,7 @@ export function JobList({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Briefcase className="h-5 w-5 text-[#FF7003]" />
+          <Briefcase className="hr-mode-text h-5 w-5" />
           <span className="font-medium text-gray-700">{filteredJobs.length} jobs found</span>
         </div>
       </div>

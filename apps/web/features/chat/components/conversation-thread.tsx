@@ -249,7 +249,7 @@ function WalletTypeBadge({ walletType }: { walletType?: string }) {
 function SystemMessage({ message }: { message: TMessageWithAttachments }) {
   return (
     <div className="mx-auto flex max-w-[88%] items-center gap-2 border border-orange-200 bg-orange-50 px-3 py-2 text-center">
-      <CircleDot className="h-3.5 w-3.5 shrink-0 text-[#E85D00]" aria-hidden="true" />
+      <CircleDot className="hr-mode-text h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <div className="min-w-0 text-left">
         <p className="text-xs leading-snug font-medium text-[#7a3500]">{message.body}</p>
         <p className="mt-0.5 font-mono text-[0.58rem] tracking-[0.04em] text-[#a05a20] uppercase">
@@ -366,7 +366,7 @@ function InlineAttachmentPreview({
       className={`flex items-center gap-2 border px-3 py-2 ${
         isOwnMessage
           ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-          : "border-[#e8e8e8] bg-white text-[#0a0a0a] hover:border-[#FF7003]/70"
+          : "border-[#e8e8e8] bg-white text-[#0a0a0a] hover:border-highrable-orange-2/70"
       }`}
     >
       <span
@@ -423,7 +423,7 @@ function ReplyPreview({
       className={`mb-2 border-l-2 py-1.5 pr-2 pl-2 ${
         isOwnMessage
           ? "border-white/60 bg-white/10 text-white/85"
-          : "border-[#FF7003] bg-[#fff6ef] text-[#5f2a00]"
+          : "border-highrable-orange-2 bg-[#fff6ef] text-[#5f2a00]"
       }`}
     >
       <p className="font-mono text-[0.58rem] tracking-[0.04em] uppercase opacity-80">
@@ -456,7 +456,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
       <article
         className={`group max-w-[82%] border px-3 py-2.5 shadow-sm ${
           isOwnMessage
-            ? "border-[#E85D00] bg-[#FF7003] text-white"
+            ? "border-highrable-orange-3 bg-highrable-orange-2 text-white"
             : "border-border bg-white text-[#0a0a0a]"
         }`}
       >
@@ -493,7 +493,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
             className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] transition-colors ${
               isOwnMessage
                 ? "text-white/70 hover:bg-white/10 hover:text-white"
-                : "text-[#7f7f7f] hover:bg-[#fff3eb] hover:text-[#FF7003]"
+                : "text-[#7f7f7f] hover:bg-accent hover:text-highrable-orange-3"
             }`}
           >
             <Reply className="h-3 w-3" />
@@ -515,7 +515,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
 function EmptyConversationState() {
   return (
     <div className="border border-dashed border-border bg-white p-6 text-center">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center border border-orange-200 bg-orange-50 text-[#E85D00]">
+      <div className="hr-mode-text mx-auto flex h-10 w-10 items-center justify-center border border-orange-200 bg-orange-50">
         <MessageCircle className="h-5 w-5" aria-hidden="true" />
       </div>
       <p className="mt-3 text-sm font-semibold text-[#0a0a0a]">No messages yet.</p>
@@ -638,7 +638,7 @@ function MessageComposer({
           onClick={() => setShowAttachments((current) => !current)}
           className={`h-10 w-10 shrink-0 rounded-none border ${
             showAttachments || readyAttachmentIds.length > 0
-              ? "border-[#FF7003] bg-[#fff3eb] text-[#E85D00] hover:bg-[#ffe6d6]"
+              ? "hr-mode-text border-highrable-orange-2 bg-accent hover:bg-accent"
               : "border-[#e1e1e1] bg-white text-[#5f5f5f] hover:bg-[#fafafa]"
           }`}
           aria-label={showAttachments ? "Hide attachment uploader" : "Show attachment uploader"}
@@ -656,7 +656,7 @@ function MessageComposer({
           placeholder="Write a secure work update..."
           rows={1}
           maxLength={MAX_MESSAGE_BODY_LENGTH}
-          className="max-h-28 min-h-10 flex-1 resize-none rounded-none border-[#e1e1e1] bg-white px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-[#FF7003]/30"
+          className="max-h-28 min-h-10 flex-1 resize-none rounded-none border-[#e1e1e1] bg-white px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-ring/30"
         />
         <AppButton
           type="button"
@@ -672,7 +672,7 @@ function MessageComposer({
         </AppButton>
       </div>
       {readyAttachmentIds.length > 0 && !showAttachments ? (
-        <p className="px-12 text-[0.7rem] text-[#E85D00]">
+        <p className="hr-mode-text px-12 text-[0.7rem]">
           {readyAttachmentIds.length} attachment{readyAttachmentIds.length === 1 ? "" : "s"} ready
           to send.
         </p>
@@ -827,7 +827,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
           aria-label="Open work chat"
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "fixed right-5 bottom-5 z-40 h-14 rounded-none border border-[#FF7003] px-5 text-sm font-semibold text-white shadow-none",
+            "fixed right-5 bottom-5 z-40 h-14 rounded-none border border-highrable-orange-2 px-5 text-sm font-semibold text-white shadow-none",
           )}
         >
           <MessageCircle className="mr-2 h-5 w-5" />

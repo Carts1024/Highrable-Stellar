@@ -23,11 +23,11 @@ export function PostedJobsSection() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-0.5">
           <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Posted Jobs
+            Jobs I posted
           </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">Client work board</h2>
+          <h2 className="hr-text-primary font-sans text-lg font-semibold">My hiring board</h2>
           <p className="hr-text-secondary mt-1 font-sans text-sm">
-            Jobs you posted with applicant volume and current progress.
+            See how many people applied and how far each job has come.
           </p>
         </div>
         <AppButton

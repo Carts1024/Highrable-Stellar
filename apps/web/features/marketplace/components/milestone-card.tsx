@@ -4,6 +4,7 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { ModeOnly } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import Link from "next/link";
@@ -124,25 +125,33 @@ export function MilestoneCard({
             milestone={milestone}
             applicationGate={applicationGate}
           />
-          <div className="space-y-3">
-            <h4 className="hr-text-primary font-sans text-sm font-semibold">Apply</h4>
-            <ApplyToMilestoneForm
-              job={job}
-              milestone={milestone}
-              applicationGate={applicationGate}
-              applications={safeApplications}
-            />
-          </div>
-          <div className="space-y-3">
-            <h4 className="hr-text-primary font-sans text-sm font-semibold">Applications</h4>
-            <MilestoneApplicationsList
-              job={job}
-              milestone={milestone}
-              applicationGate={applicationGate}
-              applications={applications}
-              isLoading={applications === undefined}
-            />
-          </div>
+          <ModeOnly mode="freelancer">
+            <div className="space-y-3">
+              <h4 className="hr-text-primary font-sans text-sm font-semibold">
+                Apply for this stage
+              </h4>
+              <ApplyToMilestoneForm
+                job={job}
+                milestone={milestone}
+                applicationGate={applicationGate}
+                applications={safeApplications}
+              />
+            </div>
+          </ModeOnly>
+          <ModeOnly mode="client">
+            <div className="space-y-3">
+              <h4 className="hr-text-primary font-sans text-sm font-semibold">
+                People who applied
+              </h4>
+              <MilestoneApplicationsList
+                job={job}
+                milestone={milestone}
+                applicationGate={applicationGate}
+                applications={applications}
+                isLoading={applications === undefined}
+              />
+            </div>
+          </ModeOnly>
         </div>
 
         <MilestoneActionPanel

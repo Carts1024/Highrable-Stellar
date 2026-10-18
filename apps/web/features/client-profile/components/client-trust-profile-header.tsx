@@ -121,7 +121,7 @@ export function ClientTrustProfileHeader({
                   href={profile.websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-[#FF7003] hover:text-[#E85D00]"
+                  className="hr-mode-text inline-flex items-center gap-1 font-medium hover:text-highrable-orange-4"
                 >
                   Website <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
