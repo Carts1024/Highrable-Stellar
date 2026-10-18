@@ -23,6 +23,8 @@ interface IFormStepTabsProps {
   readonly onSelect: (index: number) => void;
   readonly idPrefix?: string;
   readonly className?: string;
+  /** Show the active step's title and hint under the tabs. */
+  readonly showStepSummary?: boolean;
 }
 
 /** Numbered tab strip that doubles as a progress indicator. Steps stay clickable. */
@@ -32,6 +34,7 @@ export function FormStepTabs({
   onSelect,
   idPrefix,
   className,
+  showStepSummary = true,
 }: IFormStepTabsProps) {
   const generatedId = useId();
   const prefix = idPrefix ?? generatedId;
@@ -91,7 +94,7 @@ export function FormStepTabs({
         })}
       </div>
 
-      {active ? (
+      {showStepSummary && active ? (
         <div>
           <p className="hr-text-primary font-sans text-base font-semibold">{active.title}</p>
           <p className="hr-text-secondary mt-0.5 font-sans text-sm">{active.hint}</p>

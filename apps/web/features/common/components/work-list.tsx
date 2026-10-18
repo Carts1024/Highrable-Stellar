@@ -5,9 +5,9 @@ import React from "react";
 
 import type { ReactNode } from "react";
 
-/** Bordered list with dividers between rows. */
+/** List of separate clickable containers. */
 export function WorkList({ children }: { readonly children: ReactNode }) {
-  return <ul className="divide-y rounded-lg border bg-card">{children}</ul>;
+  return <ul className="flex flex-col gap-3">{children}</ul>;
 }
 
 interface IWorkListRowProps {
@@ -35,12 +35,12 @@ export function WorkListRow({
   children,
 }: IWorkListRowProps) {
   return (
-    <li className="px-4 py-4 sm:px-5">
+    <li className="hr-clickable-card rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:px-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1 space-y-1">
           <Link
             href={href}
-            className="hr-text-primary block truncate text-sm font-medium hover:underline"
+            className="hr-card-link hr-text-primary block truncate text-base font-medium"
           >
             {title}
           </Link>
@@ -82,9 +82,9 @@ export function WorkMeta({
 
 export function WorkListSkeleton({ rows = 3 }: { readonly rows?: number }) {
   return (
-    <div className="divide-y rounded-lg border" aria-hidden="true">
+    <div className="flex flex-col gap-3" aria-hidden="true">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex justify-between gap-4 px-5 py-4">
+        <div key={i} className="flex justify-between gap-4 rounded-lg border px-5 py-4">
           <div className="w-2/3 space-y-2">
             <div className="h-3.5 w-1/2 animate-pulse rounded bg-muted" />
             <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />

@@ -31,14 +31,7 @@ export type TProfileIdentitySection = "name" | "identity" | "social" | "avatar";
 
 /** Thin labelled divider used as a section header */
 function SectionDivider({ label }: { label: string }) {
-  return (
-    <div className="mb-4 flex items-center gap-3">
-      <div className="h-2 w-2 bg-highrable-text-accent" />
-      <span className="text-sm font-semibold whitespace-nowrap text-highrable-text-accent">
-        {label}
-      </span>
-    </div>
-  );
+  return <h3 className="hr-text-primary mb-3 font-sans text-sm font-semibold">{label}</h3>;
 }
 
 /** Input with a fixed prefix slot (e.g. "@" or "discord.gg/") */
@@ -85,8 +78,8 @@ export function ProfileIdentityFields({
   const [handleFocused, setHandleFocused] = useState(false);
   const handleHint =
     handleFocused && values.publicHandle
-      ? `Profile URL: /@${values.publicHandle}`
-      : "Your public-facing username.";
+      ? `Shown on your profile as @${values.publicHandle.trim().toLowerCase()}`
+      : "3–32 characters: letters, numbers, underscores or hyphens.";
 
   // Parsed skill badges
   const skillBadges = skillsInput
@@ -106,7 +99,7 @@ export function ProfileIdentityFields({
     <div className="space-y-10">
       {/* Name */}
       <section aria-labelledby="section-name" hidden={!isVisible("name")}>
-        <SectionDivider label="Your name" />
+        <SectionDivider label="About You" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="profile-first-name">First name</Label>
@@ -114,7 +107,7 @@ export function ProfileIdentityFields({
               id="profile-first-name"
               value={values.firstName}
               maxLength={60}
-              placeholder="Ada"
+              placeholder="First name"
               required
               onChange={(e) => onFieldChange("firstName", e.target.value)}
             />
@@ -123,13 +116,13 @@ export function ProfileIdentityFields({
           <div className="space-y-1.5">
             <Label htmlFor="profile-middle-name">
               Middle name{" "}
-              <span className="text-xs font-normal text-muted-foreground">optional</span>
+              <span className="text-xs font-normal text-muted-foreground">(optional)</span>
             </Label>
             <Input
               id="profile-middle-name"
               value={values.middleName ?? ""}
               maxLength={60}
-              placeholder="L."
+              placeholder="Middle name"
               onChange={(e) => onFieldChange("middleName", e.target.value)}
             />
           </div>
@@ -140,7 +133,7 @@ export function ProfileIdentityFields({
               id="profile-last-name"
               value={values.lastName}
               maxLength={60}
-              placeholder="Lovelace"
+              placeholder="Last name"
               required
               onChange={(e) => onFieldChange("lastName", e.target.value)}
             />
@@ -150,16 +143,16 @@ export function ProfileIdentityFields({
 
       {/* Identity & skills */}
       <section aria-labelledby="section-identity" hidden={!isVisible("identity")}>
-        <SectionDivider label="Your public profile" />
+        <SectionDivider label="Username and skills" />
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="profile-handle">Public handle</Label>
+            <Label htmlFor="profile-handle">Username</Label>
             <PrefixInput
               id="profile-handle"
               prefix="@"
               value={values.publicHandle}
               maxLength={32}
-              placeholder="stellar_builder"
+              placeholder="Username"
               required
               onChange={(e) => onFieldChange("publicHandle", e.target.value)}
               onFocus={() => setHandleFocused(true)}
@@ -169,15 +162,15 @@ export function ProfileIdentityFields({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-skills">Core skills</Label>
+            <Label htmlFor="profile-skills">Skills</Label>
             <Input
               id="profile-skills"
               value={skillsInput}
-              placeholder="Stellar, React, Smart contracts"
+              placeholder="e.g. Web design, Copywriting, React"
               required
               onChange={(e) => onSkillsInputChange(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Comma-separated, up to 10 skills.</p>
+            <p className="text-xs text-muted-foreground">Separate skills with commas. Up to 10.</p>
             {skillBadges.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {skillBadges.map((skill) => (
@@ -193,44 +186,38 @@ export function ProfileIdentityFields({
 
       {/* Social links */}
       <section aria-labelledby="section-social" hidden={!isVisible("social")}>
-        <SectionDivider label="Where else can people find you? (optional)" />
+        <SectionDivider label="Social links (optional)" />
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="profile-discord">
-              Discord <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </Label>
+            <Label htmlFor="profile-discord">Discord</Label>
             <Input
               id="profile-discord"
               value={values.discordHandle ?? ""}
               maxLength={40}
-              placeholder="username"
+              placeholder="Discord username"
               onChange={(e) => onFieldChange("discordHandle", e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-x">
-              X <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </Label>
+            <Label htmlFor="profile-x">X</Label>
             <PrefixInput
               id="profile-x"
               prefix="@"
               value={values.xHandle ?? ""}
               maxLength={40}
-              placeholder="handle"
+              placeholder="X username"
               onChange={(e) => onFieldChange("xHandle", e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="profile-github">
-              GitHub <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </Label>
+            <Label htmlFor="profile-github">GitHub</Label>
             <Input
               id="profile-github"
               value={values.githubUsername ?? ""}
               maxLength={40}
-              placeholder="username"
+              placeholder="GitHub username"
               onChange={(e) => onFieldChange("githubUsername", e.target.value)}
             />
           </div>
@@ -263,9 +250,9 @@ export function ProfileIdentityFields({
           {/* Info + actions */}
           <div className="space-y-1">
             <Label htmlFor="upload-avatar">
-              Upload a photo{" "}
+              Photo{" "}
               <span className="text-xs font-normal text-muted-foreground">
-                JPEG, PNG, WebP or GIF · Max 5 MB
+                JPEG, PNG, WebP or GIF, up to 5 MB
               </span>
             </Label>
 

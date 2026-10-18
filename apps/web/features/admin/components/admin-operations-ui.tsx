@@ -164,7 +164,7 @@ export function AdminDisputeQueue({
         {disputes.map((dispute) => (
           <article
             key={dispute.disputeId}
-            className="grid gap-3 px-4 py-3 hover:bg-muted/30 lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center lg:gap-4"
+            className="hr-clickable-card grid gap-3 px-4 py-3 hover:bg-muted/30 lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center lg:gap-4"
           >
             {(() => {
               const normalizedAssignedWallet = normalizeAdminWallet(dispute.assignedAdminWallet);
@@ -181,7 +181,14 @@ export function AdminDisputeQueue({
                 <>
                   <div className="min-w-0">
                     <p className="font-mono text-xs text-[#7f7f7f]">{dispute.disputeNumber}</p>
-                    <h3 className="hr-text-primary mt-0.5 text-sm font-medium">{dispute.title}</h3>
+                    <h3 className="mt-0.5 text-sm font-medium">
+                      <Link
+                        href={`/admin/disputes/${encodeURIComponent(dispute.disputeId)}`}
+                        className="hr-card-link hr-text-primary"
+                      >
+                        {dispute.title}
+                      </Link>
+                    </h3>
                     <p className="mt-1 text-xs leading-relaxed text-[#5f5f5f]">
                       {compact ? "Updated" : "Opened"}{" "}
                       {formatDisputeDate(compact ? dispute.updatedAt : dispute.openedAt)}

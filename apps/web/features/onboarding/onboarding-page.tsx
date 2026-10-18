@@ -48,19 +48,19 @@ const ONBOARDING_STEPS: readonly (IFormStep & {
 })[] = [
   {
     id: "about",
-    title: "About You",
-    hint: "Your name and picture, so people know who they are working with.",
+    title: "Your details",
+    hint: "Your name and photo, so people know who they are working with.",
     sections: ["name", "avatar"],
   },
   {
     id: "profile",
-    title: "Your Profile",
-    hint: "Pick a username and list what you are good at.",
+    title: "Username and skills",
+    hint: "Pick a username and list the work you do.",
     sections: ["identity"],
   },
   {
     id: "links",
-    title: "Links & Finish",
+    title: "Links and finish",
     hint: "Add optional links, then save your profile and register your account.",
     sections: ["social"],
   },
@@ -298,6 +298,7 @@ export function OnboardingPage() {
           activeIndex={stepIndex}
           onSelect={setStepIndex}
           idPrefix={ONBOARDING_ID_PREFIX}
+          showStepSummary={false}
         />
 
         <div

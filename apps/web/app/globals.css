@@ -318,3 +318,41 @@ body {
 .hr-num {
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Clickable containers ──────────────────────────────────────────────────
+   Put .hr-clickable-card on the container and .hr-card-link on its main link.
+   The link's ::after covers the whole container, so a click anywhere opens it.
+   Other links, buttons and fields inside stay on top and keep their own action. */
+.hr-clickable-card {
+  position: relative;
+}
+
+.hr-clickable-card .hr-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+
+.hr-clickable-card .hr-card-link:focus-visible {
+  outline: none;
+}
+
+.hr-clickable-card .hr-card-link:focus-visible::after {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.hr-clickable-card :is(a, button, select, input, textarea, [role="button"]):not(.hr-card-link) {
+  position: relative;
+  z-index: 1;
+}
+
+.hr-clickable-card .hr-card-link {
+  transition: color 0.15s ease;
+}
+
+.hr-clickable-card:hover .hr-card-link {
+  color: var(--mode-text, #d95500);
+  font-weight: 700;
+}

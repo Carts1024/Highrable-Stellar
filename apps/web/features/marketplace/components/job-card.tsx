@@ -51,17 +51,17 @@ export function JobCard({
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <li className="group relative flex flex-col gap-3 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
+    <li className="hr-clickable-card flex flex-col gap-3 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
       <div className="min-w-0 flex-1 space-y-1.5">
         <Link
           href={`/marketplace/jobs/${job._id}`}
-          className="hr-text-primary block text-lg leading-snug font-medium transition-colors group-hover:font-bold group-hover:text-(--mode-text) after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring sm:text-xl"
+          className="hr-card-link hr-text-primary block text-lg leading-snug font-medium sm:text-xl"
         >
           {job.title}
         </Link>
         <p className="hr-text-secondary line-clamp-2 text-sm leading-relaxed">{job.description}</p>
 
-        <div className="relative z-10 flex w-fit flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
+        <div className="flex w-fit flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
           <JobSafetyBadge status={safetyStatus.status} />
           {shouldShowMarketplaceStatusBadge && <StatusBadge label={marketplaceStatus} />}
           {isMilestoneProject ? (
@@ -84,7 +84,7 @@ export function JobCard({
             <span className="hr-text-muted">Client </span>
             <Link
               href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-              className="hr-text-primary relative z-10 font-mono hover:text-(--mode-text)"
+              className="hr-text-primary font-mono hover:text-(--mode-text)"
             >
               {shortenWalletAddress(job.clientWallet)}
             </Link>
@@ -106,7 +106,7 @@ export function JobCard({
           <p className="hr-text-primary hr-num flex items-center gap-1 text-base font-semibold sm:justify-end">
             {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
             {isNativeXlmJob ? (
-              <span className="relative z-10 inline-flex">
+              <span className="relative z-[1] inline-flex">
                 <HighrableV2IconNotice
                   label="XLM volatility warning"
                   tone="warning"
@@ -123,7 +123,7 @@ export function JobCard({
             type="button"
             disabled={isApplying}
             onClick={() => onApply(job._id)}
-            className="hr-v2-button-primary relative z-10 h-8 rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            className="hr-v2-button-primary h-8 rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isApplying ? "Applying…" : "Apply"}
           </AppButton>
