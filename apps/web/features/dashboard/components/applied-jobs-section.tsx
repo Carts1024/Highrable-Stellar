@@ -1,6 +1,6 @@
 "use client";
 
-import { RouteEmptyState } from "@/features/common";
+import { RouteEmptyState, SectionHeading } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerAppliedJobs } from "@/features/dashboard/hooks/use-freelancer-applied-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
@@ -18,15 +18,11 @@ export function AppliedJobsSection() {
 
   return (
     <section className="space-y-5">
-      <div className="space-y-0.5">
-        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Jobs I applied for
-        </p>
-        <h2 className="hr-text-primary font-sans text-lg font-semibold">Applied Jobs</h2>
-        <p className="hr-text-secondary mt-1 font-sans text-sm">
-          Every job you applied for, and what is happening with each one.
-        </p>
-      </div>
+      <SectionHeading
+        icon={ClipboardList}
+        title="Jobs I applied for"
+        description="Every job you applied for, and what is happening with each one."
+      />
 
       {isInitialLoading ? (
         <div className="flex flex-col gap-4">

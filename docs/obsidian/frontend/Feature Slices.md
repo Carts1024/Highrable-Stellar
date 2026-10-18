@@ -35,6 +35,9 @@ source_of_truth: repository
 - The shell sets `data-mode` on its wrapper and on `<html>` (so portal dialogs inherit it). `apps/web/app/globals.css` re-points the `--highrable-orange-*` tokens to yellow under `[data-mode="client"]`; Freelancer keeps orange. `/admin` routes always use the default orange theme, a dedicated admin nav, and no mode switch.
 - Client-only UI (`/post-job`, `/talent`, applicant lists, post-job button) is hidden in Freelancer mode, and apply forms/buttons are hidden in Client mode, using `ModeGate` (whole page) or `ModeOnly` (blocks).
 - `features/common/components/form/form-stepper.tsx` provides `FormStepTabs`, `FormStepPanel`, `FormStepNav`. Inactive panels stay mounted (hidden) so form state and validation are unchanged. Used by `CreateJobForm` (4 steps) and `OnboardingPage` (3 steps). Failed validation jumps to the step that holds the error.
+- Visual system: the page background is a mode tint (`--mode-page`) and every white container gets a mode-coloured border and soft shadow. Headings sit on a gradient band (`.hr-card-head`, `SectionCard`, `SectionHeading`); `/admin` uses an orange-to-yellow gradient (`data-mode="admin"`). `--primary` is re-pointed to the mode colour, so no black fills remain; text on yellow is dark (`--mode-on`).
+- Summary cards use `StatCard` (or `HighrableV2Metric` with `tone` + `icon`) with pastel `hr-tone-*` backgrounds. Wallet addresses always use `WalletAddressTile` (sky blue, copyable). The header shows a profile shortcut (`HeaderProfileLink`) that opens the profile matching the current mode.
+- Disputes (list, detail, composers, timeline, dialog) and admin pages share the same band/card/badge styling.
 - `TermHint` (`features/common/components/term-hint.tsx`) holds plain-language definitions (`PLAIN_TERMS`) for jargon such as escrow and wallet.
 
 ## Cross-slice rules

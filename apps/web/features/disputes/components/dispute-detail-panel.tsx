@@ -9,11 +9,12 @@ import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
-import { showWarningToast } from "@/features/common";
+import { SectionCard, showWarningToast, WalletAddressTile } from "@/features/common";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
+import { FileText, History, Paperclip } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 
@@ -511,11 +512,13 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-[#e8e8e8] bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-xs text-[#5f5f5f] uppercase">{dispute.disputeNumber}</p>
-            <h1 className="mt-1 text-2xl font-semibold text-[#0a0a0a]">{dispute.title}</h1>
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="hr-card-head flex flex-wrap items-start justify-between gap-3 px-5 py-4">
+          <div className="min-w-0">
+            <p className="font-mono text-xs font-semibold tracking-[0.06em] uppercase opacity-80">
+              {dispute.disputeNumber}
+            </p>
+            <h1 className="mt-1 font-sans text-2xl leading-tight font-bold">{dispute.title}</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             <DisputeStatusBadge status={dispute.status} />
@@ -526,72 +529,76 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             />
           </div>
         </div>
-        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-          <p>
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
-            <br />
-            {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
-          </p>
-          <p>
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Opened</span>
-            <br />
-            {formatDisputeDate(dispute.openedAt)}
-          </p>
-          <p className="break-all">
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Client</span>
-            <br />
-            {dispute.clientWallet}
-          </p>
-          <p className="break-all">
-            <span className="font-mono text-xs text-[#5f5f5f] uppercase">Freelancer</span>
-            <br />
-            {dispute.freelancerWallet}
-          </p>
+        <div className="space-y-4 p-5">
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="hr-tone-orange hr-tone-card rounded-xl px-3 py-2.5">
+              <p className="text-xs font-semibold" style={{ color: "var(--tone-fg)" }}>
+                Reason
+              </p>
+              <p className="hr-text-primary mt-0.5 font-medium">
+                {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
+              </p>
+            </div>
+            <div className="hr-tone-violet hr-tone-card rounded-xl px-3 py-2.5">
+              <p className="text-xs font-semibold" style={{ color: "var(--tone-fg)" }}>
+                Opened
+              </p>
+              <p className="hr-text-primary mt-0.5 font-medium">
+                {formatDisputeDate(dispute.openedAt)}
+              </p>
+            </div>
+            <WalletAddressTile address={dispute.clientWallet} label="Client" />
+            <WalletAddressTile address={dispute.freelancerWallet} label="Freelancer" />
+          </div>
+          <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">What happened</p>
+            <p className="text-sm whitespace-pre-wrap text-[#3f3f3f]">{dispute.description}</p>
+          </div>
+          <DisputeMarkingStatus
+            status={dispute.onChainStatus}
+            transactionHash={dispute.transactionHash}
+            localOutcome={visibleLocalOutcome}
+            retryPhase={retryPhase}
+            retryError={retryError}
+            onRetry={() => void handleRetryMarkDisputed()}
+            onRetryRecording={() => void handleRetryRecording()}
+            terminal={isTerminalDisputeStatus(dispute.status)}
+          />
         </div>
-        <p className="mt-4 text-sm whitespace-pre-wrap text-[#3f3f3f]">{dispute.description}</p>
-        <DisputeMarkingStatus
-          status={dispute.onChainStatus}
-          transactionHash={dispute.transactionHash}
-          localOutcome={visibleLocalOutcome}
-          retryPhase={retryPhase}
-          retryError={retryError}
-          onRetry={() => void handleRetryMarkDisputed()}
-          onRetryRecording={() => void handleRetryRecording()}
-          terminal={isTerminalDisputeStatus(dispute.status)}
-        />
       </section>
 
-      <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">
-        <h2 className="mb-3 text-lg font-semibold text-[#0a0a0a]">
-          Agreement Context for Platform-Reviewed Dispute
-        </h2>
+      <SectionCard
+        icon={FileText}
+        title="Agreement Context for Platform-Reviewed Dispute"
+        description="The job terms both sides agreed to."
+      >
         <AgreementReferenceCard context={agreementContext} />
-      </section>
+      </SectionCard>
 
-      <section className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-5">
-        <h2 className="text-lg font-semibold text-[#0a0a0a]">Evidence</h2>
-        <div className="mt-3">
-          <AttachmentList attachments={dispute.attachments ?? []} readOnly />
-        </div>
-      </section>
+      <SectionCard icon={Paperclip} title="Evidence" description="Files shared for this case.">
+        <AttachmentList attachments={dispute.attachments ?? []} readOnly />
+      </SectionCard>
 
       <DisputeParticipantActions
         disputeId={dispute._id}
         viewerWallet={walletIdentity.walletAddress}
       />
 
-      <section>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#0a0a0a]">Dispute Evidence Timeline</h2>
-          <AppButton asChild variant="secondary" size="sm">
+      <SectionCard
+        icon={History}
+        title="Dispute Evidence Timeline"
+        description="Everything that happened in this case, in order."
+        action={
+          <AppButton asChild variant="outline" size="sm" className="border-white bg-white">
             <Link href="/disputes">All Disputes</Link>
           </AppButton>
-        </div>
+        }
+      >
         <ParticipantDisputeTimeline
           disputeId={dispute._id}
           viewerWallet={walletIdentity.walletAddress}
         />
-      </section>
+      </SectionCard>
     </div>
   );
 }

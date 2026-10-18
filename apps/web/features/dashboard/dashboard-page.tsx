@@ -2,7 +2,7 @@
 
 import { WalletRequiredNotice } from "@/core/wallet/components/wallet-required-notice";
 import { AdminDashboardEntry } from "@/features/admin";
-import { ProductPageHero, RouteCallout } from "@/features/common";
+import { ProductPageHero, RouteCallout, SectionHeading } from "@/features/common";
 import { AppliedJobsSection } from "@/features/dashboard/components/applied-jobs-section";
 import { IncomeMetricCard } from "@/features/dashboard/components/income-metric-card";
 import { OngoingJobsSection } from "@/features/dashboard/components/ongoing-jobs-section";
@@ -13,7 +13,7 @@ import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role"
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
-import { MODE_COPY, ModeSwitch, useAppMode } from "@/features/mode";
+import { MODE_COPY, useAppMode } from "@/features/mode";
 import { useRequireOnboarding } from "@/features/onboarding";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
@@ -26,6 +26,7 @@ import {
   DollarSign,
   Hourglass,
   Users,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -159,8 +160,8 @@ function DashboardCommandBar({
               You are in {copy.label}
             </p>
             <p className="hr-text-secondary text-sm">
-              {copy.tagline} Want to {mode === "client" ? "look for work" : "hire someone"}? Use the
-              switch.
+              {copy.tagline} To {mode === "client" ? "look for work" : "hire someone"}, change your
+              mode on your profile page.
             </p>
           </div>
         </div>
@@ -174,7 +175,6 @@ function DashboardCommandBar({
               <Link href={publicProfileHref}>View my public profile</Link>
             </AppButton>
           ) : null}
-          <ModeSwitch size="large" />
         </div>
       </div>
     </div>
@@ -191,16 +191,11 @@ function QuickActions({ mode }: { readonly mode: TDashboardMode }) {
       transition={{ delay: 0.7 }}
       className="space-y-5"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="hr-mode-text font-mono text-[11px] tracking-[0.08em] uppercase">
-            Shortcuts
-          </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">
-            What would you like to do?
-          </h2>
-        </div>
-      </div>
+      <SectionHeading
+        icon={Zap}
+        title="What would you like to do?"
+        description="Shortcuts for the most common things."
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {actions.map((action) => {
@@ -330,6 +325,7 @@ export function DashboardPage() {
           >
             <IncomeMetricCard
               title="Total earned"
+              tone="green"
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
               subtitle="Money you have been paid for finished jobs"
               icon={DollarSign}
@@ -338,6 +334,7 @@ export function DashboardPage() {
 
             <IncomeMetricCard
               title="Payments on hold"
+              tone="yellow"
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
               subtitle="Clients have set this money aside for your work"
               icon={Clock}
@@ -346,6 +343,7 @@ export function DashboardPage() {
 
             <IncomeMetricCard
               title="Finished jobs"
+              tone="sky"
               value={summary.completedJobs.toString()}
               subtitle="Jobs where you have been paid"
               icon={CheckCircle}
@@ -354,6 +352,7 @@ export function DashboardPage() {
 
             <IncomeMetricCard
               title="Jobs in progress"
+              tone="orange"
               value={summary.activeJobs.toString()}
               subtitle="Paid for upfront or handed in, waiting for approval"
               icon={Briefcase}
@@ -362,6 +361,7 @@ export function DashboardPage() {
 
             <IncomeMetricCard
               title="Waiting for payment"
+              tone="violet"
               value={summary.awaitingFunding.toString()}
               subtitle="Client has picked you but has not set the money aside yet"
               icon={Hourglass}

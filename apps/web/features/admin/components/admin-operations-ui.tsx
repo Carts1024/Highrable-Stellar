@@ -8,9 +8,10 @@ import {
 } from "@/features/admin/lib/assignment-validation";
 import { DisputeOnChainStatusBadge, DisputeStatusBadge } from "@/features/disputes";
 import { formatDisputeDate, getDisputeReasonLabel } from "@/features/disputes/lib";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2Metric } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
+import { Activity, AlertTriangle, CheckCircle2, Clock, FileText, Users } from "lucide-react";
 import Link from "next/link";
 import React, { type ReactNode } from "react";
 
@@ -77,14 +78,19 @@ export function AdminSection({
   className,
 }: IAdminSectionProps) {
   return (
-    <section className={cn("border border-[#e8e8e8] bg-white", className)}>
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
-        <div className="max-w-3xl space-y-2">
-          <SectionLabel>{label}</SectionLabel>
-          <h2 className="text-xl font-semibold text-[#0a0a0a]">{title}</h2>
-          {description ? (
-            <p className="text-sm leading-relaxed text-[#5f5f5f]">{description}</p>
-          ) : null}
+    <section
+      className={cn(
+        "overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm",
+        className,
+      )}
+    >
+      <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 p-5 sm:px-6">
+        <div className="max-w-3xl space-y-1">
+          <p className="font-mono text-[11px] font-semibold tracking-[0.08em] uppercase opacity-80">
+            {label}
+          </p>
+          <h2 className="text-xl font-bold">{title}</h2>
+          {description ? <p className="text-sm leading-relaxed opacity-90">{description}</p> : null}
         </div>
         {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
       </div>
@@ -93,31 +99,46 @@ export function AdminSection({
   );
 }
 
+const METRIC_STYLES = [
+  { tone: "orange", Icon: Activity },
+  { tone: "yellow", Icon: Users },
+  { tone: "sky", Icon: FileText },
+  { tone: "green", Icon: CheckCircle2 },
+  { tone: "violet", Icon: Clock },
+  { tone: "rose", Icon: AlertTriangle },
+] as const;
+
 export function AdminMetricRail({ items }: IAdminMetricRailProps) {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-      {items.map((item) => (
-        <HighrableV2Metric
-          key={item.label}
-          label={item.label}
-          value={item.value}
-          description={item.description}
-        />
-      ))}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {items.map((item, index) => {
+        const { tone, Icon } = METRIC_STYLES[index % METRIC_STYLES.length]!;
+
+        return (
+          <HighrableV2Metric
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            description={item.description}
+            tone={tone}
+            icon={<Icon className="h-5 w-5" aria-hidden="true" />}
+          />
+        );
+      })}
     </div>
   );
 }
 
 export function AdminBreakdownMatrix({ groups }: IAdminBreakdownMatrixProps) {
   return (
-    <div className="divide-y divide-[#e8e8e8] border border-[#e8e8e8]">
+    <div className="divide-y divide-[color:var(--mode-border)] overflow-hidden rounded-lg border border-[var(--mode-border)]">
       {groups.map((group) => {
         const rows = getSortedBreakdownRows(group.values);
 
         return (
           <div
             key={group.title}
-            className="grid gap-4 p-4 lg:grid-cols-[minmax(180px,0.45fr)_minmax(0,1fr)] lg:items-start"
+            className="grid gap-4 p-4 even:bg-[#fffbeb] lg:grid-cols-[minmax(180px,0.45fr)_minmax(0,1fr)] lg:items-start"
           >
             <div>
               <h3 className="font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase">
@@ -163,19 +184,19 @@ export function AdminDisputeQueue({
   }
 
   return (
-    <div className="overflow-hidden border border-[#e8e8e8]">
-      <div className="hidden grid-cols-[minmax(220px,1fr)_180px_220px_130px] gap-4 border-b border-[#e8e8e8] bg-[#fafafa] px-4 py-3 font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase lg:grid">
+    <div className="overflow-hidden rounded-lg border border-[var(--mode-border)]">
+      <div className="hr-card-head-soft hidden grid-cols-[minmax(220px,1fr)_180px_220px_130px] gap-4 px-4 py-3 font-mono text-xs font-semibold tracking-[0.06em] text-[#7a4a00] uppercase lg:grid">
         <span>Dispute</span>
         <span>Reason</span>
         <span>Status</span>
         <span className="text-right">Action</span>
       </div>
 
-      <div className="divide-y divide-[#e8e8e8]">
+      <div className="divide-y divide-[color:var(--mode-border)]">
         {disputes.map((dispute) => (
           <article
             key={dispute.disputeId}
-            className="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center"
+            className="grid gap-4 px-4 py-4 even:bg-[#fffbeb] hover:bg-[#fff4d6] lg:grid-cols-[minmax(220px,1fr)_180px_220px_130px] lg:items-center"
           >
             {(() => {
               const normalizedAssignedWallet = normalizeAdminWallet(dispute.assignedAdminWallet);

@@ -178,7 +178,11 @@ vi.mock("convex/react", () => ({
   },
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) =>
     createElement("h1", undefined, title),
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
@@ -249,6 +253,18 @@ vi.mock("@repo/ui/components/ui/textarea", () => ({
   Textarea: (props: Record<string, unknown>) => createElement("textarea", props),
 }));
 vi.mock("lucide-react", () => ({
+  Activity: () => createElement("span"),
+  AlertTriangle: () => createElement("span"),
+  CheckCircle2: () => createElement("span"),
+  Clock: () => createElement("span"),
+  FileText: () => createElement("span"),
+  Users: () => createElement("span"),
+  History: () => createElement("span"),
+  Paperclip: () => createElement("span"),
+  Scale: () => createElement("span"),
+  Wallet: () => createElement("span"),
+  Copy: () => createElement("span"),
+  Check: () => createElement("span"),
   ArrowLeft: () => createElement("span"),
   ExternalLink: () => createElement("span"),
   RotateCcw: () => createElement("span"),

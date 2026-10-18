@@ -1,15 +1,8 @@
 "use client";
 
-import { WalletAccountButton } from "@/core/wallet/components/wallet-account-button";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import {
-  MODE_COPY,
-  MODE_NAVIGATION,
-  ModeSwitch,
-  useAppMode,
-  type IModeNavItem,
-} from "@/features/mode";
+import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
 import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -17,6 +10,8 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { HeaderProfileLink } from "./header-profile-link";
 
 const ADMIN_NAVIGATION: readonly IModeNavItem[] = [
   { name: "Overview", href: "/admin", description: "Platform totals and recent activity" },
@@ -47,8 +42,6 @@ export function Header() {
 
   const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
   const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
-  const connectedWalletClass =
-    "hidden rounded-lg border border-border bg-white px-4 py-2 font-mono text-xs tracking-[0.06em] text-[#0a0a0a] uppercase transition-colors hover:border-highrable-orange-3 sm:inline-flex";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -81,7 +74,11 @@ export function Header() {
         </Link>
 
         {/* Desktop nav — only pages that belong to the current mode */}
-        <div className="hidden items-center gap-1 md:flex" role="navigation" aria-label={navLabel}>
+        <div
+          className="ml-auto hidden items-center gap-1 md:flex"
+          role="navigation"
+          aria-label={navLabel}
+        >
           {navigation.map(({ href, name }) => (
             <Link
               key={name}
@@ -99,12 +96,10 @@ export function Header() {
 
         {/* Mode switch + wallet + mobile toggle */}
         <div className="flex items-center gap-3">
-          {isAdminRoute ? null : <ModeSwitch className="hidden sm:inline-flex" />}
+          {isAdminRoute ? null : <HeaderProfileLink />}
           {!walletIdentity.isConnected ? (
             <WalletConnectTrigger className={walletActionClass} />
-          ) : (
-            <WalletAccountButton className={connectedWalletClass} />
-          )}
+          ) : null}
           <button
             className="rounded-lg p-2 text-[#6b6b6b] transition-colors hover:bg-muted hover:text-foreground md:hidden"
             onClick={() => setMobileMenuOpen((v) => !v)}
@@ -126,14 +121,6 @@ export function Header() {
             className="absolute inset-x-0 top-16 overflow-hidden border-t border-border bg-white shadow-[0_16px_32px_rgba(10,10,10,0.08)] md:hidden"
           >
             <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-1 py-4")}>
-              {isAdminRoute ? null : (
-                <div className="pb-3">
-                  <p className="mb-2 font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
-                    I am using Highrable as a
-                  </p>
-                  <ModeSwitch size="large" className="w-full justify-between" />
-                </div>
-              )}
               {navigation.map(({ href, name, description }) => (
                 <Link
                   key={name}
@@ -151,18 +138,16 @@ export function Header() {
                   </span>
                 </Link>
               ))}
-              <div className="border-t border-border pt-3">
-                {!walletIdentity.isConnected ? (
+              {isAdminRoute ? null : (
+                <div onClick={() => setMobileMenuOpen(false)} role="presentation" className="pt-2">
+                  <HeaderProfileLink showLabel className="w-full" />
+                </div>
+              )}
+              {!walletIdentity.isConnected ? (
+                <div className="border-t border-border pt-3">
                   <WalletConnectTrigger className={walletDrawerActionClass} />
-                ) : (
-                  <WalletAccountButton
-                    className={cn(
-                      walletDrawerActionClass,
-                      "border border-border bg-white text-[#0a0a0a]",
-                    )}
-                  />
-                )}
-              </div>
+                </div>
+              ) : null}
             </div>
           </motion.div>
         )}

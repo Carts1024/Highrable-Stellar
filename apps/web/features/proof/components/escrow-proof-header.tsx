@@ -27,7 +27,7 @@ export function EscrowProofHeader({ proof }: { readonly proof: TEscrowProof }) {
         <div className="space-y-3">
           <SectionLabel>Proof Receipt</SectionLabel>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="rounded-none bg-[#0a0a0a] px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.08em] text-white uppercase hover:bg-[#0a0a0a]">
+            <Badge className="rounded-none bg-highrable-orange-2 px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.08em] text-[var(--mode-on)] uppercase hover:bg-highrable-orange-2">
               {PROOF_STATUS_LABELS[proof.proofStatus]}
             </Badge>
             <HighrableV2Badge>{PROOF_TYPE_LABELS[proof.proofType]}</HighrableV2Badge>

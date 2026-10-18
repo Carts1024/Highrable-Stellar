@@ -1,6 +1,6 @@
 "use client";
 
-import { RouteEmptyState } from "@/features/common";
+import { RouteEmptyState, SectionHeading } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useClientPostedJobs } from "@/features/dashboard/hooks/use-client-posted-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
@@ -20,27 +20,23 @@ export function PostedJobsSection() {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Jobs I posted
-          </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">My hiring board</h2>
-          <p className="hr-text-secondary mt-1 font-sans text-sm">
-            See how many people applied and how far each job has come.
-          </p>
-        </div>
-        <AppButton
-          asChild
-          variant="outline"
-          className="h-9 gap-2 rounded-lg px-4 text-xs font-semibold"
-        >
-          <Link href="/post-job">
-            <Plus className="h-3.5 w-3.5" />
-            Post a Job
-          </Link>
-        </AppButton>
-      </div>
+      <SectionHeading
+        icon={Briefcase}
+        title="Jobs I posted"
+        description="See how many people applied and how far each job has come."
+        action={
+          <AppButton
+            asChild
+            variant="outline"
+            className="h-9 gap-2 rounded-lg border-white/70 bg-white px-4 text-xs font-semibold"
+          >
+            <Link href="/post-job">
+              <Plus className="h-3.5 w-3.5" />
+              Post a Job
+            </Link>
+          </AppButton>
+        }
+      />
 
       {isInitialLoading ? (
         <div className="flex flex-col gap-4">

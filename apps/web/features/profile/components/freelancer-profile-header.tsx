@@ -1,16 +1,14 @@
 "use client";
 
-import { ProfileAvatar } from "@/features/common";
-import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { ProfileAvatar, WalletAddressTile } from "@/features/common";
 import {
   getGithubProfileUrl,
   getSafeExternalProfileUrl,
   getXProfileUrl,
 } from "@/features/profile/lib/profile-format";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Check, Copy, ExternalLink, Github, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { ExternalLink, Github, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
 import type { TFreelancerProfile, TFreelancerProfileStats } from "@/features/profile/types";
 
@@ -25,7 +23,6 @@ export function FreelancerProfileHeader({
   readonly canEdit: boolean;
   readonly onEdit: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const displayName = profile.name || "Unnamed Freelancer";
   const walletTypeLabel =
     profile.walletType === "passkey_smart_account" ? "Passkey Smart Account" : "External Wallet";
@@ -34,37 +31,21 @@ export function FreelancerProfileHeader({
   const xProfileUrl = getXProfileUrl(profile.xHandle);
   const githubProfileUrl = getGithubProfileUrl(profile.githubUsername);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(profile.walletAddress);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  };
-
   return (
-    <section className="rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-      {/* Header bar — mirrors job-detail "Contract Snapshot" pattern */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 p-5 sm:p-6">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Freelancer Identity
-          </p>
-          <h2 className="hr-text-primary font-sans text-2xl font-semibold">{displayName}</h2>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+    <section className="overflow-hidden rounded-xl border bg-card">
+      {/* Cover */}
+      <div className="hr-card-head relative h-28 sm:h-32">
+        <div className="absolute top-3 right-3 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-            Escrow-verified
+            Payments verified
           </span>
           {canEdit ? (
             <AppButton
               type="button"
               variant="outline"
               onClick={onEdit}
-              className="h-9 shrink-0 rounded-lg px-4 text-xs font-semibold"
+              className="h-8 shrink-0 rounded-lg border-white bg-white px-3 text-xs font-semibold"
             >
               <Pencil className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
               Edit profile
@@ -73,54 +54,35 @@ export function FreelancerProfileHeader({
         </div>
       </div>
 
-      {/* Body */}
-      <div className="p-5 sm:p-6">
-        <div className="flex min-w-0 gap-4">
-          <div className="shrink-0">
-            <ProfileAvatar
-              avatarUrl={profile.avatarUrl}
-              displayName={displayName}
-              fallbackLabel="UF"
-            />
+      {/* Identity */}
+      <div className="px-5 pb-5 sm:px-6">
+        <div className="-mt-10 flex flex-wrap items-end gap-4">
+          <ProfileAvatar
+            className="h-20 w-20 rounded-2xl"
+            avatarUrl={profile.avatarUrl}
+            displayName={displayName}
+            fallbackLabel="UF"
+          />
+          <div className="min-w-0 pb-1">
+            <span className="hr-mode-soft hr-mode-text inline-flex rounded-full border border-[var(--mode-border)] px-2.5 py-0.5 text-[11px] font-semibold">
+              Freelancer
+            </span>
+            <h2 className="hr-text-primary mt-1 font-sans text-2xl font-bold">{displayName}</h2>
           </div>
+        </div>
 
+        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <div className="min-w-0 space-y-3">
-            {/* Wallet address row */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs break-all text-muted-foreground">
-                {shortenWalletAddress(profile.walletAddress)}
-              </span>
-              <span className="inline-flex items-center rounded-md border border-border/80 bg-muted/50 px-2 py-0.5 font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
-                {walletTypeLabel}
-              </span>
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleCopy()}
-                className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                aria-label="Copy wallet address"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </AppButton>
-            </div>
-
-            {/* Bio */}
             <p className="hr-text-secondary max-w-3xl font-sans text-sm leading-relaxed">
               {profile.bio || "This freelancer has not added a bio yet."}
             </p>
 
-            {/* Skills */}
             {profile.skills.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {profile.skills.map((skill) => (
                   <span
                     key={skill}
-                    className="hr-text-primary inline-flex items-center rounded-md border border-border/80 bg-muted/50 px-2.5 py-1 text-xs font-medium"
+                    className="hr-mode-soft hr-text-primary inline-flex items-center rounded-full border border-[var(--mode-border)] px-3 py-1 text-xs font-medium"
                   >
                     {skill}
                   </span>
@@ -128,7 +90,6 @@ export function FreelancerProfileHeader({
               </div>
             ) : null}
 
-            {/* Location + external links */}
             <div className="flex flex-wrap items-center gap-4 text-sm">
               {profile.location ? (
                 <span className="inline-flex items-center gap-1.5 text-muted-foreground">
@@ -141,7 +102,7 @@ export function FreelancerProfileHeader({
                   href={portfolioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 transition-colors hover:text-highrable-orange-2"
+                  className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 transition-colors hover:text-highrable-orange-4"
                 >
                   Portfolio <ExternalLink className="h-3 w-3" />
                 </Link>
@@ -151,7 +112,7 @@ export function FreelancerProfileHeader({
                   href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 transition-colors hover:text-highrable-orange-2"
+                  className="inline-flex items-center gap-1 font-medium text-highrable-orange-3 transition-colors hover:text-highrable-orange-4"
                 >
                   Website <ExternalLink className="h-3 w-3" />
                 </Link>
@@ -180,7 +141,7 @@ export function FreelancerProfileHeader({
                     className="hr-text-primary inline-flex items-center gap-2 rounded-lg border border-border/80 bg-muted/50 px-3 py-1.5 text-xs font-medium transition-colors hover:border-foreground/20 hover:bg-muted"
                   >
                     <span
-                      className="inline-flex h-4 w-4 items-center justify-center rounded bg-foreground text-[9px] font-bold text-background"
+                      className="inline-flex h-4 w-4 items-center justify-center rounded bg-highrable-orange-2 text-[9px] font-bold text-[var(--mode-on)]"
                       aria-hidden="true"
                     >
                       X
@@ -202,40 +163,16 @@ export function FreelancerProfileHeader({
               </div>
             ) : null}
           </div>
-        </div>
 
-        {/* Meta grid — mirrors job-detail dl grid */}
-        <dl className="mt-6 grid gap-5 border-t border-border/60 pt-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-              Wallet
-            </dt>
-            <dd className="hr-text-primary font-sans font-semibold break-all">
-              {profile.walletAddress}
-            </dd>
-          </div>
-          <div>
-            <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-              Wallet type
-            </dt>
-            <dd className="hr-text-primary font-sans font-semibold">{walletTypeLabel}</dd>
-          </div>
-          {profile.location ? (
-            <div>
-              <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-                Location
-              </dt>
-              <dd className="hr-text-primary font-sans font-semibold">{profile.location}</dd>
-            </div>
-          ) : null}
-        </dl>
+          <WalletAddressTile address={profile.walletAddress} note={walletTypeLabel} />
+        </div>
       </div>
 
       {/* No work footer strip */}
       {stats.completedContracts === 0 ? (
         <div className="border-t border-border/60 bg-muted/30 px-5 py-3 sm:px-6">
           <p className="font-mono text-[11px] tracking-[0.06em] text-muted-foreground uppercase">
-            No escrow-verified paid work completed on Highrable yet
+            No paid jobs finished on Highrable yet
           </p>
         </div>
       ) : null}

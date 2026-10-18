@@ -194,7 +194,11 @@ vi.mock("convex/react", () => ({
   },
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) =>
     createElement("h1", undefined, title),
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
@@ -306,6 +310,16 @@ vi.mock("@repo/ui/responsive-dialog", () => ({
 vi.mock("lucide-react", () => {
   const Icon = (props: Record<string, unknown>) => createElement("span", props);
   return {
+    Activity: Icon,
+    Users: Icon,
+    CheckCircle2: Icon,
+    Clock: Icon,
+    Scale: Icon,
+    History: Icon,
+    Paperclip: Icon,
+    Wallet: Icon,
+    Copy: Icon,
+    Check: Icon,
     AlertTriangle: Icon,
     ArrowLeft: Icon,
     Download: Icon,

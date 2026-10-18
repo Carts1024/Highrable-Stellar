@@ -2,6 +2,7 @@ import {
   formatAssetAmountList,
   formatPercent,
 } from "@/features/client-profile/lib/client-profile-format";
+import { getStatStyle } from "@/features/common";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
 
@@ -63,8 +64,8 @@ export function ClientTrustStatsCards({ stats }: { readonly stats: TClientTrustS
   ];
 
   return (
-    <section className="border border-[#e8e8e8] bg-white">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#e8e8e8] p-5 sm:p-6">
+    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
+      <div className="hr-card-head flex flex-wrap items-start justify-between gap-3 p-5 sm:px-6">
         <div>
           <SectionLabel>Escrow Behavior</SectionLabel>
           <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Trust stats</h2>
@@ -82,15 +83,20 @@ export function ClientTrustStatsCards({ stats }: { readonly stats: TClientTrustS
           ) : null}
         </div>
       </div>
-      <div className="grid gap-y-6 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
-        {statItems.map((item) => (
-          <HighrableV2Metric
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            description={item.helper}
-          />
-        ))}
+      <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+        {statItems.map((item, index) => {
+          const { tone, Icon } = getStatStyle(index);
+          return (
+            <HighrableV2Metric
+              tone={tone}
+              icon={<Icon className="h-5 w-5" aria-hidden="true" />}
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              description={item.helper}
+            />
+          );
+        })}
       </div>
     </section>
   );

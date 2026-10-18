@@ -1,6 +1,6 @@
 "use client";
 
-import { RouteEmptyState } from "@/features/common";
+import { RouteEmptyState, SectionHeading } from "@/features/common";
 import { RecentPayoutItem } from "@/features/dashboard/components/recent-payout-item";
 import { motion } from "framer-motion";
 import { Wallet } from "lucide-react";
@@ -19,15 +19,11 @@ export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
       transition={{ delay: 0.6 }}
     >
       <section className="space-y-5">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Recent payments received
-          </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">Verified releases</h2>
-          <p className="hr-text-secondary mt-1 font-sans text-sm">
-            Each payment here is linked to a finished job.
-          </p>
-        </div>
+        <SectionHeading
+          icon={Wallet}
+          title="Recent payments received"
+          description="Each payment here is linked to a finished job."
+        />
 
         {payouts.length === 0 ? (
           <RouteEmptyState

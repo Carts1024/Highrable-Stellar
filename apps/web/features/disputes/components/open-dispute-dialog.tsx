@@ -526,7 +526,7 @@ export function OpenDisputeDialog({
   return (
     <ResponsiveDialog open={isOpen} onOpenChange={isSubmitting ? undefined : onOpenChange}>
       <ResponsiveDialogContent className="max-w-3xl">
-        <ResponsiveDialogHeader>
+        <ResponsiveDialogHeader className="hr-card-head rounded-lg px-5 py-4">
           <ResponsiveDialogTitle className="text-xl text-[#0a0a0a]">
             Open Platform-Reviewed Dispute
           </ResponsiveDialogTitle>

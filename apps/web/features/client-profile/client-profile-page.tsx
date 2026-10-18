@@ -7,6 +7,7 @@ import { EditClientProfileForm } from "@/features/client-profile/components/edit
 import { getClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { ModeSwitchCard } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -53,7 +54,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
   const indicator = getClientTrustIndicator(stats);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <ProductPageHero
         label="Client Trust Profile"
         title={
@@ -70,6 +71,8 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+
+      {canEdit ? <ModeSwitchCard /> : null}
 
       {isEditing && canEdit ? (
         <EditClientProfileForm

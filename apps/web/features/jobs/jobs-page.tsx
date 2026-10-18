@@ -133,11 +133,6 @@ export function JobsPage() {
       .sort(JOB_SORTERS[sortBy]);
   }, [marketplaceRows, searchTerm, sortBy, filter]);
 
-  const totalBudget = useMemo(
-    () => visibleJobs.reduce((total, row) => total + row.job.budget, 0),
-    [visibleJobs],
-  );
-
   const appliedJobIdSet = useMemo(() => {
     if (!walletIdentity.walletAddress) return new Set<string>();
     return appliedJobIds ? new Set<string>(appliedJobIds) : undefined;
@@ -197,7 +192,7 @@ export function JobsPage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+      <section className="border-b border-[var(--mode-border)] pb-8">
         <ProductPageHero
           label={isFreelancerMode ? "Freelancer · Find work" : "Client · Open jobs"}
           title={
@@ -211,7 +206,7 @@ export function JobsPage() {
           description={
             isFreelancerMode
               ? "Look through open jobs, read what the client needs, and send an application. Jobs marked Verified Funded already have the payment set aside."
-              : "You are browsing as a client. To apply for a job, switch to Freelancer mode. To hire someone, post your own job."
+              : "You are browsing as a client. To apply for a job, change your mode to Freelancer on your profile page. To hire someone, post your own job."
           }
           actions={
             isFreelancerMode ? undefined : (
@@ -221,32 +216,6 @@ export function JobsPage() {
             )
           }
         />
-
-        {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-          {[
-            { label: "Open jobs", value: marketplaceRows?.length ?? "—" },
-            { label: "Matching your search", value: visibleJobs.length },
-            {
-              label: "Total budget shown",
-              value: formatBudget(totalBudget),
-              accent: true,
-            },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-                {label}
-              </span>
-              <span
-                className={`text-xl leading-none font-semibold sm:text-2xl ${
-                  accent ? "text-highrable-orange-2" : "hr-text-primary"
-                }`}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
       </section>
 
       {/* Controls */}
@@ -444,7 +413,7 @@ export function JobsPage() {
                   </div>
 
                   {/* Meta strip */}
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-[#f3f4f6] px-6 py-3 text-xs">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
                         Type

@@ -254,7 +254,7 @@ export function ApplicationsList({
                     <AppButton
                       type="button"
                       variant="outline"
-                      className="border-highrable-text-primary/20 px-3 text-xs text-highrable-text-primary hover:border-highrable-text-primary/50 hover:bg-muted hover:text-highrable-text-primary"
+                      className="border-highrable-orange-3 px-3 text-xs text-highrable-text-accent hover:border-highrable-orange-4 hover:bg-muted hover:text-highrable-text-accent"
                     >
                       Proposal
                     </AppButton>
@@ -281,7 +281,7 @@ export function ApplicationsList({
                   <AppButton
                     asChild
                     variant="outline"
-                    className="border-highrable-text-primary/20 px-3 text-xs text-highrable-text-primary hover:border-highrable-text-primary/50 hover:bg-muted hover:text-highrable-text-primary"
+                    className="border-highrable-orange-3 px-3 text-xs text-highrable-text-accent hover:border-highrable-orange-4 hover:bg-muted hover:text-highrable-text-accent"
                   >
                     <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
                       View Showcased Work
@@ -292,7 +292,7 @@ export function ApplicationsList({
                 <AppButton
                   asChild
                   variant="outline"
-                  className="border-highrable-text-primary/20 px-3 text-xs text-highrable-text-primary hover:border-highrable-text-primary/50 hover:bg-muted hover:text-highrable-text-primary"
+                  className="border-highrable-orange-3 px-3 text-xs text-highrable-text-accent hover:border-highrable-orange-4 hover:bg-muted hover:text-highrable-text-accent"
                 >
                   <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
                     View Profile

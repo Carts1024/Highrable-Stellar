@@ -66,12 +66,6 @@ function compareSafetyRankOnly(left: TMarketplaceJobRow, right: TMarketplaceJobR
   );
 }
 
-function formatBudget(value: number): string {
-  return new Intl.NumberFormat("en", {
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 export function MarketplacePage() {
   const router = useRouter();
   const { mode } = useAppMode();
@@ -119,10 +113,6 @@ export function MarketplacePage() {
       })
       .sort(MARKETPLACE_SORTERS[sortBy]);
   }, [marketplaceRows, searchTerm, sortBy, filter]);
-
-  const totalBudget = useMemo(() => {
-    return visibleRows.reduce((total, row) => total + (row.job.totalBudget ?? row.job.budget), 0);
-  }, [visibleRows]);
 
   const appliedJobIdSet = useMemo(() => {
     if (!walletIdentity.walletAddress) {
@@ -196,7 +186,7 @@ export function MarketplacePage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+      <section className="border-b border-[var(--mode-border)] pb-8">
         <ProductPageHero
           label={mode === "client" ? "Client · Manage your jobs" : "Freelancer · Job board"}
           title={
@@ -225,32 +215,6 @@ export function MarketplacePage() {
             ) : undefined
           }
         />
-
-        {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-          {[
-            { label: "Open jobs", value: marketplaceRows?.length ?? "—" },
-            { label: "Matching your search", value: visibleRows.length },
-            {
-              label: "Total budget shown",
-              value: formatBudget(totalBudget),
-              accent: true,
-            },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-                {label}
-              </span>
-              <span
-                className={`text-xl leading-none font-semibold sm:text-2xl ${
-                  accent ? "text-highrable-orange-2" : "hr-text-primary"
-                }`}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
       </section>
 
       {/* Create job workspace */}

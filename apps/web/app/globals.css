@@ -107,16 +107,38 @@ html[data-snap-overflow] .landing-v2-page > main > section {
    Freelancer mode keeps the default Highrable orange. Client mode re-points the
    same tokens to yellow so every token-based surface changes colour together.
    --mode-text is a darker shade used wherever the colour is applied to text. */
-[data-mode="freelancer"] {
+[data-mode="freelancer"],
+[data-mode="admin"] {
   --mode-text: #d95500;
   --mode-soft: #fff1e5;
+  --mode-soft-2: #ffe2c7;
   --mode-solid: #ff7003;
+  --mode-on: #ffffff;
+  --mode-page: #f5f6f8;
+  --mode-border: #e4b98c;
+  --mode-gradient: linear-gradient(90deg, #ff8801, #ff7003);
+  --primary: #e85d00;
+  --primary-foreground: #ffffff;
+}
+
+[data-mode="admin"] {
+  --mode-on: #2b1a00;
+  --mode-gradient: linear-gradient(90deg, #ff7003, #fbbf24 70%, #facc15);
+  --mode-page: #f5f6f8;
+  --mode-border: #e2c47f;
 }
 
 [data-mode="client"] {
   --mode-text: #a16207;
   --mode-soft: #fef9c3;
+  --mode-soft-2: #fef08a;
   --mode-solid: #facc15;
+  --mode-on: #3b2f00;
+  --mode-page: #f5f6f8;
+  --mode-border: #dcc455;
+  --mode-gradient: linear-gradient(90deg, #fde047, #facc15);
+  --primary: #facc15;
+  --primary-foreground: #3b2f00;
   --ring: #eab308;
   --sidebar-ring: #eab308;
   --accent: #fefce8;
@@ -160,4 +182,95 @@ html[data-snap-overflow] .landing-v2-page > main > section {
 [data-mode="client"] [class*="bg-highrable-orange-"][class*="text-white"],
 [data-mode="client"] [class*="from-highrable-orange-"][class*="text-white"] {
   color: #3b2f00 !important;
+}
+
+/* ── Page + container separation ─────────────────────────────────────────── */
+[data-mode] body,
+body {
+  background-color: var(--mode-page, var(--background));
+}
+
+/* Every white container gets a visible edge and a soft lift off the tinted page. */
+[data-mode] main .bg-card.border,
+[data-mode] main [data-slot="card"] {
+  border-color: var(--mode-border);
+  box-shadow:
+    0 1px 2px rgb(60 40 10 / 6%),
+    0 4px 14px rgb(60 40 10 / 5%);
+}
+
+[data-mode] .hr-mode-solid {
+  color: var(--mode-on, #fff);
+}
+
+[data-mode] .hr-v2-badge-solid,
+[data-mode] .hr-v2-number-badge {
+  background-image: none;
+  background-color: var(--mode-solid);
+  color: var(--mode-on);
+}
+
+/* ── Heading bands: put one on the top of any container so it is obvious what it is ── */
+.hr-card-head {
+  background-image: var(--mode-gradient, linear-gradient(90deg, #ff8801, #ff7003));
+  color: var(--mode-on, #fff);
+  border-bottom: 1px solid var(--mode-border, var(--border));
+}
+
+.hr-card-head :is(h1, h2, h3, h4, p, span, label) {
+  color: inherit;
+}
+
+.hr-card-head-soft {
+  background-image: linear-gradient(90deg, var(--mode-soft, #fff1e5), var(--mode-soft-2, #ffe2c7));
+  border-bottom: 1px solid var(--mode-border, var(--border));
+}
+
+/* ── Pastel tones for summary cards ── */
+.hr-tone-orange {
+  --tone-bg: #ffecd9;
+  --tone-fg: #c2410c;
+  --tone-border: #fbd0a5;
+}
+.hr-tone-yellow {
+  --tone-bg: #fef9c3;
+  --tone-fg: #854d0e;
+  --tone-border: #f3e079;
+}
+.hr-tone-green {
+  --tone-bg: #dcfce7;
+  --tone-fg: #166534;
+  --tone-border: #a7e3bd;
+}
+.hr-tone-sky {
+  --tone-bg: #e0f2fe;
+  --tone-fg: #075985;
+  --tone-border: #a5d6f3;
+}
+.hr-tone-violet {
+  --tone-bg: #ede9fe;
+  --tone-fg: #5b21b6;
+  --tone-border: #cdbffa;
+}
+.hr-tone-rose {
+  --tone-bg: #ffe4e6;
+  --tone-fg: #9f1239;
+  --tone-border: #f8b4bd;
+}
+
+.hr-tone-card {
+  background-color: color-mix(in srgb, var(--tone-bg) 45%, #ffffff);
+  border: 1px solid var(--tone-border);
+}
+
+.hr-tone-icon {
+  background-color: #ffffff;
+  color: var(--tone-fg);
+  border: 1px solid var(--tone-border);
+}
+
+/* Containers are pure white. */
+[data-mode] main [data-slot="card"],
+[data-mode] main .bg-card {
+  background-color: #ffffff;
 }

@@ -4,6 +4,7 @@ import { parseWalletAddressParam } from "@/core/seo";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { ModeSwitchCard } from "@/features/mode";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
 import { FreelancerProfileHeader } from "@/features/profile/components/freelancer-profile-header";
 import { FreelancerReputationSection } from "@/features/profile/components/freelancer-reputation-section";
@@ -48,7 +49,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <ProductPageHero
         label="Freelancer Profile"
         title={
@@ -65,6 +66,8 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+
+      {canEdit ? <ModeSwitchCard /> : null}
 
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="max-w-3xl">

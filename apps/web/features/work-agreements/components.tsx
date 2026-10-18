@@ -445,7 +445,7 @@ function AgreementTypeSelector({
             onClick={() => onChange(option.value)}
             className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               isSelected
-                ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
                 : "border-border bg-card hover:border-highrable-orange-2/50"
             }`}
             aria-pressed={isSelected}

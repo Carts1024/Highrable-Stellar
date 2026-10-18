@@ -307,7 +307,7 @@ function RevisionPolicyControls({
             onClick={() => onPolicyChange(option.value)}
             className={`rounded-lg border px-4 py-2.5 text-left font-sans text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               revisionPolicy === option.value
-                ? "border-highrable-text-primary bg-highrable-text-primary text-primary-foreground"
+                ? "border-highrable-orange-3 bg-highrable-orange-2 text-[var(--mode-on)]"
                 : "border-border bg-card text-muted-foreground hover:border-highrable-orange-2/50"
             }`}
             aria-pressed={revisionPolicy === option.value}
@@ -1010,12 +1010,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       {/* Card header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
+      <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 px-5 py-4 sm:px-6">
         <div className="space-y-1">
-          <h2 className="hr-text-primary font-mono text-xl font-semibold">Post a job</h2>
-          <p className="hr-text-secondary max-w-2xl font-sans text-sm">
+          <h2 className="font-sans text-xl font-bold">Post a job</h2>
+          <p className="max-w-2xl font-sans text-sm opacity-90">
             Answer a few short steps. You can go back and change anything before you post.
           </p>
         </div>
@@ -1092,7 +1092,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 onClick={() => updateJobType("micro_gig")}
                 className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                   formState.jobType === "micro_gig"
-                    ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                    ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
                     : "border-border bg-card hover:border-highrable-orange-2/50"
                 }`}
                 aria-pressed={formState.jobType === "micro_gig"}
@@ -1115,7 +1115,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 onClick={() => updateJobType("milestone_project")}
                 className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                   formState.jobType === "milestone_project"
-                    ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                    ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
                     : "border-border bg-card hover:border-highrable-orange-2/50"
                 }`}
                 aria-pressed={formState.jobType === "milestone_project"}
@@ -1297,7 +1297,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                         isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                       } ${
                         isSelected
-                          ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                          ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
                           : "border-border bg-card hover:border-highrable-orange-2/50"
                       }`}
                       aria-pressed={isSelected}

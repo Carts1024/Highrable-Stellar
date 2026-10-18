@@ -40,7 +40,11 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => runtime.identity,
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
     createElement("div", { role: "alert" }, children),
   RoutePanel: ({ children }: { readonly children?: ReactNode }) =>

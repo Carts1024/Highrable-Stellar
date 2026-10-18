@@ -1,3 +1,4 @@
+import { getStatStyle } from "@/features/common";
 import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 
 import type { TClientTrustStats } from "@/features/client-profile/types";
@@ -38,8 +39,8 @@ export function ClientWorkBreakdown({ stats }: { readonly stats: TClientTrustSta
   ];
 
   return (
-    <section className="border border-[#e8e8e8] bg-white">
-      <div className="border-b border-[#e8e8e8] p-5 sm:p-6">
+    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
+      <div className="hr-card-head p-5 sm:px-6">
         <SectionLabel>Work Mix</SectionLabel>
         <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">
           Micro gig vs milestone activity
@@ -49,15 +50,20 @@ export function ClientWorkBreakdown({ stats }: { readonly stats: TClientTrustSta
           status.
         </p>
       </div>
-      <div className="grid gap-y-6 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-5">
-        {breakdownItems.map((item) => (
-          <HighrableV2Metric
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            description={item.helper}
-          />
-        ))}
+      <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-5">
+        {breakdownItems.map((item, index) => {
+          const { tone, Icon } = getStatStyle(index);
+          return (
+            <HighrableV2Metric
+              tone={tone}
+              icon={<Icon className="h-5 w-5" aria-hidden="true" />}
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              description={item.helper}
+            />
+          );
+        })}
       </div>
     </section>
   );

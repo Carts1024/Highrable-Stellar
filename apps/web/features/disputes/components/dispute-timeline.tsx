@@ -40,10 +40,12 @@ const ACTOR_LABELS = {
 
 export function DisputeTimelineItem({ event }: { readonly event: TTimelineEvent }) {
   return (
-    <li className="border-l border-[#d8d8d8] pl-4">
-      <div className="rounded-lg border border-[#e8e8e8] bg-white p-4">
+    <li className="border-l-2 border-highrable-orange-2/70 pl-4">
+      <div className="rounded-xl border border-[var(--mode-border)] bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-mono text-xs text-[#5f5f5f] uppercase">{EVENT_LABELS[event.type]}</p>
+          <p className="hr-mode-soft hr-mode-text rounded-full border border-[var(--mode-border)] px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase">
+            {EVENT_LABELS[event.type]}
+          </p>
           <p className="font-mono text-xs text-[#7f7f7f]">{formatDisputeDate(event.createdAt)}</p>
         </div>
         <p className="mt-2 text-sm text-[#0a0a0a]">{event.message}</p>

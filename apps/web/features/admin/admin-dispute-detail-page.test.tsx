@@ -54,7 +54,11 @@ vi.mock("@/features/admin/components/admin-operations-ui", () => ({
     createElement("section", null, createElement("h2", null, title), children),
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) => createElement("h1", null, title),
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
     createElement("div", { role: "alert" }, children),

@@ -251,7 +251,7 @@ export function PasskeySmartAccountCard() {
           {isPasskeyConnected && smartAccountAddress ? (
             <div className="w-full space-y-5">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="rounded-lg border-transparent bg-gray-900 px-3 py-1 font-mono text-xs font-semibold text-white">
+                <Badge className="rounded-lg border-transparent bg-highrable-orange-2 px-3 py-1 font-mono text-xs font-semibold text-[var(--mode-on)]">
                   Smart Account
                 </Badge>
                 <Badge variant="outline" className="rounded-lg px-3 py-1 font-mono text-xs">

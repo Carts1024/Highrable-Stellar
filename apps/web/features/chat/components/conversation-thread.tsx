@@ -276,7 +276,7 @@ function MessageAvatar({
       className={cn(
         "h-8 w-8 shrink-0 rounded-none border",
         isOwnMessage
-          ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+          ? "border-highrable-orange-3 bg-highrable-orange-2 text-[var(--mode-on)]"
           : "border-orange-200 bg-orange-50 text-[#B94A00]",
       )}
       aria-label={`${label} avatar`}
@@ -285,7 +285,9 @@ function MessageAvatar({
       <AvatarFallback
         className={cn(
           "rounded-none",
-          isOwnMessage ? "bg-[#0a0a0a] text-white" : "bg-orange-50 text-[#B94A00]",
+          isOwnMessage
+            ? "bg-highrable-orange-2 text-[var(--mode-on)]"
+            : "bg-orange-50 text-[#B94A00]",
         )}
       >
         <UserRound className="h-4 w-4" aria-hidden="true" />
@@ -840,7 +842,7 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
         aria-describedby="work-chat-description"
         showCloseButton={false}
       >
-        <SheetHeader className="relative overflow-hidden border-b border-[#E85D00] bg-[#0a0a0a] p-0 text-white">
+        <SheetHeader className="relative overflow-hidden border-b border-highrable-orange-3 bg-highrable-orange-2 p-0 text-[var(--mode-on)]">
           <div className="absolute inset-0 opacity-20">
             <div className="hr-v2-grid-overlay h-full w-full" />
           </div>

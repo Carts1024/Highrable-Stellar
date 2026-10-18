@@ -1,6 +1,6 @@
 "use client";
 
-import { RouteEmptyState } from "@/features/common";
+import { RouteEmptyState, SectionHeading } from "@/features/common";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useFreelancerOngoingJobs } from "@/features/dashboard/hooks/use-freelancer-ongoing-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
@@ -8,7 +8,7 @@ import { DeadlineBadge } from "@/features/deadlines";
 import { JobSafetyBadge } from "@/features/marketplace/components/job-safety-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Briefcase, User } from "lucide-react";
+import { Briefcase, Hammer, User } from "lucide-react";
 import Link from "next/link";
 
 function formatDateTime(timestamp: number): string {
@@ -21,15 +21,11 @@ export function OngoingJobsSection() {
 
   return (
     <section className="space-y-5">
-      <div className="space-y-0.5">
-        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Jobs in progress
-        </p>
-        <h2 className="hr-text-primary font-sans text-lg font-semibold">Active work</h2>
-        <p className="hr-text-secondary mt-1 text-sm">
-          Jobs you are working on now, with their deadlines.
-        </p>
-      </div>
+      <SectionHeading
+        icon={Hammer}
+        title="Jobs in progress"
+        description="Jobs you are working on now, with their deadlines."
+      />
 
       {isInitialLoading ? (
         <div className="flex flex-col gap-4">

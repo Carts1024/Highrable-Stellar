@@ -774,7 +774,7 @@ function WorkProofSubmissionDialogContent({
             <article className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-accent/40">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-4">
                 <div className="flex items-center gap-3">
-                  <Badge className="rounded-none bg-[#0a0a0a] px-3 py-1 text-[10px] font-bold tracking-widest text-white uppercase">
+                  <Badge className="rounded-none bg-highrable-orange-2 px-3 py-1 text-[10px] font-bold tracking-widest text-[var(--mode-on)] uppercase">
                     {getStatusLabel(latestSubmission.status)}
                   </Badge>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
@@ -790,7 +790,7 @@ function WorkProofSubmissionDialogContent({
                       size="sm"
                       disabled={pending}
                       onClick={() => void handleRetry(latestSubmission)}
-                      className="gap-2 rounded-none border-[#e8e8e8] hover:bg-[#0a0a0a] hover:text-white"
+                      className="gap-2 rounded-none border-[#e8e8e8] hover:bg-accent hover:text-accent-foreground"
                     >
                       <RotateCcw className="h-3 w-3" />
                       Retry network recording

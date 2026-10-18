@@ -21,8 +21,8 @@ export function RecentFundedEscrowsSection({
   readonly escrows: readonly TClientEscrowActivity[];
 }) {
   return (
-    <section className="border border-[#e8e8e8] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] p-5 sm:p-6">
+    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
+      <div className="hr-card-head flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6">
         <div>
           <SectionLabel>Funded Escrows</SectionLabel>
           <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent funding activity</h2>
@@ -36,9 +36,12 @@ export function RecentFundedEscrowsSection({
           This client has no funded escrow history yet.
         </p>
       ) : (
-        <div className="divide-y divide-[#e8e8e8]">
+        <div className="space-y-4 p-4 sm:p-5">
           {escrows.map((escrow) => (
-            <article key={escrow.escrowId} className="p-5 transition-colors hover:bg-[#fafafa]">
+            <article
+              key={escrow.escrowId}
+              className="rounded-xl border border-[var(--mode-border)] bg-white p-5 shadow-sm transition-colors hover:bg-[#fafafa]"
+            >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">

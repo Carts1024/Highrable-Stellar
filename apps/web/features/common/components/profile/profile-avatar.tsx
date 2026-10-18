@@ -1,11 +1,13 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
+import { cn } from "@repo/ui/lib/utils";
 
 interface IProfileAvatarProps {
   readonly avatarUrl?: string;
   readonly displayName: string;
   readonly fallbackLabel: string;
+  readonly className?: string;
 }
 
 function getInitials(displayName: string, fallbackLabel: string): string {
@@ -41,13 +43,23 @@ function getSafeAvatarUrl(avatarUrl: string | undefined): string | undefined {
   }
 }
 
-export function ProfileAvatar({ avatarUrl, displayName, fallbackLabel }: IProfileAvatarProps) {
+export function ProfileAvatar({
+  avatarUrl,
+  displayName,
+  fallbackLabel,
+  className,
+}: IProfileAvatarProps) {
   const safeAvatarUrl = getSafeAvatarUrl(avatarUrl);
 
   return (
-    <Avatar className="h-16 w-16 rounded-none border border-[#e8e8e8] bg-[#0a0a0a]">
+    <Avatar
+      className={cn(
+        "h-16 w-16 rounded-xl border-2 border-white bg-highrable-orange-2 shadow-md",
+        className,
+      )}
+    >
       {safeAvatarUrl ? <AvatarImage src={safeAvatarUrl} alt={`${displayName} avatar`} /> : null}
-      <AvatarFallback className="rounded-none bg-[#0a0a0a] text-xl font-semibold text-white">
+      <AvatarFallback className="rounded-[inherit] bg-highrable-orange-2 text-base font-bold text-[var(--mode-on)]">
         {getInitials(displayName, fallbackLabel)}
       </AvatarFallback>
     </Avatar>

@@ -1,6 +1,7 @@
 "use client";
 
 import { getTxExplorerUrl } from "@/core/stellar/explorer";
+import { getStatStyle } from "@/features/common";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { StatusBadge } from "@/features/marketplace/components/status-badge";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
@@ -82,25 +83,42 @@ function ReputationEmptyState({ children }: { readonly children: ReactNode }) {
   );
 }
 
+const STAT_TONES = [
+  "hr-tone-orange",
+  "hr-tone-yellow",
+  "hr-tone-green",
+  "hr-tone-sky",
+  "hr-tone-violet",
+  "hr-tone-rose",
+] as const;
+
 function StatsPanel({ stats }: { readonly stats: TFreelancerProfileStats }) {
   const items = getStatItems(stats);
   return (
-    <div className="grid rounded-xl border border-border bg-card shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item, index) => (
         <div
           key={item.label}
           className={cn(
-            "min-w-0 p-4 lg:p-5",
-            index < items.length - 1 ? "border-b border-border" : "",
-            "sm:odd:border-r sm:odd:border-border",
-            "lg:nth-child(4n):border-r-0 lg:nth-last-child(-n+4):border-b-0 lg:border-r lg:border-b lg:border-border",
+            STAT_TONES[index % STAT_TONES.length],
+            "hr-tone-card min-w-0 rounded-xl p-4 shadow-sm lg:p-5",
           )}
         >
-          <p className="font-mono text-xs tracking-[0.08em] text-highrable-orange-3 uppercase">
-            {item.label}
-          </p>
-          <div className="wrap-break-words hr-text-primary mt-2 font-sans text-2xl leading-tight font-semibold">
-            {item.value}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-sans text-sm font-semibold" style={{ color: "var(--tone-fg)" }}>
+                {item.label}
+              </p>
+              <div className="wrap-break-words hr-text-primary mt-2 font-sans text-2xl leading-tight font-semibold">
+                {item.value}
+              </div>
+            </div>
+            <span className="hr-tone-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+              {(() => {
+                const { Icon } = getStatStyle(index);
+                return <Icon className="h-5 w-5" aria-hidden="true" />;
+              })()}
+            </span>
           </div>
           <p className="mt-1.5 font-sans text-xs leading-relaxed text-muted-foreground">
             {item.helper}

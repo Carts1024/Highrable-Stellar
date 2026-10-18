@@ -1,5 +1,6 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Lock } from "lucide-react";
 import Link from "next/link";
@@ -8,7 +9,6 @@ import type { ReactNode } from "react";
 
 import { MODE_COPY, type TAppMode } from "./mode-config";
 import { useAppMode } from "./mode-provider";
-import { ModeSwitch } from "./mode-switch";
 
 interface IModeGateProps {
   /** The mode that is allowed to see `children`. */
@@ -23,7 +23,8 @@ interface IModeGateProps {
  * hidden and offers a one-click switch, so freelancers never see client tools and vice versa.
  */
 export function ModeGate({ allow, purpose, children }: IModeGateProps) {
-  const { mode, isReady, setMode } = useAppMode();
+  const { mode, isReady } = useAppMode();
+  const walletIdentity = useHighrableWalletIdentity();
 
   if (!isReady) {
     return <p className="font-sans text-sm text-muted-foreground">Loading…</p>;
@@ -34,6 +35,9 @@ export function ModeGate({ allow, purpose, children }: IModeGateProps) {
   }
 
   const needed = MODE_COPY[allow];
+  const profileHref = walletIdentity.walletAddress
+    ? `/${mode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(walletIdentity.walletAddress)}`
+    : "/dashboard";
   const other: TAppMode = allow === "client" ? "freelancer" : "client";
 
   return (
@@ -50,16 +54,12 @@ export function ModeGate({ allow, purpose, children }: IModeGateProps) {
           This page is for {needed.shortLabel} mode
         </h1>
         <p className="hr-text-secondary mt-2 text-sm leading-relaxed">
-          You are currently in {MODE_COPY[other].label}. To {purpose}, switch to {needed.label}. You
-          can switch back at any time.
+          You are currently in {MODE_COPY[other].label}. To {purpose}, change your mode to{" "}
+          {needed.label} on your profile page.
         </p>
         <div className="mt-6 flex flex-col items-center gap-3">
-          <AppButton
-            type="button"
-            onClick={() => setMode(allow)}
-            className="hr-v2-button-primary rounded-lg px-6 font-mono"
-          >
-            Switch to {needed.label}
+          <AppButton asChild className="hr-v2-button-primary rounded-lg px-6 font-mono">
+            <Link href={profileHref}>Go to my profile</Link>
           </AppButton>
           <Link
             href="/dashboard"
@@ -67,9 +67,6 @@ export function ModeGate({ allow, purpose, children }: IModeGateProps) {
           >
             Stay in {MODE_COPY[other].shortLabel} mode and go to my dashboard
           </Link>
-        </div>
-        <div className="mt-6 flex justify-center border-t border-border pt-5">
-          <ModeSwitch size="large" />
         </div>
       </div>
     </div>

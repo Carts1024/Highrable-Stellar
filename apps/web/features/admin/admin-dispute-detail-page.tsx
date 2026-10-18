@@ -274,8 +274,8 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
     detail.dispute.parentType === "milestone";
 
   return (
-    <section className="border border-[#e8e8e8] bg-white">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] p-5 sm:p-6">
+    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
+      <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 p-5 sm:px-6">
         <div className="max-w-3xl space-y-2">
           <SectionLabel>Case Brief</SectionLabel>
           <h2 className="text-xl font-semibold text-[#0a0a0a]">{detail.dispute.title}</h2>

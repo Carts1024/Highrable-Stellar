@@ -289,8 +289,8 @@ export function OnboardingPage() {
               About your account
             </span>
             <span className="hr-text-primary text-xs leading-none font-medium sm:text-sm">
-              One profile works for everything. Use the Freelancer / Client switch at the top of the
-              page to choose whether you are hiring or looking for work.
+              One profile works for everything. On your profile page you can choose whether you are
+              hiring (Client) or looking for work (Freelancer).
             </span>
           </div>
         </div>
