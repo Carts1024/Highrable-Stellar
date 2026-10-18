@@ -225,6 +225,15 @@ body {
   color: var(--primary-foreground);
 }
 
+/* Orange buttons (Freelancer and Admin) use the same gradient as the
+   Freelancer profile cover. Client buttons stay flat yellow. */
+:is([data-mode="freelancer"], [data-mode="admin"])
+  :is(.hr-v2-button-primary, .hr-button-primary-colors, .hr-gradient-interactive) {
+  background-image: linear-gradient(90deg, #ff8801, #ff7003);
+  background-color: #ff7003;
+  color: #ffffff;
+}
+
 [data-mode] .hr-v2-button-primary:hover:not(:disabled),
 [data-mode] .hr-button-primary-colors:hover:not(:disabled) {
   filter: brightness(0.96);

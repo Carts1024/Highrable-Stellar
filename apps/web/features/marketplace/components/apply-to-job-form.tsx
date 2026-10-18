@@ -63,7 +63,7 @@ export function ApplyToJobForm({
     return (
       <WalletConnectTrigger
         label="Connect Wallet to Apply"
-        className="h-9 rounded-md bg-(image:--mode-gradient) px-4 text-sm text-(--mode-on) hover:brightness-95"
+        className="hr-v2-button-primary h-9 rounded-md px-4 text-sm"
       />
     );
   }
@@ -142,10 +142,7 @@ export function ApplyToJobForm({
     <div>
       <ResponsiveDialog>
         <ResponsiveDialogTrigger asChild>
-          <AppButton
-            type="button"
-            className="h-9 rounded-md bg-(image:--mode-gradient) px-4 text-sm text-(--mode-on) hover:brightness-95"
-          >
+          <AppButton type="button" className="hr-v2-button-primary h-9 rounded-md px-4 text-sm">
             Apply for this job
           </AppButton>
         </ResponsiveDialogTrigger>

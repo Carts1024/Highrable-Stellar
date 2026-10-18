@@ -55,7 +55,7 @@ export function JobCard({
       <div className="min-w-0 flex-1 space-y-1.5">
         <Link
           href={`/marketplace/jobs/${job._id}`}
-          className="hr-text-primary block text-base leading-snug font-medium transition-colors group-hover:text-(--mode-text) after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+          className="hr-text-primary block text-lg leading-snug font-medium transition-colors group-hover:font-bold group-hover:text-(--mode-text) after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring sm:text-xl"
         >
           {job.title}
         </Link>
@@ -123,7 +123,7 @@ export function JobCard({
             type="button"
             disabled={isApplying}
             onClick={() => onApply(job._id)}
-            className="relative z-10 h-8 rounded-md bg-(image:--mode-gradient) px-4 text-sm text-(--mode-on) hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="hr-v2-button-primary relative z-10 h-8 rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isApplying ? "Applying…" : "Apply"}
           </AppButton>
