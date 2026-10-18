@@ -34,7 +34,7 @@ import {
 import { mapStellarPhaseToMarketplaceProgress } from "@/features/marketplace/lib/escrow-progress";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { IPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
@@ -50,6 +50,12 @@ type TEscrowActionState = {
   success: string | null;
   txHash: string | null;
   progress: TMarketplaceEscrowProgress | null;
+};
+
+type TSyncEscrowStatusResult = {
+  readonly ok: boolean;
+  readonly newStatus?: string;
+  readonly reason?: string;
 };
 
 function detectRole(
@@ -91,6 +97,11 @@ function getEscrowIdOrThrow(escrow: TConvexDoc<"escrows"> | null | undefined): s
   }
 
   return escrow.escrowId;
+}
+
+function isInvalidEscrowStatusError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\bInvalidStatus\b|invalid status|Error\(Contract,\s*#6\)/i.test(message);
 }
 
 function requireRating(rating: number): void {
@@ -162,6 +173,8 @@ export function useEscrowActions({
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
   const updateEscrowStatus = useMutation(api.escrows.updateEscrowStatus);
   const createReputationRecord = useMutation(api.reputation.createReputationRecord);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const syncEscrowStatusAction = useAction((api as any).sync.syncEscrowStatus);
   const [state, setState] = useState<TEscrowActionState>({
     pendingAction: null,
     error: null,
@@ -548,18 +561,66 @@ export function useEscrowActions({
           amount: job.budget,
         });
 
-        const result = await fundEscrowOnChain({
-          rpcUrl: config.rpcUrl,
-          networkPassphrase: config.networkPassphrase,
-          escrowContractId: config.escrowContractId,
-          sourceAddress: activeWalletAddress!,
-          signTransaction,
-          walletType: activeWalletType,
-          operationId: clientRequestId,
-          onPhase,
-          client: job.clientWallet,
-          escrowId,
-        });
+        let executionPhase: TStellarExecutionPhase | null = null;
+        let result: Awaited<ReturnType<typeof fundEscrowOnChain>>;
+        try {
+          result = await fundEscrowOnChain({
+            rpcUrl: config.rpcUrl,
+            networkPassphrase: config.networkPassphrase,
+            escrowContractId: config.escrowContractId,
+            sourceAddress: activeWalletAddress!,
+            signTransaction,
+            walletType: activeWalletType,
+            operationId: clientRequestId,
+            onPhase: (phase) => {
+              executionPhase = phase;
+              onPhase(phase);
+            },
+            client: job.clientWallet,
+            escrowId,
+          });
+        } catch (error) {
+          if (executionPhase !== "simulation" || !isInvalidEscrowStatusError(error)) {
+            throw error;
+          }
+
+          let syncResult: TSyncEscrowStatusResult | null = null;
+          try {
+            syncResult = (await syncEscrowStatusAction({
+              escrowId,
+              expectedEscrowContractId: config.escrowContractId,
+              expectedNetworkPassphrase: config.networkPassphrase,
+            })) as TSyncEscrowStatusResult;
+          } catch {
+            // Preserve the simulation failure if status reconciliation is unavailable.
+          }
+
+          if (syncResult?.newStatus && syncResult.newStatus !== "created") {
+            throw new Error(
+              `Funding was not submitted because the escrow is ${syncResult.newStatus} on Stellar. ${
+                syncResult.ok
+                  ? "Highrable refreshed the local escrow status."
+                  : "Highrable kept the current local status because it could not apply this chain update."
+              }`,
+            );
+          }
+
+          if (syncResult?.reason === "contract_config_mismatch") {
+            throw new Error(
+              "Stellar rejected funding with InvalidStatus. Highrable could not refresh the local record because its web and Convex contract/network configuration differ.",
+            );
+          }
+
+          if (syncResult?.ok && syncResult.newStatus === "created") {
+            throw new Error(
+              "Stellar rejected funding even though the latest escrow state is Created. No transaction was submitted; verify the configured escrow deployment before retrying.",
+            );
+          }
+
+          throw new Error(
+            "Stellar rejected funding with InvalidStatus, but Highrable could not verify the latest on-chain status. No transaction was submitted; check the escrow on Stellar before retrying.",
+          );
+        }
 
         onProgress("recording", result.txHash);
         await updateEscrowStatus({
@@ -583,6 +644,7 @@ export function useEscrowActions({
     job.clientWallet,
     runEscrowAction,
     signTransaction,
+    syncEscrowStatusAction,
     updateEscrowStatus,
   ]);
 

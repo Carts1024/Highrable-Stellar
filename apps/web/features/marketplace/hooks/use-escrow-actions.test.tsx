@@ -14,6 +14,7 @@ const runtime = vi.hoisted(() => ({
   createEscrowOnChain: vi.fn(),
   fundEscrowOnChain: vi.fn(),
   getTokenBalanceOnChain: vi.fn(),
+  syncEscrowStatus: vi.fn(),
   mutations: {
     createTransaction: vi.fn(),
     updateTransactionStatus: vi.fn(),
@@ -114,10 +115,12 @@ vi.mock("@repo/convex-client", () => ({
       updateEscrowStatus: "updateEscrowStatus",
     },
     reputation: { createReputationRecord: "createReputationRecord" },
+    sync: { syncEscrowStatus: "syncEscrowStatus" },
   },
 }));
 vi.mock("convex/react", () => ({
   useMutation: (key: keyof typeof runtime.mutations) => runtime.mutations[key],
+  useAction: () => runtime.syncEscrowStatus,
 }));
 
 import { EscrowIdRecoveryError } from "@/core/stellar/escrow-contract";
@@ -166,6 +169,7 @@ beforeEach(() => {
       return { txHash };
     },
   );
+  runtime.syncEscrowStatus.mockResolvedValue({ ok: true, changed: false, newStatus: "created" });
 });
 
 afterEach(() => {
@@ -288,6 +292,122 @@ describe("useEscrowActions progress and execution guards", () => {
     );
     expect(runtime.mutations.updateEscrowStatus).toHaveBeenCalledWith(
       expect.objectContaining({ escrowId: "42", status: "funded", txHash, txType: "fund_escrow" }),
+    );
+  });
+
+  it("reconciles an invalid on-chain status after simulation without recording a successful fund", async () => {
+    runtime.fundEscrowOnChain.mockImplementationOnce(
+      async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+        onPhase?.("simulation");
+        throw new Error("HostError: Error(Contract, #6)");
+      },
+    );
+    runtime.syncEscrowStatus.mockResolvedValueOnce({
+      ok: true,
+      changed: true,
+      newStatus: "funded",
+    });
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.fundEscrowOnChain).toHaveBeenCalledOnce();
+    expect(runtime.syncEscrowStatus).toHaveBeenCalledWith({
+      escrowId: "42",
+      expectedEscrowContractId: "C" + "B".repeat(55),
+      expectedNetworkPassphrase: "Test SDF Network ; September 2015",
+    });
+    expect(runtime.mutations.updateEscrowStatus).not.toHaveBeenCalled();
+    expect(runtime.mutations.updateTransactionStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "failed" }),
+    );
+    expect(hook.result.current.txHash).toBeNull();
+    expect(hook.result.current.error).toContain("escrow is funded on Stellar");
+  });
+
+  it("explains a client/server contract configuration mismatch after invalid status", async () => {
+    runtime.fundEscrowOnChain.mockImplementationOnce(
+      async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+        onPhase?.("simulation");
+        throw new Error("HostError: Error(Contract, #6)");
+      },
+    );
+    runtime.syncEscrowStatus.mockResolvedValueOnce({
+      ok: false,
+      reason: "contract_config_mismatch",
+    });
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.syncEscrowStatus).toHaveBeenCalledOnce();
+    expect(runtime.mutations.updateEscrowStatus).not.toHaveBeenCalled();
+    expect(hook.result.current.error).toContain(
+      "web and Convex contract/network configuration differ",
+    );
+  });
+
+  it("does not claim a current chain status when reconciliation cannot read it", async () => {
+    runtime.fundEscrowOnChain.mockImplementationOnce(
+      async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+        onPhase?.("simulation");
+        throw new Error("HostError: Error(Contract, #6)");
+      },
+    );
+    runtime.syncEscrowStatus.mockResolvedValueOnce({ ok: false, reason: "onchain_read_failed" });
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.syncEscrowStatus).toHaveBeenCalledOnce();
+    expect(runtime.mutations.updateEscrowStatus).not.toHaveBeenCalled();
+    expect(hook.result.current.error).toContain("could not verify the latest on-chain status");
+    expect(hook.result.current.error).not.toContain("is not in Created status");
+  });
+
+  it("does not reconcile invalid status errors after transaction submission begins", async () => {
+    runtime.fundEscrowOnChain.mockImplementationOnce(
+      async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+        onPhase?.("submission");
+        throw new Error("HostError: Error(Contract, #6)");
+      },
+    );
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.syncEscrowStatus).not.toHaveBeenCalled();
+    expect(runtime.mutations.updateEscrowStatus).not.toHaveBeenCalled();
+    expect(runtime.mutations.updateTransactionStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "failed" }),
     );
   });
 

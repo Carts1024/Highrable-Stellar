@@ -13,6 +13,7 @@ import {
   getCompletionFromContract,
   getEscrowFromContract,
   loadStellarReadConfig,
+  loadStellarReadScope,
   normalizeOnChainAddress,
   normalizeOnChainBytes32,
   normalizeOnChainEscrowStatus,
@@ -93,9 +94,53 @@ const recordEscrowSyncFailureRef = makeFunctionReference<
 export const syncEscrowStatus = action({
   args: {
     escrowId: v.string(),
+    expectedEscrowContractId: v.string(),
+    expectedNetworkPassphrase: v.string(),
   },
+  returns: v.object({
+    ok: v.boolean(),
+    changed: v.optional(v.boolean()),
+    escrowId: v.optional(v.string()),
+    previousStatus: v.optional(v.string()),
+    newStatus: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+  }),
   handler: async (ctx, args): Promise<TSyncResult> => {
     const escrowId = requireNonEmptyString(args.escrowId, "escrowId");
+
+    let scope;
+    try {
+      scope = loadStellarReadScope();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await ctx.runMutation(recordEscrowSyncFailureRef, {
+        escrowId,
+        errorMessage,
+      });
+      return {
+        ok: false,
+        reason: "missing_env_config",
+        escrowId,
+        errorMessage,
+      };
+    }
+
+    const expectedEscrowContractId = args.expectedEscrowContractId.trim().toUpperCase();
+    const configuredEscrowContractId = scope.escrowContractId.trim().toUpperCase();
+    const expectedNetworkPassphrase = args.expectedNetworkPassphrase.trim();
+
+    if (
+      expectedEscrowContractId !== configuredEscrowContractId ||
+      expectedNetworkPassphrase !== scope.networkPassphrase
+    ) {
+      return {
+        ok: false,
+        reason: "contract_config_mismatch",
+        escrowId,
+        errorMessage: "Web and Convex escrow contract and network settings must match.",
+      };
+    }
 
     let config;
     try {

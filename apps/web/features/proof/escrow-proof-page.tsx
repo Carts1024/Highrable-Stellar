@@ -1,5 +1,6 @@
 "use client";
 
+import { ESCROW_CONTRACT_ID, STELLAR_NETWORK_PASSPHRASE } from "@/core/config/stellar-contracts";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
@@ -96,7 +97,11 @@ export function EscrowProofPage({ escrowId }: { readonly escrowId: string }) {
 
       try {
         const result = (await (syncType === "escrow"
-          ? syncEscrowStatusAction({ escrowId: sanitizedEscrowId })
+          ? syncEscrowStatusAction({
+              escrowId: sanitizedEscrowId,
+              expectedEscrowContractId: ESCROW_CONTRACT_ID ?? "",
+              expectedNetworkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+            })
           : syncReputationRecordAction({ escrowId: sanitizedEscrowId }))) as TSyncResult;
         setSyncMessage(formatSyncMessage(result));
       } catch (error) {
