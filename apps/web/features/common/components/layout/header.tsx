@@ -3,6 +3,7 @@
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
+import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -26,7 +27,7 @@ function isActivePath(pathname: string, href: string) {
 // The active page is marked with a short bar in the mode colour (gradient in admin).
 const NAV_LINK_BASE =
   "relative flex items-center gap-2 px-3 py-2 font-sans text-sm transition-colors";
-const NAV_LINK_INACTIVE = "text-[#5f5f5f] hover:text-foreground";
+const NAV_LINK_INACTIVE = "text-muted-foreground hover:text-foreground";
 const NAV_LINK_ACTIVE =
   "font-medium text-foreground after:absolute after:inset-x-3 after:-bottom-[14px] after:h-0.5 after:rounded-full after:bg-(image:--mode-gradient)";
 const NAV_LINK_ACTIVE_MOBILE = "font-medium text-foreground bg-muted";
@@ -55,7 +56,7 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b bg-white transition-colors",
+        "sticky top-0 z-50 border-b bg-background transition-colors",
         isScrolled ? "border-border" : "border-transparent",
       )}
     >
@@ -90,14 +91,15 @@ export function Header() {
           ))}
         </div>
 
-        {/* Mode switch + wallet + mobile toggle */}
+        {/* Mode switch + wallet + theme + mobile toggle */}
         <div className="flex items-center gap-3">
           {isAdminRoute ? null : <HeaderProfileLink />}
           {!walletIdentity.isConnected ? (
             <WalletConnectTrigger className={walletActionClass} />
           ) : null}
+          <ThemeToggle />
           <button
-            className="rounded-lg p-2 text-[#6b6b6b] transition-colors hover:bg-muted hover:text-foreground md:hidden"
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
             onClick={() => setMobileMenuOpen((v) => !v)}
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
@@ -114,7 +116,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="absolute inset-x-0 top-16 overflow-hidden border-y border-border bg-white md:hidden"
+            className="absolute inset-x-0 top-16 overflow-hidden border-y border-border bg-background md:hidden"
           >
             <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-1 py-4")}>
               {navigation.map(({ href, name, description }) => (

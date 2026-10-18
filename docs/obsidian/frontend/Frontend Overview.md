@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 source_of_truth: repository
 ---
 
@@ -28,7 +28,7 @@ Browser features import `api` and typed Convex document/ID helpers from `@repo/c
 
 SEO helpers use a server Convex client for job detail, public profiles, and proof metadata. Do not assume a page’s server SEO query is the same as its client workflow query.
 
-The v2 landing page defaults to light mode and scopes dark token overrides to `prefers-color-scheme: dark` in `apps/web/app/globals.css`.
+Light and dark mode apply to every route. `ThemeProvider` (`packages/ui/src/theme-provider.tsx`, next-themes, `class` attribute) follows the browser until the user picks a theme with `ThemeToggle` (`packages/ui/src/components/highrable/theme-toggle.tsx`), which sits at the right of both the landing navbar and the app `Header`; the choice is stored under the `task-mgt-theme` localStorage key. `useThemeMode` returns the resolved theme. Dark design tokens live under `.dark` in `packages/ui/src/styles/globals.css`. The dark section of `apps/web/app/globals.css` re-points the `--mode-*` tokens and remaps the hardcoded light utilities used across product pages (`bg-white`, fixed neutral hex text/border classes, pale `bg-*-50/100/200` tints, dark `text-*-600..950` shades). New code should use tokens (`bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`) instead of adding to that list.
 
 The landing page uses CSS scroll-snap (`scroll-snap-type: y mandatory` on `html:has(.landing-v2-page)`, `scroll-snap-align: start` on each `main > section`, `end` on the footer) so one ~`100svh` section shows at a time. It is scoped via `:has()` so other routes scroll normally; `prefers-reduced-motion` disables smooth scrolling.
 

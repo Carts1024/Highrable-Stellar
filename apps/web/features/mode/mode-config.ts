@@ -5,6 +5,19 @@ import type { LucideIcon } from "lucide-react";
 
 export type TAppMode = TDashboardMode;
 
+/** Query parameter a link can use to open a page in a given mode (`/post-job?mode=client`). */
+export const MODE_QUERY_PARAM = "mode";
+
+export function parseAppMode(value: string | null): TAppMode | null {
+  return value === "client" || value === "freelancer" ? value : null;
+}
+
+/** Builds a link that switches the visitor into `mode` when the page opens. */
+export function withModeHref(href: string, mode: TAppMode): string {
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}${MODE_QUERY_PARAM}=${mode}`;
+}
+
 export interface IModeCopy {
   /** Short name used in badges and the switch ("Freelancer"). */
   readonly shortLabel: string;

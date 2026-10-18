@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-19
+
+- Added user-selectable light/dark mode on all routes. A `ThemeToggle` sits at the right of the landing navbar and the app `Header`; the theme follows the browser until the user chooses. The landing navbar's Find Work / Post a Job buttons became a single Connect Wallet button (`LandingConnectButton`); the hero keeps both. The landing `prefers-color-scheme` block was replaced by the shared `.dark` class, and a dark remap layer for hardcoded light utilities was added to `apps/web/app/globals.css`. See [[frontend/Frontend Overview]].
 
 ## 2026-10-18
 
