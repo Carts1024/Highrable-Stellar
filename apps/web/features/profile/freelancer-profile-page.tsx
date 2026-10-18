@@ -49,7 +49,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
   const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <FreelancerProfileHeader
         profile={profile}
         stats={stats}
@@ -85,12 +85,6 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
           </ResponsiveDialogBody>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-
-      {stats.completedContracts === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-muted/20 p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
-          This freelancer does not have payment-verified paid work yet.
-        </p>
-      ) : null}
 
       <FreelancerReputationSection
         stats={stats}

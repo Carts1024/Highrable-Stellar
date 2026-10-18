@@ -256,37 +256,23 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   };
 
   return (
-    <section
-      className="space-y-3"
-      aria-busy={isPending}
-    >
+    <section className="space-y-3" aria-busy={isPending}>
       <EscrowActionProgress progress={progress} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-              Payment Flow
-            </p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <JobSafetyBadge status={safetyStatus.status} />
-              {shouldShowMarketplaceStatusBadge ? <StatusBadge label={currentStatus} /> : null}
-              {currentStatusMeta.trustWarning ? (
-                <HighrableV2IconNotice
-                  label="Payment flow warning"
-                  tone="warning"
-                  message={currentStatusMeta.trustWarning}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col">
-              <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+              <p className="hr-text-primary flex items-center gap-1.5 font-sans text-sm font-medium">
                 {currentStatusMeta.label}
-              </h2>
-              <p className="hr-text-secondary mt-1 font-sans text-sm">
+                {currentStatusMeta.trustWarning ? (
+                  <HighrableV2IconNotice
+                    label="Payment flow warning"
+                    tone="warning"
+                    message={currentStatusMeta.trustWarning}
+                  />
+                ) : null}
+              </p>
+              <p className="hr-text-secondary mt-0.5 font-sans text-sm">
                 {currentStatusMeta.description}
               </p>
             </div>
@@ -296,15 +282,15 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                 <AppButton
                   type="button"
                   variant="outline"
-                  className="self-start border-border text-xs sm:self-center text-foreground hover:text-foreground"
+                  className="h-9 shrink-0 self-start rounded-md px-4 text-sm sm:self-center"
                 >
-                  Open Payment Flow
+                  Payment steps
                 </AppButton>
               </ResponsiveDialogTrigger>
 
               <ResponsiveDialogContent className="max-w-3xl">
                 <ResponsiveDialogHeader>
-                  <ResponsiveDialogTitle>Payment Flow</ResponsiveDialogTitle>
+                  <ResponsiveDialogTitle>Payment steps</ResponsiveDialogTitle>
                   <ResponsiveDialogDescription>
                     {currentStatusMeta.description}
                   </ResponsiveDialogDescription>
@@ -342,7 +328,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                         <TrustWarning message={currentStatusMeta.trustWarning} />
                       ) : null}
                       {walletIdentity.walletType ? (
-                        <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 font-sans text-xs text-muted-foreground">
+                        <p className="font-sans text-xs text-muted-foreground">
                           {isPasskeyMode
                             ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
                             : "Signing with Freighter or WalletConnect."}
@@ -371,7 +357,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                         <div className="space-y-2">
                           <TrustWarning message="XLM payment hold is volatile. Final fiat value may change." />
                           {isPasskeyMode ? (
-                            <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               XLM escrow will be funded through your passkey smart account using the
                               native XLM token contract.
                             </p>
@@ -460,12 +446,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                               <SafetyInfoDisclosure label="View payment hold balance requirement">
                                 <TrustWarning message={createEscrowBalanceWarning} />
                                 {jobEscrowAsset?.kind === "stablecoin" ? (
-                                  <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     Use the Stellar path payment panel in this section to convert
                                     XLM into {escrowAssetSymbol}, then refresh the balance.
                                   </p>
                                 ) : (
-                                  <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     Buy or receive more {escrowAssetSymbol}, then refresh your
                                     escrow balance.
                                   </p>
@@ -707,7 +693,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                       ) : null}
 
                       {showPendingVerifiedSync ? (
-                        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        <div className="space-y-3 border-l-2 border-amber-400 py-1 pl-3 text-sm text-amber-900">
                           <p>
                             Payment released. The verified reputation record is syncing from Stellar
                             blockchain.
@@ -749,7 +735,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                   {currentStatus === "disputed" ? (
                     <p className="text-sm text-red-700" role="alert">
-                      ⚠ Escrow disputed. A moderator will review this case shortly.
+                      This payment hold is disputed. A moderator will review the case.
                     </p>
                   ) : null}
                 </ResponsiveDialogBody>

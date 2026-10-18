@@ -54,7 +54,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
   const indicator = getClientTrustIndicator(stats);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <ClientTrustProfileHeader
         profile={profile}
         indicator={indicator}

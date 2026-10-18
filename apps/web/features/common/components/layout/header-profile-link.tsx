@@ -38,21 +38,17 @@ export function HeaderProfileLink({ className, showLabel = false }: IHeaderProfi
       href={href}
       aria-label={`My ${mode} profile${displayName ? ` (${displayName})` : ""}`}
       className={cn(
-        "hr-mode-soft inline-flex items-center gap-2 rounded-full border border-[var(--mode-border)] py-1 pr-3 pl-1 text-xs font-semibold text-foreground transition-colors hover:border-highrable-orange-3",
+        "inline-flex items-center gap-2 rounded-full py-1 pr-2 pl-1 text-sm text-foreground transition-colors hover:bg-muted",
         className,
       )}
     >
       <ProfileAvatar
-        className="h-8 w-8 rounded-full border-0 shadow-none"
+        className="h-7 w-7 rounded-full border-0 shadow-none"
         displayName={displayName}
         fallbackLabel="ME"
         {...(onboardingState?.avatarUrl ? { avatarUrl: onboardingState.avatarUrl } : {})}
       />
-      <span
-        className={cn("font-mono tracking-[0.06em] uppercase", showLabel ? "" : "hidden lg:inline")}
-      >
-        My Profile
-      </span>
+      <span className={cn(showLabel ? "" : "hidden lg:inline")}>My profile</span>
     </Link>
   );
 }

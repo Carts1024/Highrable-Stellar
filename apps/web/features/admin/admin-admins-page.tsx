@@ -10,6 +10,7 @@ import {
   ADMIN_QUERY_KEY,
   useAdminSessionAccess,
 } from "@/features/admin/admin-session-gate";
+import { AdminMark } from "@/features/admin/components/admin-mark";
 import { AdminSection } from "@/features/admin/components/admin-operations-ui";
 import {
   failAdminMembershipOperationBeforeSubmission,
@@ -24,7 +25,6 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, RotateCcw } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { IAdminMembershipOperation } from "@/features/admin/types";
@@ -239,25 +239,15 @@ function AdminAdminsContent() {
   return (
     <div className="space-y-6">
       <ProductPageHero
-        label="Owner Access"
-        title={
-          <>
-            Dispute <span className="hr-v2-gradient-text">Admin Team</span>
-          </>
-        }
-        description="Manage dispute-only wallet access. Grants take effect after the contract transaction is verified; revocations disable app access as soon as the request starts."
+        meta={<AdminMark />}
+        title="Dispute admins"
+        description="Wallets that can review disputes. Grants take effect after the contract transaction is verified; revocations remove app access as soon as the request starts."
       />
-
-      <div className="flex justify-end">
-        <AppButton asChild variant="secondary" size="sm">
-          <Link href="/admin/disputes">Open Dispute Queue</Link>
-        </AppButton>
-      </div>
 
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout>{actionSuccess}</RouteCallout> : null}
 
-      <AdminSection label="Membership" title="Grant or Revoke Dispute Access">
+      <AdminSection title="Grant or Revoke Dispute Access">
         <div className="flex flex-wrap items-end gap-3">
           <label htmlFor="dispute-admin-wallet" className="grid min-w-72 gap-1.5 text-sm">
             <span className="text-xs tracking-wide text-[#7f7f7f] uppercase">Stellar wallet</span>
@@ -293,7 +283,7 @@ function AdminAdminsContent() {
         </p>
       </AdminSection>
 
-      <AdminSection label="Current Scope" title="Dispute Admins">
+      <AdminSection title="Dispute Admins">
         {managementQuery.isPending ? (
           <p className="text-sm text-[#777]">Loading dispute admin membership…</p>
         ) : managementQuery.isError ? (
@@ -323,7 +313,7 @@ function AdminAdminsContent() {
         )}
       </AdminSection>
 
-      <AdminSection label="Recovery" title="Membership Operations">
+      <AdminSection title="Membership Operations">
         {managementQuery.data?.operations.length ? (
           <div className="divide-y divide-[#e8e8e8] border border-[#e8e8e8]">
             {managementQuery.data.operations.map((operation) => {

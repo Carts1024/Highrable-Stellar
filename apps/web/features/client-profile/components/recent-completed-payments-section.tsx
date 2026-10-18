@@ -5,12 +5,11 @@ import {
   formatShortDate,
   getClientWorkTypeLabel,
 } from "@/features/client-profile/lib/client-profile-format";
+import { RouteEmptyState, WorkList, WorkListRow, WorkMeta } from "@/features/common";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
-import { Badge } from "@repo/ui/components/ui/badge";
-import { ExternalLink } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 import type { TClientEscrowActivity } from "@/features/client-profile/types";
 
@@ -19,96 +18,56 @@ export function RecentCompletedPaymentsSection({
 }: {
   readonly payments: readonly TClientEscrowActivity[];
 }) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
-      <div className="hr-card-head flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6">
-        <div>
-          <SectionLabel>Completed Payments</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent Released Escrows</h2>
-        </div>
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
-          {payments.length} record{payments.length === 1 ? "" : "s"}
-        </p>
-      </div>
-      {payments.length === 0 ? (
-        <p className="p-5 text-sm text-[#5f5f5f] sm:p-6">No completed escrow payments yet.</p>
-      ) : (
-        <div className="space-y-4 p-4 sm:p-5">
-          {payments.map((payment) => (
-            <article
-              key={payment.escrowId}
-              className="rounded-xl border border-[var(--mode-border)] bg-white p-5 shadow-sm transition-colors hover:bg-[#fafafa]"
-            >
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className="border-emerald-200 bg-white text-emerald-800"
-                    >
-                      {getClientWorkTypeLabel(payment.milestoneId ? "milestone" : "micro_gig")}
-                    </Badge>
-                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                      Paid through payment hold
-                    </Badge>
-                  </div>
-                  <div>
-                    <Link
-                      href={`/marketplace/jobs/${payment.jobId}`}
-                      className="font-semibold text-[#0a0a0a] hover:text-highrable-orange-3"
-                    >
-                      {payment.jobTitle}
-                    </Link>
-                    {payment.milestoneTitle ? (
-                      <p className="mt-1 text-sm text-[#5f5f5f]">
-                        Milestone: {payment.milestoneTitle}
-                      </p>
-                    ) : null}
-                  </div>
-                  <p className="text-sm text-[#5f5f5f]">
-                    Freelancer{" "}
-                    {payment.freelancerWallet ? (
-                      <Link
-                        href={`/freelancers/${encodeURIComponent(payment.freelancerWallet)}`}
-                        className="hr-mode-text font-medium hover:text-highrable-orange-4"
-                      >
-                        {shortenWalletAddress(payment.freelancerWallet)}
-                      </Link>
-                    ) : (
-                      "not recorded"
-                    )}
-                  </p>
-                </div>
+  if (payments.length === 0) {
+    return <RouteEmptyState description="No payments from this client have been released yet." />;
+  }
 
-                <div className="min-w-44 space-y-2 text-left md:text-right">
-                  <p className="font-semibold text-[#0a0a0a]">
-                    {formatAmount(payment.amount)} {formatAsset(payment.asset)}
-                  </p>
-                  {payment.releaseTxHash ? (
-                    <Link
-                      href={getTxExplorerUrl(payment.releaseTxHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hr-mode-text inline-flex items-center gap-1 text-sm font-medium hover:text-highrable-orange-4"
-                    >
-                      Release tx <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
-                  ) : null}
+  return (
+    <WorkList>
+      {payments.map((payment) => (
+        <WorkListRow
+          key={payment.escrowId}
+          href={`/marketplace/jobs/${payment.jobId}`}
+          title={payment.jobTitle}
+          subtitle={payment.milestoneTitle ? `Milestone: ${payment.milestoneTitle}` : undefined}
+          amount={`${formatAmount(payment.amount)} ${formatAsset(payment.asset)}`}
+          amountLabel="Paid"
+          meta={
+            <>
+              <span>{getClientWorkTypeLabel(payment.milestoneId ? "milestone" : "micro_gig")}</span>
+              <WorkMeta label="Freelancer">
+                {payment.freelancerWallet ? (
                   <Link
-                    href={`/proof/${encodeURIComponent(payment.escrowId)}`}
-                    className="hr-mode-text block text-sm font-medium hover:text-highrable-orange-4"
+                    href={`/freelancers/${encodeURIComponent(payment.freelancerWallet)}`}
+                    className="font-mono hover:underline"
                   >
-                    View proof
+                    {shortenWalletAddress(payment.freelancerWallet)}
                   </Link>
-                  <p className="text-xs text-[#7f7f7f]">
-                    Updated {formatShortDate(payment.updatedAt)}
-                  </p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
+                ) : (
+                  "Not recorded"
+                )}
+              </WorkMeta>
+              <WorkMeta label="Updated">{formatShortDate(payment.updatedAt)}</WorkMeta>
+              <Link
+                href={`/proof/${encodeURIComponent(payment.escrowId)}`}
+                className="hr-mode-text hover:underline"
+              >
+                Payment proof
+              </Link>
+              {payment.releaseTxHash ? (
+                <a
+                  href={getTxExplorerUrl(payment.releaseTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  Release transaction
+                </a>
+              ) : null}
+            </>
+          }
+        />
+      ))}
+    </WorkList>
   );
 }

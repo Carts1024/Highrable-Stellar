@@ -1,9 +1,9 @@
 "use client";
 
-import { RouteEmptyState, SectionHeading } from "@/features/common";
+import { RouteEmptyState } from "@/features/common";
+import { WorkList } from "@/features/common/components/work-list";
 import { RecentPayoutItem } from "@/features/dashboard/components/recent-payout-item";
-import { motion } from "framer-motion";
-import { Wallet } from "lucide-react";
+import React from "react";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -12,33 +12,20 @@ type IRecentPayoutsListProps = {
 };
 
 export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.6 }}
-    >
-      <section className="space-y-5">
-        <SectionHeading
-          icon={Wallet}
-          title="Recent Payments Received"
-          description="Each payment here is linked to a finished job."
-        />
+  if (payouts.length === 0) {
+    return (
+      <RouteEmptyState
+        title="No payments yet"
+        description="When a client releases a payment to you, it is listed here with its proof."
+      />
+    );
+  }
 
-        {payouts.length === 0 ? (
-          <RouteEmptyState
-            icon={<Wallet className="h-10 w-10" />}
-            title="No Completed Payouts Yet"
-            description="Completed payment releases will appear here."
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {payouts.map((payout) => (
-              <RecentPayoutItem key={payout.escrowId} payout={payout} />
-            ))}
-          </div>
-        )}
-      </section>
-    </motion.div>
+  return (
+    <WorkList>
+      {payouts.map((payout) => (
+        <RecentPayoutItem key={payout.escrowId} payout={payout} />
+      ))}
+    </WorkList>
   );
 }

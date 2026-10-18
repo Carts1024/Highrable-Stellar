@@ -9,12 +9,10 @@ import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentList } from "@/features/attachments/components";
-import { SectionCard, showWarningToast, WalletAddressTile } from "@/features/common";
+import { showWarningToast, WalletAddressTile } from "@/features/common";
 import { AgreementReferenceCard } from "@/features/work-agreements/components";
 import { api } from "@repo/convex-client";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
-import { FileText, History, Paperclip } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 
@@ -463,16 +461,12 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   };
 
   if (!walletIdentity.walletAddress) {
-    return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm text-[#5f5f5f]">
-        Connect your wallet to view this dispute.
-      </p>
-    );
+    return <p className="hr-text-secondary text-sm">Connect your wallet to view this dispute.</p>;
   }
 
   if (permission === undefined) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+      <p className="hr-text-secondary text-sm" role="status">
         Loading dispute...
       </p>
     );
@@ -481,7 +475,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   if (!permission.allowed) {
     return (
       <p
-        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
         role="alert"
       >
         {permission.reason === "Dispute not found."
@@ -493,7 +487,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
 
   if (dispute === undefined) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+      <p className="hr-text-secondary text-sm" role="status">
         Loading dispute...
       </p>
     );
@@ -502,7 +496,7 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
   if (dispute === null) {
     return (
       <p
-        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
         role="alert"
       >
         Dispute not found.
@@ -512,15 +506,19 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <div className="hr-card-head flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-          <div className="min-w-0">
-            <p className="font-mono text-xs font-semibold tracking-[0.06em] uppercase opacity-80">
-              {dispute.disputeNumber}
-            </p>
-            <h1 className="mt-1 font-sans text-2xl leading-tight font-bold">{dispute.title}</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <header className="space-y-3 border-b pb-5">
+        <Link
+          href="/disputes"
+          className="hr-text-muted inline-flex text-sm hover:text-foreground hover:underline"
+        >
+          ← All disputes
+        </Link>
+        <div className="space-y-2">
+          <p className="hr-text-muted font-mono text-xs">{dispute.disputeNumber}</p>
+          <h1 className="hr-text-primary font-sans text-2xl leading-tight font-semibold tracking-tight">
+            {dispute.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <DisputeStatusBadge status={dispute.status} />
             <DisputeOnChainStatusBadge
               status={dispute.onChainStatus}
@@ -529,31 +527,19 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             />
           </div>
         </div>
-        <div className="space-y-4 p-5">
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="hr-tone-orange hr-tone-card rounded-xl px-3 py-2.5">
-              <p className="text-xs font-semibold" style={{ color: "var(--tone-fg)" }}>
-                Reason
-              </p>
-              <p className="hr-text-primary mt-0.5 font-medium">
-                {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
-              </p>
-            </div>
-            <div className="hr-tone-violet hr-tone-card rounded-xl px-3 py-2.5">
-              <p className="text-xs font-semibold" style={{ color: "var(--tone-fg)" }}>
-                Opened
-              </p>
-              <p className="hr-text-primary mt-0.5 font-medium">
-                {formatDisputeDate(dispute.openedAt)}
-              </p>
-            </div>
-            <WalletAddressTile address={dispute.clientWallet} label="Client" />
-            <WalletAddressTile address={dispute.freelancerWallet} label="Freelancer" />
-          </div>
-          <div className="rounded-xl border border-border bg-muted/40 p-4">
-            <p className="mb-1 text-xs font-semibold text-muted-foreground">What happened</p>
-            <p className="text-sm whitespace-pre-wrap text-[#3f3f3f]">{dispute.description}</p>
-          </div>
+      </header>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-8">
+          <section aria-labelledby="dispute-statement-title" className="space-y-2">
+            <h2 id="dispute-statement-title" className="hr-text-primary text-base font-semibold">
+              What happened
+            </h2>
+            <p className="hr-text-primary max-w-3xl text-sm leading-relaxed whitespace-pre-wrap">
+              {dispute.description}
+            </p>
+          </section>
+
           <DisputeMarkingStatus
             status={dispute.onChainStatus}
             transactionHash={dispute.transactionHash}
@@ -564,41 +550,66 @@ export function DisputeDetailPanel({ disputeId }: { readonly disputeId: string }
             onRetryRecording={() => void handleRetryRecording()}
             terminal={isTerminalDisputeStatus(dispute.status)}
           />
+
+          <DisputeParticipantActions
+            disputeId={dispute._id}
+            viewerWallet={walletIdentity.walletAddress}
+          />
+
+          <section aria-labelledby="dispute-evidence-title" className="space-y-2">
+            <h2 id="dispute-evidence-title" className="hr-text-primary text-base font-semibold">
+              Evidence
+            </h2>
+            <AttachmentList attachments={dispute.attachments ?? []} readOnly />
+          </section>
+
+          <section aria-labelledby="dispute-timeline-title" className="space-y-3">
+            <h2 id="dispute-timeline-title" className="hr-text-primary text-base font-semibold">
+              Timeline
+            </h2>
+            <ParticipantDisputeTimeline
+              disputeId={dispute._id}
+              viewerWallet={walletIdentity.walletAddress}
+            />
+          </section>
         </div>
-      </section>
 
-      <SectionCard
-        icon={FileText}
-        title="Agreement Context for Platform-Reviewed Dispute"
-        description="The job terms both sides agreed to."
-      >
-        <AgreementReferenceCard context={agreementContext} />
-      </SectionCard>
+        <aside className="space-y-6 lg:border-l lg:pl-6">
+          <section aria-labelledby="dispute-facts-title" className="space-y-3">
+            <h2 id="dispute-facts-title" className="hr-text-primary text-sm font-semibold">
+              Case details
+            </h2>
+            <dl className="space-y-1.5 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="hr-text-secondary">Reason</dt>
+                <dd className="hr-text-primary text-right">
+                  {getDisputeReasonLabel(dispute.reasonCategory as TDisputeReasonCategory)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="hr-text-secondary">Opened</dt>
+                <dd className="hr-text-primary text-right">
+                  {formatDisputeDate(dispute.openedAt)}
+                </dd>
+              </div>
+            </dl>
+            <WalletAddressTile address={dispute.clientWallet} label="Client" />
+            <WalletAddressTile address={dispute.freelancerWallet} label="Freelancer" />
+          </section>
 
-      <SectionCard icon={Paperclip} title="Evidence" description="Files shared for this case.">
-        <AttachmentList attachments={dispute.attachments ?? []} readOnly />
-      </SectionCard>
-
-      <DisputeParticipantActions
-        disputeId={dispute._id}
-        viewerWallet={walletIdentity.walletAddress}
-      />
-
-      <SectionCard
-        icon={History}
-        title="Dispute Evidence Timeline"
-        description="Everything that happened in this case, in order."
-        action={
-          <AppButton asChild variant="outline" size="sm" className="border-white bg-white">
-            <Link href="/disputes">All Disputes</Link>
-          </AppButton>
-        }
-      >
-        <ParticipantDisputeTimeline
-          disputeId={dispute._id}
-          viewerWallet={walletIdentity.walletAddress}
-        />
-      </SectionCard>
+          <section aria-labelledby="dispute-agreement-title" className="space-y-3 border-t pt-5">
+            <div>
+              <h2 id="dispute-agreement-title" className="hr-text-primary text-sm font-semibold">
+                Agreement
+              </h2>
+              <p className="hr-text-secondary mt-0.5 text-xs">
+                The job terms both sides agreed to.
+              </p>
+            </div>
+            <AgreementReferenceCard context={agreementContext} />
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

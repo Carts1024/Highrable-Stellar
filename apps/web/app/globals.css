@@ -184,19 +184,25 @@ html[data-snap-overflow] .landing-v2-page > main > section {
   color: #3b2f00 !important;
 }
 
-/* ── Page + container separation ─────────────────────────────────────────── */
+/* ── Page + container separation ─────────────────────────────────────────
+   Product routes (everything inside AppShell, which sets data-mode) sit on a
+   neutral page. Containers get a plain 1px neutral edge and no lift; hierarchy
+   comes from type and spacing, not decoration. The landing page never sets
+   data-mode, so none of this reaches it. */
 [data-mode] body,
 body {
   background-color: var(--mode-page, var(--background));
 }
 
-/* Every white container gets a visible edge and a soft lift off the tinted page. */
 [data-mode] main .bg-card.border,
 [data-mode] main [data-slot="card"] {
-  border-color: var(--mode-border);
-  box-shadow:
-    0 1px 2px rgb(60 40 10 / 6%),
-    0 4px 14px rgb(60 40 10 / 5%);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+[data-mode] main [data-slot="card"],
+[data-mode] main .bg-card {
+  background-color: #ffffff;
 }
 
 [data-mode] .hr-mode-solid {
@@ -210,73 +216,96 @@ body {
   color: var(--mode-on);
 }
 
-/* ── Heading bands: put one on the top of any container so it is obvious what it is ── */
-.hr-card-head {
-  background-image: var(--mode-gradient, linear-gradient(90deg, #ff8801, #ff7003));
-  color: var(--mode-on, #fff);
-  border-bottom: 1px solid var(--mode-border, var(--border));
+/* Primary actions use the flat mode colour; the marketing gradient and the
+   offset "hard" hover shadow stay on the landing page. */
+[data-mode] .hr-v2-button-primary,
+[data-mode] .hr-button-primary-colors {
+  background-image: none;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
-.hr-card-head :is(h1, h2, h3, h4, p) {
+[data-mode] .hr-v2-button-primary:hover:not(:disabled),
+[data-mode] .hr-button-primary-colors:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+[data-mode] button:not(:disabled):hover,
+[data-mode] [data-slot="button"]:not(:disabled):hover,
+[data-mode] .hr-button-hover-shadow:hover,
+[data-mode] .hr-v2-button-primary:hover,
+[data-mode] .hr-v2-button-secondary:hover,
+[data-mode] .hr-v2-button-light:hover {
+  box-shadow: none;
+}
+
+[data-mode] .hr-v2-button-secondary {
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+[data-mode] .hr-v2-button-secondary:hover:not(:disabled) {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+/* ── Section header: a plain title row separated from the body by a rule ── */
+.hr-card-head {
+  background-color: transparent;
+  color: var(--foreground);
+  border-bottom: 1px solid var(--border);
+}
+
+.hr-card-head :is(h1, h2, h3, h4) {
   color: inherit;
 }
 
-.hr-card-head-soft {
-  background-image: linear-gradient(90deg, var(--mode-soft, #fff1e5), var(--mode-soft-2, #ffe2c7));
-  border-bottom: 1px solid var(--mode-border, var(--border));
+.hr-card-head p {
+  color: var(--highrable-text-secondary);
 }
 
-/* ── Pastel tones for summary cards ── */
+.hr-card-head-soft {
+  background-color: var(--highrable-surface-muted, #f5f5f5);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Legacy tone hooks: kept so older markup still renders, but neutral. The
+   foreground colour remains for status text where meaning depends on it. */
 .hr-tone-orange {
-  --tone-bg: #ffecd9;
   --tone-fg: #c2410c;
-  --tone-border: #fbd0a5;
 }
 .hr-tone-yellow {
-  --tone-bg: #fef9c3;
   --tone-fg: #854d0e;
-  --tone-border: #f3e079;
 }
 .hr-tone-green {
-  --tone-bg: #dcfce7;
   --tone-fg: #166534;
-  --tone-border: #a7e3bd;
 }
 .hr-tone-sky {
-  --tone-bg: #e0f2fe;
   --tone-fg: #075985;
-  --tone-border: #a5d6f3;
 }
 .hr-tone-violet {
-  --tone-bg: #ede9fe;
   --tone-fg: #5b21b6;
-  --tone-border: #cdbffa;
 }
 .hr-tone-rose {
-  --tone-bg: #ffe4e6;
   --tone-fg: #9f1239;
-  --tone-border: #f8b4bd;
 }
 
 .hr-tone-card {
-  background-color: color-mix(in srgb, var(--tone-bg) 45%, #ffffff);
-  border: 1px solid var(--tone-border);
+  background-color: #ffffff;
+  border: 1px solid var(--border);
 }
 
 .hr-tone-icon {
-  background-color: #ffffff;
-  color: var(--tone-fg);
-  border: 1px solid var(--tone-border);
-}
-
-/* Containers are pure white. */
-[data-mode] main [data-slot="card"],
-[data-mode] main .bg-card {
-  background-color: #ffffff;
+  color: var(--highrable-text-muted);
 }
 
 /* Solid mode-coloured band that leaves child badge colours alone. */
 .hr-mode-band {
   background-image: var(--mode-gradient, linear-gradient(90deg, #ff8801, #ff7003));
   color: var(--mode-on, #fff);
+}
+
+/* Numbers in tables and summaries line up. */
+.hr-num {
+  font-variant-numeric: tabular-nums;
 }

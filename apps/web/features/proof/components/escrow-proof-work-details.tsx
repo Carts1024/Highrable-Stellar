@@ -1,14 +1,8 @@
-import { formatAssetLabel } from "@/core/stellar/assets";
-import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { HighrableV2Bullet, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
-import { UserRound } from "lucide-react";
 import Link from "next/link";
 
 import type { TEscrowProof, TProofProfile } from "../types";
-
-import { formatProofDate } from "../lib/format";
 
 function getJobTypeLabel(jobType: string): string {
   return jobType === "milestone_project" ? "Milestone Project" : "Micro Gig";
@@ -31,8 +25,9 @@ function ParticipantRow({
 }) {
   if (!walletAddress) {
     return (
-      <div className="border-t border-[#e8e8e8] py-3 text-sm text-[#5f5f5f]">
-        No freelancer assigned yet.
+      <div className="hr-text-secondary flex justify-between gap-4 py-2 text-sm">
+        <span>{label}</span>
+        <span>Not assigned yet</span>
       </div>
     );
   }
@@ -40,27 +35,19 @@ function ParticipantRow({
   const shortenedWallet = shortenWalletAddress(walletAddress);
 
   return (
-    <div className="flex items-start gap-3 border-t border-[#e8e8e8] py-3">
-      <div className="hr-mode-text mt-0.5 border border-[#e8e8e8] bg-white p-2">
-        <UserRound className="h-4 w-4" aria-hidden="true" />
-      </div>
-      <div className="min-w-0">
-        <p className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">{label}</p>
-        <p className="mt-1 font-semibold text-[#0a0a0a]">
-          {getDisplayName(profile, shortenedWallet)}
-        </p>
+    <div className="flex items-start justify-between gap-4 py-2 text-sm">
+      <span className="hr-text-secondary">{label}</span>
+      <div className="min-w-0 text-right">
+        <p className="hr-text-primary font-medium">{getDisplayName(profile, shortenedWallet)}</p>
         {href ? (
-          <Link
-            href={href}
-            className="hr-mode-text mt-1 inline-block text-sm font-medium break-all hover:text-highrable-orange-4"
-          >
+          <Link href={href} className="hr-mode-text font-mono text-xs break-all hover:underline">
             {shortenedWallet}
           </Link>
         ) : (
-          <p className="mt-1 text-sm break-all text-[#5f5f5f]">{shortenedWallet}</p>
+          <p className="hr-text-secondary font-mono text-xs break-all">{shortenedWallet}</p>
         )}
         {profile?.walletType ? (
-          <p className="mt-1 text-xs text-[#7f7f7f]">
+          <p className="hr-text-muted text-xs">
             {profile.walletType === "passkey_smart_account"
               ? "Secured with Highrable passkey"
               : "Connected wallet"}
@@ -72,88 +59,49 @@ function ParticipantRow({
 }
 
 export function EscrowProofWorkDetails({ proof }: { readonly proof: TEscrowProof }) {
-  const amount = proof.milestone?.amount ?? proof.escrow.amount;
-  const asset = proof.milestone?.asset ?? proof.escrow.asset;
-
   return (
-    <section className="border border-[#e8e8e8] bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <SectionLabel>Work Details</SectionLabel>
-          <h2 className="text-xl font-semibold text-[#0a0a0a]">Work and People</h2>
-        </div>
-        <DeadlineBadge
-          deadlineAt={proof.milestone?.deadlineAt ?? proof.job.deadlineAt}
-          submittedAt={proof.milestone?.submittedAt ?? proof.job.submittedAt}
-          completedAt={proof.milestone?.completedAt ?? proof.job.completedAt}
-          approvedAt={proof.milestone?.approvedAt ?? proof.job.approvedAt}
-          escrowStatus={proof.escrow.status}
-          workStatus={proof.milestone?.status ?? proof.job.status}
-        />
-      </div>
+    <section aria-labelledby="proof-work-title" className="space-y-4">
+      <h2 id="proof-work-title" className="hr-text-primary text-base font-semibold">
+        The work
+      </h2>
 
-      <div className="mt-4 space-y-3">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.08em] text-[#7f7f7f] uppercase">
-            {proof.proofType === "milestone" ? "Project" : "Micro Gig"}
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-[#0a0a0a]">{proof.job.title}</h3>
-        </div>
-
-        {proof.milestone ? (
-          <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
-            <p className="text-xs font-semibold tracking-[0.08em] text-[#7f7f7f] uppercase">
-              Milestone {proof.milestone.order}
+      {proof.milestone ? (
+        <div className="space-y-1">
+          <p className="hr-text-secondary text-xs">Milestone {proof.milestone.order}</p>
+          <p className="hr-text-primary text-sm font-medium">{proof.milestone.title}</p>
+          {proof.milestone.description ? (
+            <p className="hr-text-secondary text-sm leading-relaxed">
+              {proof.milestone.description}
             </p>
-            <p className="mt-1 font-semibold text-[#0a0a0a]">{proof.milestone.title}</p>
-            {proof.milestone.description ? (
-              <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">{proof.milestone.description}</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {proof.job.description ? (
-          <p className="text-sm leading-6 text-[#5f5f5f]">{proof.job.description}</p>
-        ) : null}
-      </div>
-
-      <dl className="mt-5 grid gap-4 border-t border-[#e8e8e8] pt-5 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="flex items-center gap-2 font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            <HighrableV2Bullet tone="muted" />
-            Job type
-          </dt>
-          <dd className="font-semibold text-[#0a0a0a]">{getJobTypeLabel(proof.job.jobType)}</dd>
+          ) : null}
         </div>
-        <div>
-          <dt className="flex items-center gap-2 font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            <HighrableV2Bullet tone="muted" />
-            Amount
-          </dt>
-          <dd className="font-semibold text-[#0a0a0a]">
-            {formatAmount(amount)} {formatAssetLabel(asset)}
+      ) : null}
+
+      {proof.job.description ? (
+        <p className="hr-text-secondary text-sm leading-relaxed whitespace-pre-line">
+          {proof.job.description}
+        </p>
+      ) : null}
+
+      <dl className="divide-y border-y text-sm">
+        <div className="flex justify-between gap-4 py-2">
+          <dt className="hr-text-secondary">Job type</dt>
+          <dd className="hr-text-primary">{getJobTypeLabel(proof.job.jobType)}</dd>
+        </div>
+        <div className="flex items-start justify-between gap-4 py-2">
+          <dt className="hr-text-secondary">Deadline</dt>
+          <dd className="text-right">
+            <DeadlineBadge
+              deadlineAt={proof.milestone?.deadlineAt ?? proof.job.deadlineAt}
+              submittedAt={proof.milestone?.submittedAt ?? proof.job.submittedAt}
+              completedAt={proof.milestone?.completedAt ?? proof.job.completedAt}
+              approvedAt={proof.milestone?.approvedAt ?? proof.job.approvedAt}
+              escrowStatus={proof.escrow.status}
+              workStatus={proof.milestone?.status ?? proof.job.status}
+              compact
+            />
           </dd>
         </div>
-        <div>
-          <dt className="flex items-center gap-2 font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            <HighrableV2Bullet tone="muted" />
-            Asset
-          </dt>
-          <dd className="font-semibold text-[#0a0a0a]">{formatAssetLabel(asset)}</dd>
-        </div>
-        <div>
-          <dt className="flex items-center gap-2 font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            <HighrableV2Bullet tone="muted" />
-            Created
-          </dt>
-          <dd className="font-semibold text-[#0a0a0a]">
-            {formatProofDate(proof.escrow.createdAt)}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="mt-5">
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">People</p>
         <ParticipantRow
           label="Client"
           walletAddress={proof.escrow.clientWallet}
@@ -170,7 +118,7 @@ export function EscrowProofWorkDetails({ proof }: { readonly proof: TEscrowProof
               : undefined
           }
         />
-      </div>
+      </dl>
     </section>
   );
 }

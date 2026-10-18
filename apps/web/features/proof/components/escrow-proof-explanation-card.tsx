@@ -1,4 +1,4 @@
-import { HighrableV2IconNotice, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 
 import type { TProofStatus } from "../types";
 
@@ -12,7 +12,7 @@ export function EscrowProofExplanationCard({
   return (
     <section className="h-full border border-[#e8e8e8] bg-[#fafafa] p-4">
       <div className="flex items-center gap-2">
-        <SectionLabel>Context</SectionLabel>
+        <p className="hr-text-muted text-xs">Context</p>
         <HighrableV2IconNotice
           label="Privacy controls status"
           message="Avoid sharing sensitive proof links outside the people who need this receipt."

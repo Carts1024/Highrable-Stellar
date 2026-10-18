@@ -58,7 +58,7 @@ export function ApplyToMilestoneForm({
 
   if (!walletIdentity.isConnected) {
     return (
-      <div className="rounded-xl border border-border bg-muted/30 p-4">
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
         <p className="hr-text-secondary mb-3 font-sans text-sm">
           Connect wallet to apply to this milestone.
         </p>
@@ -127,7 +127,7 @@ export function ApplyToMilestoneForm({
   };
 
   return (
-    <form onSubmit={handleApply} className="space-y-4 rounded-xl border border-border bg-card p-4">
+    <form onSubmit={handleApply} className="space-y-4 rounded-lg border border-border bg-card p-4">
       <p className="hr-text-secondary font-sans text-sm">
         Apply only for this milestone. Do not start until this milestone is Payment Secured.
       </p>

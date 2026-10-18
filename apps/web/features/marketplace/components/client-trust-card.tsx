@@ -4,11 +4,9 @@ import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { HighrableV2Metric } from "@repo/ui/components/highrable/v2-marketing";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
-import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 interface IClientTrustCardProps {
   readonly clientWallet: string;
@@ -22,9 +20,7 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
   );
 
   if (trustStats === undefined) {
-    return (
-      <p className="text-sm text-muted-foreground">Loading client trust signals...</p>
-    );
+    return <p className="text-sm text-muted-foreground">Loading client history…</p>;
   }
 
   const fundedAssets =
@@ -34,31 +30,36 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
           .join(", ")
       : "None yet";
 
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-highrable-orange-2" />
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">
-            {shortenWalletAddress(clientWallet)}
-          </h2>
-        </div>
-        <AppButton
-          asChild
-          variant="outline"
-          className="border-border text-xs text-foreground hover:text-foreground"
-        >
-          <Link href={`/clients/${encodeURIComponent(clientWallet)}`}>View Client Profile</Link>
-        </AppButton>
-      </div>
+  const rows: readonly (readonly [string, string | number])[] = [
+    ["Jobs posted", trustStats.jobsPosted],
+    ["Jobs funded", trustStats.fundedJobs],
+    ["Jobs completed", trustStats.completedJobs],
+    ["Jobs disputed", trustStats.disputedJobs],
+    ["Total put on hold", fundedAssets],
+  ];
 
-      <div className={`grid gap-4 ${compact ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
-        <HighrableV2Metric label="Jobs posted" value={trustStats.jobsPosted} />
-        <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
-        <HighrableV2Metric label="Jobs completed" value={trustStats.completedJobs} />
-        <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
-        <HighrableV2Metric label="Total payment hold funded" value={fundedAssets} />
-      </div>
+  return (
+    <div className="space-y-3">
+      <dl
+        className={
+          compact
+            ? "space-y-1.5 text-sm"
+            : "grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3"
+        }
+      >
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-4">
+            <dt className="hr-text-secondary">{label}</dt>
+            <dd className="hr-text-primary hr-num text-right font-medium">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <Link
+        href={`/clients/${encodeURIComponent(clientWallet)}`}
+        className="hr-mode-text inline-flex text-sm hover:underline"
+      >
+        View {shortenWalletAddress(clientWallet)}'s profile
+      </Link>
     </div>
   );
 }

@@ -127,13 +127,10 @@ export function MilestoneActionPanel({
   };
 
   return (
-    <div
-      className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl"
-      aria-busy={isPending}
-    >
+    <div className="space-y-4 rounded-md bg-muted/40 p-4" aria-busy={isPending}>
       <EscrowActionProgress progress={progress} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="hr-text-primary text-sm font-semibold">Milestone Escrow</h4>
+        <h4 className="hr-text-primary text-sm font-semibold">Payment</h4>
         <StatusBadge label={milestone.status} />
       </div>
 

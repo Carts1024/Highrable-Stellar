@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@repo/ui/lib/utils";
-import { Check, Copy, Wallet } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import React from "react";
 import { useState } from "react";
 
@@ -13,11 +13,7 @@ interface IWalletAddressTileProps {
   readonly className?: string;
 }
 
-/**
- * Wallet addresses always look the same: a sky-blue tile with a wallet icon, the full address
- * (selectable, never cut off) and a copy button. Blue is only used for addresses, so they stand
- * out from the orange/yellow of actions.
- */
+/** Full wallet address (selectable, never cut off) with a label and a copy button. */
 export function WalletAddressTile({
   address,
   label = "Wallet address",
@@ -37,21 +33,13 @@ export function WalletAddressTile({
   };
 
   return (
-    <div
-      className={cn(
-        "hr-tone-sky hr-tone-card flex items-center gap-3 rounded-xl px-3 py-2.5",
-        className,
-      )}
-    >
-      <span className="hr-tone-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-        <Wallet className="h-4 w-4" aria-hidden="true" />
-      </span>
+    <div className={cn("flex items-start gap-3", className)}>
       <div className="min-w-0 flex-1">
-        <p className="font-sans text-xs font-semibold" style={{ color: "var(--tone-fg)" }}>
+        <p className="hr-text-secondary font-sans text-xs">
           {label}
-          {note ? <span className="font-normal opacity-80"> · {note}</span> : null}
+          {note ? <span className="hr-text-muted"> · {note}</span> : null}
         </p>
-        <p className="mt-0.5 font-mono text-xs break-all text-[#0c4a6e] select-all sm:text-sm">
+        <p className="hr-text-primary mt-0.5 font-mono text-xs break-all select-all sm:text-sm">
           {address}
         </p>
       </div>
@@ -59,7 +47,7 @@ export function WalletAddressTile({
         type="button"
         onClick={() => void handleCopy()}
         aria-label={copied ? "Address copied" : "Copy wallet address"}
-        className="hr-tone-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-sky-50"
+        className="hr-text-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground"
       >
         {copied ? (
           <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />

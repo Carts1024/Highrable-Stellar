@@ -1,46 +1,25 @@
 import { cn } from "@repo/ui/lib/utils";
 import React from "react";
 
-import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-
-export type TStatTone = "orange" | "yellow" | "green" | "sky" | "violet" | "rose";
 
 interface IStatCardProps {
   readonly label: string;
   readonly value: ReactNode;
   readonly description?: ReactNode;
-  readonly icon: LucideIcon;
-  readonly tone?: TStatTone;
   readonly className?: string;
 }
 
-/** Summary number with an icon and a pastel background so each card is easy to tell apart. */
-export function StatCard({
-  label,
-  value,
-  description,
-  icon: Icon,
-  tone = "orange",
-  className,
-}: IStatCardProps) {
+/** A single figure with its label. Group several inside a `divide-x` row rather than separate boxes. */
+export function StatCard({ label, value, description, className }: IStatCardProps) {
   return (
-    <div className={cn(`hr-tone-${tone} hr-tone-card rounded-xl p-4 shadow-sm`, className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-sans text-sm font-semibold" style={{ color: "var(--tone-fg)" }}>
-            {label}
-          </p>
-          <div className="hr-text-primary mt-1.5 truncate font-sans text-2xl leading-none font-bold">
-            {value}
-          </div>
-        </div>
-        <span className="hr-tone-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
+    <div className={cn("min-w-0", className)}>
+      <p className="hr-text-secondary font-sans text-xs">{label}</p>
+      <div className="hr-text-primary hr-num mt-1 truncate font-sans text-xl leading-tight font-semibold">
+        {value}
       </div>
       {description ? (
-        <p className="hr-text-secondary mt-2.5 font-sans text-xs leading-relaxed">{description}</p>
+        <p className="hr-text-muted mt-1 font-sans text-xs leading-snug">{description}</p>
       ) : null}
     </div>
   );

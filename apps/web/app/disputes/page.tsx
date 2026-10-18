@@ -3,15 +3,10 @@ import { DisputeList } from "@/features/disputes";
 
 export default function DisputesPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <ProductPageHero
-        label="Help & Problems"
-        title={
-          <>
-            Your <span className="hr-mode-text">Disputes</span>
-          </>
-        }
-        description="If a job goes wrong, a Highrable reviewer can look at the evidence from both sides. Cases you are part of are listed here."
+        title="Disputes"
+        description="Cases you are part of. A Highrable reviewer looks at the evidence from both sides before deciding."
       />
       <DisputeList />
     </div>

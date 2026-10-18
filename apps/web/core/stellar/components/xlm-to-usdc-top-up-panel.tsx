@@ -5,7 +5,6 @@ import {
   useXlmToUsdcTopUp,
   type TUseXlmToUsdcTopUpResult,
 } from "@/core/stellar/hooks/use-xlm-to-usdc-top-up";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 
 type TWalletType = "external_wallet" | "passkey_smart_account";
@@ -101,16 +100,14 @@ export function XlmToUsdcTopUpPanel({
     <div className="hr-surface-muted space-y-5 border border-border p-5">
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
         <div>
-          <SectionLabel className="mb-3">Stellar Path Payment</SectionLabel>
+          <p className="hr-text-muted mb-3 text-xs">Stellar Path Payment</p>
           <h3 className="hr-text-primary text-lg font-semibold">Convert XLM to USDC</h3>
           <p className="hr-text-secondary mt-2 max-w-2xl text-sm leading-relaxed">
             You need more USDC to fund this payment hold. Convert XLM to USDC first, then fund the
             payment hold.
           </p>
         </div>
-        <div className="hr-v2-badge-accent w-fit px-2.5 py-1 font-mono text-[0.6rem] tracking-[0.08em] uppercase">
-          XLM -&gt; USDC
-        </div>
+        <div className="hr-v2-badge-accent w-fit px-2.5 py-1 text-xs">XLM -&gt; USDC</div>
       </div>
 
       <dl className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">

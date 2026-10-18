@@ -306,10 +306,7 @@ export function CancelWorkButton({
                 <CancellationActionGuardNotice eligibility={eligibility} />
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="cancellation-reason-category"
-                    className="font-mono text-xs text-[#6f6f6f] uppercase"
-                  >
+                  <label htmlFor="cancellation-reason-category" className="text-xs text-[#6f6f6f]">
                     Cancellation reason
                   </label>
                   <Select
@@ -332,10 +329,7 @@ export function CancelWorkButton({
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="cancellation-reason-text"
-                    className="font-mono text-xs text-[#6f6f6f] uppercase"
-                  >
+                  <label htmlFor="cancellation-reason-text" className="text-xs text-[#6f6f6f]">
                     Details
                   </label>
                   <Textarea
@@ -361,7 +355,7 @@ export function CancelWorkButton({
                 </div>
 
                 {eligibility?.proofSubmitted ? (
-                  <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                  <div className="flex items-start gap-3 border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-900">
                     <Checkbox
                       id="cancellation-proof-warning"
                       checked={proofWarningAccepted}

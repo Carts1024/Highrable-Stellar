@@ -41,7 +41,7 @@ export function ClientTrustProfileHeader({
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
-      <div className="hr-card-head relative h-28 sm:h-32">
+      <div className="hr-mode-band relative h-28 sm:h-32">
         {canEdit ? (
           <AppButton
             type="button"

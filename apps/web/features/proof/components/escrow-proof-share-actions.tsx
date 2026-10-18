@@ -1,6 +1,5 @@
 "use client";
 
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button } from "@repo/ui/components/ui/button";
 import { Check, Copy } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -58,7 +57,7 @@ export function EscrowProofShareActions({ proof }: { readonly proof: TEscrowProo
 
   return (
     <section className="h-full border border-[#e8e8e8] bg-white p-4">
-      <SectionLabel>Share</SectionLabel>
+      <p className="hr-text-muted text-xs">Share</p>
       <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Copy Receipt Details</h2>
       <div className="mt-4 flex flex-wrap gap-2">
         {actions.map((action) => (

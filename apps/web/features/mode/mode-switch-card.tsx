@@ -1,8 +1,8 @@
 "use client";
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { Repeat } from "lucide-react";
 import { useRouter } from "next/navigation";
+import React from "react";
 
 import { MODE_COPY } from "./mode-config";
 import { useAppMode } from "./mode-provider";
@@ -15,20 +15,13 @@ export function ModeSwitchCard() {
   const walletIdentity = useHighrableWalletIdentity();
 
   return (
-    <section className="hr-mode-soft flex h-full flex-col justify-between gap-5 rounded-2xl border border-[var(--mode-border)] p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--mode-text)]">
-          <Repeat className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="hr-text-primary font-sans text-base font-bold">
-            How are you using Highrable?
-          </h2>
-          <p className="hr-text-secondary mt-0.5 text-sm">
-            You are in {MODE_COPY[mode].label}. {MODE_COPY[mode].tagline} Switch to see the pages
-            for the other role.
-          </p>
-        </div>
+    <section className="flex h-full flex-col justify-between gap-4 rounded-lg border p-5">
+      <div>
+        <h2 className="hr-text-primary font-sans text-sm font-semibold">Mode</h2>
+        <p className="hr-text-secondary mt-1 text-sm">
+          You are in {MODE_COPY[mode].label}. {MODE_COPY[mode].tagline} Switch to see the pages for
+          the other role.
+        </p>
       </div>
       <ModeSwitch
         size="large"

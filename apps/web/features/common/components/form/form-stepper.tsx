@@ -39,20 +39,9 @@ export function FormStepTabs({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-          Step {activeIndex + 1} of {steps.length}
-        </p>
-        <div
-          className="hidden h-1.5 w-40 overflow-hidden rounded-full bg-muted sm:block"
-          aria-hidden="true"
-        >
-          <div
-            className="hr-mode-solid h-full rounded-full transition-all duration-300"
-            style={{ width: `${((activeIndex + 1) / steps.length) * 100}%` }}
-          />
-        </div>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        Step {activeIndex + 1} of {steps.length}
+      </p>
 
       <div
         role="tablist"
@@ -74,26 +63,26 @@ export function FormStepTabs({
               aria-controls={`${prefix}-panel-${step.id}`}
               onClick={() => onSelect(index)}
               className={cn(
-                "flex min-w-0 items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors sm:px-3",
+                "flex min-w-0 items-center gap-2 rounded-md border px-2 py-2 text-left transition-colors sm:px-3",
                 isActive
-                  ? "border-highrable-orange-3 bg-accent text-foreground"
-                  : "border-border bg-card text-muted-foreground hover:border-highrable-orange-3/60",
+                  ? "border-(--mode-solid) text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground",
                 step.hasError ? "border-red-300 bg-red-50 text-red-700" : "",
               )}
             >
               <span
                 className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-semibold",
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-medium",
                   step.hasError
                     ? "bg-red-600 text-white"
                     : isActive || isDone
-                      ? "hr-mode-solid text-[#1a1300]"
+                      ? "bg-(--mode-solid) text-(--mode-on)"
                       : "bg-muted text-muted-foreground",
                 )}
               >
                 {isDone ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
               </span>
-              <span className="hidden min-w-0 truncate font-sans text-sm font-semibold sm:block">
+              <span className="hidden min-w-0 truncate font-sans text-sm font-medium sm:block">
                 {step.title}
               </span>
               <span className="sr-only sm:hidden">{step.title}</span>
@@ -103,7 +92,7 @@ export function FormStepTabs({
       </div>
 
       {active ? (
-        <div className="rounded-lg bg-muted/50 px-4 py-3">
+        <div>
           <p className="hr-text-primary font-sans text-base font-semibold">{active.title}</p>
           <p className="hr-text-secondary mt-0.5 font-sans text-sm">{active.hint}</p>
         </div>
@@ -181,7 +170,7 @@ export function FormStepNav({
         variant="outline"
         onClick={onBack}
         disabled={activeIndex === 0}
-        className="gap-2 rounded-lg px-5 font-mono"
+        className="gap-2 rounded-md px-4"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back
@@ -193,7 +182,7 @@ export function FormStepNav({
           type="button"
           onClick={onNext}
           disabled={nextDisabled}
-          className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
+          className="hr-v2-button-primary gap-2 rounded-md px-4"
         >
           {nextLabel}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />

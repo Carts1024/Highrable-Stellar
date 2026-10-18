@@ -59,7 +59,7 @@ export function ProfileAvatar({
       )}
     >
       {safeAvatarUrl ? <AvatarImage src={safeAvatarUrl} alt={`${displayName} avatar`} /> : null}
-      <AvatarFallback className="rounded-[inherit] bg-highrable-orange-2 text-base font-bold text-[var(--mode-on)]">
+      <AvatarFallback className="rounded-[inherit] bg-highrable-orange-2 text-base font-semibold text-[var(--mode-on)]">
         {getInitials(displayName, fallbackLabel)}
       </AvatarFallback>
     </Avatar>

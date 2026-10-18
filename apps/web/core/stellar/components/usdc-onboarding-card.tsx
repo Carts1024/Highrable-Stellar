@@ -23,7 +23,7 @@ export function UsdcOnboardingCard({
 }: TUsdcOnboardingCardProps) {
   if (isEnabled) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+      <div className="border-l-2 border-emerald-500 bg-emerald-50/60 py-2.5 pr-3 pl-3 text-sm text-emerald-800">
         USDC payments enabled.
       </div>
     );
@@ -33,7 +33,7 @@ export function UsdcOnboardingCard({
   const buttonLabel = isEnabling ? "Enabling USDC..." : "Enable USDC Payments";
 
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+    <div className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3">
       <div className="space-y-2">
         <h3 className="text-base font-semibold text-gray-950">Enable USDC Payments</h3>
         <p className="text-sm text-gray-700">

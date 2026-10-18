@@ -266,7 +266,7 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div className="mb-4 flex items-center gap-3">
       <div className="h-2 w-2 bg-highrable-text-accent" />
-      <span className="font-mono text-sm font-semibold tracking-widest whitespace-nowrap text-highrable-text-accent uppercase">
+      <span className="text-sm font-semibold whitespace-nowrap text-highrable-text-accent">
         {label}
       </span>
     </div>
@@ -333,7 +333,7 @@ function RevisionPolicyControls({
         </div>
       ) : null}
       {revisionPolicy === "unlimited" ? (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-2 px-4 font-sans text-sm text-amber-800">
+        <div className="mt-4 border-l-2 border-amber-400 bg-amber-50/60 p-2 pr-3 pl-3 font-sans text-sm text-amber-800">
           Unlimited revisions can delay completion. Use this only when both parties agree on a
           flexible review process.
         </div>
@@ -1011,17 +1011,12 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      {/* Card header */}
-      <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 px-5 py-4 sm:px-6">
-        <div className="space-y-1">
-          <h2 className="font-sans text-xl font-bold">Post a Job</h2>
-          <p className="max-w-2xl font-sans text-sm opacity-90">
-            Answer a few short steps. You can go back and change anything before you post.
-          </p>
-        </div>
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
+        <p className="hr-text-secondary font-sans text-sm">
+          You can go back and change any step before you post.
+        </p>
 
-        {/* Status notices */}
         <div className="flex flex-wrap items-center gap-2">
           {!isStablecoinConfigured ? (
             <HighrableV2IconNotice
@@ -1051,9 +1046,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       {/* Wallet gate */}
       {!walletIdentity.isConnected ? (
-        <div className="mx-5 mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:mx-6">
+        <div className="mx-5 mt-5 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-800 sm:mx-6">
           <p className="mb-3">Connect your wallet or passkey to post a job.</p>
-          <WalletConnectTrigger className="hr-v2-button-primary rounded-lg px-4 py-2 text-sm font-medium text-white" />
+          <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
         </div>
       ) : null}
 
@@ -1093,7 +1088,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 onClick={() => updateJobType("micro_gig")}
                 className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                   formState.jobType === "micro_gig"
-                    ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
+                    ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
                     : "border-border bg-card hover:border-highrable-orange-2/50"
                 }`}
                 aria-pressed={formState.jobType === "micro_gig"}
@@ -1116,7 +1111,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 onClick={() => updateJobType("milestone_project")}
                 className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
                   formState.jobType === "milestone_project"
-                    ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
+                    ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
                     : "border-border bg-card hover:border-highrable-orange-2/50"
                 }`}
                 aria-pressed={formState.jobType === "milestone_project"}
@@ -1195,9 +1190,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       </span>
                     }
                   />
-                  <span className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                    Review safety language
-                  </span>
+                  <span className="text-xs text-muted-foreground">Review safety language</span>
                 </div>
               ) : null}
             </div>
@@ -1298,7 +1291,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                         isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                       } ${
                         isSelected
-                          ? "border-highrable-orange-3 bg-accent shadow-[4px_4px_0px_var(--mode-border)]"
+                          ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
                           : "border-border bg-card hover:border-highrable-orange-2/50"
                       }`}
                       aria-pressed={isSelected}
@@ -1375,7 +1368,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 bg-highrable-text-accent" />
-                  <span className="font-mono text-sm font-semibold tracking-widest text-highrable-text-accent uppercase">
+                  <span className="text-sm font-semibold text-highrable-text-accent">
                     Milestones
                   </span>
                 </div>
@@ -1403,7 +1396,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                   >
                     {/* Milestone header */}
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span className="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         Milestone {index + 1}
                       </span>
                       <AppButton
@@ -1484,7 +1477,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
                     {/* Revision policy */}
                     <div>
-                      <p className="mb-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                      <p className="mb-3 text-xs font-semibold text-muted-foreground">
                         Revision policy
                       </p>
                       <RevisionPolicyControls
@@ -1525,25 +1518,19 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <SectionDivider label="Your job at a glance" />
             <dl className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                  Type
-                </dt>
+                <dt className="text-xs text-muted-foreground">Type</dt>
                 <dd className="hr-text-primary mt-0.5 font-medium">
                   {isMilestoneProject ? "Milestone project" : "Quick job"}
                 </dd>
               </div>
               <div>
-                <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                  Title
-                </dt>
+                <dt className="text-xs text-muted-foreground">Title</dt>
                 <dd className="hr-text-primary mt-0.5 font-medium break-words">
                   {formState.title.trim() || "Not filled in yet"}
                 </dd>
               </div>
               <div>
-                <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                  Budget
-                </dt>
+                <dt className="text-xs text-muted-foreground">Budget</dt>
                 <dd className="hr-text-primary mt-0.5 font-medium">
                   {isMilestoneProject
                     ? parsedMilestoneTotal.toLocaleString(undefined, { maximumFractionDigits: 7 })
@@ -1552,9 +1539,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 </dd>
               </div>
               <div>
-                <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                  Due
-                </dt>
+                <dt className="text-xs text-muted-foreground">Due</dt>
                 <dd className="hr-text-primary mt-0.5 font-medium">
                   {isMilestoneProject
                     ? `${formState.milestones.length} milestone${formState.milestones.length === 1 ? "" : "s"}, each with its own deadline`
@@ -1618,7 +1603,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
           ) : (
             <div>
               <SectionDivider label="Secure the payment" />
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 px-4 font-sans text-sm text-amber-800">
+              <div className="border-l-2 border-amber-400 bg-amber-50/60 p-2 pr-3 pl-3 font-sans text-sm text-amber-800">
                 Project milestones are not paid upfront. You will choose a freelancer and secure the
                 payment for each milestone separately after applications arrive.
               </div>
@@ -1627,7 +1612,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
           {/* Error summary */}
           {errors.submit ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
               {errors.submit}
             </p>
           ) : null}

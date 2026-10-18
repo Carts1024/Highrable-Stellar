@@ -61,10 +61,7 @@ function CopyableWalletAddressField({ walletAddress }: ICopyableWalletAddressFie
 
   return (
     <div className="space-y-2">
-      <label
-        htmlFor="external-wallet-address"
-        className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
-      >
+      <label htmlFor="external-wallet-address" className="text-xs font-semibold text-gray-600">
         Wallet Address
       </label>
       <div className="mt-2 flex gap-2">
@@ -102,12 +99,10 @@ function ExternalWalletDetailsCard({
   onDisconnect,
 }: IExternalWalletDetailsCardProps) {
   return (
-    <section className="w-full overflow-hidden rounded-2xl border border-border p-6 shadow-md transition-shadow hover:shadow-lg">
+    <section className="w-full overflow-hidden rounded-lg border border-border p-6 transition-shadow">
       <div className="space-y-5">
         <div className="space-y-1">
-          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-            Wallet Type
-          </p>
+          <p className="text-xs font-semibold text-gray-600">Wallet Type</p>
           <p className="mt-2 font-sans text-sm font-semibold text-foreground">
             {walletProviderName}
           </p>
@@ -145,7 +140,7 @@ export function ExternalWalletDetailsCardContainer() {
 
   if (!sanitizedAddressResult.isValid) {
     return (
-      <section className="w-full rounded-2xl border border-amber-300 bg-amber-50 p-6 shadow-md">
+      <section className="w-full border-l-2 border-amber-400 bg-amber-50/60 p-6">
         <p className="font-sans font-semibold text-amber-900">Wallet address unavailable</p>
         <p className="mt-2 font-sans text-sm leading-relaxed text-amber-800">
           The connected wallet returned an invalid Stellar public key. Disconnect and reconnect your

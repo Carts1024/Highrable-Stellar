@@ -23,11 +23,13 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-// Shared nav link styles — keep in sync with v2-navbar.tsx
+// The active page is marked with a short bar in the mode colour (gradient in admin).
 const NAV_LINK_BASE =
-  "flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs tracking-[0.06em] uppercase transition-colors";
-const NAV_LINK_INACTIVE = "text-[#6b6b6b] hover:text-foreground hover:bg-muted";
-const NAV_LINK_ACTIVE = "hr-v2-button-primary";
+  "relative flex items-center gap-2 px-3 py-2 font-sans text-sm transition-colors";
+const NAV_LINK_INACTIVE = "text-[#5f5f5f] hover:text-foreground";
+const NAV_LINK_ACTIVE =
+  "font-medium text-foreground after:absolute after:inset-x-3 after:-bottom-[14px] after:h-0.5 after:rounded-full after:bg-(image:--mode-gradient)";
+const NAV_LINK_ACTIVE_MOBILE = "font-medium text-foreground bg-muted";
 
 /** Renders the shared navigation and wallet controls for the Highrable app. */
 export function Header() {
@@ -40,8 +42,8 @@ export function Header() {
   const navigation = isAdminRoute ? ADMIN_NAVIGATION : MODE_NAVIGATION[mode];
   const navLabel = isAdminRoute ? "Admin navigation" : `${MODE_COPY[mode].label} navigation`;
 
-  const walletActionClass = "hidden px-4 py-2 font-mono text-xs tracking-widest uppercase sm:block";
-  const walletDrawerActionClass = "w-full px-4 py-2 font-mono text-xs tracking-widest uppercase";
+  const walletActionClass = "hidden px-4 py-2 text-sm sm:block";
+  const walletDrawerActionClass = "w-full px-4 py-2 text-sm";
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -53,29 +55,23 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 bg-white transition-shadow duration-300",
-        isScrolled ? "shadow-[0_1px_0_var(--color-border)]" : "",
+        "sticky top-0 z-50 border-b bg-white transition-colors",
+        isScrolled ? "border-border" : "border-transparent",
       )}
     >
       <nav className={cn(V2_PAGE_CONTAINER_CLASS, "flex h-16 items-center justify-between gap-3")}>
         {/* Logo */}
         <Link href="/home" className="flex shrink-0 items-center gap-2.5">
-          <motion.div
-            whileHover={{ scale: 1.03 }}
-            transition={{ type: "spring", stiffness: 300 }}
-            className="flex items-center gap-2.5"
-          >
-            <img
-              src="/logo/highrable-landscape.png"
-              alt="Highrable logo"
-              className="h-8 w-auto max-w-[128px] object-contain"
-            />
-          </motion.div>
+          <img
+            src="/logo/highrable-landscape.png"
+            alt="Highrable logo"
+            className="h-8 w-auto max-w-[128px] object-contain"
+          />
         </Link>
 
         {/* Desktop nav — only pages that belong to the current mode */}
         <div
-          className="ml-auto hidden items-center gap-1 md:flex"
+          className="ml-auto hidden items-center md:flex"
           role="navigation"
           aria-label={navLabel}
         >
@@ -118,7 +114,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="absolute inset-x-0 top-16 overflow-hidden border-t border-border bg-white shadow-[0_16px_32px_rgba(10,10,10,0.08)] md:hidden"
+            className="absolute inset-x-0 top-16 overflow-hidden border-y border-border bg-white md:hidden"
           >
             <div className={cn(V2_PAGE_CONTAINER_CLASS, "space-y-1 py-4")}>
               {navigation.map(({ href, name, description }) => (
@@ -128,14 +124,12 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
                     NAV_LINK_BASE,
-                    "flex-col items-start gap-0.5 text-sm",
-                    isActivePath(pathname, href) ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE,
+                    "flex-col items-start gap-0.5 rounded-md",
+                    isActivePath(pathname, href) ? NAV_LINK_ACTIVE_MOBILE : NAV_LINK_INACTIVE,
                   )}
                 >
                   <span>{name}</span>
-                  <span className="font-sans text-xs font-normal tracking-normal normal-case opacity-80">
-                    {description}
-                  </span>
+                  <span className="hr-text-muted text-xs font-normal">{description}</span>
                 </Link>
               ))}
               {isAdminRoute ? null : (

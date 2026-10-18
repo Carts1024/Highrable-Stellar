@@ -1,8 +1,8 @@
 import { ProductPageHero } from "@/features/common";
 import { ModeGate } from "@/features/mode";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { BadgeCheck, BriefcaseBusiness, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 const plannedSignals = [
   "A public history of jobs they finished",
@@ -10,101 +10,31 @@ const plannedSignals = [
   "Shortlists and invitations to apply",
 ] as const;
 
-const previewProfiles = [
-  {
-    name: "Stellar Frontend Engineer",
-    specialty: "Wallet UX, Next.js, payment hold flows",
-    stats: "12 completions",
-  },
-  {
-    name: "Stellar Contract Developer",
-    specialty: "Rust contracts, testnet deployment, audits",
-    stats: "9 completions",
-  },
-  {
-    name: "Product Designer",
-    specialty: "Marketplace dashboards, trust signals",
-    stats: "7 completions",
-  },
-] as const;
-
 /** Placeholder for the future talent discovery surface. */
 export function TalentPage() {
   return (
     <ModeGate allow="client" purpose="look for freelancers to hire">
-      <div className="space-y-8">
-        <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
-          <ProductPageHero
-            label="Client · Find Freelancers"
-            title={
-              <>
-                Find Freelancers <span className="hr-mode-text">You Can Trust</span>
-              </>
-            }
-            description="A searchable list of freelancers is coming soon. For now, the best way to hire is to post a job and review the people who apply."
-            actions={
-              <>
-                <AppButton asChild className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono">
-                  <Link href="/post-job">Post a Job</Link>
-                </AppButton>
-              </>
-            }
-          />
+      <div className="max-w-2xl space-y-6">
+        <ProductPageHero
+          title="Find freelancers"
+          description="A searchable list of freelancers is not available yet. For now, the best way to hire is to post a job and review the people who apply."
+          actions={
+            <AppButton asChild className="hr-v2-button-primary h-9 rounded-md px-4">
+              <Link href="/post-job">Post a job</Link>
+            </AppButton>
+          }
+        />
 
-          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-            <div className="flex items-center gap-3 border-b border-border/60 pb-4">
-              <div className="hr-mode-soft hr-mode-text flex h-11 w-11 items-center justify-center rounded-xl">
-                <BadgeCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="font-mono font-semibold text-foreground">What You Will See</h2>
-                <p className="font-sans text-sm text-muted-foreground">
-                  Based on real, finished jobs
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {plannedSignals.map((signal) => (
-                <div
-                  key={signal}
-                  className="flex gap-3 rounded-xl bg-muted/40 p-3 font-sans text-sm text-foreground"
-                >
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span>{signal}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <div>
-            <h2 className="hr-text-primary font-sans text-lg font-semibold">Preview</h2>
-            <p className="mt-1 font-sans text-sm text-muted-foreground">
-              These examples show how freelancer cards will look. Search is not live yet.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {previewProfiles.map((profile) => (
-              <article
-                key={profile.name}
-                className="rounded-xl border border-dashed border-border bg-card p-5 transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
-              >
-                <div className="flex items-center justify-start gap-4">
-                  <BriefcaseBusiness className="h-12 w-12 rounded-xl bg-muted p-3 text-muted-foreground" />
-                  <h3 className="font-sans font-semibold text-foreground">{profile.name}</h3>
-                </div>
-
-                <p className="mt-2 font-sans text-sm leading-6 text-muted-foreground">
-                  {profile.specialty}
-                </p>
-                <div className="hr-mode-soft hr-mode-text mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1 font-sans text-xs font-medium">
-                  <Star className="h-3.5 w-3.5" />
-                  {profile.stats}
-                </div>
-              </article>
+        <section className="space-y-2 border-t pt-5">
+          <h2 className="hr-text-primary text-sm font-semibold">Coming to this page</h2>
+          <p className="hr-text-secondary text-sm">
+            Freelancer listings will be based on real jobs finished and paid on Highrable:
+          </p>
+          <ul className="hr-text-secondary list-disc space-y-1 pl-5 text-sm">
+            {plannedSignals.map((signal) => (
+              <li key={signal}>{signal}</li>
             ))}
-          </div>
+          </ul>
         </section>
       </div>
     </ModeGate>

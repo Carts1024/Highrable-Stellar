@@ -29,7 +29,7 @@ function ShellFrame({ children }: { children: React.ReactNode }) {
     <div data-mode={activeMode} className="min-h-screen bg-[var(--mode-page)] text-foreground">
       <Header />
       {isAdminRoute ? null : <ModeBanner />}
-      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12">{children}</main>
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       <Footer />
     </div>
   );

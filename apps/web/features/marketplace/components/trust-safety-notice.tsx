@@ -48,10 +48,10 @@ export function TrustSafetyNotice({ type, compact = false, className }: ITrustSa
   return (
     <Alert
       className={cn(
-        "items-center rounded-lg font-sans",
+        "items-center rounded-none border-0 border-l-2 font-sans",
         notice.tone === "green"
-          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-          : "border-amber-200 bg-amber-50 text-amber-900",
+          ? "border-emerald-500 bg-emerald-50/60 text-emerald-900"
+          : "border-amber-400 bg-amber-50/60 text-amber-900",
         compact ? "px-3 py-2 text-xs" : null,
         className,
       )}

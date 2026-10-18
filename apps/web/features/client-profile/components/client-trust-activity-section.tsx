@@ -6,14 +6,8 @@ import { RecentClientJobsSection } from "@/features/client-profile/components/re
 import { RecentCompletedPaymentsSection } from "@/features/client-profile/components/recent-completed-payments-section";
 import { RecentFundedEscrowsSection } from "@/features/client-profile/components/recent-funded-escrows-section";
 import { ReportedJobsSummaryCard } from "@/features/client-profile/components/reported-jobs-summary-card";
-import {
-  HighrableV2Bullet,
-  HighrableV2IconNotice,
-  SectionLabel,
-} from "@repo/ui/components/highrable/v2-marketing";
-import { Badge } from "@repo/ui/components/ui/badge";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
-import { cn } from "@repo/ui/lib/utils";
 
 import type {
   TClientEscrowActivity,
@@ -30,106 +24,63 @@ interface IClientTrustActivitySectionProps {
   readonly reportedJobsSummary?: TReportedJobsSummary;
 }
 
-type TClientTrustTabValue = "stats" | "work" | "funded" | "payments" | "jobs" | "reports";
-type TClientTrustTab = readonly [value: TClientTrustTabValue, label: string, count: string];
-
-function getClientTrustTabs({
-  stats,
-  recentJobs,
-  recentFundedEscrows,
-  recentCompletedPayments,
-  reportedJobsSummary,
-}: IClientTrustActivitySectionProps): readonly TClientTrustTab[] {
-  const tabs: TClientTrustTab[] = [
-    ["stats", "Stats", stats.escrowsCreated.toString()],
-    ["work", "Work mix", stats.jobsPosted.toString()],
-    ["funded", "Funded", recentFundedEscrows.length.toString()],
-    ["payments", "Payments", recentCompletedPayments.length.toString()],
-    ["jobs", "Posted jobs", recentJobs.length.toString()],
-  ];
-
-  if (reportedJobsSummary) {
-    tabs.push(["reports", "Reports", reportedJobsSummary.reportedJobsCount.toString()]);
-  }
-
-  return tabs;
-}
+type TClientTrustTabValue = "jobs" | "funded" | "payments";
 
 export function ClientTrustActivitySection(props: IClientTrustActivitySectionProps) {
   const { stats, recentJobs, recentFundedEscrows, recentCompletedPayments, reportedJobsSummary } =
     props;
-  const clientTrustTabs = getClientTrustTabs(props);
+  const activityTabs: readonly (readonly [TClientTrustTabValue, string, number])[] = [
+    ["jobs", "Posted jobs", recentJobs.length],
+    ["funded", "Funded", recentFundedEscrows.length],
+    ["payments", "Payments released", recentCompletedPayments.length],
+  ];
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--mode-border)] pb-5">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <SectionLabel>Client Trust Activity</SectionLabel>
-            <HighrableV2IconNotice
-              label="How client trust activity is grouped"
-              tone="neutral"
-              message="Payment Hold stats, work mix, funded history, completed payments, and posted jobs are grouped into tabs so freelancers can inspect the client without scanning a long page."
-            />
-          </div>
-          <h2 className="text-2xl font-semibold text-[#0a0a0a]">Escrow-backed Client Signal</h2>
-          <p className="max-w-3xl text-sm leading-relaxed text-[#5f5f5f]">
-            Review this client&apos;s funding behavior, completed payments, and posted work in one
-            compact workspace.
-          </p>
+    <div className="space-y-8">
+      <section aria-labelledby="client-history-title" className="space-y-3">
+        <div className="flex items-center gap-1.5">
+          <h2 id="client-history-title" className="hr-text-primary text-base font-semibold">
+            Payment history
+          </h2>
+          <HighrableV2IconNotice
+            label="Where these numbers come from"
+            tone="neutral"
+            message="Counted from this client's Highrable payment holds on Stellar. Each new job still needs its own payment hold before work starts."
+          />
         </div>
-        {stats.disputedEscrows > 0 ? (
-          <Badge
-            variant="outline"
-            className="rounded-none border-amber-200 bg-amber-50 text-amber-800"
-          >
-            {stats.disputedEscrows} disputed
-          </Badge>
-        ) : null}
-      </div>
+        {reportedJobsSummary ? <ReportedJobsSummaryCard summary={reportedJobsSummary} /> : null}
+        <ClientTrustStatsCards stats={stats} />
+        <ClientWorkBreakdown stats={stats} />
+      </section>
 
-      <Tabs defaultValue="stats" className="gap-5">
-        <TabsList
-          variant="line"
-          className="h-auto w-full flex-wrap justify-start border-b border-[var(--mode-border)] pb-0"
-        >
-          {clientTrustTabs.map(([value, label, count]) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className={cn(
-                "rounded-none px-0 py-3 pr-6 font-mono text-xs tracking-[0.06em] uppercase",
-                "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-highrable-orange-2",
-              )}
-            >
-              <HighrableV2Bullet aria-hidden="true" />
-              {label}
-              <span className="text-[#7f7f7f]">{count}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="stats">
-          <ClientTrustStatsCards stats={stats} />
-        </TabsContent>
-        <TabsContent value="work">
-          <ClientWorkBreakdown stats={stats} />
-        </TabsContent>
-        <TabsContent value="funded">
-          <RecentFundedEscrowsSection escrows={recentFundedEscrows} />
-        </TabsContent>
-        <TabsContent value="payments">
-          <RecentCompletedPaymentsSection payments={recentCompletedPayments} />
-        </TabsContent>
-        <TabsContent value="jobs">
-          <RecentClientJobsSection jobs={recentJobs} />
-        </TabsContent>
-        {reportedJobsSummary ? (
-          <TabsContent value="reports">
-            <ReportedJobsSummaryCard summary={reportedJobsSummary} />
+      <section aria-labelledby="client-activity-title" className="space-y-3">
+        <h2 id="client-activity-title" className="hr-text-primary text-base font-semibold">
+          Recent activity
+        </h2>
+        <Tabs defaultValue="jobs" className="gap-4">
+          <TabsList variant="line" className="h-auto w-full justify-start gap-6 border-b pb-0">
+            {activityTabs.map(([value, label, count]) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="flex-none rounded-none px-0 py-2.5 text-sm data-[state=active]:font-medium data-[state=active]:after:bg-(--mode-solid)"
+              >
+                {label}
+                <span className="hr-text-muted ml-1.5 font-normal">{count}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="jobs">
+            <RecentClientJobsSection jobs={recentJobs} />
           </TabsContent>
-        ) : null}
-      </Tabs>
-    </section>
+          <TabsContent value="funded">
+            <RecentFundedEscrowsSection escrows={recentFundedEscrows} />
+          </TabsContent>
+          <TabsContent value="payments">
+            <RecentCompletedPaymentsSection payments={recentCompletedPayments} />
+          </TabsContent>
+        </Tabs>
+      </section>
+    </div>
   );
 }

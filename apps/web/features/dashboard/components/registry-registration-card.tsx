@@ -2,6 +2,7 @@
 
 import { useRegistryRegistration } from "@/features/onboarding/hooks/use-registry-registration";
 import { Button } from "@repo/ui/components/ui/button";
+import React from "react";
 
 export function RegistryRegistrationCard() {
   const registration = useRegistryRegistration();
@@ -16,11 +17,11 @@ export function RegistryRegistrationCard() {
   return (
     <section
       aria-labelledby="registry-registration-title"
-      className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm"
+      className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="space-y-1">
-        <h2 id="registry-registration-title" className="font-sans text-lg font-semibold">
-          Register Your Wallet on Stellar
+      <div className="max-w-2xl space-y-1">
+        <h2 id="registry-registration-title" className="font-sans text-sm font-semibold">
+          Register your wallet on Stellar
         </h2>
         <p className="text-sm text-muted-foreground">
           Registration is optional for existing members. It stores your wallet address and public
@@ -29,9 +30,7 @@ export function RegistryRegistrationCard() {
       </div>
 
       {registration.configurationError ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {registration.configurationError}
-        </p>
+        <p className="text-sm text-amber-800">{registration.configurationError}</p>
       ) : null}
 
       {registration.stepLabel ? (
@@ -41,12 +40,12 @@ export function RegistryRegistrationCard() {
       ) : null}
 
       {registration.error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="text-sm text-red-700">
           {registration.error}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex shrink-0 flex-wrap gap-2">
         {hasRecoverableTransaction ? (
           <Button
             type="button"

@@ -27,9 +27,10 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { useMutation, useQuery } from "convex/react";
-import { Filter, Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import React from "react";
 
 import type { TMarketplaceJobRow } from "@/features/marketplace/types";
 
@@ -41,9 +42,9 @@ type TMarketplaceFilter = "all" | "verified_funded";
 type TMarketplaceSortOption = "safest" | "budget_high" | "budget_low";
 
 const SORT_OPTIONS = [
-  { value: "safest", label: "Safest First" },
-  { value: "budget_high", label: "Highest Budget" },
-  { value: "budget_low", label: "Lowest Budget" },
+  { value: "safest", label: "Safest first" },
+  { value: "budget_high", label: "Highest budget" },
+  { value: "budget_low", label: "Lowest budget" },
 ] as const;
 
 const MARKETPLACE_SORTERS: Record<
@@ -184,140 +185,100 @@ export function MarketplacePage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Hero */}
-      <section className="border-b border-[var(--mode-border)] pb-8">
-        <ProductPageHero
-          label={mode === "client" ? "Client · Manage Your Jobs" : "Freelancer · Job Board"}
-          title={
-            <>
-              Jobs and <span className="hr-mode-text">Applications</span>
-            </>
-          }
-          description={
-            mode === "client"
-              ? "Post work, review the people who applied, and set the payment aside once you have chosen someone."
-              : "Browse jobs, send applications, and follow up once a client picks you."
-          }
-          actions={
-            mode === "client" ? (
-              <AppButton
-                type="button"
-                className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
-                onClick={() => setIsCreateJobOpen((open) => !open)}
-              >
-                <Plus className="h-4 w-4" />
-                {isCreateJobOpen ? "Close Job Form" : "Post a Job"}
-              </AppButton>
-            ) : undefined
-          }
-        />
-      </section>
-
-      {/* Create job workspace */}
-      {mode === "client" && isCreateJobOpen ? (
-        <section className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-0.5">
-              <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-                New job
-              </p>
-              <h2 className="hr-text-primary font-sans text-lg font-semibold">Post a Job</h2>
-            </div>
+    <div className="space-y-6">
+      <ProductPageHero
+        title={mode === "client" ? "Jobs" : "Find work"}
+        description={
+          mode === "client"
+            ? "Post work, review applicants, and set the payment aside once you have chosen someone."
+            : "Open jobs from clients on Highrable. Jobs with the payment already on hold are listed first."
+        }
+        actions={
+          mode === "client" ? (
             <AppButton
               type="button"
-              variant="outline"
-              className="h-9 rounded-lg px-4 text-xs font-semibold"
-              onClick={() => setIsCreateJobOpen(false)}
+              className="hr-v2-button-primary h-9 rounded-md px-4"
+              onClick={() => setIsCreateJobOpen((open) => !open)}
             >
-              Close
+              {isCreateJobOpen ? "Close job form" : "Post a job"}
             </AppButton>
-          </div>
-          <CreateJobForm
-            onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
-          />
-        </section>
+          ) : undefined
+        }
+      />
+
+      {mode === "client" && isCreateJobOpen ? (
+        <CreateJobForm
+          onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
+        />
       ) : null}
 
-      {/* Controls */}
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Search + Sort group */}
-          <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-            {/* Search */}
-            <label htmlFor={searchInputId} className="relative w-full lg:max-w-xl">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-              <AppInput
-                id={searchInputId}
-                type="search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by title, description, currency, or wallet"
-                className="w-full bg-white pr-4 pl-10 font-sans"
-              />
-            </label>
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label htmlFor={searchInputId} className="relative w-full sm:max-w-md">
+            <span className="sr-only">Search jobs</span>
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+            <AppInput
+              id={searchInputId}
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search title, description, currency or wallet"
+              className="w-full bg-white pr-3 pl-9 font-sans"
+            />
+          </label>
 
-            {/* Sort */}
-            <div className="relative w-full lg:w-50">
-              <Select
-                value={sortBy}
-                onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
-              >
-                <SelectTrigger className="w-full bg-white pl-10 font-sans">
-                  <Filter className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Filter + Reset */}
-          <div className="flex items-center justify-between gap-2 lg:justify-end">
-            {/* Filter segmented control */}
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1">
-              {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilter(f)}
-                  className={`rounded-md px-3 py-1.5 font-mono text-xs tracking-widest whitespace-nowrap uppercase transition-all duration-150 ${
-                    filter === f
-                      ? "border border-highrable-orange-2 bg-highrable-orange-2 text-white shadow-sm"
-                      : "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  {f === "all" ? "All Jobs" : "Verified Only"}
-                </button>
+          <Select
+            value={sortBy}
+            onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
+          >
+            <SelectTrigger className="w-full bg-white font-sans sm:w-44" aria-label="Sort jobs">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
               ))}
-            </div>
+            </SelectContent>
+          </Select>
+
+          <div
+            role="radiogroup"
+            aria-label="Filter jobs"
+            className="flex items-center gap-1 rounded-md border bg-white p-0.5 sm:ml-auto"
+          >
+            {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                role="radio"
+                aria-checked={filter === f}
+                onClick={() => setFilter(f)}
+                className={`flex-1 rounded px-3 py-1.5 text-sm whitespace-nowrap transition-colors sm:flex-none ${
+                  filter === f
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f === "all" ? "All jobs" : "Payment on hold"}
+              </button>
+            ))}
           </div>
         </div>
-      </section>
 
-      {applyError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {applyError}
-        </p>
-      ) : null}
-
-      {/* Feed */}
-      <section className="space-y-5">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Marketplace Feed
+        {applyError ? (
+          <p role="alert" className="text-sm text-red-700">
+            {applyError}
           </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">
-            {visibleRows.length} jobs found
-          </h2>
-        </div>
+        ) : null}
+
+        {marketplaceRows !== undefined ? (
+          <p className="hr-text-secondary text-sm">
+            {visibleRows.length} {visibleRows.length === 1 ? "job" : "jobs"}
+          </p>
+        ) : null}
+
         <JobList
           jobs={marketplaceRows === undefined ? undefined : visibleRows}
           connectedWallet={walletIdentity.walletAddress}

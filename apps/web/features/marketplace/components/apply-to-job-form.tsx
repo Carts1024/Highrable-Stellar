@@ -63,41 +63,29 @@ export function ApplyToJobForm({
     return (
       <WalletConnectTrigger
         label="Connect Wallet to Apply"
-        className="hr-v2-button-primary rounded-lg px-8 py-2.5 text-sm font-medium text-white"
+        className="h-9 rounded-md bg-(image:--mode-gradient) px-4 text-sm text-(--mode-on) hover:brightness-95"
       />
     );
   }
 
   if (!isJobOpen) {
-    return (
-      <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-sans text-xs font-medium text-amber-800">
-        Applications closed
-      </span>
-    );
+    return <span className="hr-text-secondary font-sans text-sm">Applications closed</span>;
   }
 
   if (isClient) {
     return (
-      <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 font-sans text-xs font-medium text-blue-800">
-        You are the client for this job
-      </span>
+      <span className="hr-text-secondary font-sans text-sm">You are the client for this job</span>
     );
   }
 
   if (isCheckingApplicationStatus) {
     return (
-      <span className="inline-flex rounded-full border border-border bg-muted/50 px-3 py-1.5 font-sans text-xs font-medium">
-        Checking application status...
-      </span>
+      <span className="hr-text-secondary font-sans text-sm">Checking application status...</span>
     );
   }
 
   if (hasApplied) {
-    return (
-      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-sans text-xs font-medium text-emerald-800">
-        Application submitted
-      </span>
-    );
+    return <span className="font-sans text-sm text-emerald-700">Application submitted</span>;
   }
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -154,8 +142,11 @@ export function ApplyToJobForm({
     <div>
       <ResponsiveDialog>
         <ResponsiveDialogTrigger asChild>
-          <AppButton type="button" variant="primary" size="lg" className="px-8 text-sm">
-            Apply to Job
+          <AppButton
+            type="button"
+            className="h-9 rounded-md bg-(image:--mode-gradient) px-4 text-sm text-(--mode-on) hover:brightness-95"
+          >
+            Apply for this job
           </AppButton>
         </ResponsiveDialogTrigger>
 
@@ -195,7 +186,7 @@ export function ApplyToJobForm({
               />
 
               {error ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p role="alert" className="text-sm text-red-700">
                   {error}
                 </p>
               ) : null}

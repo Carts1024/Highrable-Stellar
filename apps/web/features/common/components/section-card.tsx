@@ -5,9 +5,10 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 interface ISectionCardProps {
-  /** What this container is, in a few plain words. Shown on the coloured band. */
+  /** What this container is, in a few plain words. */
   readonly title: ReactNode;
   readonly description?: ReactNode;
+  /** Optional small glyph before the title. Use only when it helps recognition. */
   readonly icon?: LucideIcon;
   readonly action?: ReactNode;
   readonly children: ReactNode;
@@ -16,10 +17,7 @@ interface ISectionCardProps {
   readonly id?: string;
 }
 
-/**
- * Standard container: white card with a coloured heading band on top, so every box on a page
- * says what it is before you read the content. The band follows the current mode colour.
- */
+/** Bordered container with a plain title row. Use for content that needs its own boundary. */
 export function SectionCard({
   title,
   description,
@@ -33,23 +31,17 @@ export function SectionCard({
   return (
     <section
       id={id}
-      className={cn("overflow-hidden rounded-xl border bg-card text-card-foreground", className)}
+      className={cn("overflow-hidden rounded-lg border bg-card text-card-foreground", className)}
     >
-      <header className="hr-card-head flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-        <div className="flex min-w-0 items-center gap-3">
-          {Icon ? (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/85 text-[var(--mode-text)]">
-              <Icon className="h-5 w-5" aria-hidden="true" />
-            </span>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3">
+        <div className="min-w-0">
+          <h2 className="hr-text-primary flex items-center gap-2 font-sans text-sm font-semibold">
+            {Icon ? <Icon className="hr-text-muted h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+            {title}
+          </h2>
+          {description ? (
+            <p className="hr-text-secondary mt-0.5 font-sans text-xs leading-snug">{description}</p>
           ) : null}
-          <div className="min-w-0">
-            <h2 className="font-sans text-base leading-tight font-bold sm:text-lg">{title}</h2>
-            {description ? (
-              <p className="mt-0.5 font-sans text-xs leading-snug opacity-90 sm:text-sm">
-                {description}
-              </p>
-            ) : null}
-          </div>
         </div>
         {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
       </header>
@@ -66,7 +58,7 @@ interface ISectionHeadingProps {
   readonly className?: string;
 }
 
-/** Stand-alone coloured heading band for a group of cards (a list, a board, a set of shortcuts). */
+/** Heading for a group of items that sits on the page rather than inside a container. */
 export function SectionHeading({
   title,
   description,
@@ -75,26 +67,15 @@ export function SectionHeading({
   className,
 }: ISectionHeadingProps) {
   return (
-    <div
-      className={cn(
-        "hr-card-head flex flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-3.5 shadow-sm",
-        className,
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        {Icon ? (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/85 text-[var(--mode-text)]">
-            <Icon className="h-5 w-5" aria-hidden="true" />
-          </span>
+    <div className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
+      <div className="min-w-0">
+        <h2 className="hr-text-primary flex items-center gap-2 font-sans text-base font-semibold">
+          {Icon ? <Icon className="hr-text-muted h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+          {title}
+        </h2>
+        {description ? (
+          <p className="hr-text-secondary mt-0.5 font-sans text-sm leading-snug">{description}</p>
         ) : null}
-        <div className="min-w-0">
-          <h2 className="font-sans text-base leading-tight font-bold sm:text-lg">{title}</h2>
-          {description ? (
-            <p className="mt-0.5 font-sans text-xs leading-snug opacity-90 sm:text-sm">
-              {description}
-            </p>
-          ) : null}
-        </div>
       </div>
       {action ? <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div> : null}
     </div>

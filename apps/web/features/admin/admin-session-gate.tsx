@@ -54,7 +54,7 @@ function AdminSessionPanel({
   return (
     <RoutePanel className="max-w-2xl">
       <RoutePanelHeader eyebrow="Admin Session" title={title} description={description} />
-      {children ? <div className="space-y-4 px-6 pb-6">{children}</div> : null}
+      {children ? <div className="space-y-4 px-5 py-4">{children}</div> : null}
     </RoutePanel>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@repo/ui/lib/utils";
+import React from "react";
 
 import { MODE_COPY } from "./mode-config";
 import { useAppMode } from "./mode-provider";
@@ -9,7 +10,6 @@ import { useAppMode } from "./mode-provider";
 export function ModeBanner() {
   const { mode, isReady } = useAppMode();
   const copy = MODE_COPY[mode];
-  const Icon = copy.icon;
 
   if (!isReady) {
     return null;
@@ -22,14 +22,17 @@ export function ModeBanner() {
       className={cn(
         "border-b",
         mode === "client"
-          ? "border-[#facc15]/60 bg-[#fef9c3] text-[#713f12]"
-          : "border-[#ff7003]/30 bg-[#fff1e5] text-[#9a3f00]",
+          ? "border-[#facc15]/50 bg-[#fefce8] text-[#713f12]"
+          : "border-[#ff7003]/25 bg-[#fff7ef] text-[#9a3f00]",
       )}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-6 py-1.5 text-xs">
-        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="font-mono font-semibold tracking-[0.06em] uppercase">{copy.label}</span>
-        <span className="hidden sm:inline">· {copy.tagline}</span>
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-1 text-xs sm:px-6">
+        <span
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--mode-solid)]"
+          aria-hidden="true"
+        />
+        <span className="font-medium">{copy.label}</span>
+        <span className="hidden opacity-80 sm:inline">· {copy.tagline}</span>
       </div>
     </div>
   );

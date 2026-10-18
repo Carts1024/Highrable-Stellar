@@ -61,7 +61,7 @@ export function AttachmentProtectionBadge({
   }
 
   return (
-    <Badge className="rounded-md border border-[#ffd7bd] bg-[#fff7f1] px-2 py-1 font-mono text-[0.65rem] tracking-[0.06em] text-[#9a3d00] uppercase hover:bg-[#fff7f1]">
+    <Badge className="rounded-md border border-[#ffd7bd] bg-[#fff7f1] px-2 py-1 text-xs text-[#9a3d00] hover:bg-[#fff7f1]">
       Protected preview
     </Badge>
   );
@@ -88,7 +88,7 @@ export function DownloadRestrictedNotice() {
 
 export function PaymentReleasedNotice() {
   return (
-    <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+    <p className="border-l-2 border-emerald-500 bg-emerald-50/60 py-2.5 pr-3 pl-3 text-sm text-emerald-800">
       Payment released. Deliverables are now available for download.
     </p>
   );
@@ -103,7 +103,7 @@ export function WatermarkOverlay({ text }: { readonly text: string }) {
         backgroundImage: `repeating-linear-gradient( -28deg, transparent 0 64px, rgba(10,10,10,0.08) 64px 66px, transparent 66px 156px )`,
       }}
     >
-      <div className="grid h-full w-full grid-cols-2 content-around gap-10 p-8 text-center font-mono text-xs font-semibold text-[#0a0a0a] uppercase sm:grid-cols-3">
+      <div className="grid h-full w-full grid-cols-2 content-around gap-10 p-8 text-center text-xs font-semibold text-[#0a0a0a] sm:grid-cols-3">
         {Array.from({ length: 12 }).map((_, index) => (
           <span key={index} className="-rotate-12 whitespace-nowrap select-none">
             {text}

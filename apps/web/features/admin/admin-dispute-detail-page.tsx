@@ -17,6 +17,7 @@ import {
   ADMIN_QUERY_KEY,
   useAdminSessionAccess,
 } from "@/features/admin/admin-session-gate";
+import { AdminMark } from "@/features/admin/components/admin-mark";
 import { AdminSection } from "@/features/admin/components/admin-operations-ui";
 import { useAdminSettlement } from "@/features/admin/hooks/use-admin-settlement";
 import {
@@ -64,7 +65,6 @@ import {
   isTerminalDisputeStatus,
 } from "@/features/disputes/lib";
 import { api } from "@repo/convex-client";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
@@ -183,9 +183,9 @@ function sanitizeLimitedMultilineInput(value: string, maxLength: number): string
 
 function DefinitionItem({ label, children }: IDefinitionItemProps) {
   return (
-    <div className="border-l border-[#e8e8e8] pl-4">
-      <dt className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">{label}</dt>
-      <dd className="mt-1 min-w-0 text-sm font-semibold break-words text-[#0a0a0a]">{children}</dd>
+    <div className="min-w-0">
+      <dt className="hr-text-secondary text-xs">{label}</dt>
+      <dd className="hr-text-primary mt-0.5 min-w-0 text-sm break-words">{children}</dd>
     </div>
   );
 }
@@ -274,22 +274,21 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
     detail.dispute.parentType === "milestone";
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
-      <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 p-5 sm:px-6">
-        <div className="max-w-3xl space-y-2">
-          <SectionLabel>Case Brief</SectionLabel>
-          <h2 className="text-xl font-semibold text-[#0a0a0a]">{detail.dispute.title}</h2>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-[#5f5f5f]">
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="max-w-3xl space-y-1">
+          <h2 className="hr-text-primary text-base font-semibold">{detail.dispute.title}</h2>
+          <p className="hr-text-primary text-sm leading-relaxed whitespace-pre-wrap">
             {detail.dispute.description}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-x-3 gap-y-1">
           <DisputeStatusBadge status={detail.dispute.status} />
           <DisputeOnChainStatusBadge status={detail.dispute.onChainStatus} />
         </div>
       </div>
 
-      <dl className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
+      <dl className="grid gap-x-6 gap-y-3 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-4">
         <DefinitionItem label="Reason">
           {getDisputeReasonLabel(detail.dispute.reasonCategory)}
         </DefinitionItem>
@@ -327,7 +326,6 @@ function AdminCaseBrief({ detail }: IAdminCaseBriefProps) {
 function AdminCaseEvidence({ detail }: IAdminCaseBriefProps) {
   return (
     <AdminSection
-      label="Evidence review"
       title="Case Evidence"
       description="Evidence attached to the dispute is shown independently from timeline events."
     >
@@ -378,10 +376,7 @@ function AdminLinkedRecordGroup({ group }: { readonly group: TAdminLinkedRecordG
 
   return (
     <section aria-labelledby={`linked-records-${group.label.toLowerCase()}`} className="space-y-2">
-      <h3
-        id={`linked-records-${group.label.toLowerCase()}`}
-        className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
-      >
+      <h3 id={`linked-records-${group.label.toLowerCase()}`} className="text-xs text-[#7f7f7f]">
         {group.label}
       </h3>
       <ul className="space-y-2">
@@ -405,7 +400,6 @@ function AdminLinkedRecords({ detail }: IAdminCaseBriefProps) {
 
   return (
     <AdminSection
-      label="Linked records"
       title="Linked Records"
       description="Reference IDs are shown without hydrating protected submission, revision, message, or deadline content."
     >
@@ -459,7 +453,6 @@ function AdminAssignmentWorkspace({
 
   return (
     <AdminSection
-      label="Case Ownership"
       title="Assignment"
       description="Case actions are available to the assigned active admin. The platform owner can reassign or release cases."
     >
@@ -547,16 +540,12 @@ function AdminModeratorWorkspace({
 }: IAdminModeratorWorkspaceProps) {
   return (
     <AdminSection
-      label="Review Desk"
       title="Moderator Workflow"
       description="Add internal context or request a party response without leaving the case record."
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-3">
-          <label
-            htmlFor="moderator-note"
-            className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
-          >
+          <label htmlFor="moderator-note" className="text-xs text-[#7f7f7f]">
             Moderator note
           </label>
           <Textarea
@@ -585,10 +574,7 @@ function AdminModeratorWorkspace({
         </div>
 
         <div className="space-y-3">
-          <label
-            htmlFor="review-status"
-            className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
-          >
+          <label htmlFor="review-status" className="text-xs text-[#7f7f7f]">
             Review status
           </label>
           <NativeSelect
@@ -609,10 +595,7 @@ function AdminModeratorWorkspace({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <label
-            htmlFor="review-message"
-            className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase"
-          >
+          <label htmlFor="review-message" className="text-xs text-[#7f7f7f]">
             Optional review message
           </label>
           <Textarea
@@ -659,15 +642,12 @@ function AdminResolutionWorkspace({
 }: IAdminResolutionWorkspaceProps) {
   return (
     <AdminSection
-      label="Settlement"
       title="Resolve Dispute On-chain"
       description="Settlement calls resolve_dispute with the assigned, active dispute admin wallet."
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,220px)_minmax(0,1fr)]">
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-status">
-          <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            Resolution
-          </span>
+          <span className="text-xs text-[#7f7f7f]">Resolution</span>
           <NativeSelect
             id="resolution-status"
             value={resolutionStatus}
@@ -686,9 +666,7 @@ function AdminResolutionWorkspace({
         </label>
 
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-share-bps">
-          <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            Freelancer share
-          </span>
+          <span className="text-xs text-[#7f7f7f]">Freelancer share</span>
           <AppInput
             id="resolution-share-bps"
             aria-label="Freelancer share in basis points"
@@ -714,9 +692,7 @@ function AdminResolutionWorkspace({
         </label>
 
         <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-note">
-          <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-            Resolution note
-          </span>
+          <span className="text-xs text-[#7f7f7f]">Resolution note</span>
           <Textarea
             id="resolution-note"
             aria-label="Resolution note"
@@ -758,11 +734,10 @@ function AdminResolutionWorkspace({
 function AdminTimeline({ detail }: IAdminTimelineProps) {
   return (
     <AdminSection
-      label="Audit Log"
       title="Timeline"
       description="Chronological dispute events, evidence references, and moderation activity."
       action={
-        <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
+        <p className="text-xs text-[#7f7f7f]">
           {detail.timeline.length} event{detail.timeline.length === 1 ? "" : "s"}
         </p>
       }
@@ -825,7 +800,7 @@ function AdminSettlementProgress({
   }
 
   return (
-    <AdminSection label="Settlement status" title={phaseLabel}>
+    <AdminSection title={phaseLabel} description="Settlement status">
       <div className="space-y-2 text-sm text-[#5f5f5f]" role="status" aria-live="polite">
         <p>{isExecuting ? `${phaseLabel}…` : phaseLabel}</p>
         {operationId ? (
@@ -1552,26 +1527,28 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-8 border-b border-[#e8e8e8] pb-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+      <div className="space-y-3 border-b pb-5">
+        <Link
+          href="/admin/disputes"
+          className="hr-text-muted inline-flex text-sm hover:text-foreground hover:underline"
+        >
+          ← All disputes
+        </Link>
         <ProductPageHero
-          label={detail.dispute.disputeNumber}
-          title={
+          meta={
             <>
-              Dispute <span className="hr-v2-gradient-text">Review</span>
+              <AdminMark /> · {detail.dispute.disputeNumber}
             </>
           }
-          description={`${getDisputeReasonLabel(detail.dispute.reasonCategory)} | Opened ${formatDisputeDate(detail.dispute.openedAt)}`}
+          title="Dispute review"
+          description={`${getDisputeReasonLabel(detail.dispute.reasonCategory)} · Opened ${formatDisputeDate(detail.dispute.openedAt)}`}
         />
-
-        <div className="grid gap-5 border-l border-[#e8e8e8] py-2 pl-5 sm:grid-cols-3 lg:grid-cols-1">
-          <HighrableV2Metric label="Status" value={getDisputeStatusLabel(detail.dispute.status)} />
-          <HighrableV2Metric
-            label="On-chain"
-            value={getDisputeOnChainStatusLabel(detail.dispute.onChainStatus)}
-          />
-          <HighrableV2Metric label="Events" value={detail.timeline.length} />
-        </div>
-      </section>
+        <p className="hr-text-secondary flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <span>Status: {getDisputeStatusLabel(detail.dispute.status)}</span>
+          <span>On-chain: {getDisputeOnChainStatusLabel(detail.dispute.onChainStatus)}</span>
+          <span>Events: {detail.timeline.length}</span>
+        </p>
+      </div>
 
       <AdminDisputeDetailActions
         detail={detail}
@@ -1615,7 +1592,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         isActiveSettlementAttemptStatus(attempt.status),
       ) ? (
         <AdminSection
-          label="Settlement Recovery"
           title="Pending Transaction"
           description="Recovery checks the persisted transaction identity and never submits it again."
         >

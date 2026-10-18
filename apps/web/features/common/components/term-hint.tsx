@@ -66,7 +66,7 @@ export function TermHint({ term, children, className }: ITermHintProps) {
         <span
           id={id}
           role="tooltip"
-          className="absolute top-full left-0 z-40 mt-2 w-64 rounded-lg border border-border bg-card p-3 text-left font-sans text-xs leading-relaxed font-normal tracking-normal text-foreground normal-case shadow-lg"
+          className="absolute top-full left-0 z-40 mt-2 w-64 rounded-lg border border-border bg-card p-3 text-left font-sans text-xs leading-relaxed font-normal tracking-normal text-foreground normal-case"
         >
           {PLAIN_TERMS[term]}
         </span>

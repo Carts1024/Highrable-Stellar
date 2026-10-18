@@ -2,7 +2,7 @@
 type: reference
 area: frontend
 status: current
-last_updated: 2026-09-29
+last_updated: 2026-10-18
 source_of_truth: repository
 ---
 
@@ -41,12 +41,23 @@ Responsive behavior of the landing page:
 
 Section content reveals use `V2Reveal` in `apps/web/features/landing-v2/components/v2-animated-elements.tsx`: a Framer Motion wrapper (opacity/transform only) that replays each time an element enters the viewport, enters against the scroll direction (tracked by one shared passive scroll listener), and supports a `delay` for staggering. `EditorialSectionLabel` uses it; under `prefers-reduced-motion` it renders in its final state with no motion.
 
+## Product UI conventions
+
+Product routes (everything inside `AppShell`) use a restrained, neutral style; the landing page has its own marketing styles and must not change with product UI work.
+
+- **Landing isolation.** `AppShell` sets `data-mode` on the shell and `<html>` only for non-marketing routes. App overrides in `apps/web/app/globals.css` (flat primary buttons, no card shadows or hard hover shadows, neutral section headers) are scoped to `[data-mode]`, so they never reach `/` or `/home`. The landing page also renders `Footer`, `WalletConnectTrigger`, and `PasskeySmartAccountCard`; treat those three as landing-owned and leave `packages/ui` marketing primitives (`SectionLabel`, `HighrableV2Metric`, `HighrableV2Bullet`, `hr-v2-*` classes) to the landing page.
+- **Page headers.** `ProductPageHero` (`features/common/components/layout/product-page-hero.tsx`) renders a plain title row: `title`, optional `description`, optional `meta` line, and right-aligned `actions`. No eyebrow pills, two-tone titles, or entrance animation.
+- **Status.** `StatusText` (`features/common/components/status-text.tsx`) renders status as text with a coloured dot (`neutral | info | warning | success | danger`). Marketplace, job-safety, deadline, dispute, cancellation, agreement, and client-reliability badges all map onto it; `escrow-status.ts` and `job-safety.ts` expose a `tone` instead of badge class strings.
+- **Lists and figures.** Work items use `WorkList`/`WorkListRow`/`WorkMeta` (`features/common/components/work-list.tsx`): one bordered list with dividers, amount right-aligned. Figures use `StatCard` (label, value, optional description; no icon or tone) grouped in a single divided strip.
+- **Callouts and empty states.** `RouteCallout` and inline notices use a left rule with a light tint; `RouteEmptyState` is a compact dashed row. Hide panels that would only say "nothing here" when that adds no information (for example, deadline reminders).
+- **Mode identity.** Client = yellow, Freelancer = orange, applied through the theme `--primary` (primary buttons), the active nav bar, and active tab underlines. Admin keeps the orange-to-yellow `--mode-gradient` on the active nav bar and the `AdminMark` (`features/admin/components/admin-mark.tsx`) above admin page titles.
+
 ## Common change locations
 
 - Route composition: `apps/web/app`.
 - Domain UI: `apps/web/features`.
 - Wallet/chain behavior: `apps/web/core/wallet`, `core/passkeys`, `core/stellar`.
-- Shared primitives: `packages/ui/src/components/ui`.
+- Shared primitives: `packages/ui/src/components/ui`; product-UI primitives: `apps/web/features/common`.
 - Cross-cutting environment: `apps/web/core/config/env.ts`.
 
 See [[frontend/Routes and API]], [[frontend/Feature Slices]], and [[frontend/Wallet and Stellar Client Layer]].

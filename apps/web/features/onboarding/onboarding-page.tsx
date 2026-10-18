@@ -23,7 +23,6 @@ import {
   validateAvatarFile,
 } from "@/features/profile/lib/profile-identity-form";
 import { api, type TConvexStorageId } from "@repo/convex-client";
-import { SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -254,11 +253,12 @@ export function OnboardingPage() {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <div>
-          <SectionLabel>Create Your Account</SectionLabel>
-          <h1 className="mt-2 text-3xl font-semibold text-[#0a0a0a]">Create Your Account</h1>
-          <p className="mt-3 text-sm text-[#5f5f5f]">{helperText}</p>
+          <h1 className="hr-text-primary text-2xl font-semibold tracking-tight">
+            Create your account
+          </h1>
+          <p className="hr-text-secondary mt-1 text-sm">{helperText}</p>
         </div>
-        <WalletConnectTrigger className="hr-v2-button-primary rounded-none px-5 py-2 text-sm font-medium text-white" />
+        <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
       </div>
     );
   }
@@ -268,33 +268,16 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
-        <div className="space-y-5">
-          <ProductPageHero
-            label="Create Your Account"
-            title={
-              <>
-                Set Up Your Profile in <span className="hr-mode-text">Three Short Steps</span>.
-              </>
-            }
-            description={helperText}
-          />
-        </div>
-
-        {/* Right panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-xs sm:rounded-xl">
-          <div className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-            <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-              About your account
-            </span>
-            <span className="hr-text-primary text-xs leading-none font-medium sm:text-sm">
-              One profile works for everything. On your profile page you can choose whether you are
-              hiring (Client) or looking for work (Freelancer).
-            </span>
-          </div>
-        </div>
-      </section>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <ProductPageHero
+        title="Create your profile"
+        description={
+          <>
+            {helperText} One profile covers both hiring and finding work; you can switch between
+            Client and Freelancer mode on your profile page.
+          </>
+        }
+      />
 
       <form
         onSubmit={(event) => void handleSubmit(event)}
@@ -308,7 +291,7 @@ export function OnboardingPage() {
             setStepIndex((value) => Math.min(ONBOARDING_STEPS.length - 1, value + 1));
           }
         }}
-        className="space-y-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
+        className="space-y-6 rounded-lg border p-4 sm:p-6"
       >
         <FormStepTabs
           steps={ONBOARDING_STEPS}
@@ -346,7 +329,7 @@ export function OnboardingPage() {
         </div>
 
         {stepIndex === ONBOARDING_STEPS.length - 1 ? (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+          <div className="border-l-2 border-border py-1 pl-3 text-sm text-muted-foreground">
             Good to know: when you finish, your wallet address and the time you registered are saved
             publicly on the <TermHint term="stellar">Stellar network</TermHint>. A small network fee
             may apply.
@@ -360,13 +343,13 @@ export function OnboardingPage() {
         ) : null}
 
         {registration.configurationError ? (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
             {registration.configurationError}
           </p>
         ) : null}
 
         {(formError ?? registration.error) ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
             {formError ?? registration.error}
           </p>
         ) : null}
@@ -392,7 +375,7 @@ export function OnboardingPage() {
               <AppButton
                 type="submit"
                 disabled={isPreparingProfile || registration.isBusy || registration.isLoading}
-                className="hr-v2-button-primary rounded-lg"
+                className="hr-v2-button-primary rounded-md"
               >
                 {isPreparingProfile && !registration.isBusy
                   ? "Saving profile"

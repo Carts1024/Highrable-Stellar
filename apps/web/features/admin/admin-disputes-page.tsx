@@ -6,6 +6,7 @@ import {
   ADMIN_QUERY_KEY,
   useAdminSessionAccess,
 } from "@/features/admin/admin-session-gate";
+import { AdminMark } from "@/features/admin/components/admin-mark";
 import {
   AdminDisputeQueue,
   AdminMetricRail,
@@ -35,7 +36,6 @@ import {
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 
 import type { TAdminAssignmentFilter } from "@/features/admin/lib/admin-api";
@@ -214,39 +214,28 @@ function AdminDisputesContent() {
 
   return (
     <div className="space-y-6">
-      <ProductPageHero
-        label="Manual Review"
-        title={
-          <>
-            Admin <span className="hr-v2-gradient-text">Dispute Console</span>
-          </>
-        }
-        description="Filter disputes, inspect review state, and move cases into the detailed settlement workflow."
-      />
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <AppButton asChild variant="secondary" size="sm">
-          <Link href="/admin">Back to Admin</Link>
-        </AppButton>
-        <AppButton
-          size="sm"
-          onClick={() => void handleQueueReadRetry()}
-          disabled={disputeQuery.isFetching}
-        >
-          {disputeQuery.isFetching ? "Refreshing..." : "Refresh"}
-        </AppButton>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <ProductPageHero
+          meta={<AdminMark />}
+          title="Disputes"
+          description="Filter cases by review state and open one to review evidence and settle it."
+        />
+        <div className="shrink-0">
+          <AppButton
+            variant="outline"
+            size="sm"
+            onClick={() => void handleQueueReadRetry()}
+            disabled={disputeQuery.isFetching}
+          >
+            {disputeQuery.isFetching ? "Refreshing..." : "Refresh"}
+          </AppButton>
+        </div>
       </div>
 
-      <AdminSection
-        label="Queue Controls"
-        title="Review Filters"
-        description="Filters are constrained to known dispute states before they are sent to the admin API."
-      >
+      <AdminSection title="Filters">
         <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_1fr] md:items-end">
           <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Status
-            </span>
+            <span className="text-xs text-[#7f7f7f]">Status</span>
             <NativeSelect
               value={statusFilter}
               onChange={(event) => {
@@ -264,9 +253,7 @@ function AdminDisputesContent() {
           </label>
 
           <label htmlFor="assignment-filter" className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Assignment
-            </span>
+            <span className="text-xs text-[#7f7f7f]">Assignment</span>
             <NativeSelect
               id="assignment-filter"
               value={assignmentFilter}
@@ -285,9 +272,7 @@ function AdminDisputesContent() {
           </label>
 
           <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              On-chain status
-            </span>
+            <span className="text-xs text-[#7f7f7f]">On-chain status</span>
             <NativeSelect
               value={onChainFilter}
               onChange={(event) => {
@@ -385,7 +370,6 @@ function AdminDisputesContent() {
         <>
           {disputeQuery.data ? (
             <AdminSection
-              label="Queue Health"
               title="Visible Workload"
               description="Counts are computed from the currently loaded dispute set."
             >
@@ -394,7 +378,6 @@ function AdminDisputesContent() {
           ) : null}
 
           <AdminSection
-            label="Dispute Queue"
             title="Review Cases"
             description="Open a case to inspect evidence, update review status, or record settlement."
           >

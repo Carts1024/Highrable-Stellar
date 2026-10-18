@@ -544,7 +544,7 @@ export function OpenDisputeDialog({
               void handleSubmit();
             }}
           >
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
               <div className="flex gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
@@ -555,7 +555,7 @@ export function OpenDisputeDialog({
             </div>
 
             {canOpenDispute?.allowed === false ? (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
                 {canOpenDispute.reason}
               </p>
             ) : null}
@@ -574,7 +574,7 @@ export function OpenDisputeDialog({
 
             <div className="grid gap-4">
               <label className="grid gap-2" htmlFor={titleId}>
-                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Title</span>
+                <span className="text-xs text-[#5f5f5f]">Title</span>
                 <input
                   id={titleId}
                   type="text"
@@ -590,7 +590,7 @@ export function OpenDisputeDialog({
               </label>
 
               <label className="grid gap-2" htmlFor={reasonSelectId}>
-                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Reason</span>
+                <span className="text-xs text-[#5f5f5f]">Reason</span>
                 <DisputeReasonSelect
                   id={reasonSelectId}
                   value={reasonCategory}
@@ -600,7 +600,7 @@ export function OpenDisputeDialog({
               </label>
 
               <label className="grid gap-2" htmlFor={descriptionId}>
-                <span className="font-mono text-xs text-[#5f5f5f] uppercase">Description</span>
+                <span className="text-xs text-[#5f5f5f]">Description</span>
                 <Textarea
                   id={descriptionId}
                   value={description}
@@ -628,7 +628,7 @@ export function OpenDisputeDialog({
 
               {relatedRevisions.length > 0 ? (
                 <fieldset className="space-y-2">
-                  <legend className="font-mono text-xs text-[#5f5f5f] uppercase">
+                  <legend className="text-xs text-[#5f5f5f]">
                     Related revision requests (up to 20)
                   </legend>
                   {relatedRevisions.map((revision) => (
@@ -668,7 +668,7 @@ export function OpenDisputeDialog({
               <p
                 id={errorId}
                 role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700"
               >
                 {error}
               </p>
@@ -683,7 +683,7 @@ export function OpenDisputeDialog({
             ) : null}
 
             {createdDisputeId ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
                 Your dispute was saved.{" "}
                 <Link
                   href={`/disputes/${createdDisputeId}`}

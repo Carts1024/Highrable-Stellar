@@ -34,7 +34,7 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div className="mb-4 flex items-center gap-3">
       <div className="h-2 w-2 bg-highrable-text-accent" />
-      <span className="font-mono text-sm font-semibold tracking-widest whitespace-nowrap text-highrable-text-accent uppercase">
+      <span className="text-sm font-semibold whitespace-nowrap text-highrable-text-accent">
         {label}
       </span>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@repo/ui/lib/utils";
+import React from "react";
 
 import { MODE_COPY, type TAppMode } from "./mode-config";
 import { useAppMode } from "./mode-provider";
@@ -31,7 +32,7 @@ export function ModeSwitch({
       role="radiogroup"
       aria-label="Choose how you are using Highrable"
       className={cn(
-        "items-center gap-1 rounded-full border border-border bg-muted p-1",
+        "items-center gap-1 rounded-lg border border-border bg-muted p-1",
         fullWidth ? "flex w-full" : "inline-flex",
         className,
       )}
@@ -53,13 +54,13 @@ export function ModeSwitch({
             }}
             data-mode-option={value}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-full font-mono tracking-[0.06em] whitespace-nowrap uppercase transition-colors",
-              size === "large" ? "px-5 py-2.5 text-xs" : "px-3 py-1.5 text-[11px]",
-              fullWidth && "flex-1 py-3.5 text-sm sm:py-4",
+              "inline-flex items-center justify-center gap-1.5 rounded-md font-sans whitespace-nowrap transition-colors",
+              size === "large" ? "px-4 py-2 text-sm" : "px-3 py-1 text-xs",
+              fullWidth && "flex-1",
               isSelected
                 ? value === "client"
-                  ? "bg-[#facc15] text-[#3b2f00] shadow-sm"
-                  : "bg-[#ff7003] text-white shadow-sm"
+                  ? "bg-[#facc15] font-medium text-[#3b2f00]"
+                  : "bg-[#ff7003] font-medium text-white"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
