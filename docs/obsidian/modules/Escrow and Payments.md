@@ -67,6 +67,10 @@ When a successful create call omits its escrow ID, recovery reads `get_next_escr
 
 Release transfers the configured token from the escrow contract to the freelancer and calls reputation. Dispute settlement splits/refunds escrow funds but does not call reputation.
 
+### Funding status reconciliation
+
+`fund_escrow` accepts only an escrow whose on-chain status is `Created`. If Convex still says `created` but Soroban simulation returns `Error(Contract, #6)` (`InvalidStatus`), the marketplace hook reads the on-chain status and lets the existing sync path update Convex only when the failure occurred during simulation. It does not retry funding or mark the escrow funded from the failed call. Convex compares the browser's expected escrow contract ID and network passphrase with its configured scope before reading RPC or applying a status update; a mismatch returns `contract_config_mismatch` without reconciliation writes. Align the web and Convex deployment configuration before using sync to reconcile this escrow.
+
 ## Soroban Dispute Events
 
 Successful `mark_disputed` and `resolve_dispute` calls each emit one versioned named payload after writing the resulting escrow state. Topics are `(dispute, marked|resolved, escrow_id: u64)`. Resolution payloads include the supplied 32-byte hash, settlement share, resulting status, and actual client/freelancer token amounts in raw `i128` base units; the client amount includes integer-division remainder. The hash is emitted but is not persisted in `TEscrow`. See [C16-Dispute-Event-Handoff](../../instawards/C16-Dispute-Event-Handoff.md) for the exact schema. Event address, transaction identity, and ledger metadata are carried by the Soroban envelope. Escrow IDs are scoped to the emitting contract and network. This interface is not yet indexed or ingested by Convex.
