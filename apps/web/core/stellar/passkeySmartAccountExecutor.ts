@@ -1240,7 +1240,7 @@ async function buildSmartAccountExecuteTransaction(params: {
 
 export async function assertSmartAccountKitCompatibility(
   kit: ReturnType<typeof getSmartAccountKit>,
-): Promise<void> {
+): Promise<string> {
   if (!kit.wallet) {
     throw new Error("Reconnect your passkey smart account to continue.");
   }
@@ -1274,6 +1274,7 @@ export async function assertSmartAccountKitCompatibility(
   }
 
   installContextRulesCompatibilityFallback(kit);
+  return deployedWasmHash;
 }
 
 export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscrowExecutionReadiness> {
@@ -1325,13 +1326,7 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 
   if (kit.isConnected) {
     try {
-      await assertSmartAccountKitCompatibility(kit);
-      if (kit.contractId) {
-        connectedAccountWasmHash = await readSmartAccountWasmHash({
-          rpcUrl: config.rpcUrl,
-          contractId: kit.contractId,
-        }).catch(() => undefined);
-      }
+      connectedAccountWasmHash = await assertSmartAccountKitCompatibility(kit);
     } catch (error) {
       return createPasskeyExecutionReadiness({
         canExecute: false,
@@ -1485,7 +1480,6 @@ export async function executeWithPasskeySmartAccount(
   let submissionIdentity: TStellarSubmissionIdentity | undefined;
   let submissionAttempted = false;
   try {
-    await assertSmartAccountKitCompatibility(kit);
     const readiness = await getPasskeyEscrowExecutionReadiness();
     if (!readiness.canExecute) {
       throw new Error(
