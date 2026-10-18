@@ -10,9 +10,11 @@ import { checkRegistryTransaction, normalizeUserRegistration } from "./registry-
 const walletAddress = Keypair.random().publicKey();
 
 function missingTransactionResponse(params: {
-  latestLedgerCloseTime: number;
-  oldestLedgerCloseTime: number;
+  latestLedgerCloseTime: number | string;
+  oldestLedgerCloseTime: number | string;
 }): rpc.Api.GetMissingTransactionResponse {
+  // Stellar RPC serializes these Unix timestamps as strings even though the
+  // installed SDK currently types the getTransaction fields as numbers.
   return {
     status: rpc.Api.GetTransactionStatus.NOT_FOUND,
     txHash: "0".repeat(64),
@@ -20,7 +22,7 @@ function missingTransactionResponse(params: {
     latestLedgerCloseTime: params.latestLedgerCloseTime,
     oldestLedger: 10,
     oldestLedgerCloseTime: params.oldestLedgerCloseTime,
-  };
+  } as unknown as rpc.Api.GetMissingTransactionResponse;
 }
 
 afterEach(() => {
@@ -66,6 +68,24 @@ describe("registry contract reads and recovery", () => {
       checkRegistryTransaction({
         rpcUrl: "https://rpc.example.test",
         transactionHash: "a".repeat(64),
+        validUntil: 1_000,
+        createdAt: 900_000,
+      }),
+    ).resolves.toEqual({ status: "expired" });
+  });
+
+  it("parses RPC ledger close times serialized as decimal strings", async () => {
+    vi.spyOn(rpc.Server.prototype, "getTransaction").mockResolvedValue(
+      missingTransactionResponse({
+        latestLedgerCloseTime: "2000",
+        oldestLedgerCloseTime: "500",
+      }),
+    );
+
+    await expect(
+      checkRegistryTransaction({
+        rpcUrl: "https://rpc.example.test",
+        transactionHash: "d".repeat(64),
         validUntil: 1_000,
         createdAt: 900_000,
       }),

@@ -11,6 +11,7 @@ source_of_truth: repository
 ## 2026-10-18
 
 - Optimized marketplace escrow execution: external-wallet micro-gig fund-now posting now uses one atomic create-and-fund call and one transaction-history row, with matching create/fund hashes on the funded escrow mirror. Added stage-specific accessible progress to the job, escrow, and milestone controls; batched escrow-ID recovery reads by four; preserved pending transaction identities on uncertain outcomes; and reused each readiness evaluation's verified passkey WASM hash. No schema, deployment, or contract behavior changed. Local validation: web 545 tests, backend 508 tests, escrow contract 83 tests, TypeScript, scoped Oxlint/Oxfmt, and a Webpack production build pass. Mocked delayed-read evidence is documented separately in [[stellar/Transaction Lifecycle]]: 18 calls in both schedules, 40 ms batched versus 160 ms sequential on a 10 ms synthetic delay. These timings are not live RPC measurements; deployed atomic-method availability remains unverified.
+- Fixed signup recovery for pending registry transactions by accepting Stellar RPC's decimal-string ledger close times alongside the SDK's numeric types, while retaining safe-integer validation and the existing expiry rule. A focused regression failed on the string wire format before the fix and passes afterward; the web suite passes 546 tests, TypeScript, scoped Oxlint/Oxfmt, and the web production build pass. No live RPC call or transaction submission was performed.
 
 ## 2026-10-15
 
