@@ -23,11 +23,11 @@ export function JobList({
 }: IJobListProps) {
   if (jobs === undefined) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {[0, 1, 2].map((item) => (
           <div
             key={item}
-            className="h-44 animate-pulse rounded-xl border border-border/60 bg-muted/30"
+            className="h-32 animate-pulse rounded-xl border border-border/60 bg-muted/30"
           />
         ))}
       </div>
@@ -45,7 +45,7 @@ export function JobList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {jobs.map((job) =>
         "job" in job ? (
           <JobCard

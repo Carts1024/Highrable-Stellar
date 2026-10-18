@@ -11,12 +11,19 @@ interface IModeSwitchProps {
   readonly className?: string;
   /** "compact" is used in the header; "large" is used in banners and gates. */
   readonly size?: "compact" | "large";
+  /** Stretches the switch across its container, with each option sharing the space equally. */
+  readonly fullWidth?: boolean;
   /** Called after the mode changes, with the new mode. */
   readonly onChange?: (mode: TAppMode) => void;
 }
 
 /** Two-option switch: orange for Freelancer, yellow for Client. */
-export function ModeSwitch({ className, size = "compact", onChange }: IModeSwitchProps) {
+export function ModeSwitch({
+  className,
+  size = "compact",
+  fullWidth = false,
+  onChange,
+}: IModeSwitchProps) {
   const { mode, setMode } = useAppMode();
 
   return (
@@ -24,7 +31,8 @@ export function ModeSwitch({ className, size = "compact", onChange }: IModeSwitc
       role="radiogroup"
       aria-label="Choose how you are using Highrable"
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-border bg-muted p-1",
+        "items-center gap-1 rounded-full border border-border bg-muted p-1",
+        fullWidth ? "flex w-full" : "inline-flex",
         className,
       )}
     >
@@ -47,6 +55,7 @@ export function ModeSwitch({ className, size = "compact", onChange }: IModeSwitc
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-full font-mono tracking-[0.06em] whitespace-nowrap uppercase transition-colors",
               size === "large" ? "px-5 py-2.5 text-xs" : "px-3 py-1.5 text-[11px]",
+              fullWidth && "flex-1 py-3.5 text-sm sm:py-4",
               isSelected
                 ? value === "client"
                   ? "bg-[#facc15] text-[#3b2f00] shadow-sm"

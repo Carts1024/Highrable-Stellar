@@ -257,7 +257,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
   return (
     <section
-      className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6"
+      className="space-y-3"
       aria-busy={isPending}
     >
       <EscrowActionProgress progress={progress} />
@@ -281,7 +281,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col">
               <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
                 {currentStatusMeta.label}
@@ -293,7 +293,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
             <ResponsiveDialog open={isPaymentFlowOpen} onOpenChange={setIsPaymentFlowOpen}>
               <ResponsiveDialogTrigger asChild>
-                <AppButton type="button" variant="primary" className="self-end text-xs">
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  className="self-start border-border text-xs sm:self-center text-foreground hover:text-foreground"
+                >
                   Open Payment Flow
                 </AppButton>
               </ResponsiveDialogTrigger>

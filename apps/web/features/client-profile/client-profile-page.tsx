@@ -63,10 +63,10 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
       />
 
       {canEdit ? (
-        <>
+        <div className="grid gap-6 lg:grid-cols-2">
           <WalletStatusCard />
           <ModeSwitchCard />
-        </>
+        </div>
       ) : null}
 
       {isEditing && canEdit ? (

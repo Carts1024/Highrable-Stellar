@@ -5,7 +5,6 @@ import { isNativeXlmEscrowAsset } from "@/core/stellar/payment-assets";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AttachmentList } from "@/features/attachments/components";
 import { ConversationThread } from "@/features/chat";
-import { ProductPageHero } from "@/features/common";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
@@ -16,10 +15,14 @@ import { ModeOnly } from "@/features/mode";
 import { WorkAgreementSetupPanel } from "@/features/work-agreements";
 import { api } from "@repo/convex-client";
 import {
+  HighrableV2Bullet,
   HighrableV2IconNotice,
   HighrableV2Metric,
+  SectionLabel,
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Button } from "@repo/ui/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
+import { cn } from "@repo/ui/lib/utils";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 
@@ -127,20 +130,45 @@ export function JobDetail({ jobId }: { jobId: string }) {
         title: `${job.title} work chat`,
       } as const);
 
+  const jobTabs: readonly (readonly [string, string])[] = isMilestoneProject
+    ? [["client-trust", "Client Trust"]]
+    : [
+        ["client-trust", "Client Trust"],
+        ["work-safety", "Work Safety"],
+        ["payment-flow", "Payment Flow"],
+      ];
+
   return (
     <div className="space-y-8">
-      <ProductPageHero
-        label="Job Detail"
-        title={
-          <>
+      <header className="space-y-4">
+        <SectionLabel>Job Detail</SectionLabel>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <h1 className="hr-text-primary min-w-0 font-sans text-3xl leading-tight font-bold sm:text-4xl">
             {job.title} <span className="hr-v2-gradient-text">Execution Flow</span>
-          </>
-        }
-        description="Review the core terms, payment hold state, and next actions without leaving the marketplace workflow."
-      />
+          </h1>
+          {!isMilestoneProject ? (
+            <ModeOnly mode="freelancer">
+              <div className="shrink-0">
+                <ApplyToJobForm
+                  job={job}
+                  hasApplied={hasAppliedToJob ?? false}
+                  isCheckingApplicationStatus={
+                    !!walletIdentity.walletAddress && hasAppliedToJob === undefined
+                  }
+                  onApplied={() => {}}
+                />
+              </div>
+            </ModeOnly>
+          ) : null}
+        </div>
+        <p className="hr-text-secondary max-w-xl text-sm leading-relaxed sm:text-base">
+          Review the core terms, payment hold state, and next actions without leaving the
+          marketplace workflow.
+        </p>
+      </header>
 
       <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-        <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 p-5 sm:px-6">
+        <div className="hr-card-head-soft flex flex-wrap items-start justify-between gap-4 p-5 sm:px-6">
           <div className="space-y-2">
             <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
               Job summary
@@ -293,7 +321,11 @@ export function JobDetail({ jobId }: { jobId: string }) {
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <ReportJobButton jobId={convexJobId} />
             {mergedEscrow ? (
-              <Button asChild variant="outline">
+              <Button
+                asChild
+                variant="outline"
+                className="border-border text-foreground hover:text-foreground"
+              >
                 <Link href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}>
                   View Payment Hold Proof
                 </Link>
@@ -329,7 +361,45 @@ export function JobDetail({ jobId }: { jobId: string }) {
         )}
       </section>
 
-      <ClientTrustCard clientWallet={job.clientWallet} />
+      <Tabs defaultValue="client-trust" className="gap-5">
+        <TabsList
+          variant="line"
+          className="h-auto w-full flex-wrap justify-start border-b border-[var(--mode-border)] pb-0"
+        >
+          {jobTabs.map(([value, label]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className={cn(
+                "flex-none rounded-none px-0 py-3 pr-4 font-mono text-[11px] tracking-[0.04em] uppercase sm:pr-6 sm:text-xs sm:tracking-[0.06em]",
+                "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-highrable-orange-2",
+              )}
+            >
+              <HighrableV2Bullet aria-hidden="true" className="hidden sm:inline-block" />
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="client-trust" className="pt-2">
+          <ClientTrustCard clientWallet={job.clientWallet} />
+        </TabsContent>
+
+        {!isMilestoneProject ? (
+          <>
+            <TabsContent value="work-safety" className="pt-2">
+              <FreelancerSafetyChecklist
+                job={job}
+                escrow={mergedEscrow}
+                connectedWallet={walletIdentity.walletAddress}
+              />
+            </TabsContent>
+            <TabsContent value="payment-flow" className="pt-2">
+              <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
+            </TabsContent>
+          </>
+        ) : null}
+      </Tabs>
 
       {canViewAgreementPanel ? (
         <WorkAgreementSetupPanel
@@ -337,18 +407,6 @@ export function JobDetail({ jobId }: { jobId: string }) {
           viewerRole={isConnectedClient ? "client" : "freelancer"}
           {...(mergedEscrow?._id ? { escrowId: mergedEscrow._id } : {})}
         />
-      ) : null}
-
-      {!isMilestoneProject ? (
-        <>
-          <FreelancerSafetyChecklist
-            job={job}
-            escrow={mergedEscrow}
-            connectedWallet={walletIdentity.walletAddress}
-          />
-
-          <EscrowActionPanel job={job} escrow={escrow} applications={safeApplications} />
-        </>
       ) : null}
 
       {!isMilestoneProject && canShowWorkChat ? (
@@ -435,28 +493,15 @@ export function JobDetail({ jobId }: { jobId: string }) {
       ) : null}
 
       {!isMilestoneProject ? (
-        <>
-          <ModeOnly mode="freelancer">
-            <ApplyToJobForm
-              job={job}
-              hasApplied={hasAppliedToJob ?? false}
-              isCheckingApplicationStatus={
-                !!walletIdentity.walletAddress && hasAppliedToJob === undefined
-              }
-              onApplied={() => {}}
-            />
-          </ModeOnly>
-
-          <ModeOnly mode="client">
-            <ApplicationsList
-              job={job}
-              escrow={mergedEscrow}
-              applications={applications}
-              isLoading={applications === undefined}
-              onSelected={() => {}}
-            />
-          </ModeOnly>
-        </>
+        <ModeOnly mode="client">
+          <ApplicationsList
+            job={job}
+            escrow={mergedEscrow}
+            applications={applications}
+            isLoading={applications === undefined}
+            onSelected={() => {}}
+          />
+        </ModeOnly>
       ) : null}
     </div>
   );

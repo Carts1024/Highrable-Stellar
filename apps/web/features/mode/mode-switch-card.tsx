@@ -15,7 +15,7 @@ export function ModeSwitchCard() {
   const walletIdentity = useHighrableWalletIdentity();
 
   return (
-    <section className="hr-mode-soft flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--mode-border)] p-5">
+    <section className="hr-mode-soft flex h-full flex-col justify-between gap-5 rounded-2xl border border-[var(--mode-border)] p-5 sm:p-6">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--mode-text)]">
           <Repeat className="h-5 w-5" aria-hidden="true" />
@@ -32,6 +32,7 @@ export function ModeSwitchCard() {
       </div>
       <ModeSwitch
         size="large"
+        fullWidth
         onChange={(nextMode) => {
           // Show the profile that matches the role that was just chosen.
           if (walletIdentity.walletAddress) {

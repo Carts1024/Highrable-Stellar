@@ -58,10 +58,10 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
       />
 
       {canEdit ? (
-        <>
+        <div className="grid gap-6 lg:grid-cols-2">
           <WalletStatusCard />
           <ModeSwitchCard />
-        </>
+        </div>
       ) : null}
 
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>

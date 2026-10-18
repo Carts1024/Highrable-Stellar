@@ -114,7 +114,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
   --mode-soft-2: #ffe2c7;
   --mode-solid: #ff7003;
   --mode-on: #ffffff;
-  --mode-page: #f5f6f8;
+  --mode-page: #ffffff;
   --mode-border: #e4b98c;
   --mode-gradient: linear-gradient(90deg, #ff8801, #ff7003);
   --primary: #e85d00;
@@ -124,7 +124,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
 [data-mode="admin"] {
   --mode-on: #2b1a00;
   --mode-gradient: linear-gradient(90deg, #ff7003, #fbbf24 70%, #facc15);
-  --mode-page: #f5f6f8;
+  --mode-page: #ffffff;
   --mode-border: #e2c47f;
 }
 
@@ -134,7 +134,7 @@ html[data-snap-overflow] .landing-v2-page > main > section {
   --mode-soft-2: #fef08a;
   --mode-solid: #facc15;
   --mode-on: #3b2f00;
-  --mode-page: #f5f6f8;
+  --mode-page: #ffffff;
   --mode-border: #dcc455;
   --mode-gradient: linear-gradient(90deg, #fde047, #facc15);
   --primary: #facc15;

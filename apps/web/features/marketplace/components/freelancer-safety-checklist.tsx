@@ -3,16 +3,6 @@
 import { formatAssetLabel } from "@/core/stellar/assets";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  ResponsiveDialog,
-  ResponsiveDialogBody,
-  ResponsiveDialogContent,
-  ResponsiveDialogDescription,
-  ResponsiveDialogHeader,
-  ResponsiveDialogTitle,
-  ResponsiveDialogTrigger,
-} from "@repo/ui/responsive-dialog";
 import { CheckCircle2, Circle } from "lucide-react";
 
 import type { TConvexDoc } from "@repo/convex-client";
@@ -33,34 +23,12 @@ export function FreelancerSafetyChecklist({
 
   if (!isSelectedFreelancer) {
     return (
-      <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Work Safety
-          </p>
-          <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
-            Before Starting Work
-          </h2>
-        </div>
-
-        <ResponsiveDialog>
-          <ResponsiveDialogTrigger asChild>
-            <AppButton type="button" variant="primary" className="text-xs">
-              View Checklist
-            </AppButton>
-          </ResponsiveDialogTrigger>
-
-          <ResponsiveDialogContent className="max-w-3xl">
-            <ResponsiveDialogHeader>
-              <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
-            </ResponsiveDialogHeader>
-            <ResponsiveDialogBody className="font-sans text-sm">
-              Only start after the job shows Payment Secured and the payment terms match the
-              agreement.
-            </ResponsiveDialogBody>
-          </ResponsiveDialogContent>
-        </ResponsiveDialog>
-      </section>
+      <div className="space-y-2">
+        <h2 className="hr-text-primary font-sans text-lg font-semibold">Before Starting Work</h2>
+        <p className="hr-text-secondary font-sans text-sm">
+          Only start after the job shows Payment Secured and the payment terms match the agreement.
+        </p>
+      </div>
     );
   }
 
@@ -88,52 +56,29 @@ export function FreelancerSafetyChecklist({
   ];
 
   return (
-    <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-      <div className="space-y-2">
-        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Work Safety
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="hr-text-primary font-sans text-lg font-semibold">Before Starting Work</h2>
+        <p className="hr-text-secondary font-sans text-sm">
+          Confirm the payment hold and payment terms before you begin delivery.
         </p>
-        <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
-          Before Starting Work
-        </h2>
       </div>
+      <ul className="space-y-2.5 font-sans text-sm">
+        {checklist.map((item) => {
+          const Icon = item.isComplete ? CheckCircle2 : Circle;
 
-      <ResponsiveDialog>
-        <ResponsiveDialogTrigger asChild>
-          <AppButton type="button" variant="primary" className="text-xs">
-            View Checklist
-          </AppButton>
-        </ResponsiveDialogTrigger>
-
-        <ResponsiveDialogContent className="max-w-3xl">
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              Confirm the payment hold and payment terms before you begin delivery.
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <ResponsiveDialogBody>
-            <ul className="space-y-2 font-sans text-sm">
-              {checklist.map((item) => {
-                const Icon = item.isComplete ? CheckCircle2 : Circle;
-
-                return (
-                  <li key={item.label} className="flex items-center gap-2 text-muted-foreground">
-                    <Icon
-                      className={`h-4 w-4 shrink-0 ${
-                        item.isComplete ? "text-emerald-700" : "text-amber-600"
-                      }`}
-                    />
-                    <span className={item.isComplete ? "hr-text-primary" : undefined}>
-                      {item.label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </ResponsiveDialogBody>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-    </section>
+          return (
+            <li key={item.label} className="flex items-center gap-2 text-muted-foreground">
+              <Icon
+                className={`h-4 w-4 shrink-0 ${
+                  item.isComplete ? "text-emerald-700" : "text-amber-600"
+                }`}
+              />
+              <span className={item.isComplete ? "hr-text-primary" : undefined}>{item.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
