@@ -18,24 +18,24 @@ interface ITrustSafetyNoticeProps {
 const NOTICE_COPY: Record<TTrustSafetyNoticeType, { message: string; tone: "amber" | "green" }> = {
   unfunded: {
     message:
-      "This job is not funded yet. Apply if interested, but do not begin work until escrow is funded.",
+      "This job is not funded yet. Apply if interested, but do not begin work until payment hold is funded.",
     tone: "amber",
   },
   off_platform: {
     message:
-      "Stay protected: keep payment and work approval inside Highrable escrow. Off-platform requests may bypass payment protection.",
+      "Stay protected: keep payment and work approval inside Highrable payment hold. Off-platform requests may bypass payment protection.",
     tone: "amber",
   },
   selected_unfunded: {
-    message: "You were selected, but do not start yet. Wait until the client funds escrow.",
+    message: "You were selected, but do not start yet. Wait until the client funds payment hold.",
     tone: "amber",
   },
   client_funding: {
-    message: "Funding escrow builds freelancer trust and helps prevent scam concerns.",
+    message: "Funding payment hold builds freelancer trust and helps prevent scam concerns.",
     tone: "amber",
   },
   verified_funded: {
-    message: "Verified Funded: stablecoin funds are locked in Stellar escrow.",
+    message: "Payment Secured: the money is set aside and held safely.",
     tone: "green",
   },
 };

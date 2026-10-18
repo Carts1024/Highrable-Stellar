@@ -22,7 +22,7 @@ export function PostedJobsSection() {
     <section className="space-y-5">
       <SectionHeading
         icon={Briefcase}
-        title="Jobs I posted"
+        title="Jobs I Posted"
         description="See how many people applied and how far each job has come."
         action={
           <AppButton
@@ -50,7 +50,7 @@ export function PostedJobsSection() {
       ) : items.length === 0 ? (
         <RouteEmptyState
           icon={<Briefcase className="h-10 w-10" />}
-          title="No posted jobs yet"
+          title="No Posted Jobs Yet"
           description="Post a job to start receiving applications from freelancers."
         />
       ) : (

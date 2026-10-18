@@ -8,7 +8,7 @@ export function ReportedJobsSummaryCard({ summary }: { readonly summary: TReport
     <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
       <div className="hr-card-head p-5 sm:px-6">
         <SectionLabel>Reports</SectionLabel>
-        <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Reported jobs summary</h2>
+        <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Reported Jobs Summary</h2>
         <p className="mt-1 max-w-3xl text-sm text-[#5f5f5f]">
           Some jobs posted by this wallet have been reported by users. Reports are not final
           moderation decisions.

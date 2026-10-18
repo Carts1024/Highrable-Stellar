@@ -39,9 +39,9 @@ interface IReportJobDialogProps {
 
 const REPORT_REASONS: Array<{ value: TReportReason; label: string }> = [
   { value: "scam", label: "Scam" },
-  { value: "off_platform", label: "Off-platform request" },
+  { value: "off_platform", label: "Off-platform Request" },
   { value: "spam", label: "Spam" },
-  { value: "fake_job", label: "Fake job" },
+  { value: "fake_job", label: "Fake Job" },
   { value: "other", label: "Other" },
 ];
 
@@ -107,7 +107,7 @@ export function ReportJobDialog({
       <ResponsiveDialogContent className="max-w-3xl">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle className="hr-text-primary text-xl">
-            Report suspicious job
+            Report Suspicious Job
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
             Reports help flag jobs for manual review. Jobs are not removed automatically.

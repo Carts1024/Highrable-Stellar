@@ -47,11 +47,11 @@ export function EscrowProofShareActions({ proof }: { readonly proof: TEscrowProo
   }, []);
 
   const actions: Array<{ target: TCopyTarget; label: string; value?: string }> = [
-    { target: "proof_link", label: "Copy proof link", value: proofLink },
-    { target: "escrow_id", label: "Copy payment ID", value: proof.escrow.escrowId },
+    { target: "proof_link", label: "Copy Proof Link", value: proofLink },
+    { target: "escrow_id", label: "Copy Payment ID", value: proof.escrow.escrowId },
     {
       target: "release_tx",
-      label: "Copy payment receipt",
+      label: "Copy Payment Receipt",
       value: proof.escrow.releaseTxHash,
     },
   ];
@@ -59,7 +59,7 @@ export function EscrowProofShareActions({ proof }: { readonly proof: TEscrowProo
   return (
     <section className="h-full border border-[#e8e8e8] bg-white p-4">
       <SectionLabel>Share</SectionLabel>
-      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Copy receipt details</h2>
+      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Copy Receipt Details</h2>
       <div className="mt-4 flex flex-wrap gap-2">
         {actions.map((action) => (
           <Button

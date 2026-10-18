@@ -23,7 +23,7 @@ export function OngoingJobsSection() {
     <section className="space-y-5">
       <SectionHeading
         icon={Hammer}
-        title="Jobs in progress"
+        title="Jobs in Progress"
         description="Jobs you are working on now, with their deadlines."
       />
 
@@ -39,7 +39,7 @@ export function OngoingJobsSection() {
       ) : items.length === 0 ? (
         <RouteEmptyState
           icon={<Briefcase className="h-10 w-10" />}
-          title="No ongoing jobs"
+          title="No Ongoing Jobs"
           description="Funded or submitted engagements will show up here once you're selected."
         />
       ) : (

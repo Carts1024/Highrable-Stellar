@@ -38,7 +38,7 @@ export function JobList({
     return (
       <RouteEmptyState
         icon={<Briefcase className="h-10 w-10" />}
-        title="No matching jobs"
+        title="No Matching Jobs"
         description="Adjust the search or create the first job."
       />
     );

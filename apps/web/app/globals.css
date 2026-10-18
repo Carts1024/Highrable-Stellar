@@ -217,7 +217,7 @@ body {
   border-bottom: 1px solid var(--mode-border, var(--border));
 }
 
-.hr-card-head :is(h1, h2, h3, h4, p, span, label) {
+.hr-card-head :is(h1, h2, h3, h4, p) {
   color: inherit;
 }
 
@@ -273,4 +273,10 @@ body {
 [data-mode] main [data-slot="card"],
 [data-mode] main .bg-card {
   background-color: #ffffff;
+}
+
+/* Solid mode-coloured band that leaves child badge colours alone. */
+.hr-mode-band {
+  background-image: var(--mode-gradient, linear-gradient(90deg, #ff8801, #ff7003));
+  color: var(--mode-on, #fff);
 }

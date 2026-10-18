@@ -24,7 +24,7 @@ export function WalletStatusCard() {
       <div className="hr-card-head flex flex-wrap items-center justify-between gap-2 px-5 py-3">
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5" aria-hidden="true" />
-          <h2 className="font-sans text-base font-bold">Your connected wallet</h2>
+          <h2 className="font-sans text-base font-bold">Your Connected Wallet</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="rounded-full border-transparent bg-white px-3 py-0.5 font-mono text-xs font-semibold tracking-wider text-[var(--mode-text)] uppercase">

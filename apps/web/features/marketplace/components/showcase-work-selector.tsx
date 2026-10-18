@@ -82,7 +82,7 @@ export function ShowcaseWorkSelector({
 
       {freelancerWallet && works !== undefined && !hasCompletedWorks ? (
         <p className="font-sans text-xs text-muted-foreground">
-          No escrow-verified completed work is available to showcase yet.
+          No payment-verified completed work is available to showcase yet.
         </p>
       ) : null}
 

@@ -158,7 +158,7 @@ export function MilestoneActionPanel({
       {!isStablecoinConfigured && milestoneEscrowAsset?.kind === "stablecoin" ? (
         <TrustWarning
           message={
-            stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
+            stablecoinConfigValidation.message ?? "Digital dollar token contract is not configured."
           }
         />
       ) : null}
@@ -168,7 +168,7 @@ export function MilestoneActionPanel({
         />
       ) : null}
       {milestoneEscrowAsset?.kind === "native_xlm" ? (
-        <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+        <TrustWarning message="XLM payment hold is volatile. Final fiat value may change." />
       ) : null}
       {walletIdentity.walletType ? (
         <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 font-sans text-xs text-muted-foreground">
@@ -200,7 +200,7 @@ export function MilestoneActionPanel({
             </AppButton>
           ) : (
             <p className="text-sm text-amber-800">
-              You are assigned. Wait for this milestone escrow to be funded before starting.
+              You are assigned. Wait for this milestone payment hold to be funded before starting.
             </p>
           )}
         </div>
@@ -238,7 +238,7 @@ export function MilestoneActionPanel({
             </>
           ) : (
             <p className="text-sm text-amber-800">
-              Escrow exists but is not funded. Do not start this milestone yet.
+              Payment Hold exists but is not funded. Do not start this milestone yet.
             </p>
           )}
         </div>

@@ -12,27 +12,27 @@ type TBreakdownItem = {
 export function ClientWorkBreakdown({ stats }: { readonly stats: TClientTrustStats }) {
   const breakdownItems: readonly TBreakdownItem[] = [
     {
-      label: "Micro gigs posted",
+      label: "Micro Gigs Posted",
       value: stats.microGigsPosted,
-      helper: "Single-escrow job posts",
+      helper: "Single-payment hold job posts",
     },
     {
-      label: "Milestone projects",
+      label: "Milestone Projects",
       value: stats.milestoneProjectsPosted,
       helper: "Projects split into milestones",
     },
     {
-      label: "Completed micro gigs",
+      label: "Completed Quick Jobs",
       value: stats.completedMicroGigs,
-      helper: "Released escrows without milestones",
+      helper: "Released payment holds without milestones",
     },
     {
-      label: "Completed milestones",
+      label: "Completed Milestones",
       value: stats.completedMilestones,
-      helper: "Released milestone escrows",
+      helper: "Released milestone payment holds",
     },
     {
-      label: "Milestones created",
+      label: "Milestones Created",
       value: stats.totalMilestonesCreated,
       helper: "Total project milestones posted",
     },
@@ -43,11 +43,11 @@ export function ClientWorkBreakdown({ stats }: { readonly stats: TClientTrustSta
       <div className="hr-card-head p-5 sm:px-6">
         <SectionLabel>Work Mix</SectionLabel>
         <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">
-          Micro gig vs milestone activity
+          Micro Gig vs Milestone Activity
         </h2>
         <p className="mt-1 text-sm text-[#5f5f5f]">
-          Funding is tracked per escrow. For milestone projects, each milestone has its own funding
-          status.
+          Funding is tracked per payment hold. For milestone projects, each milestone has its own
+          funding status.
         </p>
       </div>
       <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-5">

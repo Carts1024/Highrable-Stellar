@@ -19,7 +19,7 @@ export function EscrowProofExplanationCard({
           tone="neutral"
         />
       </div>
-      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Why this proof matters</h2>
+      <h2 className="mt-2 text-base font-semibold text-[#0a0a0a]">Why This Proof Matters</h2>
       <p className="mt-2 text-sm leading-6 text-[#5f5f5f]">
         {isCompleted
           ? "A completed proof means the client set money aside, the freelancer finished the work, and payment was released. This makes the review harder to fake than a normal marketplace rating."

@@ -20,7 +20,7 @@ export function AppliedJobsSection() {
     <section className="space-y-5">
       <SectionHeading
         icon={ClipboardList}
-        title="Jobs I applied for"
+        title="Jobs I Applied For"
         description="Every job you applied for, and what is happening with each one."
       />
 
@@ -36,7 +36,7 @@ export function AppliedJobsSection() {
       ) : items.length === 0 ? (
         <RouteEmptyState
           icon={<ClipboardList className="h-10 w-10" />}
-          title="No applications yet"
+          title="No Applications Yet"
           description="Browse the marketplace and apply to jobs to see them here."
         />
       ) : (

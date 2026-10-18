@@ -24,8 +24,8 @@ export function RecentFundedEscrowsSection({
     <section className="overflow-hidden rounded-xl border border-[var(--mode-border)] bg-white shadow-sm">
       <div className="hr-card-head flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6">
         <div>
-          <SectionLabel>Funded Escrows</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent funding activity</h2>
+          <SectionLabel>Funded Payment Holds</SectionLabel>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent Funding Activity</h2>
         </div>
         <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
           {escrows.length} record{escrows.length === 1 ? "" : "s"}
@@ -33,7 +33,7 @@ export function RecentFundedEscrowsSection({
       </div>
       {escrows.length === 0 ? (
         <p className="p-5 text-sm text-[#5f5f5f] sm:p-6">
-          This client has no funded escrow history yet.
+          This client has no funded payment hold history yet.
         </p>
       ) : (
         <div className="space-y-4 p-4 sm:p-5">

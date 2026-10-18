@@ -1,8 +1,8 @@
 "use client";
 
 import { parseWalletAddressParam } from "@/core/seo";
+import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
-import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { ModeSwitchCard } from "@/features/mode";
 import { EditFreelancerProfileForm } from "@/features/profile/components/edit-freelancer-profile-form";
@@ -50,16 +50,6 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
 
   return (
     <div className="space-y-10">
-      <ProductPageHero
-        label="Freelancer Profile"
-        title={
-          <>
-            Wallet-based <span className="hr-v2-gradient-text">Work History</span>
-          </>
-        }
-        description="Completed work and reviews are verified through real paid Stellar escrow transactions — harder to fake than standard marketplace ratings."
-      />
-
       <FreelancerProfileHeader
         profile={profile}
         stats={stats}
@@ -67,13 +57,18 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
         onEdit={() => setIsEditing(true)}
       />
 
-      {canEdit ? <ModeSwitchCard /> : null}
+      {canEdit ? (
+        <>
+          <WalletStatusCard />
+          <ModeSwitchCard />
+        </>
+      ) : null}
 
       <ResponsiveDialog open={isEditing && canEdit} onOpenChange={setIsEditing}>
         <ResponsiveDialogContent className="max-w-3xl">
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle className="hr-text-primary text-lg sm:text-xl">
-              Edit profile
+              Edit Profile
             </ResponsiveDialogTitle>
             <ResponsiveDialogDescription className="hr-text-secondary text-sm">
               Keep these fields aligned with your public onboarding identity.
@@ -93,7 +88,7 @@ export function FreelancerProfilePage({ walletAddress }: { readonly walletAddres
 
       {stats.completedContracts === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-muted/20 p-5 font-sans text-sm text-muted-foreground sm:rounded-2xl">
-          This freelancer does not have escrow-verified paid work yet.
+          This freelancer does not have payment-verified paid work yet.
         </p>
       ) : null}
 

@@ -718,7 +718,7 @@ describe("administrator review-state propagation", () => {
     const adminView = renderAdmin();
     const admin = adminView.container;
 
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     expect(getReviewStatusControl(admin).value).toBe(
       scenario.initialStatus === "open" ? "under_review" : scenario.initialStatus,
     );
@@ -791,7 +791,7 @@ describe("administrator review-state propagation", () => {
     installHttpMock();
     const adminView = renderAdmin();
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_client_response" },
     });
@@ -835,7 +835,7 @@ describe("administrator review-state propagation", () => {
     installHttpMock();
     const adminView = renderAdmin();
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_freelancer_response" },
     });
@@ -865,8 +865,8 @@ describe("administrator review-state propagation", () => {
   });
 
   it.each([
-    { mode: "unauthorized" as const, heading: "Authentication required" },
-    { mode: "forbidden" as const, heading: "Admin access forbidden" },
+    { mode: "unauthorized" as const, heading: "Authentication Required" },
+    { mode: "forbidden" as const, heading: "Admin Access Forbidden" },
   ])(
     "closes protected administrator content after a %s status mutation",
     async ({ mode, heading }) => {
@@ -879,14 +879,14 @@ describe("administrator review-state propagation", () => {
       installHttpMock();
       const adminView = renderAdmin();
       const admin = adminView.container;
-      await within(admin).findByText("Moderator workflow");
+      await within(admin).findByText("Moderator Workflow");
       fireEvent.change(getReviewStatusControl(admin), {
         target: { value: "awaiting_client_response" },
       });
       fireEvent.click(within(admin).getByRole("button", { name: "Update Status" }));
 
       expect(await within(admin).findByRole("heading", { name: heading })).toBeTruthy();
-      expect(within(admin).queryByText("Moderator workflow")).toBeNull();
+      expect(within(admin).queryByText("Moderator Workflow")).toBeNull();
       expect(currentCase.status).toBe("under_review");
       expect(currentTimeline).toHaveLength(1);
 
@@ -920,7 +920,7 @@ describe("administrator review-state propagation", () => {
     const queryClient = createQueryClient();
     const adminView = renderAdmin(queryClient);
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_freelancer_response" },
     });

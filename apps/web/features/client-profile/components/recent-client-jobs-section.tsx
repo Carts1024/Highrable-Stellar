@@ -16,7 +16,7 @@ export function RecentClientJobsSection({ jobs }: { readonly jobs: readonly TCli
       <div className="hr-card-head flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6">
         <div>
           <SectionLabel>Posted Jobs</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent jobs posted</h2>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent Jobs Posted</h2>
         </div>
         <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
           {jobs.length} job{jobs.length === 1 ? "" : "s"}

@@ -77,7 +77,7 @@ function renderReviewBody({
   return (
     <div className="space-y-1">
       <p className="hr-text-secondary text-sm">
-        Review text not provided. This completion is verified by a secure escrow payment record.
+        Review text not provided. This completion is verified by a secure payment record.
       </p>
     </div>
   );
@@ -107,10 +107,10 @@ export function VerifiedReviewCard({
       : "Verified Job Completion";
 
   const subtitle = isMilestone
-    ? "This milestone is backed by a verified on-chain payment."
+    ? "This milestone is backed by a verified on the network payment."
     : compact
       ? "Secure Payment Verified"
-      : "This work is backed by a verified on-chain payment record.";
+      : "This work is backed by a verified on the network payment record.";
 
   return (
     <article className={cn(compact ? "p-4" : "p-6", V2_PANEL_CLASS, "bg-white")}>

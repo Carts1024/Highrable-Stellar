@@ -177,8 +177,8 @@ export function ApplyToJobForm({
             tone={job.status === "funded" ? "success" : "warning"}
             message={
               job.status === "funded"
-                ? "Escrow funding is verified. Still keep all work and approvals in Highrable."
-                : "Only start work after this job shows Verified Funded."
+                ? "Payment Hold funding is verified. Still keep all work and approvals in Highrable."
+                : "Only start work after this job shows Payment Secured."
             }
           />
         </div>

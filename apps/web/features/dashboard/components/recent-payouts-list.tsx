@@ -21,14 +21,14 @@ export function RecentPayoutsList({ payouts }: IRecentPayoutsListProps) {
       <section className="space-y-5">
         <SectionHeading
           icon={Wallet}
-          title="Recent payments received"
+          title="Recent Payments Received"
           description="Each payment here is linked to a finished job."
         />
 
         {payouts.length === 0 ? (
           <RouteEmptyState
             icon={<Wallet className="h-10 w-10" />}
-            title="No completed payouts yet"
+            title="No Completed Payouts Yet"
             description="Completed payment releases will appear here."
           />
         ) : (

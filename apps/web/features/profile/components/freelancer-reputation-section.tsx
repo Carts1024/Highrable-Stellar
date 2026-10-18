@@ -10,6 +10,11 @@ import {
   getReviewCompletionType,
   getWorkTypeLabel,
 } from "@/features/profile/lib/profile-format";
+import {
+  HighrableV2Bullet,
+  HighrableV2IconNotice,
+  SectionLabel,
+} from "@repo/ui/components/highrable/v2-marketing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { cn } from "@repo/ui/lib/utils";
 import { ArrowUpRight, ExternalLink, Star } from "lucide-react";
@@ -51,12 +56,12 @@ function getStatItems(stats: TFreelancerProfileStats): readonly IStatItem[] {
 
   return [
     { label: "Completed", value: stats.completedContracts, helper: "Released escrow contracts" },
-    { label: "Micro gigs", value: stats.completedMicroGigs, helper: "Released gig escrows" },
+    { label: "Micro Gigs", value: stats.completedMicroGigs, helper: "Released gig payment holds" },
     { label: "Milestones", value: stats.completedMilestones, helper: "Released milestone escrows" },
     { label: "Earned", value: earnedValue, helper: "Released payments by asset" },
-    { label: "Pending escrow", value: pendingValue, helper: "Funded or submitted work" },
+    { label: "Pending Payment Hold", value: pendingValue, helper: "Funded or submitted work" },
     {
-      label: "Avg rating",
+      label: "Avg Rating",
       value: ratingValue,
       helper: `${stats.totalReviews} verified review${stats.totalReviews === 1 ? "" : "s"}`,
     },
@@ -159,7 +164,7 @@ function VerifiedReviewsPanel({
   if (reviews.length === 0) {
     return (
       <ReputationEmptyState>
-        No verified reviews yet. Reviews appear after paid escrow completion.
+        No verified reviews yet. Reviews appear after paid payment hold completion.
       </ReputationEmptyState>
     );
   }
@@ -247,7 +252,7 @@ function WorkHistoryPanel({
   if (contracts.length === 0) {
     return (
       <ReputationEmptyState>
-        No active or completed escrow-backed contracts yet.
+        No active or completed payment-backed contracts yet.
       </ReputationEmptyState>
     );
   }
@@ -331,80 +336,51 @@ export function FreelancerReputationSection({
   const reputationTabs: readonly TReputationTab[] = [
     ["stats", "Stats", stats.completedContracts.toString()],
     ["reviews", "Reviews", reviews.length.toString()],
-    ["history", "Work history", contracts.length.toString()],
+    ["history", "Work History", contracts.length.toString()],
   ];
 
   return (
     <section className="space-y-5">
-      {/* Section card header — mirrors job-detail milestone progress card */}
-      <div className="rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-              Verified Reputation
-            </p>
-            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
-              Escrow-backed work signal
-            </h2>
-            <p className="hr-text-secondary mt-1 font-sans text-sm">
-              Stats, reviews, and work history are backed by real Stellar escrow transactions —
-              clients can verify authenticity on-chain.
-            </p>
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--mode-border)] pb-5">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <SectionLabel>Freelancer Track Record</SectionLabel>
+            <HighrableV2IconNotice
+              label="How the track record is grouped"
+              tone="neutral"
+              message="Stats, reviews and finished jobs are grouped into tabs so clients can check this freelancer without scrolling a long page. Every item comes from a real, paid job."
+            />
           </div>
-          {stats.disputedContracts > 0 ? (
-            <span className="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
-              {stats.disputedContracts} disputed
-            </span>
-          ) : null}
+          <h2 className="text-2xl font-semibold text-[#0a0a0a]">Work You Can Trust</h2>
+          <p className="max-w-3xl text-sm leading-relaxed text-[#5f5f5f]">
+            See earnings, client reviews and finished jobs in one place. Each one is linked to a
+            real payment, so it cannot be faked.
+          </p>
         </div>
-
-        <div className="mt-5 grid gap-5 border-t border-border/60 pt-5 text-sm sm:grid-cols-3">
-          <div>
-            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-              Completed
-            </p>
-            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
-              {stats.completedContracts}
-            </p>
-          </div>
-          <div>
-            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-              Avg rating
-            </p>
-            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
-              {stats.averageRating === null
-                ? "No ratings yet"
-                : `${stats.averageRating.toFixed(1)} / 5`}
-            </p>
-          </div>
-          <div>
-            <p className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-              Verified reviews
-            </p>
-            <p className="hr-text-primary mt-1 font-sans text-xl font-semibold">
-              {stats.totalReviews}
-            </p>
-          </div>
-        </div>
+        {stats.disputedContracts > 0 ? (
+          <span className="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
+            {stats.disputedContracts} disputed
+          </span>
+        ) : null}
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="stats" className="mt-8 gap-5">
+      <Tabs defaultValue="stats" className="gap-5">
         <TabsList
           variant="line"
-          className="h-auto w-full justify-start border-b border-border/60 pb-0"
+          className="h-auto w-full flex-wrap justify-start border-b border-[var(--mode-border)] pb-0"
         >
           {reputationTabs.map(([value, label, count]) => (
             <TabsTrigger
               key={value}
               value={value}
               className={cn(
-                "rounded-none px-0 py-3 pr-6 font-mono text-xs font-semibold tracking-[0.08em] uppercase",
-                "data-[state=active]:text-highrable-orange-3 data-[state=active]:after:bg-highrable-orange-3",
+                "rounded-none px-0 py-3 pr-6 font-mono text-xs tracking-[0.06em] uppercase",
+                "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-highrable-orange-2",
               )}
             >
+              <HighrableV2Bullet aria-hidden="true" />
               {label}
-              <span className="ml-1.5 font-sans text-muted-foreground/60">{count}</span>
+              <span className="text-[#7f7f7f]">{count}</span>
             </TabsTrigger>
           ))}
         </TabsList>

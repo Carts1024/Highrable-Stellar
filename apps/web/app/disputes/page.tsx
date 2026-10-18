@@ -5,10 +5,10 @@ export default function DisputesPage() {
   return (
     <div className="space-y-8">
       <ProductPageHero
-        label="Help & problems"
+        label="Help & Problems"
         title={
           <>
-            Your <span className="hr-mode-text">disputes</span>
+            Your <span className="hr-mode-text">Disputes</span>
           </>
         }
         description="If a job goes wrong, a Highrable reviewer can look at the evidence from both sides. Cases you are part of are listed here."

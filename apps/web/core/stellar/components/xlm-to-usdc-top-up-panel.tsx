@@ -104,7 +104,8 @@ export function XlmToUsdcTopUpPanel({
           <SectionLabel className="mb-3">Stellar Path Payment</SectionLabel>
           <h3 className="hr-text-primary text-lg font-semibold">Convert XLM to USDC</h3>
           <p className="hr-text-secondary mt-2 max-w-2xl text-sm leading-relaxed">
-            You need more USDC to fund this escrow. Convert XLM to USDC first, then fund the escrow.
+            You need more USDC to fund this payment hold. Convert XLM to USDC first, then fund the
+            payment hold.
           </p>
         </div>
         <div className="hr-v2-badge-accent w-fit px-2.5 py-1 font-mono text-[0.6rem] tracking-[0.08em] uppercase">
@@ -152,7 +153,7 @@ export function XlmToUsdcTopUpPanel({
 
       {topUp.lastTxHash ? (
         <div className="border-l-2 border-emerald-500 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          <p>Conversion submitted. Refresh your balance, then fund escrow normally.</p>
+          <p>Conversion submitted. Refresh your balance, then fund payment hold normally.</p>
           {txExplorerUrl ? (
             <a
               href={txExplorerUrl}
@@ -200,7 +201,7 @@ export function XlmToUsdcTopUpPanel({
             onClick={() => void onFundEscrow?.()}
             className="hr-v2-button-primary rounded-none disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isFundEscrowPending ? "Funding Escrow..." : "Fund Escrow"}
+            {isFundEscrowPending ? "Funding Payment Hold..." : "Secure Payment"}
           </AppButton>
         ) : null}
       </div>

@@ -60,90 +60,92 @@ export function JobCard({
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm">
-      {/* Card header */}
-      <div className="flex flex-col gap-3 p-6 pb-4">
-        {/* Badge row */}
-        <div className="flex flex-wrap items-center gap-2">
-          {isUnfunded ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-default">
-                    <JobSafetyBadge status={safetyStatus.status} />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  tone="neutral"
-                  className="max-w-xs text-sm leading-relaxed"
-                >
-                  This job has not been funded yet. Confirm escrow before starting work.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <JobSafetyBadge status={safetyStatus.status} />
-          )}
+      {/* Top section: light tint (chips, title, description) */}
+      <div className="bg-white">
+        <div className="flex flex-col gap-3 p-6 pb-4">
+          {/* Badge row */}
+          <div className="flex flex-wrap items-center gap-2">
+            {isUnfunded ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-default">
+                      <JobSafetyBadge status={safetyStatus.status} />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    tone="neutral"
+                    className="max-w-xs text-sm leading-relaxed"
+                  >
+                    This job has not been funded yet. Confirm payment hold before starting work.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <JobSafetyBadge status={safetyStatus.status} />
+            )}
 
-          {shouldShowMarketplaceStatusBadge && <StatusBadge label={marketplaceStatus} />}
+            {shouldShowMarketplaceStatusBadge && <StatusBadge label={marketplaceStatus} />}
 
-          {isMilestoneProject && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
-              Milestone Project
-            </span>
-          )}
+            {isMilestoneProject && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
+                Milestone Project
+              </span>
+            )}
 
-          {isVerifiedFunded && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Escrow Verified
-            </span>
-          )}
+            {isVerifiedFunded && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Payment Secured
+              </span>
+            )}
 
-          {!isMilestoneProject && (
-            <DeadlineBadge
-              deadlineAt={job.deadlineAt}
-              submittedAt={job.submittedAt}
-              completedAt={job.completedAt}
-              approvedAt={job.approvedAt}
-              escrowStatus={escrow?.status}
-              workStatus={job.status}
-              compact
-            />
-          )}
-        </div>
+            {!isMilestoneProject && (
+              <DeadlineBadge
+                deadlineAt={job.deadlineAt}
+                submittedAt={job.submittedAt}
+                completedAt={job.completedAt}
+                approvedAt={job.approvedAt}
+                escrowStatus={escrow?.status}
+                workStatus={job.status}
+                compact
+              />
+            )}
+          </div>
 
-        {/* Title + budget */}
-        <div className="mt-3 flex items-start justify-between gap-4">
-          <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
-            {job.title}
-          </h3>
-          <div className="shrink-0 text-right">
-            <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
-              {formatAmount(job.totalBudget ?? job.budget)}
-            </p>
-            <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
-              {isMilestoneProject ? "Total Budget" : "Budget"}
-            </p>
+          {/* Title + budget */}
+          <div className="mt-3 flex items-start justify-between gap-4">
+            <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
+              {job.title}
+            </h3>
+            <div className="shrink-0 text-right">
+              <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
+                {formatAmount(job.totalBudget ?? job.budget)}
+              </p>
+              <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
+                {isMilestoneProject ? "Total Budget" : "Budget"}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Description */}
-      <div className="px-6 pb-5">
-        <p className="hr-text-secondary max-w-3xl text-sm leading-relaxed whitespace-pre-line">
-          {job.description}
-        </p>
+        {/* Description */}
+        <div className="px-6 pb-5">
+          <p className="hr-text-secondary max-w-3xl text-sm leading-relaxed whitespace-pre-line">
+            {job.description}
+          </p>
+        </div>
       </div>
 
       {/* Meta strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-[#f3f4f6] px-6 py-3 text-xs">
+      <div className="hr-mode-soft flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-[var(--mode-border)] px-6 py-3 text-xs">
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
             Type
           </span>
           <span className="font-semibold text-foreground">
-            {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+            {isMilestoneProject ? "Milestone project" : "Quick job"}
           </span>
         </div>
 
@@ -172,7 +174,7 @@ export function JobCard({
             <HighrableV2IconNotice
               label="XLM volatility warning"
               tone="warning"
-              message="XLM escrow is volatile. Final fiat value may change."
+              message="XLM payment hold is volatile. Final fiat value may change."
             />
           ) : null}
         </div>
@@ -191,12 +193,12 @@ export function JobCard({
 
         <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-          {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
+          {isMilestoneProject ? "Milestone payment-ready" : "Escrow-ready"}
         </div>
       </div>
 
       {/* Footer actions */}
-      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border/40 px-6 py-4">
+      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border/40 bg-white px-6 py-4">
         {isMilestoneProject ? (
           <p className="hr-text-secondary mr-auto max-w-sm font-sans text-xs leading-relaxed">
             Apply to specific milestones on the detail page.

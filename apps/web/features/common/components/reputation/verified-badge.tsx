@@ -11,7 +11,7 @@ export interface IVerifiedBadgeProps {
 
 export function VerifiedBadge({
   label = "Verified Review",
-  description = "This reputation signal is backed by a paid Highrable escrow completion.",
+  description = "This reputation signal is backed by a paid Highrable payment hold completion.",
   className,
 }: IVerifiedBadgeProps) {
   return (

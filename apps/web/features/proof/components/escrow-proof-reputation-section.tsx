@@ -46,7 +46,7 @@ export function EscrowProofReputationSection({
   if (proof.escrow.status !== "released") {
     return (
       <TrustInfoRow
-        title="Trust badge not ready yet"
+        title="Trust Badge Not Ready Yet"
         tone="muted"
         content={
           <p>
@@ -78,7 +78,7 @@ export function EscrowProofReputationSection({
 
   return (
     <TrustInfoRow
-      title="Verified paid work"
+      title="Verified Paid Work"
       tone="success"
       content={
         <div className="space-y-5">

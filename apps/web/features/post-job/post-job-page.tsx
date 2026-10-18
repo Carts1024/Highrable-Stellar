@@ -1,6 +1,5 @@
 "use client";
 
-import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { ProductPageHero } from "@/features/common";
 import { CreateJobForm } from "@/features/marketplace/components/create-job-form";
 import { ModeGate } from "@/features/mode";
@@ -43,10 +42,10 @@ export function PostJobPage() {
         {/* Hero */}
         <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
           <ProductPageHero
-            label="Client · Post a job"
+            label="Client · Post a Job"
             title={
               <>
-                Post a job <span className="hr-mode-text">and hire with confidence</span>
+                Post a Job <span className="hr-mode-text">and Hire with Confidence</span>
               </>
             }
             description="Tell freelancers what you need and how much you will pay. Your payment can be held safely until you approve the finished work."
@@ -78,8 +77,6 @@ export function PostJobPage() {
             ))}
           </div>
         </section>
-
-        <WalletStatusCard />
 
         <CreateJobForm
           onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}

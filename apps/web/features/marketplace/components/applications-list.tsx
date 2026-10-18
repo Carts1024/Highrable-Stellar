@@ -65,7 +65,7 @@ export function ApplicationsList({
 
   const assignPreFundedEscrow = async (freelancerWallet: string) => {
     if (!address || !escrow?.escrowId) {
-      throw new Error("Escrow record is missing the on-chain escrow ID.");
+      throw new Error("Payment Hold record is missing the on the network payment hold ID.");
     }
 
     if (
@@ -73,7 +73,7 @@ export function ApplicationsList({
       walletIdentity.walletType === "passkey_smart_account"
     ) {
       throw new Error(
-        "Assigning a pre-funded open escrow from passkey mode is not supported in this phase. Use the standard create escrow flow.",
+        "Assigning a pre-funded open payment hold from passkey mode is not supported in this phase. Use the standard create payment hold flow.",
       );
     }
 
@@ -82,11 +82,13 @@ export function ApplicationsList({
     }
 
     if (walletState.isFunded === false) {
-      throw new Error("Fund your Stellar testnet account with Friendbot before assigning escrow.");
+      throw new Error(
+        "Fund your Stellar testnet account with Friendbot before assigning payment hold.",
+      );
     }
 
     if (walletState.canWriteContracts === false) {
-      throw new Error("This wallet cannot sign escrow contract actions right now.");
+      throw new Error("This wallet cannot sign payment hold contract actions right now.");
     }
 
     const config = getRequiredEscrowActionConfig();

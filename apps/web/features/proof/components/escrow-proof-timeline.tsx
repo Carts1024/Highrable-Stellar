@@ -27,7 +27,7 @@ type TTimelineItem = {
 function buildTimeline(proof: TEscrowProof): TTimelineItem[] {
   const items: TTimelineItem[] = [
     {
-      label: "Payment started",
+      label: "Payment Started",
       description: "Highrable opened a protected payment record for this work.",
       timestamp: proof.escrow.createdAt,
       txHash: proof.escrow.createTxHash,
@@ -39,7 +39,7 @@ function buildTimeline(proof: TEscrowProof): TTimelineItem[] {
     return [
       ...items,
       {
-        label: "Payment cancelled",
+        label: "Payment Cancelled",
         description: "This protected payment was cancelled.",
         timestamp: proof.escrow.updatedAt,
         txHash: proof.escrow.cancelTxHash,
@@ -52,7 +52,7 @@ function buildTimeline(proof: TEscrowProof): TTimelineItem[] {
     return [
       ...items,
       {
-        label: "Payment under review",
+        label: "Payment Under Review",
         description: "A review is needed before the payment can move forward.",
         timestamp: proof.escrow.updatedAt,
         txHash: proof.escrow.disputeTxHash,
@@ -64,7 +64,7 @@ function buildTimeline(proof: TEscrowProof): TTimelineItem[] {
   return [
     ...items,
     {
-      label: "Funds protected",
+      label: "Funds Protected",
       description: `${formatAmount(proof.escrow.amount)} ${formatAssetLabel(
         proof.escrow.asset,
       )} was set aside for this work.`,
@@ -73,21 +73,21 @@ function buildTimeline(proof: TEscrowProof): TTimelineItem[] {
       state: getTimelineEventState("funded", proof.escrow, Boolean(proof.reputationRecord)),
     },
     {
-      label: "Work sent for review",
+      label: "Work Sent for Review",
       description: "The freelancer sent the work for client approval.",
       timestamp: proof.escrow.submitTxHash ? proof.escrow.updatedAt : undefined,
       txHash: proof.escrow.submitTxHash,
       state: getTimelineEventState("submitted", proof.escrow, Boolean(proof.reputationRecord)),
     },
     {
-      label: "Payment released",
+      label: "Payment Released",
       description: "The client approved the work and payment was released to the freelancer.",
       timestamp: proof.escrow.releaseTxHash ? proof.escrow.updatedAt : undefined,
       txHash: proof.escrow.releaseTxHash,
       state: getTimelineEventState("released", proof.escrow, Boolean(proof.reputationRecord)),
     },
     {
-      label: "Review can be trusted",
+      label: "Review Can Be Trusted",
       description: "Highrable can show this as a paid work record after payment release.",
       timestamp: proof.reputationRecord?.createdAt,
       txHash: proof.reputationRecord?.txHash ?? proof.escrow.releaseTxHash,
@@ -104,7 +104,7 @@ export function EscrowProofTimeline({ proof }: { readonly proof: TEscrowProof })
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <SectionLabel>Payment Timeline</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">What happened</h2>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">What Happened</h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5f5f5f]">
             {getPaymentProofCopy(proof.proofStatus)}
           </p>

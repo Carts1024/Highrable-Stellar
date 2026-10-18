@@ -86,29 +86,29 @@ export function AdminDashboardContent() {
 
     return [
       {
-        title: "Users By Role",
+        title: "Users by Role",
         description: "Access segmentation for client, freelancer, and admin wallets.",
         values: metrics.users.byRole,
       },
       {
-        title: "Jobs By Status",
+        title: "Jobs by Status",
         description: "Marketplace demand grouped by current work state.",
         values: metrics.jobs.byStatus,
       },
       {
-        title: "Escrows By Status",
+        title: "Escrows by Status",
         description: "Escrow-backed stats for funding, release, and dispute readiness.",
         values: metrics.escrows.byStatus,
       },
       {
-        title: "Disputes By Status",
+        title: "Disputes by Status",
         description: "Review queue state for open, waiting, and resolved cases.",
         values: metrics.disputes.byStatus,
         formatLabel: (label) =>
           isDisputeStatus(label) ? getDisputeStatusLabel(label) : formatBreakdownLabel(label),
       },
       {
-        title: "Disputes By On-Chain",
+        title: "Disputes by On-Chain",
         description: "On-chain marking state for dispute settlement integrity.",
         values: metrics.disputes.byOnChainStatus,
         formatLabel: (label) =>
@@ -136,12 +136,12 @@ export function AdminDashboardContent() {
         values: metrics.workSubmissions.byOnChainStatus,
       },
       {
-        title: "Revisions By Status",
+        title: "Revisions by Status",
         description: "Revision loop pressure across active work agreements.",
         values: metrics.revisions.byStatus,
       },
       {
-        title: "Reminders By Status",
+        title: "Reminders by Status",
         description: "Deadline reminder delivery state for overdue work prevention.",
         values: metrics.deadlineReminders.byStatus,
       },
@@ -182,7 +182,7 @@ export function AdminDashboardContent() {
         <div className="space-y-6">
           <AdminSection
             label="Operations Snapshot"
-            title="Platform totals"
+            title="Platform Totals"
             description="A compact read on the core platform objects before drilling into lifecycle health."
           >
             <AdminMetricRail items={platformMetrics} />
@@ -197,7 +197,7 @@ export function AdminDashboardContent() {
 
           <AdminSection
             label="Escrow-backed Stats"
-            title="Lifecycle breakdown"
+            title="Lifecycle Breakdown"
             description="Grouped counts are organized by operational theme so unusual states are easier to scan."
           >
             <AdminBreakdownMatrix groups={lifecycleGroups} />
@@ -205,14 +205,14 @@ export function AdminDashboardContent() {
 
           <AdminSection
             label="Verified Reviews"
-            title="Work history health"
+            title="Work History Health"
             description="Submission, revision, and reminder activity that feeds escrow-backed reputation."
           >
             <div className="space-y-5">
               <AdminMetricRail
                 items={[
                   {
-                    label: "Work submissions",
+                    label: "Work Submissions",
                     value: metrics.workSubmissions.total,
                     description: "Submitted deliverables available for review.",
                   },
@@ -239,7 +239,7 @@ export function AdminDashboardContent() {
 
           <AdminSection
             label="Work History"
-            title="Recent disputes"
+            title="Recent Disputes"
             description="Newest review cases that may affect escrow settlement and portable reputation."
             action={
               <AppButton asChild variant="secondary" size="sm">

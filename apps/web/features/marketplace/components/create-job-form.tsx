@@ -105,8 +105,8 @@ const CREATE_JOB_SCHEMA = z.object({
   asset: z
     .string()
     .transform(sanitizeSingleLineInput)
-    .pipe(z.string().min(3, "Payment asset is required."))
-    .pipe(z.string().max(255, "Payment asset is too long.")),
+    .pipe(z.string().min(3, "Payment currency is required."))
+    .pipe(z.string().max(255, "Payment currency is too long.")),
   deadlineAt: z.string().transform(sanitizeSingleLineInput).optional(),
 });
 
@@ -211,22 +211,22 @@ const CREATE_JOB_ID_PREFIX = "create-job";
 const CREATE_JOB_STEPS: readonly IFormStep[] = [
   {
     id: "type",
-    title: "Job type",
+    title: "Job Type",
     hint: "Choose whether this is one quick task or a bigger project.",
   },
   {
     id: "details",
-    title: "Describe the work",
+    title: "Describe the Work",
     hint: "Tell freelancers what you need, so they can decide if it fits them.",
   },
   {
     id: "pay",
-    title: "Budget & payment",
+    title: "Budget & Payment",
     hint: "Set how much you will pay, when it is due, and in which currency.",
   },
   {
     id: "review",
-    title: "Review & post",
+    title: "Review & Post",
     hint: "Check everything, then decide how to secure the payment.",
   },
 ] as const;
@@ -291,9 +291,9 @@ function RevisionPolicyControls({
   onLimitChange: (limit: string) => void;
 }) {
   const options: Array<{ value: TRevisionPolicy; label: string }> = [
-    { value: "none", label: "No revisions" },
-    { value: "fixed", label: "Fixed revisions" },
-    { value: "unlimited", label: "Unlimited revisions" },
+    { value: "none", label: "No Revisions" },
+    { value: "fixed", label: "Fixed Revisions" },
+    { value: "unlimited", label: "Unlimited Revisions" },
   ];
 
   return (
@@ -456,7 +456,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       )}).`;
     }
 
-    return "Enter the stablecoin token contract ID only if you need an off-chain draft before central config is set.";
+    return "Enter the digital dollar token contract ID only if you need an off-chain draft before central config is set.";
   }, [isStablecoinConfigured]);
 
   const isMilestoneProject = formState.jobType === "milestone_project";
@@ -470,7 +470,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
   const budgetHelperText = isMilestoneProject
     ? "Project budget is calculated from milestone amounts."
-    : "This amount will be locked in Stellar escrow after the client funds the contract.";
+    : "This amount will be held safely after the client pays.";
   const shouldShowStablecoinFundingReadiness =
     !isMilestoneProject &&
     hasPositiveBudget(formState.budget) &&
@@ -730,7 +730,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       setFormWarning({
         asset:
           stablecoinValidation.message ??
-          "Payment asset is required until stablecoin configuration is set.",
+          "Payment currency is required until digital dollar configuration is set.",
       });
       return;
     }
@@ -868,7 +868,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         if (walletIdentity.walletType === "passkey_smart_account") {
           setFormWarning({
             submit:
-              "Create the job with your passkey smart account, then create and fund escrow from the escrow action panel.",
+              "Create the job with your passkey account, then create and fund payment hold from the payment hold action panel.",
           });
           setIsSubmitting(false);
           return;
@@ -876,7 +876,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
           setFormWarning({
-            submit: "Connect a Stellar wallet before funding escrow.",
+            submit: "Connect a Stellar wallet before funding payment hold.",
           });
           setIsSubmitting(false);
           return;
@@ -884,7 +884,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (!isWalletOnConfiguredNetwork(walletState)) {
           setFormWarning({
-            submit: getWalletNetworkMismatchMessage("funding escrow"),
+            submit: getWalletNetworkMismatchMessage("funding payment hold"),
           });
           setIsSubmitting(false);
           return;
@@ -892,7 +892,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (walletState.isFunded === false) {
           setFormWarning({
-            submit: "Fund your Stellar testnet account with Friendbot before funding escrow.",
+            submit: "Fund your Stellar testnet account with Friendbot before funding payment hold.",
           });
           setIsSubmitting(false);
           return;
@@ -900,7 +900,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (walletState.canWriteContracts === false) {
           setFormWarning({
-            submit: "This wallet can view jobs but cannot sign escrow contract actions right now.",
+            submit:
+              "This wallet can view jobs but cannot sign payment hold contract actions right now.",
           });
           setIsSubmitting(false);
           return;
@@ -1014,7 +1015,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       {/* Card header */}
       <div className="hr-card-head flex flex-wrap items-start justify-between gap-4 px-5 py-4 sm:px-6">
         <div className="space-y-1">
-          <h2 className="font-sans text-xl font-bold">Post a job</h2>
+          <h2 className="font-sans text-xl font-bold">Post a Job</h2>
           <p className="max-w-2xl font-sans text-sm opacity-90">
             Answer a few short steps. You can go back and change anything before you post.
           </p>
@@ -1024,14 +1025,14 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         <div className="flex flex-wrap items-center gap-2">
           {!isStablecoinConfigured ? (
             <HighrableV2IconNotice
-              label="Stablecoin configuration warning"
+              label="Digital dollar configuration warning"
               tone="warning"
-              message="The digital-dollar payment option is not set up yet. You can still post jobs, but holding the payment in escrow is switched off until it is configured."
+              message="The digital-dollar payment option is not set up yet. You can still post jobs, but holding the payment is switched off until it is configured."
             />
           ) : null}
           {walletIdentity.walletType === "passkey_smart_account" ? (
             <HighrableV2IconNotice
-              label="Passkey smart account connected"
+              label="passkey account connected"
               tone="success"
               message="Your passkey account is connected. After the job is created you will approve the payment hold with your passkey."
             />
@@ -1128,7 +1129,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     Milestone Project
                   </span>
                   <span className="hr-text-secondary mt-0.5 block font-sans text-xs">
-                    A bigger project paid in stages. Each stage is paid when it is done.
+                    A bigger project paid in milestones. Each milestone is paid when it is done.
                   </span>
                 </div>
               </button>
@@ -1313,7 +1314,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                           <HighrableV2IconNotice
                             label="XLM value warning"
                             tone="warning"
-                            message="XLM escrow is available, but the job value may fluctuate."
+                            message="XLM payment hold is available, but the job value may fluctuate."
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : null}
@@ -1375,7 +1376,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 <div className="flex items-center gap-3">
                   <div className="h-2 w-2 bg-highrable-text-accent" />
                   <span className="font-mono text-sm font-semibold tracking-widest text-highrable-text-accent uppercase">
-                    Project stages (milestones)
+                    Milestones
                   </span>
                 </div>
                 <AppButton
@@ -1385,13 +1386,13 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                   className="hr-v2-button-secondary w-full text-sm font-semibold sm:w-auto"
                 >
                   <Plus className="h-4 w-4" />
-                  Add Stage
+                  Add Milestone
                 </AppButton>
               </div>
 
               <p className="mb-4 font-sans text-sm text-muted-foreground">
-                Split the project into stages. Each stage has its own goal, deadline and payment.
-                You pay for a stage after freelancers apply to it.
+                Split the project into milestones. Each milestone has its own goal, deadline and
+                payment. You pay for a milestone after freelancers apply to it.
               </p>
 
               <div className="space-y-4">
@@ -1403,7 +1404,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     {/* Milestone header */}
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <span className="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                        Stage {index + 1}
+                        Milestone {index + 1}
                       </span>
                       <AppButton
                         type="button"
@@ -1528,7 +1529,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                   Type
                 </dt>
                 <dd className="hr-text-primary mt-0.5 font-medium">
-                  {isMilestoneProject ? "Project paid in stages" : "Quick job"}
+                  {isMilestoneProject ? "Milestone project" : "Quick job"}
                 </dd>
               </div>
               <div>
@@ -1556,7 +1557,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                 </dt>
                 <dd className="hr-text-primary mt-0.5 font-medium">
                   {isMilestoneProject
-                    ? `${formState.milestones.length} stage${formState.milestones.length === 1 ? "" : "s"}, each with its own deadline`
+                    ? `${formState.milestones.length} milestone${formState.milestones.length === 1 ? "" : "s"}, each with its own deadline`
                     : formState.deadlineAt || "Not filled in yet"}
                 </dd>
               </div>
@@ -1576,22 +1577,22 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                       </Label>
                       {walletIdentity.walletType === "passkey_smart_account" ? (
                         <HighrableV2IconNotice
-                          label="Passkey escrow funding notice"
+                          label="Passkey payment hold funding notice"
                           tone="warning"
-                          message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
+                          message="Passkey accounts create and fund payment hold after posting so role checks use the passkey account address consistently."
                         />
                       ) : (
                         <HighrableV2IconNotice
-                          label="Escrow funding info"
+                          label="Payment Hold funding info"
                           tone="warning"
-                          message="Locking the budget in escrow demonstrates commitment to applicants and secures the payment for the future freelancer."
+                          message="Setting the budget aside shows applicants you are serious and demonstrates commitment to applicants and secures the payment for the future freelancer."
                         />
                       )}
                     </div>
                     <p className="hr-text-secondary mt-1 font-sans text-sm">
                       Set the full budget aside in a safe holding account (
-                      <TermHint term="escrow">escrow</TermHint>) while freelancers apply. It is only
-                      released to the freelancer when you approve their work.
+                      <TermHint term="escrow">payment hold</TermHint>) while freelancers apply. It
+                      is only released to the freelancer when you approve their work.
                     </p>
                     {formState.fundEscrowNow ? (
                       <p className="mt-2 font-sans text-xs text-muted-foreground">
@@ -1618,8 +1619,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <div>
               <SectionDivider label="Secure the payment" />
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 px-4 font-sans text-sm text-amber-800">
-                Project stages are not paid upfront. You will choose a freelancer and secure the
-                payment for each stage separately after applications arrive.
+                Project milestones are not paid upfront. You will choose a freelancer and secure the
+                payment for each milestone separately after applications arrive.
               </div>
             </div>
           )}
@@ -1650,7 +1651,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
                     ? "Posting and Funding..."
                     : "Submitting..."
                   : formState.fundEscrowNow
-                    ? "Create Job and Fund Escrow"
+                    ? "Post Job and Secure Payment"
                     : isMilestoneProject
                       ? "Create Milestone Project"
                       : "Create Job"}

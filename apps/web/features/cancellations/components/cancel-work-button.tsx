@@ -65,14 +65,14 @@ interface ICancelWorkButtonProps {
 }
 
 const REASON_OPTIONS: Array<{ value: TCancellationReasonCategory; label: string }> = [
-  { value: "changed_requirements", label: "Changed requirements" },
-  { value: "duplicate_work", label: "Duplicate work" },
-  { value: "freelancer_unresponsive", label: "Freelancer unresponsive" },
-  { value: "missed_deadline", label: "Missed deadline" },
-  { value: "work_not_started", label: "Work not started" },
-  { value: "scope_issue", label: "Scope issue" },
-  { value: "mutual_agreement", label: "Mutual agreement" },
-  { value: "dispute_resolution", label: "Dispute resolution" },
+  { value: "changed_requirements", label: "Changed Requirements" },
+  { value: "duplicate_work", label: "Duplicate Work" },
+  { value: "freelancer_unresponsive", label: "Freelancer Unresponsive" },
+  { value: "missed_deadline", label: "Missed Deadline" },
+  { value: "work_not_started", label: "Work Not Started" },
+  { value: "scope_issue", label: "Scope Issue" },
+  { value: "mutual_agreement", label: "Mutual Agreement" },
+  { value: "dispute_resolution", label: "Dispute Resolution" },
   { value: "other", label: "Other" },
 ];
 
@@ -101,7 +101,7 @@ function getButtonLabel(eligibility: {
     if (eligibility.suggestedAction === "request_revision") return "Request revision";
     return "Cancellation blocked";
   }
-  if (eligibility.canCancelImmediately) return "Cancel escrow";
+  if (eligibility.canCancelImmediately) return "Cancel payment hold";
   if (eligibility.requiresFreelancerResponse) return "Request cancellation";
   return "Cancel work";
 }
@@ -295,8 +295,8 @@ export function CancelWorkButton({
             <DialogHeader>
               <DialogTitle>{buttonLabel}</DialogTitle>
               <DialogDescription>
-                Cancellation is checked against escrow, proof, deadline, revision, and dispute state
-                before any on-chain action is allowed.
+                Cancellation is checked against payment hold, proof, deadline, revision, and dispute
+                state before any on-chain action is allowed.
               </DialogDescription>
             </DialogHeader>
 

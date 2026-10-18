@@ -55,7 +55,7 @@ export function FreelancerSafetyChecklist({
               <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
             </ResponsiveDialogHeader>
             <ResponsiveDialogBody className="font-sans text-sm">
-              Only start after the job shows Verified Funded and the payment terms match the
+              Only start after the job shows Payment Secured and the payment terms match the
               agreement.
             </ResponsiveDialogBody>
           </ResponsiveDialogContent>
@@ -66,15 +66,15 @@ export function FreelancerSafetyChecklist({
 
   const checklist = [
     {
-      label: "Client selected you",
+      label: "Client Selected You",
       isComplete: isSelectedFreelancer,
     },
     {
-      label: "Escrow created",
+      label: "Payment Hold Created",
       isComplete: escrow !== null && escrow !== undefined,
     },
     {
-      label: "Funds verified funded",
+      label: "Funds Verified Funded",
       isComplete: escrow?.status === "funded" || escrow?.status === "submitted",
     },
     {
@@ -82,7 +82,7 @@ export function FreelancerSafetyChecklist({
       isComplete: escrow?.amount === job.budget && escrow?.asset === job.asset,
     },
     {
-      label: "Work stays within Highrable approval flow",
+      label: "Work Stays Within Highrable Approval Flow",
       isComplete: escrow?.status === "funded" || escrow?.status === "submitted",
     },
   ];
@@ -109,7 +109,7 @@ export function FreelancerSafetyChecklist({
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>Before Starting Work</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
-              Confirm the escrow and payment terms before you begin delivery.
+              Confirm the payment hold and payment terms before you begin delivery.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody>

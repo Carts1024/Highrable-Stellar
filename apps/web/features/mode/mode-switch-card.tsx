@@ -1,6 +1,8 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { Repeat } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { MODE_COPY } from "./mode-config";
 import { useAppMode } from "./mode-provider";
@@ -9,6 +11,8 @@ import { ModeSwitch } from "./mode-switch";
 /** The only place the mode can be changed. Shown on the person's own profile pages. */
 export function ModeSwitchCard() {
   const { mode } = useAppMode();
+  const router = useRouter();
+  const walletIdentity = useHighrableWalletIdentity();
 
   return (
     <section className="hr-mode-soft flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--mode-border)] p-5">
@@ -26,7 +30,17 @@ export function ModeSwitchCard() {
           </p>
         </div>
       </div>
-      <ModeSwitch size="large" />
+      <ModeSwitch
+        size="large"
+        onChange={(nextMode) => {
+          // Show the profile that matches the role that was just chosen.
+          if (walletIdentity.walletAddress) {
+            router.push(
+              `/${nextMode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(walletIdentity.walletAddress)}`,
+            );
+          }
+        }}
+      />
     </section>
   );
 }

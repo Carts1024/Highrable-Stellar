@@ -20,7 +20,7 @@ export function RegistryRegistrationCard() {
     >
       <div className="space-y-1">
         <h2 id="registry-registration-title" className="font-sans text-lg font-semibold">
-          Register your wallet on Stellar
+          Register Your Wallet on Stellar
         </h2>
         <p className="text-sm text-muted-foreground">
           Registration is optional for existing members. It stores your wallet address and public

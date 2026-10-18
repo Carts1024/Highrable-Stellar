@@ -125,7 +125,7 @@ const AGREEMENT_TITLE_MAX_LENGTH = 120;
 const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
 const REJECTION_REASON_MAX_LENGTH = 1000;
 const AGREEMENT_TEMPLATE_NOTICE = {
-  title: "Workflow template",
+  title: "Workflow Template",
   body: "Highrable-generated terms are a workflow template, not legal advice. Use professional review for regulated, jurisdiction-specific, or high-value work.",
 } as const;
 
@@ -358,7 +358,7 @@ export function AgreementHashBadge({ hash }: { readonly hash?: string | null }) 
   if (!hash) {
     return (
       <Badge className="rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] text-muted-foreground uppercase hover:bg-white">
-        No hash
+        No receipt ID
       </Badge>
     );
   }
@@ -420,14 +420,14 @@ function AgreementTypeSelector({
     {
       value: "client_uploaded" as const,
       icon: <Upload className="h-4 w-4" />,
-      label: "Upload agreement",
+      label: "Upload Agreement",
       description: "Use a PDF, DOCX, Markdown, or text file stored in Highrable.",
     },
     {
       value: "highrable_generated" as const,
       icon: <FileText className="h-4 w-4" />,
       label: "Highrable Work Agreement",
-      description: "Generate a workflow template from the job, escrow, and milestone data.",
+      description: "Generate a workflow template from the job, payment hold, and milestone data.",
       notice: <AgreementTemplateNotice disabled={disabled} />,
     },
   ];
@@ -894,7 +894,7 @@ export function AgreementAmendmentBanner({
         </p>
         <HighrableV2IconNotice
           label="Agreement change control"
-          message="Locked terms stay fixed for escrow and dispute review. Any future term changes will require both parties to approve a new version."
+          message="Locked terms stay fixed for payment hold and dispute review. Any future term changes will require both parties to approve a new version."
           tone="neutral"
         />
       </div>
@@ -933,7 +933,7 @@ export function AgreementVersionCard({ version }: { readonly version: TAgreement
             ) : (
               <span className="inline-flex items-center gap-2">
                 <HighrableV2Bullet tone="muted" />
-                No hash
+                No receipt ID
               </span>
             )}
           </div>
@@ -1852,7 +1852,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
                     {agreement.status === "rejected" ? (
                       <AgreementWorkspaceSection
-                        title="Freelancer response"
+                        title="Freelancer Response"
                         description="Use the feedback to revise the agreement or choose another freelancer."
                       >
                         <div className="space-y-3 border border-red-200 bg-red-50 p-4 text-sm text-red-900">
@@ -1973,7 +1973,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
                     {isFreelancerViewer && agreement.status === "pending_acceptance" ? (
                       <AgreementWorkspaceSection
-                        title="Your response"
+                        title="Your Response"
                         description="Accept when the scope, payment, deadlines, and revision terms look right."
                       >
                         <AgreementFreelancerResponsePanel

@@ -13,9 +13,10 @@ import { useDashboardRole } from "@/features/dashboard/hooks/use-dashboard-role"
 import { useFreelancerDashboard } from "@/features/dashboard/hooks/use-freelancer-dashboard";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineNotificationsPanel } from "@/features/deadlines";
-import { MODE_COPY, useAppMode } from "@/features/mode";
+import { useAppMode } from "@/features/mode";
 import { useRequireOnboarding } from "@/features/onboarding";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
+import { HighrableV2Bullet } from "@repo/ui/components/highrable/v2-marketing";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import {
@@ -42,8 +43,8 @@ interface IQuickAction {
 const QUICK_ACTIONS: Record<TDashboardMode, readonly IQuickAction[]> = {
   freelancer: [
     {
-      href: "/jobs",
-      title: "Find work",
+      href: "/marketplace",
+      title: "Find Work",
       description: "Browse open jobs and send an application",
       icon: Briefcase,
     },
@@ -57,13 +58,13 @@ const QUICK_ACTIONS: Record<TDashboardMode, readonly IQuickAction[]> = {
   client: [
     {
       href: "/post-job",
-      title: "Post a job",
+      title: "Post a Job",
       description: "Describe the work and set your budget",
       icon: Users,
     },
     {
       href: "/talent",
-      title: "Find freelancers",
+      title: "Find Freelancers",
       description: "Look for people to hire",
       icon: Briefcase,
     },
@@ -76,6 +77,12 @@ const QUICK_ACTIONS: Record<TDashboardMode, readonly IQuickAction[]> = {
   ],
 };
 
+const WORK_TABS = [
+  ["applied", "Applied Jobs"],
+  ["progress", "Jobs in Progress"],
+  ["payments", "Payments Received"],
+] as const;
+
 function formatAssetAmountList(rows: TAssetAmount[]): string {
   if (rows.length === 0) return "0";
   return rows.map((r) => `${formatAmount(r.amount)} ${formatAsset(r.asset)}`).join(" + ");
@@ -87,7 +94,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
       label: "Client · My Jobs",
       title: (
         <>
-          Your <span className="hr-mode-text">hiring dashboard</span>
+          Your <span className="hr-mode-text">Hiring Dashboard</span>
         </>
       ),
       description:
@@ -99,7 +106,7 @@ function resolveDashboardHeroCopy(mode: TDashboardMode) {
     label: "Freelancer · My Work",
     title: (
       <>
-        Your <span className="hr-mode-text">work and earnings</span>
+        Your <span className="hr-mode-text">Work and Earnings</span>
       </>
     ),
     description:
@@ -131,52 +138,6 @@ function DashboardSkeletonCards() {
           className="h-28 animate-pulse rounded-xl border border-border/60 bg-muted/30"
         />
       ))}
-    </div>
-  );
-}
-
-function DashboardCommandBar({
-  mode,
-  address,
-}: {
-  readonly mode: TDashboardMode;
-  readonly address?: string | null;
-}) {
-  const publicProfileHref = address
-    ? `/${mode === "client" ? "clients" : "freelancers"}/${encodeURIComponent(address)}`
-    : null;
-  const copy = MODE_COPY[mode];
-  const Icon = copy.icon;
-
-  return (
-    <div className="hr-mode-soft rounded-xl border border-highrable-orange-3/40 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="hr-mode-solid flex h-11 w-11 items-center justify-center rounded-lg text-[#1a1300]">
-            <Icon className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <p className="hr-text-primary font-sans text-base font-semibold">
-              You are in {copy.label}
-            </p>
-            <p className="hr-text-secondary text-sm">
-              {copy.tagline} To {mode === "client" ? "look for work" : "hire someone"}, change your
-              mode on your profile page.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {publicProfileHref ? (
-            <AppButton
-              asChild
-              variant="outline"
-              className="h-9 rounded-lg bg-card px-4 text-xs font-semibold"
-            >
-              <Link href={publicProfileHref}>View my public profile</Link>
-            </AppButton>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 }
@@ -231,8 +192,7 @@ function QuickActions({ mode }: { readonly mode: TDashboardMode }) {
 
 /** Summarizes wallet-specific escrow activity for the connected freelancer using Convex data. */
 export function DashboardPage() {
-  const { summary, isLoading, isConnected, isTestnet, isFunded, address } =
-    useFreelancerDashboard();
+  const { summary, isLoading, isConnected, isTestnet, isFunded } = useFreelancerDashboard();
   const onboardingGuard = useRequireOnboarding();
   const { role, isLoading: isRoleLoading } = useDashboardRole();
   const { mode: selectedMode, isReady: isModeReady } = useAppMode();
@@ -244,7 +204,7 @@ export function DashboardPage() {
   if (!isConnected) {
     return (
       <WalletRequiredNotice
-        title="Your dashboard"
+        title="Your Dashboard"
         description="Connect your wallet to see your jobs and payments."
       />
     );
@@ -261,44 +221,13 @@ export function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Hero */}
-      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
+      <section className="border-b border-[var(--mode-border)] pb-8">
         <ProductPageHero
           label={heroCopy.label}
           title={heroCopy.title}
           description={heroCopy.description}
         />
-
-        {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-          {[
-            { label: "Viewing as", value: MODE_COPY[selectedMode].shortLabel },
-            { label: "Network", value: isTestnet ? "Practice" : "Live" },
-            {
-              label: "Account",
-              value: isFunded === false ? "Needs test XLM" : "Ready",
-              accent: isFunded === false,
-            },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-                {label}
-              </span>
-              <span
-                className={cn(
-                  "text-lg leading-none font-semibold sm:text-xl",
-                  accent ? "text-highrable-orange-2" : "hr-text-primary",
-                )}
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
       </section>
-
-      {!isRoleLoading && isModeReady && (
-        <DashboardCommandBar mode={selectedMode} address={address} />
-      )}
 
       {!isRoleLoading && role !== "admin" && onboardingGuard.isOnboardingComplete ? (
         <RegistryRegistrationCard />
@@ -324,7 +253,7 @@ export function DashboardPage() {
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           >
             <IncomeMetricCard
-              title="Total earned"
+              title="Total Earned"
               tone="green"
               value={formatAssetAmountList(summary.totalEarnedByAsset)}
               subtitle="Money you have been paid for finished jobs"
@@ -333,7 +262,7 @@ export function DashboardPage() {
             />
 
             <IncomeMetricCard
-              title="Payments on hold"
+              title="Payments on Hold"
               tone="yellow"
               value={formatAssetAmountList(summary.pendingEscrowByAsset)}
               subtitle="Clients have set this money aside for your work"
@@ -342,7 +271,7 @@ export function DashboardPage() {
             />
 
             <IncomeMetricCard
-              title="Finished jobs"
+              title="Finished Jobs"
               tone="sky"
               value={summary.completedJobs.toString()}
               subtitle="Jobs where you have been paid"
@@ -351,7 +280,7 @@ export function DashboardPage() {
             />
 
             <IncomeMetricCard
-              title="Jobs in progress"
+              title="Jobs in Progress"
               tone="orange"
               value={summary.activeJobs.toString()}
               subtitle="Paid for upfront or handed in, waiting for approval"
@@ -360,7 +289,7 @@ export function DashboardPage() {
             />
 
             <IncomeMetricCard
-              title="Waiting for payment"
+              title="Waiting for Payment"
               tone="violet"
               value={summary.awaitingFunding.toString()}
               subtitle="Client has picked you but has not set the money aside yet"
@@ -368,14 +297,40 @@ export function DashboardPage() {
               animationDelay={0.5}
             />
           </motion.div>
-
-          <RecentPayoutsList payouts={summary.recentPayouts} />
         </>
       )}
 
-      {showFreelancerSections && <AppliedJobsSection />}
-
-      {showFreelancerSections && <OngoingJobsSection />}
+      {showFreelancerSections ? (
+        <Tabs defaultValue="applied" className="gap-5">
+          <TabsList
+            variant="line"
+            className="h-auto w-full flex-wrap justify-start border-b border-[var(--mode-border)] pb-0"
+          >
+            {WORK_TABS.map(([value, label]) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className={cn(
+                  "rounded-none px-0 py-3 pr-6 font-mono text-xs tracking-[0.06em] uppercase",
+                  "data-[state=active]:text-[#0a0a0a] data-[state=active]:after:bg-highrable-orange-2",
+                )}
+              >
+                <HighrableV2Bullet aria-hidden="true" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="applied">
+            <AppliedJobsSection />
+          </TabsContent>
+          <TabsContent value="progress">
+            <OngoingJobsSection />
+          </TabsContent>
+          <TabsContent value="payments">
+            <RecentPayoutsList payouts={summary?.recentPayouts ?? []} />
+          </TabsContent>
+        </Tabs>
+      ) : null}
 
       {showClientSections && <PostedJobsSection />}
 

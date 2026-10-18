@@ -13,11 +13,11 @@ const plannedSignals = [
 const previewProfiles = [
   {
     name: "Stellar Frontend Engineer",
-    specialty: "Wallet UX, Next.js, escrow flows",
+    specialty: "Wallet UX, Next.js, payment hold flows",
     stats: "12 completions",
   },
   {
-    name: "Soroban Contract Developer",
+    name: "Stellar Contract Developer",
     specialty: "Rust contracts, testnet deployment, audits",
     stats: "9 completions",
   },
@@ -35,10 +35,10 @@ export function TalentPage() {
       <div className="space-y-8">
         <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
           <ProductPageHero
-            label="Client · Find freelancers"
+            label="Client · Find Freelancers"
             title={
               <>
-                Find freelancers <span className="hr-mode-text">you can trust</span>
+                Find Freelancers <span className="hr-mode-text">You Can Trust</span>
               </>
             }
             description="A searchable list of freelancers is coming soon. For now, the best way to hire is to post a job and review the people who apply."
@@ -57,7 +57,7 @@ export function TalentPage() {
                 <BadgeCheck className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="font-mono font-semibold text-foreground">What you will see</h2>
+                <h2 className="font-mono font-semibold text-foreground">What You Will See</h2>
                 <p className="font-sans text-sm text-muted-foreground">
                   Based on real, finished jobs
                 </p>

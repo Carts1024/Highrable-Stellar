@@ -136,7 +136,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             {job.title} <span className="hr-v2-gradient-text">Execution Flow</span>
           </>
         }
-        description="Review the core terms, escrow state, and next actions without leaving the marketplace workflow."
+        description="Review the core terms, payment hold state, and next actions without leaving the marketplace workflow."
       />
 
       <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
@@ -161,23 +161,23 @@ export function JobDetail({ jobId }: { jobId: string }) {
                 tone="warning"
                 message={
                   isSelectedConnectedFreelancer
-                    ? "You were selected, but escrow is not funded yet. Wait for funding before starting work."
-                    : "This job is not funded yet. Confirm escrow status before starting work."
+                    ? "You were selected, but payment hold is not funded yet. Wait for funding before starting work."
+                    : "This job is not funded yet. Confirm payment hold status before starting work."
                 }
               />
             ) : null}
             {safetyStatus.status === "escrow_created" ? (
               <HighrableV2IconNotice
-                label="Escrow created warning"
+                label="Payment Hold created warning"
                 tone="warning"
-                message="Escrow exists, but funding has not been verified yet."
+                message="Payment Hold exists, but funding has not been verified yet."
               />
             ) : null}
             {safetyStatus.status === "verified_funded" ? (
               <HighrableV2IconNotice
-                label="Verified funded escrow"
+                label="Verified funded payment hold"
                 tone="success"
-                message="Escrow funding is verified for this job."
+                message="Payment Hold funding is verified for this job."
               />
             ) : null}
             {scamAnalysis.riskLevel !== "low" ? (
@@ -226,7 +226,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
                 Work mode
               </dt>
               <dd className="hr-text-primary font-sans font-semibold">
-                {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
+                {isMilestoneProject ? "Milestone Project" : "Quick Job"}
               </dd>
             </div>
             <div>
@@ -247,7 +247,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
                   <HighrableV2IconNotice
                     label="XLM volatility warning"
                     tone="warning"
-                    message="XLM escrow is volatile. Final fiat value may change."
+                    message="XLM payment hold is volatile. Final fiat value may change."
                   />
                 )}
               </dd>
@@ -284,7 +284,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             </div>
             <div>
               <dt className="font-mono text-xs tracking-[0.06em] text-muted-foreground/70 uppercase">
-                Job hash
+                Job receipt ID
               </dt>
               <dd className="hr-text-primary font-sans font-semibold break-all">{job.jobHash}</dd>
             </div>
@@ -295,7 +295,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
             {mergedEscrow ? (
               <Button asChild variant="outline">
                 <Link href={`/proof/${encodeURIComponent(mergedEscrow.escrowId)}`}>
-                  View Escrow Proof
+                  View Payment Hold Proof
                 </Link>
               </Button>
             ) : null}
@@ -310,7 +310,7 @@ export function JobDetail({ jobId }: { jobId: string }) {
               Attachments
             </p>
             <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
-              Reference files
+              Reference Files
             </h2>
             <p className="hr-text-secondary mt-1 font-sans text-sm">
               Reference files and links supplied by the client for this work.
@@ -368,10 +368,10 @@ export function JobDetail({ jobId }: { jobId: string }) {
                   Milestone Progress
                 </p>
                 <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
-                  Funding status
+                  Funding Status
                 </h2>
                 <p className="hr-text-secondary mt-1 text-sm">
-                  Funding and Verified Funded status are tracked per milestone, not for the whole
+                  Funding and Payment Secured status are tracked per milestone, not for the whole
                   project.
                 </p>
               </div>

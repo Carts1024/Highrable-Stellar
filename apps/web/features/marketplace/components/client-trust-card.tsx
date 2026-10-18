@@ -94,7 +94,7 @@ export function ClientTrustCard({ clientWallet, compact = false }: IClientTrustC
               <HighrableV2Metric label="Jobs funded" value={trustStats.fundedJobs} />
               <HighrableV2Metric label="Jobs completed" value={trustStats.completedJobs} />
               <HighrableV2Metric label="Jobs disputed" value={trustStats.disputedJobs} />
-              <HighrableV2Metric label="Total escrow funded" value={fundedAssets} />
+              <HighrableV2Metric label="Total payment hold funded" value={fundedAssets} />
             </div>
 
             <div className="mt-6 flex justify-end">

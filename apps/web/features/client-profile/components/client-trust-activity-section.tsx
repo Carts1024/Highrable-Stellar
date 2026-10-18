@@ -62,17 +62,17 @@ export function ClientTrustActivitySection(props: IClientTrustActivitySectionPro
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e8e8e8] pb-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--mode-border)] pb-5">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <SectionLabel>Client Trust Activity</SectionLabel>
             <HighrableV2IconNotice
               label="How client trust activity is grouped"
               tone="neutral"
-              message="Escrow stats, work mix, funded history, completed payments, and posted jobs are grouped into tabs so freelancers can inspect the client without scanning a long page."
+              message="Payment Hold stats, work mix, funded history, completed payments, and posted jobs are grouped into tabs so freelancers can inspect the client without scanning a long page."
             />
           </div>
-          <h2 className="text-2xl font-semibold text-[#0a0a0a]">Escrow-backed client signal</h2>
+          <h2 className="text-2xl font-semibold text-[#0a0a0a]">Escrow-backed Client Signal</h2>
           <p className="max-w-3xl text-sm leading-relaxed text-[#5f5f5f]">
             Review this client&apos;s funding behavior, completed payments, and posted work in one
             compact workspace.
@@ -91,7 +91,7 @@ export function ClientTrustActivitySection(props: IClientTrustActivitySectionPro
       <Tabs defaultValue="stats" className="gap-5">
         <TabsList
           variant="line"
-          className="h-auto w-full justify-start overflow-x-auto border-b border-[#e8e8e8] pb-0"
+          className="h-auto w-full flex-wrap justify-start border-b border-[var(--mode-border)] pb-0"
         >
           {clientTrustTabs.map(([value, label, count]) => (
             <TabsTrigger

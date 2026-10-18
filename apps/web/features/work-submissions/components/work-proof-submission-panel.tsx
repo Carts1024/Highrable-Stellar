@@ -241,7 +241,7 @@ function WorkProofSubmissionDialogContent({
       throw new Error("Missing wallet identity.");
     }
     if (!submission.proofHash) {
-      throw new Error("Proof hash is missing.");
+      throw new Error("Proof receipt ID is missing.");
     }
 
     const config = getRequiredEscrowActionConfig();
@@ -317,7 +317,7 @@ function WorkProofSubmissionDialogContent({
       throw new Error(
         isPendingStellarTransactionError(error)
           ? "Proof anchoring is still pending. Use transaction recovery before retrying."
-          : "Proof metadata was saved, but on-chain anchoring failed. You can retry.",
+          : "Proof metadata was saved, but on the network anchoring failed. You can retry.",
       );
     }
   };
@@ -325,7 +325,7 @@ function WorkProofSubmissionDialogContent({
   const handleSubmit = async () => {
     setError(null);
     if (!escrow?.escrowId || !escrow.freelancerWallet) {
-      setWarning("This escrow is not ready for proof submission.");
+      setWarning("This payment hold is not ready for proof submission.");
       return;
     }
     if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
@@ -336,7 +336,7 @@ function WorkProofSubmissionDialogContent({
       setWarning(
         isRevisionPolicyLoading
           ? "Revision policy is still loading."
-          : "Only the assigned freelancer can submit proof for this escrow.",
+          : "Only the assigned freelancer can submit proof for this payment hold.",
       );
       return;
     }
@@ -684,8 +684,8 @@ function WorkProofSubmissionDialogContent({
                   Ready for Network Recording
                 </h4>
                 <p className="max-w-xl text-sm leading-relaxed text-[#5f5f5f]">
-                  Work has been accepted. Finalize the details on the blockchain to move the escrow
-                  to the next stage.
+                  Work has been accepted. Finalize the details on the blockchain to move the payment
+                  hold to the next milestone.
                 </p>
               </div>
               <AppButton
@@ -713,7 +713,7 @@ function WorkProofSubmissionDialogContent({
                 value={revisionReason}
                 disabled={requestingRevision}
                 onChange={(event) => setRevisionReason(event.target.value)}
-                placeholder="Short reason (e.g., Code Style, Missing Assets)"
+                placeholder="Short reason (e.g., Code Style, Missing Currencies)"
                 className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-ring/30"
               />
               <Textarea

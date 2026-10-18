@@ -53,12 +53,12 @@ interface IFilterOption<TValue extends string> {
 }
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "", label: "All statuses" },
+  { value: "", label: "All Statuses" },
   ...DISPUTE_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TStatusFilter>[];
 
 const ON_CHAIN_FILTER_OPTIONS = [
-  { value: "", label: "All on-chain states" },
+  { value: "", label: "All On-chain States" },
   ...DISPUTE_ON_CHAIN_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TOnChainFilter>[];
 
@@ -189,7 +189,7 @@ function AdminDisputesContent() {
   const queueMetrics = useMemo(
     () => [
       {
-        label: "Visible disputes",
+        label: "Visible Disputes",
         value: disputes.length,
         description: `Showing up to ${ADMIN_DISPUTE_LIMIT} cases for the selected filters.`,
       },
@@ -199,7 +199,7 @@ function AdminDisputesContent() {
         description: "New cases waiting for admin triage.",
       },
       {
-        label: "Mark failed",
+        label: "Mark Failed",
         value: disputes.filter((dispute) => dispute.onChainStatus === "mark_failed").length,
         description: "Cases requiring on-chain retry attention.",
       },
@@ -239,7 +239,7 @@ function AdminDisputesContent() {
 
       <AdminSection
         label="Queue Controls"
-        title="Review filters"
+        title="Review Filters"
         description="Filters are constrained to known dispute states before they are sent to the admin API."
       >
         <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_1fr] md:items-end">
@@ -386,7 +386,7 @@ function AdminDisputesContent() {
           {disputeQuery.data ? (
             <AdminSection
               label="Queue Health"
-              title="Visible workload"
+              title="Visible Workload"
               description="Counts are computed from the currently loaded dispute set."
             >
               <AdminMetricRail items={queueMetrics} />
@@ -395,7 +395,7 @@ function AdminDisputesContent() {
 
           <AdminSection
             label="Dispute Queue"
-            title="Review cases"
+            title="Review Cases"
             description="Open a case to inspect evidence, update review status, or record settlement."
           >
             {disputeQuery.isPending ? (

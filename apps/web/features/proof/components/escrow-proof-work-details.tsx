@@ -80,7 +80,7 @@ export function EscrowProofWorkDetails({ proof }: { readonly proof: TEscrowProof
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <SectionLabel>Work Details</SectionLabel>
-          <h2 className="text-xl font-semibold text-[#0a0a0a]">Work and people</h2>
+          <h2 className="text-xl font-semibold text-[#0a0a0a]">Work and People</h2>
         </div>
         <DeadlineBadge
           deadlineAt={proof.milestone?.deadlineAt ?? proof.job.deadlineAt}

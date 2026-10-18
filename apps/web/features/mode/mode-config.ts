@@ -20,14 +20,14 @@ export interface IModeCopy {
 export const MODE_COPY: Record<TAppMode, IModeCopy> = {
   freelancer: {
     shortLabel: "Freelancer",
-    label: "Freelancer mode",
+    label: "Freelancer Mode",
     tagline: "You are finding work and getting paid.",
     colorName: "orange",
     icon: UserRound,
   },
   client: {
     shortLabel: "Client",
-    label: "Client mode",
+    label: "Client Mode",
     tagline: "You are hiring people and paying for work.",
     colorName: "yellow",
     icon: Briefcase,
@@ -43,7 +43,7 @@ export interface IModeNavItem {
 /** Navigation shown for each mode. Pages that belong to the other mode are never listed. */
 export const MODE_NAVIGATION: Record<TAppMode, readonly IModeNavItem[]> = {
   freelancer: [
-    { name: "Find Work", href: "/jobs", description: "Browse open jobs and apply" },
+    { name: "Find Work", href: "/marketplace", description: "Browse open jobs and apply" },
     { name: "My Work", href: "/dashboard", description: "Your earnings and active jobs" },
     { name: "Disputes", href: "/disputes", description: "Problems you have raised or received" },
   ],

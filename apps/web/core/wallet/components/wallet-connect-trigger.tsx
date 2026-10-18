@@ -152,8 +152,8 @@ export function WalletConnectTrigger({
                 </div>
 
                 <p className="font-sans text-sm leading-relaxed text-muted-foreground">
-                  Connect your external wallet for transaction signing. This is required for escrow
-                  operations and will work alongside your passkey account.
+                  Connect your external wallet for transaction signing. This is required for payment
+                  hold operations and will work alongside your passkey account.
                 </p>
 
                 {WALLETCONNECT_ENABLED ? (

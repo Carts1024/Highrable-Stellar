@@ -129,7 +129,7 @@ export function ApplyToMilestoneForm({
   return (
     <form onSubmit={handleApply} className="space-y-4 rounded-xl border border-border bg-card p-4">
       <p className="hr-text-secondary font-sans text-sm">
-        Apply only for this milestone. Do not start until this milestone is Verified Funded.
+        Apply only for this milestone. Do not start until this milestone is Payment Secured.
       </p>
       <AppTextarea
         rows={3}

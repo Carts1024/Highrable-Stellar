@@ -85,7 +85,7 @@ export function ClientTrustProfileHeader({
               <HighrableV2IconNotice
                 label="Before working with this client"
                 tone="warning"
-                message="Freelancers should start work only when a specific gig or milestone is marked Verified Funded. A client profile may show funded history, but each new job still needs its own escrow."
+                message="Freelancers should start work only when a specific gig or milestone is marked Payment Secured. A client profile may show funded history, but each new job still needs its own payment hold."
               />
             </div>
           </div>

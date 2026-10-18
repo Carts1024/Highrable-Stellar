@@ -192,7 +192,7 @@ function ProofAdvancedDetails({ children }: { readonly children: ReactNode }) {
         <div className="space-y-2">
           <SectionLabel>More Options</SectionLabel>
           <div>
-            <h2 className="text-lg font-semibold text-[#0a0a0a]">Share and explain</h2>
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">Share and Explain</h2>
             <p className="mt-1 text-sm leading-relaxed text-[#5f5f5f]">
               Share controls and a plain-English explanation are available when someone needs more
               context.

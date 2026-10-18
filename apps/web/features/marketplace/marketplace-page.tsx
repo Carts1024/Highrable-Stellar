@@ -41,9 +41,9 @@ type TMarketplaceFilter = "all" | "verified_funded";
 type TMarketplaceSortOption = "safest" | "budget_high" | "budget_low";
 
 const SORT_OPTIONS = [
-  { value: "safest", label: "Safest first" },
-  { value: "budget_high", label: "Highest budget" },
-  { value: "budget_low", label: "Lowest budget" },
+  { value: "safest", label: "Safest First" },
+  { value: "budget_high", label: "Highest Budget" },
+  { value: "budget_low", label: "Lowest Budget" },
 ] as const;
 
 const MARKETPLACE_SORTERS: Record<
@@ -188,13 +188,10 @@ export function MarketplacePage() {
       {/* Hero */}
       <section className="border-b border-[var(--mode-border)] pb-8">
         <ProductPageHero
-          label={mode === "client" ? "Client · Manage your jobs" : "Freelancer · Job board"}
+          label={mode === "client" ? "Client · Manage Your Jobs" : "Freelancer · Job Board"}
           title={
             <>
-              {mode === "client" ? "Your jobs and " : "Jobs and "}
-              <span className="hr-mode-text">
-                {mode === "client" ? "applicants" : "applications"}
-              </span>
+              Jobs and <span className="hr-mode-text">Applications</span>
             </>
           }
           description={
@@ -225,7 +222,7 @@ export function MarketplacePage() {
               <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
                 New job
               </p>
-              <h2 className="hr-text-primary font-sans text-lg font-semibold">Post a job</h2>
+              <h2 className="hr-text-primary font-sans text-lg font-semibold">Post a Job</h2>
             </div>
             <AppButton
               type="button"
@@ -255,8 +252,8 @@ export function MarketplacePage() {
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by title, description, asset, or wallet"
-                className="w-full pr-4 pl-10 font-sans"
+                placeholder="Search by title, description, currency, or wallet"
+                className="w-full bg-white pr-4 pl-10 font-sans"
               />
             </label>
 
@@ -266,7 +263,7 @@ export function MarketplacePage() {
                 value={sortBy}
                 onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
               >
-                <SelectTrigger className="w-full pl-10 font-sans">
+                <SelectTrigger className="w-full bg-white pl-10 font-sans">
                   <Filter className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
@@ -285,7 +282,7 @@ export function MarketplacePage() {
           {/* Filter + Reset */}
           <div className="flex items-center justify-between gap-2 lg:justify-end">
             {/* Filter segmented control */}
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1">
               {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
                 <button
                   key={f}
@@ -294,26 +291,13 @@ export function MarketplacePage() {
                   className={`rounded-md px-3 py-1.5 font-mono text-xs tracking-widest whitespace-nowrap uppercase transition-all duration-150 ${
                     filter === f
                       ? "border border-highrable-orange-2 bg-highrable-orange-2 text-white shadow-sm"
-                      : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   {f === "all" ? "All Jobs" : "Verified Only"}
                 </button>
               ))}
             </div>
-
-            <AppButton
-              type="button"
-              variant="outline"
-              className="h-9 rounded-lg px-4 text-xs font-semibold"
-              onClick={() => {
-                setSearchTerm("");
-                setFilter("all");
-                setSortBy("safest");
-              }}
-            >
-              Reset view
-            </AppButton>
           </div>
         </div>
       </section>

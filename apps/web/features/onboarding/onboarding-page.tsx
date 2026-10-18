@@ -49,19 +49,19 @@ const ONBOARDING_STEPS: readonly (IFormStep & {
 })[] = [
   {
     id: "about",
-    title: "About you",
+    title: "About You",
     hint: "Your name and picture, so people know who they are working with.",
     sections: ["name", "avatar"],
   },
   {
     id: "profile",
-    title: "Your profile",
+    title: "Your Profile",
     hint: "Pick a username and list what you are good at.",
     sections: ["identity"],
   },
   {
     id: "links",
-    title: "Links & finish",
+    title: "Links & Finish",
     hint: "Add optional links, then save your profile and register your account.",
     sections: ["social"],
   },
@@ -254,8 +254,8 @@ export function OnboardingPage() {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <div>
-          <SectionLabel>Create your account</SectionLabel>
-          <h1 className="mt-2 text-3xl font-semibold text-[#0a0a0a]">Create your account</h1>
+          <SectionLabel>Create Your Account</SectionLabel>
+          <h1 className="mt-2 text-3xl font-semibold text-[#0a0a0a]">Create Your Account</h1>
           <p className="mt-3 text-sm text-[#5f5f5f]">{helperText}</p>
         </div>
         <WalletConnectTrigger className="hr-v2-button-primary rounded-none px-5 py-2 text-sm font-medium text-white" />
@@ -272,10 +272,10 @@ export function OnboardingPage() {
       <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
         <div className="space-y-5">
           <ProductPageHero
-            label="Create your account"
+            label="Create Your Account"
             title={
               <>
-                Set up your profile in <span className="hr-mode-text">three short steps</span>.
+                Set Up Your Profile in <span className="hr-mode-text">Three Short Steps</span>.
               </>
             }
             description={helperText}

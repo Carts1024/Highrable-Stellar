@@ -71,7 +71,7 @@ export function DisputeResponseComposer({
         void handleSubmit();
       }}
     >
-      <h2 className="hr-text-primary text-base font-bold">Add response</h2>
+      <h2 className="hr-text-primary text-base font-bold">Add Response</h2>
       <label htmlFor="dispute-response-message" className="block text-sm text-[#3f3f3f]">
         Response
       </label>

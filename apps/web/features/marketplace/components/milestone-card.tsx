@@ -128,7 +128,7 @@ export function MilestoneCard({
           <ModeOnly mode="freelancer">
             <div className="space-y-3">
               <h4 className="hr-text-primary font-sans text-sm font-semibold">
-                Apply for this stage
+                Apply for this milestone
               </h4>
               <ApplyToMilestoneForm
                 job={job}

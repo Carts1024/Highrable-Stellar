@@ -37,8 +37,8 @@ export function UsdcOnboardingCard({
       <div className="space-y-2">
         <h3 className="text-base font-semibold text-gray-950">Enable USDC Payments</h3>
         <p className="text-sm text-gray-700">
-          Highrable uses USDC on Stellar for escrow payments. Enable USDC once so your wallet can
-          receive and send payments.
+          Highrable uses USDC on Stellar for payments. Enable USDC once so your wallet can receive
+          and send payments.
         </p>
       </div>
 

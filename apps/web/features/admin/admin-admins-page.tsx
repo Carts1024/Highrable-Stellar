@@ -257,7 +257,7 @@ function AdminAdminsContent() {
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout>{actionSuccess}</RouteCallout> : null}
 
-      <AdminSection label="Membership" title="Grant or revoke dispute access">
+      <AdminSection label="Membership" title="Grant or Revoke Dispute Access">
         <div className="flex flex-wrap items-end gap-3">
           <label htmlFor="dispute-admin-wallet" className="grid min-w-72 gap-1.5 text-sm">
             <span className="text-xs tracking-wide text-[#7f7f7f] uppercase">Stellar wallet</span>
@@ -293,7 +293,7 @@ function AdminAdminsContent() {
         </p>
       </AdminSection>
 
-      <AdminSection label="Current Scope" title="Dispute admins">
+      <AdminSection label="Current Scope" title="Dispute Admins">
         {managementQuery.isPending ? (
           <p className="text-sm text-[#777]">Loading dispute admin membership…</p>
         ) : managementQuery.isError ? (
@@ -323,7 +323,7 @@ function AdminAdminsContent() {
         )}
       </AdminSection>
 
-      <AdminSection label="Recovery" title="Membership operations">
+      <AdminSection label="Recovery" title="Membership Operations">
         {managementQuery.data?.operations.length ? (
           <div className="divide-y divide-[#e8e8e8] border border-[#e8e8e8]">
             {managementQuery.data.operations.map((operation) => {

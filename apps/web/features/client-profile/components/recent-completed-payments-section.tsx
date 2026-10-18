@@ -24,7 +24,7 @@ export function RecentCompletedPaymentsSection({
       <div className="hr-card-head flex flex-wrap items-center justify-between gap-3 p-5 sm:px-6">
         <div>
           <SectionLabel>Completed Payments</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent released escrows</h2>
+          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Recent Released Escrows</h2>
         </div>
         <p className="font-mono text-xs tracking-[0.08em] text-[#7f7f7f] uppercase">
           {payments.length} record{payments.length === 1 ? "" : "s"}
@@ -49,7 +49,7 @@ export function RecentCompletedPaymentsSection({
                       {getClientWorkTypeLabel(payment.milestoneId ? "milestone" : "micro_gig")}
                     </Badge>
                     <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                      Paid through Stellar escrow
+                      Paid through payment hold
                     </Badge>
                   </div>
                   <div>

@@ -11,10 +11,12 @@ interface IModeSwitchProps {
   readonly className?: string;
   /** "compact" is used in the header; "large" is used in banners and gates. */
   readonly size?: "compact" | "large";
+  /** Called after the mode changes, with the new mode. */
+  readonly onChange?: (mode: TAppMode) => void;
 }
 
 /** Two-option switch: orange for Freelancer, yellow for Client. */
-export function ModeSwitch({ className, size = "compact" }: IModeSwitchProps) {
+export function ModeSwitch({ className, size = "compact", onChange }: IModeSwitchProps) {
   const { mode, setMode } = useAppMode();
 
   return (
@@ -37,7 +39,10 @@ export function ModeSwitch({ className, size = "compact" }: IModeSwitchProps) {
             type="button"
             role="radio"
             aria-checked={isSelected}
-            onClick={() => setMode(value)}
+            onClick={() => {
+              setMode(value);
+              onChange?.(value);
+            }}
             data-mode-option={value}
             className={cn(
               "inline-flex items-center justify-center gap-1.5 rounded-full font-mono tracking-[0.06em] whitespace-nowrap uppercase transition-colors",

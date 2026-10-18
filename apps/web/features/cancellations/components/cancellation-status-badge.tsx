@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<TConvexDoc<"cancellationRequests">["status"], string
   pending_freelancer_response: "Freelancer response",
   approved_for_cancel: "Approved",
   rejected_by_freelancer: "Rejected",
-  cancel_pending_on_chain: "On-chain pending",
+  cancel_pending_on_chain: "On the network pending",
   cancelled_on_chain: "Cancelled",
   cancel_failed: "Retry needed",
   blocked: "Blocked",

@@ -470,7 +470,7 @@ describe("AdminDisputeDetailPage", () => {
       renderDetail();
 
       expect(await screen.findByText("No timeline events yet.")).toBeTruthy();
-      expect(screen.queryByText("Moderator workflow")).toBeNull();
+      expect(screen.queryByText("Moderator Workflow")).toBeNull();
       expect(screen.queryByRole("button", { name: "Resolve On-Chain" })).toBeNull();
     },
   );
@@ -510,7 +510,7 @@ describe("AdminDisputeDetailPage", () => {
     renderDetail();
 
     await screen.findByText("No timeline events yet.");
-    expect(screen.queryByText("Moderator workflow")).toBeNull();
+    expect(screen.queryByText("Moderator Workflow")).toBeNull();
   });
 
   it("does not render claim for participant or terminal cases", async () => {
@@ -840,7 +840,7 @@ describe("AdminDisputeDetailPage", () => {
     }
     const invalidateQueueSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    await screen.findByText("Moderator workflow");
+    await screen.findByText("Moderator Workflow");
     fireEvent.change(screen.getByLabelText("Review status"), {
       target: { value: "awaiting_client_response" },
     });
@@ -889,7 +889,7 @@ describe("AdminDisputeDetailPage", () => {
       vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
       renderDetail();
-      await screen.findByText("Moderator workflow");
+      await screen.findByText("Moderator Workflow");
       fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
 
       await waitFor(() => {
@@ -923,7 +923,7 @@ describe("AdminDisputeDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderDetail();
-    await screen.findByText("Moderator workflow");
+    await screen.findByText("Moderator Workflow");
     fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
 
     await waitFor(() => {
@@ -946,7 +946,7 @@ describe("AdminDisputeDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderDetail();
-    await screen.findByText("Moderator workflow");
+    await screen.findByText("Moderator Workflow");
     fireEvent.change(screen.getByLabelText("Review status"), {
       target: { value: "awaiting_freelancer_response" },
     });
@@ -987,7 +987,7 @@ describe("AdminDisputeDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     renderDetail();
-    await screen.findByText("Moderator workflow");
+    await screen.findByText("Moderator Workflow");
     fireEvent.change(screen.getByLabelText("Review status"), {
       target: { value: "awaiting_freelancer_response" },
     });
@@ -1010,7 +1010,7 @@ describe("AdminDisputeDetailPage", () => {
     renderDetail();
 
     expect(await screen.findByText("No timeline events yet.")).toBeTruthy();
-    expect(screen.queryByText("Moderator workflow")).toBeNull();
+    expect(screen.queryByText("Moderator Workflow")).toBeNull();
     expect(screen.queryByRole("button", { name: "Resolve On-Chain" })).toBeNull();
     expect(screen.getByText(/Status: Resolved: Client/)).toBeTruthy();
   });
@@ -1062,10 +1062,10 @@ describe("AdminDisputeDetailPage", () => {
       "noopener noreferrer",
     );
     expect(
-      screen.getByRole("heading", { name: "Case evidence" }).parentElement?.textContent,
+      screen.getByRole("heading", { name: "Case Evidence" }).parentElement?.textContent,
     ).toContain("case-proof.pdf");
     expect(
-      screen.getByRole("heading", { name: "Case evidence" }).parentElement?.textContent,
+      screen.getByRole("heading", { name: "Case Evidence" }).parentElement?.textContent,
     ).not.toContain("event-proof.pdf");
   });
 
@@ -1140,7 +1140,7 @@ describe("AdminDisputeDetailPage", () => {
     renderDetail();
 
     expect(await screen.findByText("Second evidence.pdf")).toBeTruthy();
-    const caseEvidence = screen.getByRole("heading", { name: "Case evidence" }).parentElement;
+    const caseEvidence = screen.getByRole("heading", { name: "Case Evidence" }).parentElement;
     if (!caseEvidence) {
       throw new Error("Expected case evidence section.");
     }
@@ -1169,7 +1169,7 @@ describe("AdminDisputeDetailPage", () => {
 
     renderDetail();
 
-    expect(await screen.findByRole("heading", { name: "Linked records" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Linked Records" })).toBeTruthy();
     expect(screen.getByText("submission-1")).toBeTruthy();
     expect(screen.getByText("submission-2")).toBeTruthy();
     expect(screen.getByText("revision-1")).toBeTruthy();
@@ -1297,7 +1297,7 @@ describe("AdminDisputeDetailPage", () => {
     vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
 
     renderDetail();
-    await screen.findByText("Case evidence");
+    await screen.findByText("Case Evidence");
     fireEvent.click(screen.getByRole("button", { name: "Refresh detail" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("Temporary detail failure.");
@@ -1312,7 +1312,7 @@ describe("AdminDisputeDetailPage", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       renderDetail();
-      await screen.findByText("Resolve dispute on-chain");
+      await screen.findByText("Resolve Dispute On-chain");
       fireEvent.change(screen.getByLabelText("Resolution"), {
         target: { value: "split_resolution" },
       });
@@ -2814,7 +2814,7 @@ describe("AdminDisputeDetailPage", () => {
       );
 
       renderDetail();
-      await screen.findByText("Resolve dispute on-chain");
+      await screen.findByText("Resolve Dispute On-chain");
       if (status !== "resolved_client") {
         fireEvent.change(screen.getByLabelText("Resolution"), { target: { value: status } });
       }
@@ -2883,7 +2883,7 @@ describe("AdminDisputeDetailPage", () => {
     );
 
     renderDetail();
-    await screen.findByText("Resolve dispute on-chain");
+    await screen.findByText("Resolve Dispute On-chain");
     fireEvent.change(screen.getByLabelText("Resolution"), {
       target: { value: "split_resolution" },
     });
@@ -3031,7 +3031,7 @@ describe("AdminDisputeDetailPage", () => {
     membership.resolve(true);
 
     await waitFor(() => {
-      expect(screen.getByText("Resolve dispute on-chain")).toBeTruthy();
+      expect(screen.getByText("Resolve Dispute On-chain")).toBeTruthy();
     });
     expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -3190,7 +3190,7 @@ describe("AdminDisputeDetailPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const rendered = renderDetail("dispute-1");
-    await screen.findByText("Resolve dispute on-chain");
+    await screen.findByText("Resolve Dispute On-chain");
     fireEvent.change(screen.getByLabelText("Resolution"), {
       target: { value: "split_resolution" },
     });

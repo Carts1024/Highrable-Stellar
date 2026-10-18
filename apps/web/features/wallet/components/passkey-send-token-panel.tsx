@@ -128,7 +128,7 @@ export function PasskeySendTokenPanel({
               </dt>
               <dd className="mt-2 font-sans text-sm text-foreground">
                 {transfer.validation.recipientType === "contract_account"
-                  ? "Passkey Smart Account"
+                  ? "passkey account"
                   : "External Wallet"}
               </dd>
             </div>
@@ -188,9 +188,7 @@ export function PasskeySendTokenPanel({
           <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
             Send Token
           </p>
-          <p className="mt-1 font-sans text-sm text-muted-foreground">
-            Passkey smart account transfer
-          </p>
+          <p className="mt-1 font-sans text-sm text-muted-foreground">passkey account transfer</p>
         </div>
         <Button
           type="button"

@@ -328,7 +328,7 @@ function AdminCaseEvidence({ detail }: IAdminCaseBriefProps) {
   return (
     <AdminSection
       label="Evidence review"
-      title="Case evidence"
+      title="Case Evidence"
       description="Evidence attached to the dispute is shown independently from timeline events."
     >
       <AdminEvidenceList
@@ -406,7 +406,7 @@ function AdminLinkedRecords({ detail }: IAdminCaseBriefProps) {
   return (
     <AdminSection
       label="Linked records"
-      title="Linked records"
+      title="Linked Records"
       description="Reference IDs are shown without hydrating protected submission, revision, message, or deadline content."
     >
       {hasLinkedRecords ? (
@@ -548,7 +548,7 @@ function AdminModeratorWorkspace({
   return (
     <AdminSection
       label="Review Desk"
-      title="Moderator workflow"
+      title="Moderator Workflow"
       description="Add internal context or request a party response without leaving the case record."
     >
       <div className="grid gap-6 lg:grid-cols-2">
@@ -660,7 +660,7 @@ function AdminResolutionWorkspace({
   return (
     <AdminSection
       label="Settlement"
-      title="Resolve dispute on-chain"
+      title="Resolve Dispute On-chain"
       description="Settlement calls resolve_dispute with the assigned, active dispute admin wallet."
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,260px)_minmax(0,220px)_minmax(0,1fr)]">
@@ -1616,7 +1616,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
       ) ? (
         <AdminSection
           label="Settlement Recovery"
-          title="Pending transaction"
+          title="Pending Transaction"
           description="Recovery checks the persisted transaction identity and never submits it again."
         >
           <div className="space-y-3">
