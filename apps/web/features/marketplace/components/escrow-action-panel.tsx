@@ -46,6 +46,7 @@ import { useMemo, useState } from "react";
 
 import type { TConvexDoc } from "@repo/convex-client";
 
+import { EscrowActionProgress } from "./escrow-action-progress";
 import { EscrowSection } from "./escrow-section";
 import { JobSafetyBadge } from "./job-safety-badge";
 import { ReleasePaymentDialog } from "./release-payment-dialog";
@@ -94,6 +95,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     role,
     isPending,
     pendingAction,
+    progress,
     error,
     success,
     txExplorerUrl,
@@ -254,7 +256,11 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   };
 
   return (
-    <section className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
+    <section
+      className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6"
+      aria-busy={isPending}
+    >
+      <EscrowActionProgress progress={progress} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">

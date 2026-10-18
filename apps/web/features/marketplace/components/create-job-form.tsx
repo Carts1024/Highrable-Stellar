@@ -1,16 +1,10 @@
 "use client";
 
-import { getRequiredEscrowActionConfig, STELLAR_NETWORK } from "@/core/config/stellar-contracts";
+import { getRequiredEscrowActionConfig } from "@/core/config/stellar-contracts";
 import { parseHumanAmount } from "@/core/stellar/amounts";
 import { formatAssetLabel, shortenContractId } from "@/core/stellar/assets";
 import { XlmToUsdcTopUpPanel } from "@/core/stellar/components/xlm-to-usdc-top-up-panel";
-import {
-  createOpenEscrowOnChain,
-  fundEscrowOnChain,
-  getEscrowOnChain,
-  getTokenBalanceOnChain,
-  normalizeOnChainEscrowStatus,
-} from "@/core/stellar/escrow-contract";
+import { getTokenBalanceOnChain } from "@/core/stellar/escrow-contract";
 import { toBytesN32Hash } from "@/core/stellar/hashes";
 import { useStablecoinReadiness } from "@/core/stellar/hooks/use-stablecoin-readiness";
 import {
@@ -26,10 +20,6 @@ import {
   stablecoinConfig,
   validateStablecoinConfig,
 } from "@/core/stellar/stablecoin-config";
-import {
-  isPendingStellarTransactionError,
-  normalizeStellarError,
-} from "@/core/stellar/transaction";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { getWalletNetworkMismatchMessage, isWalletOnConfiguredNetwork } from "@/core/wallet/config";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
@@ -48,6 +38,8 @@ import {
   toDatetimeLocalValue,
   validateDeadlineTimestamp,
 } from "@/features/deadlines";
+import { EscrowActionProgress } from "@/features/marketplace/components/escrow-action-progress";
+import { runAtomicOpenEscrowPosting } from "@/features/marketplace/lib/atomic-escrow-posting";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import {
   analyzeJobScamSignals,
@@ -66,7 +58,7 @@ import { Switch as AppSwitch } from "@repo/ui/components/ui/switch";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
 import { useMutation } from "convex/react";
 import { Layers, Plus, Trash2, Zap } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
@@ -75,6 +67,7 @@ import type {
   TCreateJobFormState,
   TCreateMilestoneFormState,
   TJobType,
+  TMarketplaceEscrowProgress,
   TRevisionPolicy,
 } from "@/features/marketplace/types";
 
@@ -155,10 +148,7 @@ function createClientJobHash(): string {
   return `job_${uniqueId}`;
 }
 
-function createClientRequestId(
-  action: "create_open_escrow" | "fund_escrow",
-  jobId: string,
-): string {
+function createClientRequestId(action: "create_escrow", jobId: string): string {
   const uniqueId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -333,7 +323,6 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const createMilestoneProject = useMutation(api.milestones.createMilestoneProject);
   const attachFilesToParent = useMutation(api.attachments.attachFilesToParent);
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
-  const updateEscrowStatus = useMutation(api.escrows.updateEscrowStatus);
   const createTransaction = useMutation(api.transactions.createTransaction);
   const updateTransactionStatus = useMutation(api.transactions.updateTransactionStatus);
   const stablecoinValidation = useMemo(() => validateStablecoinConfig(), []);
@@ -369,6 +358,27 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
   const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInProgressRef = useRef(false);
+  const [escrowProgress, setEscrowProgress] = useState<TMarketplaceEscrowProgress | null>(null);
+  const progressContextKey = `${walletIdentity.walletAddress ?? ""}:${walletIdentity.walletType ?? ""}:${walletIdentity.isConnected}:${walletIdentity.canSignEscrowTransactions}:${walletState.isTestnet}:${walletState.isFunded}:${walletState.canWriteContracts}`;
+  const progressContextRef = useRef(progressContextKey);
+  const progressGenerationRef = useRef(0);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (progressContextRef.current !== progressContextKey) {
+      progressGenerationRef.current += 1;
+    }
+    progressContextRef.current = progressContextKey;
+    setEscrowProgress(null);
+  }, [progressContextKey]);
   const scamAnalysis = useMemo(
     () =>
       analyzeJobScamSignals({
@@ -642,6 +652,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (submitInProgressRef.current) {
+      return;
+    }
+
     if (!walletIdentity.isConnected || !walletIdentity.walletAddress) {
       setFormWarning({ submit: "Connect wallet to create a job." });
       return;
@@ -681,8 +695,21 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       return;
     }
 
+    submitInProgressRef.current = true;
     setIsSubmitting(true);
     setErrors({});
+    setEscrowProgress(formState.fundEscrowNow ? "preparing" : null);
+    const actionContextKey = progressContextRef.current;
+    const actionProgressGeneration = progressGenerationRef.current;
+    const reportEscrowProgress = (progress: TMarketplaceEscrowProgress | null) => {
+      if (
+        mountedRef.current &&
+        progressContextRef.current === actionContextKey &&
+        progressGenerationRef.current === actionProgressGeneration
+      ) {
+        setEscrowProgress(progress);
+      }
+    };
 
     try {
       const parsed = CREATE_JOB_SCHEMA.safeParse({
@@ -856,162 +883,34 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       }
 
       if (formState.fundEscrowNow && preFundingConfig && jobHashBytes) {
-        const createEscrowRequestId = createClientRequestId("create_open_escrow", createdJobId);
-        const fundEscrowRequestId = createClientRequestId("fund_escrow", createdJobId);
-        let confirmedEscrowId: string | null = null;
-        let createTxHash: string | null = null;
-        let fundTxHash: string | null = null;
-
-        await createTransaction({
+        const createEscrowRequestId = createClientRequestId("create_escrow", createdJobId);
+        const outcome = await runAtomicOpenEscrowPosting({
+          config: preFundingConfig,
           walletAddress: address!,
-          type: "create_escrow",
-          walletType: "external_wallet",
-          network: STELLAR_NETWORK,
-          feePath: "external_wallet",
-          clientRequestId: createEscrowRequestId,
           jobId: createdJobId,
-          status: "pending",
+          clientRequestId: createEscrowRequestId,
+          amount: payload.budget,
+          asset: selectedEscrowAsset.tokenContractId,
+          assetDecimals: selectedEscrowAsset.decimals,
+          jobHash: jobHashBytes,
+          signTransaction,
+          createTransaction,
+          updateTransactionStatus,
+          createEscrowRecord,
+          onProgress: reportEscrowProgress,
         });
 
-        try {
-          const result = await createOpenEscrowOnChain({
-            rpcUrl: preFundingConfig.rpcUrl,
-            networkPassphrase: preFundingConfig.networkPassphrase,
-            escrowContractId: preFundingConfig.escrowContractId,
-            sourceAddress: address!,
-            signTransaction,
-            operationId: createEscrowRequestId,
-            client: address!,
-            asset: selectedEscrowAsset.tokenContractId,
-            amount: payload.budget,
-            assetDecimals: selectedEscrowAsset.decimals,
-            jobHash: jobHashBytes,
-          });
-          confirmedEscrowId = result.escrowId;
-          createTxHash = result.txHash;
-
-          await createEscrowRecord({
-            jobId: createdJobId,
-            escrowId: result.escrowId,
-            clientWallet: address!,
-            amount: payload.budget,
-            asset: selectedEscrowAsset.tokenContractId,
-            status: "created",
-            createTxHash: result.txHash,
-          });
-
-          await updateTransactionStatus({
-            clientRequestId: createEscrowRequestId,
-            txHash: result.txHash,
-            transactionHash: result.txHash,
-            status: "success",
-          });
-
-          await createTransaction({
-            walletAddress: address!,
-            type: "fund_escrow",
-            walletType: "external_wallet",
-            network: STELLAR_NETWORK,
-            feePath: "external_wallet",
-            clientRequestId: fundEscrowRequestId,
-            escrowId: result.escrowId,
-            jobId: createdJobId,
-            status: "pending",
-          });
-
-          try {
-            const fundResult = await fundEscrowOnChain({
-              rpcUrl: preFundingConfig.rpcUrl,
-              networkPassphrase: preFundingConfig.networkPassphrase,
-              escrowContractId: preFundingConfig.escrowContractId,
-              sourceAddress: address!,
-              signTransaction,
-              operationId: fundEscrowRequestId,
-              client: address!,
-              escrowId: result.escrowId,
-            });
-            fundTxHash = fundResult.txHash;
-
-            await updateEscrowStatus({
-              escrowId: result.escrowId,
-              status: "funded",
-              txHash: fundResult.txHash,
-              txType: "fund_escrow",
-            });
-
-            await updateTransactionStatus({
-              clientRequestId: fundEscrowRequestId,
-              txHash: fundResult.txHash,
-              transactionHash: fundResult.txHash,
-              status: "success",
-            });
-          } catch (fundError) {
-            const fundErrorMessage = normalizeStellarError(fundError);
-            const failedFundTxHash =
-              typeof fundError === "object" &&
-              fundError !== null &&
-              "txHash" in fundError &&
-              typeof fundError.txHash === "string"
-                ? fundError.txHash
-                : undefined;
-            const onChainEscrow = await getEscrowOnChain({
-              rpcUrl: preFundingConfig.rpcUrl,
-              networkPassphrase: preFundingConfig.networkPassphrase,
-              escrowContractId: preFundingConfig.escrowContractId,
-              sourceAddress: address!,
-              escrowId: result.escrowId,
-            }).catch(() => null);
-            const onChainStatus = normalizeOnChainEscrowStatus(onChainEscrow?.status);
-
-            if (onChainStatus === "funded") {
-              fundTxHash = failedFundTxHash ?? null;
-              await updateEscrowStatus({
-                escrowId: result.escrowId,
-                status: "funded",
-                ...(fundTxHash ? { txHash: fundTxHash, txType: "fund_escrow" } : {}),
-              });
-              await updateTransactionStatus({
-                clientRequestId: fundEscrowRequestId,
-                ...(fundTxHash ? { txHash: fundTxHash, transactionHash: fundTxHash } : {}),
-                status: "success",
-              });
-            } else {
-              await updateTransactionStatus({
-                clientRequestId: fundEscrowRequestId,
-                ...(failedFundTxHash ? { txHash: failedFundTxHash } : {}),
-                ...(failedFundTxHash ? { transactionHash: failedFundTxHash } : {}),
-                status: isPendingStellarTransactionError(fundError) ? "pending" : "failed",
-                errorMessage: fundErrorMessage,
-              });
-
-              const nextError = `Job was posted and escrow #${result.escrowId} was created on Stellar, but funding did not finish. You can continue from the Fund Escrow button on the job page. ${fundErrorMessage}`;
-              setErrors({ submit: nextError });
-              showWarningToast(nextError);
-              onCreated(createdJobId);
-              return;
-            }
-          }
-        } catch (error) {
-          const errorMessage = normalizeStellarError(error);
-          const failedTxHash =
-            typeof error === "object" &&
-            error !== null &&
-            "txHash" in error &&
-            typeof error.txHash === "string"
-              ? error.txHash
-              : createTxHash || undefined;
-
-          await updateTransactionStatus({
-            clientRequestId: createEscrowRequestId,
-            ...(failedTxHash ? { txHash: failedTxHash } : {}),
-            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-            status: isPendingStellarTransactionError(error) ? "pending" : "failed",
-            errorMessage,
-          });
-
-          const nextError = confirmedEscrowId
-            ? `Job was posted and escrow #${confirmedEscrowId} was created on Stellar, but the local escrow record could not be saved. Transaction: ${createTxHash}. ${errorMessage}`
-            : `Job was posted, but escrow creation failed. You can create escrow from the job page after selecting a freelancer. ${errorMessage}`;
+        if (outcome.kind !== "success") {
+          const nextError =
+            outcome.kind === "recovery_failed"
+              ? `Job was posted and Stellar confirmed the atomic escrow transaction, but the escrow ID could not be recovered. The local funded escrow record was not saved. Do not submit this transaction again. Transaction: ${outcome.txHash}. ${outcome.message}`
+              : outcome.kind === "bookkeeping_failed"
+                ? outcome.escrowRecordSaved
+                  ? `Job was posted and escrow #${outcome.escrowId} was funded on Stellar, but transaction history could not be updated. Transaction: ${outcome.txHash}. ${outcome.message}`
+                  : `Job was posted and escrow #${outcome.escrowId} was created and funded on Stellar, but the local escrow record could not be saved. Transaction: ${outcome.txHash}. ${outcome.message}`
+                : outcome.kind === "pending"
+                  ? `Job was posted, but the atomic escrow transaction is awaiting confirmation. Do not submit it again while its status is uncertain.${outcome.txHash ? ` Transaction: ${outcome.txHash}.` : ""} ${outcome.message}`
+                  : `Job was posted, but atomic escrow creation and funding failed. No escrow was created by this transaction. You can create and fund escrow from the job page. ${outcome.message}`;
           setErrors({ submit: nextError });
           showErrorToast(nextError);
           onCreated(createdJobId);
@@ -1039,7 +938,9 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       setErrors({ submit: nextError });
       showErrorToast(nextError);
     } finally {
+      submitInProgressRef.current = false;
       setIsSubmitting(false);
+      reportEscrowProgress(null);
     }
   };
 
@@ -1092,7 +993,11 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         </div>
       ) : null}
 
-      <form onSubmit={(event) => void handleSubmit(event)} className="space-y-10 p-5 sm:p-6">
+      <form
+        onSubmit={(event) => void handleSubmit(event)}
+        className="space-y-10 p-5 sm:p-6"
+        aria-busy={isSubmitting}
+      >
         {/* ── Section: Work mode ── */}
         <section aria-labelledby="section-work-mode">
           <SectionDivider label="Work mode" />
@@ -1583,6 +1488,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         {/* Submit */}
         <div className="flex justify-end border-t border-border pt-6">
+          <EscrowActionProgress progress={escrowProgress} />
           <AppButton
             type="submit"
             disabled={isSubmitting || !walletIdentity.isConnected}
