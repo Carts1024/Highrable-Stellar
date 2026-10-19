@@ -2,11 +2,22 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-19
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-19
+
+- Added user-selectable light/dark mode on all routes. A `ThemeToggle` sits at the right of the landing navbar and the app `Header`; the theme follows the browser until the user chooses. The landing navbar's Find Work / Post a Job buttons became a single Connect Wallet button (`LandingConnectButton`); the hero keeps both. The landing `prefers-color-scheme` block was replaced by the shared `.dark` class, and a dark remap layer for hardcoded light utilities was added to `apps/web/app/globals.css`. See [[frontend/Frontend Overview]].
+
+## 2026-10-18
+
+- Restyled every product route except the landing page around a neutral, workflow-first layout. Shared primitives changed: `ProductPageHero` is a plain title row; new `StatusText` and `WorkList` primitives; `StatCard` lost icon/tone; `getStatStyle` was removed. Job detail and participant dispute detail now use a main column plus a side column for terms or case facts, with payment actions out of tabs. Dashboards, profiles, the marketplace, and admin queues use divided lists and one figure strip. Nested `<main>` landmarks inside `AppShell` were replaced with `div`s. App-only CSS is scoped to `[data-mode]`; landing files, `Footer`, `WalletConnectTrigger`, `PasskeySmartAccountCard`, and `packages/ui` are unchanged. No routes, data access, Convex functions, or Stellar behavior changed. Validation: TypeScript, Oxlint (no errors), and a production build pass. The web suite passes 536/545; the 9 failures are in `core/wallet/clients/stellar-wallet-kit-client.test.ts` and reproduce on unmodified HEAD. See [[frontend/Frontend Overview]].
+
+- Optimized marketplace escrow execution: external-wallet micro-gig fund-now posting now uses one atomic create-and-fund call and one transaction-history row, with matching create/fund hashes on the funded escrow mirror. Added stage-specific accessible progress to the job, escrow, and milestone controls; batched escrow-ID recovery reads by four; preserved pending transaction identities on uncertain outcomes; and reused each readiness evaluation's verified passkey WASM hash. No schema, deployment, or contract behavior changed. Local validation: web 545 tests, backend 508 tests, escrow contract 83 tests, TypeScript, scoped Oxlint/Oxfmt, and a Webpack production build pass. Mocked delayed-read evidence is documented separately in [[stellar/Transaction Lifecycle]]: 18 calls in both schedules, 40 ms batched versus 160 ms sequential on a 10 ms synthetic delay. These timings are not live RPC measurements; deployed atomic-method availability remains unverified.
+- Fixed signup recovery for pending registry transactions by accepting Stellar RPC's decimal-string ledger close times alongside the SDK's numeric types, while retaining safe-integer validation and the existing expiry rule. A focused regression failed on the string wire format before the fix and passes afterward; the web suite passes 546 tests, TypeScript, scoped Oxlint/Oxfmt, and the web production build pass. No live RPC call or transaction submission was performed.
 
 ## 2026-10-15
 
@@ -139,6 +150,10 @@ source_of_truth: repository
 - Added root `AGENTS.md` with vault-reading and source-authority guidance.
 - Added minimal `.obsidian/app.json` and narrowly scoped ignores for local workspace/cache state.
 - Recorded known contradictions and gaps instead of presenting roadmap or phase prose as current behavior.
+
+## 2026-10-18
+
+- Documented the UI-only Freelancer/Client mode system, yellow client theme, stepped forms, and plain-language term hints in [[frontend/Feature Slices]].
 
 ## Maintenance rule
 

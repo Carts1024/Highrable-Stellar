@@ -46,7 +46,7 @@ const SAFE_URL_PATTERN = /^(?:\/(?!\/)|#|https:\/\/|http:\/\/)/i;
 const FALLBACK_HREF = "#";
 
 const footerLinkClassName =
-  "group inline-flex min-h-8 items-center gap-2 font-mono text-xs tracking-[0.05em] text-white/50 uppercase transition-colors hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30";
+  "group inline-flex min-h-6 items-center gap-2 font-mono text-[0.7rem] tracking-[0.05em] text-white/50 uppercase transition-colors hover:text-white focus-visible:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30";
 
 function normalizeSafeUrl(value: string): string {
   const sanitized = value.trim();
@@ -99,10 +99,10 @@ function FooterSection({
   return (
     <nav aria-label={section.title}>
       {/* Orange left-border accent instead of bullet + label */}
-      <h2 className="mb-5 border-l-2 border-[#FF7003] pl-3 font-mono text-[0.7rem] tracking-widest text-white/90 uppercase">
+      <h2 className="mb-2 border-l-2 border-[#FF7003] pl-3 font-mono text-[0.65rem] tracking-widest text-white/90 uppercase">
         {section.title}
       </h2>
-      <ul className="space-y-3">
+      <ul className="space-y-1">
         {section.links.map((link) => (
           <FooterLink
             key={`${section.title}-${link.href}-${link.label}`}
@@ -117,16 +117,11 @@ function FooterSection({
 
 function BrandMark({ brand }: { readonly brand: THighrableV2FooterBrand }) {
   return (
-    <div className="flex flex-col items-start gap-2">
-      <img
-        src={normalizeSafeUrl(brand.logoSrc)}
-        alt={brand.logoAlt}
-        className="h-14 w-auto max-w-[220px] object-contain"
-      />
-      <p className="font-mono text-[0.65rem] tracking-[0.08em] text-white/40 uppercase">
-        Stellar-native work
-      </p>
-    </div>
+    <img
+      src={normalizeSafeUrl(brand.logoSrc)}
+      alt={brand.logoAlt}
+      className="h-8 w-auto max-w-[140px] object-contain"
+    />
   );
 }
 
@@ -134,7 +129,7 @@ function SocialLinks({ items }: { readonly items?: readonly THighrableV2FooterSo
   if (!items?.length) return null;
 
   return (
-    <div className="mt-7 flex items-center gap-1.5">
+    <div className="mt-4 flex items-center gap-1.5">
       {items.map((social) => (
         <a
           key={social.label}
@@ -142,7 +137,7 @@ function SocialLinks({ items }: { readonly items?: readonly THighrableV2FooterSo
           target="_blank"
           rel="noopener noreferrer"
           aria-label={social.label}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-white/40 transition-all hover:border-[#FF7003]/50 hover:bg-[#FF7003]/10 hover:text-[#FF7003] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7003]/50"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white/40 transition-all hover:border-[#FF7003]/50 hover:bg-[#FF7003]/10 hover:text-[#FF7003] focus-visible:ring-2 focus-visible:ring-[#FF7003]/50 focus-visible:outline-none"
         >
           {social.icon}
         </a>
@@ -191,20 +186,20 @@ export function HighrableV2Footer({
         className={`${V2_GRID_OVERLAY_CLASS} pointer-events-none absolute inset-0 opacity-[0.03] invert`}
       />
       {/* Orange top rule */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px hr-gradient-primary" />
+      <div className="hr-gradient-primary pointer-events-none absolute inset-x-0 top-0 h-px" />
 
-      <div className={cn(V2_PAGE_CONTAINER_CLASS, "relative py-16 md:py-20")}>
+      <div className={cn(V2_PAGE_CONTAINER_CLASS, "relative py-8 md:py-10")}>
         {/* Main grid: brand col + links col */}
-        <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-start">
           {/* Brand column */}
           <div className="flex flex-col">
             <BrandMark brand={brand} />
-            <p className="mt-5 max-w-xs text-sm leading-7 text-white/52">{brand.description}</p>
+            <p className="mt-3 max-w-sm text-xs leading-6 text-white/52">{brand.description}</p>
             <SocialLinks items={brand.socialLinks} />
           </div>
 
           {/* Links columns */}
-          <div className="grid grid-cols-2 gap-10 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
+          <div className="grid gap-6 sm:grid-cols-2">
             {sections.map((section) => (
               <FooterSection key={section.title} section={section} renderLink={renderLink} />
             ))}
@@ -212,8 +207,8 @@ export function HighrableV2Footer({
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-14 border-t border-white/8 pt-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 border-t border-white/8 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-mono text-[0.7rem] tracking-[0.05em] text-white/36">{copyright}</p>
             <NetworkMark network={network} />
           </div>

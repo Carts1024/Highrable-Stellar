@@ -1,12 +1,13 @@
 "use client";
 
+import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { ClientTrustActivitySection } from "@/features/client-profile/components/client-trust-activity-section";
 import { ClientTrustProfileHeader } from "@/features/client-profile/components/client-trust-profile-header";
 import { EditClientProfileForm } from "@/features/client-profile/components/edit-client-profile-form";
 import { getClientTrustIndicator } from "@/features/client-profile/lib/client-trust";
-import { ProductPageHero } from "@/features/common";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { ModeSwitchCard } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
@@ -54,22 +55,19 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
 
   return (
     <div className="space-y-8">
-      <ProductPageHero
-        label="Client Trust Profile"
-        title={
-          <>
-            Escrow behavior <span className="text-[#FF7003]">before commitment</span>
-          </>
-        }
-        description="Client trust on Highrable is based on escrow behavior, not vague ratings."
-      />
-
       <ClientTrustProfileHeader
         profile={profile}
         indicator={indicator}
         canEdit={canEdit}
         onEdit={() => setIsEditing(true)}
       />
+
+      {canEdit ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WalletStatusCard />
+          <ModeSwitchCard />
+        </div>
+      ) : null}
 
       {isEditing && canEdit ? (
         <EditClientProfileForm

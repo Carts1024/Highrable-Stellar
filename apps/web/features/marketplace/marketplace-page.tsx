@@ -15,6 +15,7 @@ import {
   getJobSafetyStatus,
 } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
+import { useAppMode } from "@/features/mode";
 import { api } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input as AppInput } from "@repo/ui/components/ui/input";
@@ -26,9 +27,10 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { useMutation, useQuery } from "convex/react";
-import { Filter, Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import React from "react";
 
 import type { TMarketplaceJobRow } from "@/features/marketplace/types";
 
@@ -65,14 +67,9 @@ function compareSafetyRankOnly(left: TMarketplaceJobRow, right: TMarketplaceJobR
   );
 }
 
-function formatBudget(value: number): string {
-  return new Intl.NumberFormat("en", {
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 export function MarketplacePage() {
   const router = useRouter();
+  const { mode } = useAppMode();
   const walletIdentity = useHighrableWalletIdentity();
   const marketplaceRows = useQuery(api.jobs.listMarketplaceJobs, {});
   const appliedJobIds = useQuery(
@@ -117,10 +114,6 @@ export function MarketplacePage() {
       })
       .sort(MARKETPLACE_SORTERS[sortBy]);
   }, [marketplaceRows, searchTerm, sortBy, filter]);
-
-  const totalBudget = useMemo(() => {
-    return visibleRows.reduce((total, row) => total + (row.job.totalBudget ?? row.job.budget), 0);
-  }, [visibleRows]);
 
   const appliedJobIdSet = useMemo(() => {
     if (!walletIdentity.walletAddress) {
@@ -192,175 +185,100 @@ export function MarketplacePage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Hero */}
-      <section className="grid gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center lg:gap-8 lg:pb-10">
-        <ProductPageHero
-          label="Marketplace Workflow"
-          title={
-            <>
-              Marketplace <span className="text-[#FF7003]">for Escrow-backed Collaboration</span>
-            </>
-          }
-          description="Post work, review applicants, and move selected collaborations into escrow without leaving the workflow."
-          actions={
+    <div className="space-y-6">
+      <ProductPageHero
+        title={mode === "client" ? "Jobs" : "Find work"}
+        description={
+          mode === "client"
+            ? "Post work, review applicants, and set the payment aside once you have chosen someone."
+            : "Open jobs from clients on Highrable. Jobs with the payment already on hold are listed first."
+        }
+        actions={
+          mode === "client" ? (
             <AppButton
               type="button"
-              className="hr-v2-button-primary gap-2 rounded-lg px-6 font-mono"
+              className="hr-v2-button-primary h-9 rounded-md px-4"
               onClick={() => setIsCreateJobOpen((open) => !open)}
             >
-              <Plus className="h-4 w-4" />
-              {isCreateJobOpen ? "Close Job Form" : "Post a Job"}
+              {isCreateJobOpen ? "Close job form" : "Post a job"}
             </AppButton>
-          }
-        />
+          ) : undefined
+        }
+      />
 
-        {/* Metric panel */}
-        <div className="flex flex-col gap-0 divide-y divide-border/60 rounded-xl border border-border/80 bg-card shadow-sm sm:rounded-2xl">
-          {[
-            { label: "Active jobs", value: marketplaceRows?.length ?? "—" },
-            { label: "Matching", value: visibleRows.length },
-            {
-              label: "Visible budget pool",
-              value: formatBudget(totalBudget),
-              accent: true,
-            },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3 sm:px-5 sm:py-4">
-              <span className="mb-2 font-mono text-xs tracking-[0.08em] text-muted-foreground/80 uppercase">
-                {label}
-              </span>
-              <span
-                className={`text-xl leading-none font-semibold sm:text-2xl ${
-                  accent ? "text-highrable-orange-2" : "hr-text-primary"
+      {mode === "client" && isCreateJobOpen ? (
+        <CreateJobForm
+          onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
+        />
+      ) : null}
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label htmlFor={searchInputId} className="relative w-full sm:max-w-md">
+            <span className="sr-only">Search jobs</span>
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+            <AppInput
+              id={searchInputId}
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search title, description, currency or wallet"
+              className="w-full bg-white pr-3 pl-9 font-sans"
+            />
+          </label>
+
+          <Select
+            value={sortBy}
+            onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
+          >
+            <SelectTrigger className="w-full bg-white font-sans sm:w-44" aria-label="Sort jobs">
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div
+            role="radiogroup"
+            aria-label="Filter jobs"
+            className="flex items-center gap-1 rounded-md border bg-white p-0.5 sm:ml-auto"
+          >
+            {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                role="radio"
+                aria-checked={filter === f}
+                onClick={() => setFilter(f)}
+                className={`flex-1 rounded px-3 py-1.5 text-sm whitespace-nowrap transition-colors sm:flex-none ${
+                  filter === f
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Create job workspace */}
-      {isCreateJobOpen ? (
-        <section className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-0.5">
-              <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-                Create Job Workspace
-              </p>
-              <h2 className="hr-text-primary font-sans text-lg font-semibold">
-                Post escrow-ready client work
-              </h2>
-            </div>
-            <AppButton
-              type="button"
-              variant="outline"
-              className="h-9 rounded-lg px-4 text-xs font-semibold"
-              onClick={() => setIsCreateJobOpen(false)}
-            >
-              Close
-            </AppButton>
-          </div>
-          <CreateJobForm
-            onCreated={(createdJobId) => router.push(`/marketplace/jobs/${createdJobId}`)}
-          />
-        </section>
-      ) : null}
-
-      {/* Controls */}
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Search + Sort group */}
-          <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
-            {/* Search */}
-            <label htmlFor={searchInputId} className="relative w-full lg:max-w-xl">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
-              <AppInput
-                id={searchInputId}
-                type="search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by title, description, asset, or wallet"
-                className="w-full pr-4 pl-10 font-sans"
-              />
-            </label>
-
-            {/* Sort */}
-            <div className="relative w-full lg:w-50">
-              <Select
-                value={sortBy}
-                onValueChange={(value: TMarketplaceSortOption) => setSortBy(value)}
-              >
-                <SelectTrigger className="w-full pl-10 font-sans">
-                  <Filter className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Filter + Reset */}
-          <div className="flex items-center justify-between gap-2 lg:justify-end">
-            {/* Filter segmented control */}
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
-              {(["all", "verified_funded"] as TMarketplaceFilter[]).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFilter(f)}
-                  className={`rounded-md px-3 py-1.5 font-mono text-xs tracking-widest whitespace-nowrap uppercase transition-all duration-150 ${
-                    filter === f
-                      ? "border border-highrable-orange-2 bg-highrable-orange-2 text-white shadow-sm"
-                      : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  {f === "all" ? "All Jobs" : "Verified Only"}
-                </button>
-              ))}
-            </div>
-
-            <AppButton
-              type="button"
-              variant="outline"
-              className="h-9 rounded-lg px-4 text-xs font-semibold"
-              onClick={() => {
-                setSearchTerm("");
-                setFilter("all");
-                setSortBy("safest");
-              }}
-            >
-              Reset view
-            </AppButton>
+                {f === "all" ? "All jobs" : "Payment on hold"}
+              </button>
+            ))}
           </div>
         </div>
-      </section>
 
-      {applyError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {applyError}
-        </p>
-      ) : null}
-
-      {/* Feed */}
-      <section className="space-y-5">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Marketplace Feed
+        {applyError ? (
+          <p role="alert" className="text-sm text-red-700">
+            {applyError}
           </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">
-            {visibleRows.length} jobs found
-          </h2>
-        </div>
+        ) : null}
+
+        {marketplaceRows !== undefined ? (
+          <p className="hr-text-secondary text-sm">
+            {visibleRows.length} {visibleRows.length === 1 ? "job" : "jobs"}
+          </p>
+        ) : null}
+
         <JobList
           jobs={marketplaceRows === undefined ? undefined : visibleRows}
           connectedWallet={walletIdentity.walletAddress}

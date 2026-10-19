@@ -34,7 +34,11 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => runtime.identity,
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
     createElement("div", { role: "alert" }, children),
   RoutePanel: ({ children }: { readonly children?: ReactNode }) =>
@@ -113,7 +117,7 @@ describe("AdminSessionGate", () => {
     renderGate();
 
     expect(screen.queryByTestId("protected-content")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Checking admin access" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Checking Admin Access" })).toBeTruthy();
 
     pending.resolve(
       response(200, {
@@ -134,7 +138,7 @@ describe("AdminSessionGate", () => {
 
     renderGate();
 
-    expect(await screen.findByRole("heading", { name: "Admin access forbidden" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Admin Access Forbidden" })).toBeTruthy();
     expect(screen.queryByTestId("protected-content")).toBeNull();
   });
 
@@ -159,7 +163,7 @@ describe("AdminSessionGate", () => {
 
     renderGate();
 
-    expect(await screen.findByRole("heading", { name: "Admin access check failed" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Admin Access Check Failed" })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("protected-content")).toBeNull();
 
@@ -335,7 +339,7 @@ describe("AdminSessionGate", () => {
     await screen.findByRole("button", { name: "Invalidate session" });
     fireEvent.click(screen.getByRole("button", { name: "Invalidate session" }));
     await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Authentication required" })).toBeTruthy(),
+      expect(screen.getByRole("heading", { name: "Authentication Required" })).toBeTruthy(),
     );
     expect(screen.queryByRole("button", { name: "Invalidate session" })).toBeNull();
   });
@@ -354,7 +358,7 @@ describe("AdminSessionGate", () => {
 
     renderGate("owner");
 
-    expect(await screen.findByRole("heading", { name: "Admin access forbidden" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Admin Access Forbidden" })).toBeTruthy();
     expect(screen.queryByTestId("protected-content")).toBeNull();
   });
 });

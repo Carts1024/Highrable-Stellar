@@ -114,15 +114,15 @@ export function DisputeMarkingStatus({
   );
   const toneClass =
     presentation.tone === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "border-emerald-500 bg-emerald-50/60 text-emerald-900"
       : presentation.tone === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-900"
-        : "border-[#d8d8d8] bg-[#fafafa] text-[#3f3f3f]";
+        ? "border-amber-400 bg-amber-50/60 text-amber-900"
+        : "border-border hr-text-secondary";
   const hash = presentation.transactionHash?.trim();
   const pendingOutcomeReconciled = status === "marked" && localOutcome?.kind === "pending";
 
   return (
-    <div className={`mt-4 space-y-3 rounded-lg border p-3 text-sm ${toneClass}`}>
+    <div className={`space-y-2 border-l-2 py-2.5 pr-3 pl-3 text-sm ${toneClass}`}>
       <p>{presentation.message}</p>
       {status === "marked" && localOutcome?.kind === "confirmed_sync_pending" ? (
         <p>Highrable is still recording the result. Do not submit another transaction.</p>

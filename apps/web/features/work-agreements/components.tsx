@@ -7,16 +7,11 @@ import {
   normalizeAttachmentType,
   validateAttachmentFile,
 } from "@/features/attachments/lib";
-import { showWarningToast } from "@/features/common";
+import { showWarningToast, StatCard, StatusText } from "@/features/common";
 import { formatAmount } from "@/features/dashboard/lib/format";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import {
-  HighrableV2Bullet,
-  HighrableV2IconNotice,
-  HighrableV2Metric,
-  SectionLabel,
-} from "@repo/ui/components/highrable/v2-marketing";
+import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { RichTextContent } from "@repo/ui/components/ui-customs/rich-text-content";
 import { RichTextEditor } from "@repo/ui/components/ui-customs/rich-text-editor";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -52,6 +47,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import React from "react";
 
 import type { TAttachmentType } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -125,7 +121,7 @@ const AGREEMENT_TITLE_MAX_LENGTH = 120;
 const AGREEMENT_CONTENT_MAX_LENGTH = 30000;
 const REJECTION_REASON_MAX_LENGTH = 1000;
 const AGREEMENT_TEMPLATE_NOTICE = {
-  title: "Workflow template",
+  title: "Workflow Template",
   body: "Highrable-generated terms are a workflow template, not legal advice. Use professional review for regulated, jurisdiction-specific, or high-value work.",
 } as const;
 
@@ -310,19 +306,15 @@ function getAgreementRichTextValue(agreement: TWorkAgreement): TAgreementRichTex
 }
 
 export function AgreementStatusBadge({ status }: { status?: TAgreementStatus }) {
-  const border =
+  const tone =
     status === "accepted" || status === "locked"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-50"
+      ? "success"
       : status === "rejected" || status === "cancelled"
-        ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-50"
-        : "border-[#d8d8d8] bg-white text-hr-text-primary hover:bg-white";
-  return (
-    <Badge
-      className={`rounded-md border px-2 py-1 font-mono text-[0.65rem] tracking-[0.08em] uppercase ${border}`}
-    >
-      {getAgreementStatusLabel(status)}
-    </Badge>
-  );
+        ? "danger"
+        : status
+          ? "warning"
+          : "neutral";
+  return <StatusText tone={tone}>{getAgreementStatusLabel(status)}</StatusText>;
 }
 
 export function AgreementSourceBadge({ type }: { type?: TAgreementType }) {
@@ -332,19 +324,13 @@ export function AgreementSourceBadge({ type }: { type?: TAgreementType }) {
       : type === "highrable_generated"
         ? "Generated work agreement"
         : "No agreement";
-  return (
-    <Badge className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 font-mono text-[0.65rem] tracking-[0.08em] text-highrable-text-accent uppercase hover:bg-orange-50">
-      {label}
-    </Badge>
-  );
+  return <span className="hr-text-secondary text-xs">{label}</span>;
 }
 
 export function AgreementLegalDisclaimer() {
   return (
-    <div className="inline-flex max-w-full items-center gap-2 rounded-sm border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-sm text-highrable-text-accent">
-      <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase">
-        {AGREEMENT_TEMPLATE_NOTICE.title}
-      </span>
+    <div className="hr-text-secondary inline-flex max-w-full items-center gap-1.5 text-sm">
+      <span className="text-xs">{AGREEMENT_TEMPLATE_NOTICE.title}</span>
       <HighrableV2IconNotice
         label="Workflow template details"
         message={AGREEMENT_TEMPLATE_NOTICE.body}
@@ -357,13 +343,13 @@ export function AgreementLegalDisclaimer() {
 export function AgreementHashBadge({ hash }: { readonly hash?: string | null }) {
   if (!hash) {
     return (
-      <Badge className="rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] text-muted-foreground uppercase hover:bg-white">
-        No hash
+      <Badge className="rounded-md border border-[#d8d8d8] bg-white px-2 py-1 text-xs text-muted-foreground hover:bg-white">
+        No receipt ID
       </Badge>
     );
   }
   return (
-    <Badge className="text-hr-text-primary max-w-full rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-[0.65rem] break-all uppercase hover:bg-white">
+    <Badge className="text-hr-text-primary max-w-full rounded-md border border-[#d8d8d8] bg-white px-2 py-1 font-mono text-xs break-all hover:bg-white">
       SHA-256 {hash.slice(0, 12)}...
     </Badge>
   );
@@ -420,14 +406,14 @@ function AgreementTypeSelector({
     {
       value: "client_uploaded" as const,
       icon: <Upload className="h-4 w-4" />,
-      label: "Upload agreement",
+      label: "Upload Agreement",
       description: "Use a PDF, DOCX, Markdown, or text file stored in Highrable.",
     },
     {
       value: "highrable_generated" as const,
       icon: <FileText className="h-4 w-4" />,
       label: "Highrable Work Agreement",
-      description: "Generate a workflow template from the job, escrow, and milestone data.",
+      description: "Generate a workflow template from the job, payment hold, and milestone data.",
       notice: <AgreementTemplateNotice disabled={disabled} />,
     },
   ];
@@ -445,7 +431,7 @@ function AgreementTypeSelector({
             onClick={() => onChange(option.value)}
             className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               isSelected
-                ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
+                ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
                 : "border-border bg-card hover:border-highrable-orange-2/50"
             }`}
             aria-pressed={isSelected}
@@ -615,7 +601,7 @@ function AgreementPreviewShell({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
         <div>
-          <SectionLabel>Agreement Workspace</SectionLabel>
+          <p className="hr-text-muted text-xs">Agreement Workspace</p>
           <h3 className="text-hr-text-primary mt-2 font-mono text-xl leading-tight font-semibold">
             {agreement.title}
           </h3>
@@ -649,9 +635,7 @@ function AgreementWorkspaceSection({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-mono text-xs tracking-[0.08em] text-highrable-orange-3 uppercase">
-              {title}
-            </p>
+            <p className="hr-text-muted text-xs">{title}</p>
             {description ? (
               <HighrableV2IconNotice
                 label={`${title} details`}
@@ -705,7 +689,7 @@ function AgreementMarkdownPreview({ markdown }: { markdown?: string }) {
         if (line.startsWith("- ")) {
           return (
             <p key={key} className="pl-3">
-              <span className="text-[#FF7003]">-</span> {line.slice(2)}
+              <span className="hr-mode-text">-</span> {line.slice(2)}
             </p>
           );
         }
@@ -737,19 +721,13 @@ function AgreementTermsDisclosure({ agreement }: { agreement: TWorkAgreement }) 
     <details className="group rounded-sm border border-border bg-muted/50 p-4">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <span>
-          <span className="text-hr-text-primary/50 block font-mono text-xs font-medium tracking-[0.08em] uppercase">
-            Full terms
-          </span>
+          <span className="hr-text-secondary block text-xs font-medium">Full terms</span>
           <span className="mt-1 block font-sans text-xs text-muted-foreground">
             Scope, payment, proof, revisions, cancellation, disputes, IP, and template notes.
           </span>
         </span>
-        <span className="font-mono text-xs text-highrable-orange-3 uppercase group-open:hidden">
-          Show
-        </span>
-        <span className="hidden font-mono text-xs text-highrable-orange-3 uppercase group-open:block">
-          Hide
-        </span>
+        <span className="hr-text-muted text-xs group-open:hidden">Show</span>
+        <span className="hr-text-muted hidden text-xs group-open:block">Hide</span>
       </summary>
       <div className="mt-4">
         <AgreementRichTextPreview agreement={agreement} />
@@ -761,15 +739,12 @@ function AgreementTermsDisclosure({ agreement }: { agreement: TWorkAgreement }) 
 function AgreementSummaryCard({ agreement }: { agreement: TWorkAgreement }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
-      <HighrableV2Metric
+      <StatCard
         label="Payment"
         value={formatAmount(agreement.paymentAmount) + " " + agreement.paymentAssetSymbol}
       />
-      <HighrableV2Metric label="Client" value={shortenWalletAddress(agreement.clientWallet)} />
-      <HighrableV2Metric
-        label="Freelancer"
-        value={shortenWalletAddress(agreement.freelancerWallet)}
-      />
+      <StatCard label="Client" value={shortenWalletAddress(agreement.clientWallet)} />
+      <StatCard label="Freelancer" value={shortenWalletAddress(agreement.freelancerWallet)} />
     </div>
   );
 }
@@ -791,7 +766,7 @@ export function AgreementReferenceCard({
   if (!context) {
     return (
       <section className="border border-dashed border-[#d8d8d8] bg-muted/50 p-4 text-sm text-muted-foreground">
-        <SectionLabel>Agreement</SectionLabel>
+        <p className="hr-text-muted text-xs">Agreement</p>
         <p className="mt-2">{emptyMessage}</p>
       </section>
     );
@@ -803,7 +778,7 @@ export function AgreementReferenceCard({
     <section className="space-y-4 border border-border bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <SectionLabel>Agreement</SectionLabel>
+          <p className="hr-text-muted text-xs">Agreement</p>
           <h3 className="text-hr-text-primary mt-2 text-base font-semibold">{context.label}</h3>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             The agreed payment, deadline, and revision terms linked to this receipt.
@@ -815,19 +790,15 @@ export function AgreementReferenceCard({
       </div>
       <dl className="grid gap-3 border-t border-border pt-4 text-sm">
         <div className="border border-border bg-muted/50 p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs tracking-[0.06em] uppercase">
-            Payment
-          </dt>
-          <dd className="text-hr-text-primary mt-1">
+          <dt className="hr-text-secondary text-xs">Payment</dt>
+          <dd className="hr-text-primary">
             {formatAmount(version?.paymentAmount ?? agreement.paymentAmount)}{" "}
             {version?.paymentAssetSymbol ?? agreement.paymentAssetSymbol}
           </dd>
         </div>
         <div className="border border-border bg-muted/50 p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs tracking-[0.06em] uppercase">
-            Revisions
-          </dt>
-          <dd className="text-hr-text-primary mt-1">
+          <dt className="hr-text-secondary text-xs">Revisions</dt>
+          <dd className="hr-text-primary">
             {version?.revisionPolicy ?? agreement.revisionPolicy ?? "Not specified"}
             {version?.revisionLimit !== undefined || agreement.revisionLimit !== undefined
               ? ` (limit ${version?.revisionLimit ?? agreement.revisionLimit ?? "none"})`
@@ -835,10 +806,8 @@ export function AgreementReferenceCard({
           </dd>
         </div>
         <div className="border border-border bg-muted/50 p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs tracking-[0.06em] uppercase">
-            Deadline
-          </dt>
-          <dd className="text-hr-text-primary mt-1">
+          <dt className="hr-text-secondary text-xs">Deadline</dt>
+          <dd className="hr-text-primary">
             {(version?.deadlineAt ?? agreement.deadlineAt)
               ? new Date(version?.deadlineAt ?? agreement.deadlineAt ?? 0).toLocaleString()
               : "Milestone deadlines apply if configured."}
@@ -871,7 +840,7 @@ export function AgreementMismatchWarning({
     return null;
   }
   return (
-    <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+    <div className="flex gap-2 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-950">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
       <p>
         Product deadline differs from the locked agreement deadline. Update deadlines only through
@@ -889,17 +858,15 @@ export function AgreementAmendmentBanner({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-muted/50 p-4 text-sm">
       <div className="flex items-center gap-2">
-        <p className="text-hr-text-primary/50 font-mono text-xs font-medium tracking-[0.08em] uppercase">
-          Change Control
-        </p>
+        <p className="hr-text-secondary text-xs font-medium">Change Control</p>
         <HighrableV2IconNotice
           label="Agreement change control"
-          message="Locked terms stay fixed for escrow and dispute review. Any future term changes will require both parties to approve a new version."
+          message="Locked terms stay fixed for payment hold and dispute review. Any future term changes will require both parties to approve a new version."
           tone="neutral"
         />
       </div>
       {agreementId ? (
-        <Badge className="rounded-sm border border-border bg-white px-2 py-1 font-mono text-[0.65rem] text-muted-foreground uppercase hover:bg-white">
+        <Badge className="rounded-sm border border-border bg-white px-2 py-1 text-xs text-muted-foreground hover:bg-white">
           Record {shortenWalletAddress(agreementId)}
         </Badge>
       ) : null}
@@ -916,24 +883,28 @@ export function AgreementVersionCard({ version }: { readonly version: TAgreement
             <p className="text-hr-text-primary text-base font-semibold">
               Version {version.versionNumber}
             </p>
-            <span className="text-hr-text-primary/50 font-mono text-[0.65rem] tracking-[0.08em] uppercase">
-              {version.paymentAssetSymbol}
-            </span>
+            <span className="hr-text-secondary text-xs">{version.paymentAssetSymbol}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground">
             <span className="inline-flex items-center gap-2">
-              <HighrableV2Bullet tone="muted" />
+              <span aria-hidden="true" className="hr-text-muted">
+                ·
+              </span>
               Created {new Date(version.createdAt).toLocaleString()}
             </span>
             {version.agreementHash ? (
               <span className="inline-flex items-center gap-2 break-all">
-                <HighrableV2Bullet tone="muted" />
+                <span aria-hidden="true" className="hr-text-muted">
+                  ·
+                </span>
                 SHA-256 {version.agreementHash.slice(0, 12)}...
               </span>
             ) : (
               <span className="inline-flex items-center gap-2">
-                <HighrableV2Bullet tone="muted" />
-                No hash
+                <span aria-hidden="true" className="hr-text-muted">
+                  ·
+                </span>
+                No receipt ID
               </span>
             )}
           </div>
@@ -964,12 +935,10 @@ export function AgreementVersionTimeline({
     <section className="border border-border bg-white">
       <div className="flex items-center justify-between gap-3 border-b border-border p-4">
         <div className="flex items-center gap-2">
-          <GitBranch className="h-4 w-4 text-[#FF7003]" />
-          <h3 className="text-hr-text-primary/50 font-mono text-xs tracking-[0.08em] uppercase">
-            Agreement Version History
-          </h3>
+          <GitBranch className="hr-mode-text h-4 w-4" />
+          <h3 className="hr-text-primary text-sm font-semibold">Agreement Version History</h3>
         </div>
-        <span className="font-mono text-[0.65rem] tracking-[0.08em] text-highrable-orange-3 uppercase">
+        <span className="hr-text-muted text-xs">
           {versions.length} {versions.length === 1 ? "record" : "records"}
         </span>
       </div>
@@ -1037,9 +1006,7 @@ export function AgreementVersionCompare({
 }) {
   return (
     <section className="space-y-3 rounded-lg border border-[#d8d8d8] bg-muted/50 p-4">
-      <p className="text-hr-text-primary/50 font-mono text-xs tracking-[0.08em] uppercase">
-        Version Compare
-      </p>
+      <p className="hr-text-secondary text-xs">Version Compare</p>
       <AgreementChangeSummary previousVersion={previousVersion} proposedVersion={proposedVersion} />
     </section>
   );
@@ -1070,10 +1037,8 @@ export function AgreementAuditTimeline({
   return (
     <section className="rounded-sm border border-border">
       <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 p-4">
-        <h3 className="text-hr-text-primary/50 font-mono text-xs tracking-[0.08em] uppercase">
-          Agreement Audit Timeline
-        </h3>
-        <span className="font-mono text-[0.65rem] tracking-[0.08em] text-highrable-orange-3 uppercase">
+        <h3 className="hr-text-primary text-sm font-semibold">Agreement Audit Timeline</h3>
+        <span className="hr-text-muted text-xs">
           {events.length} {events.length === 1 ? "event" : "events"}
         </span>
       </div>
@@ -1089,12 +1054,16 @@ export function AgreementAuditTimeline({
                 <p className="text-hr-text-primary font-sans font-medium">{event.message}</p>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-xs font-medium text-muted-foreground">
                   <span className="inline-flex items-center gap-2 font-sans">
-                    <HighrableV2Bullet tone="muted" />
+                    <span aria-hidden="true" className="hr-text-muted">
+                      ·
+                    </span>
                     {event.type.replace(/_/g, " ")}
                   </span>
                   {event.newVersion ? (
                     <span className="inline-flex items-center gap-2 font-sans">
-                      <HighrableV2Bullet tone="muted" />
+                      <span aria-hidden="true" className="hr-text-muted">
+                        ·
+                      </span>
                       Version {event.newVersion}
                     </span>
                   ) : null}
@@ -1258,7 +1227,7 @@ function AgreementActions({
           type="button"
           disabled={disabled}
           onClick={() => void onLock()}
-          className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+          className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
         >
           <Lock className="mr-1 h-4 w-4" />
           Lock Agreement
@@ -1365,7 +1334,7 @@ function AgreementFreelancerResponsePanel({
           type="button"
           disabled={isSubmitting || !accepted}
           onClick={() => void run("accept")}
-          className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+          className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
         >
           {isSubmitting ? (
             <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -1410,11 +1379,9 @@ export function FreelancerAgreementReview({
 
   if (!walletAddress) {
     return (
-      <section className="border border-[#d8d8d8] bg-white p-6">
-        <p className="text-sm text-muted-foreground">
-          Connect the selected freelancer wallet to review this agreement.
-        </p>
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Connect the selected freelancer wallet to review this agreement.
+      </p>
     );
   }
 
@@ -1428,50 +1395,46 @@ export function FreelancerAgreementReview({
   };
 
   return (
-    <section className="space-y-5 border border-[#d8d8d8] bg-white p-6" onMouseEnter={viewOnce}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-hr-text-primary/50 font-mono text-xs tracking-[0.08em] uppercase">
-            Work agreement review
-          </p>
-          <h1 className="text-hr-text-primary mt-1 text-2xl font-semibold">{agreement.title}</h1>
-        </div>
-        <div className="flex gap-2">
-          <AgreementSourceBadge type={agreement.agreementType} />
+    <section className="space-y-6" onMouseEnter={viewOnce}>
+      <header className="space-y-2 border-b pb-5">
+        <p className="hr-text-muted text-xs">Work agreement</p>
+        <h1 className="hr-text-primary text-2xl leading-tight font-semibold tracking-tight">
+          {agreement.title}
+        </h1>
+        <div className="flex flex-wrap items-center gap-3">
           <AgreementStatusBadge status={agreement.status} />
+          <AgreementSourceBadge type={agreement.agreementType} />
         </div>
-      </div>
+      </header>
       <AgreementSummaryCard agreement={agreement} />
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div className="border border-border p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs uppercase">Revision policy</dt>
-          <dd className="text-hr-text-primary mt-1">
+      <dl className="divide-y border-y text-sm">
+        <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <dt className="hr-text-secondary">Revision policy</dt>
+          <dd className="hr-text-primary">
             {agreement.revisionPolicy ?? "Not specified"}{" "}
             {agreement.revisionLimit !== undefined
               ? `(limit ${agreement.revisionLimit ?? "none"})`
               : ""}
           </dd>
         </div>
-        <div className="border border-border p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs uppercase">Deadline</dt>
-          <dd className="text-hr-text-primary mt-1">
+        <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <dt className="hr-text-secondary">Deadline</dt>
+          <dd className="hr-text-primary">
             {agreement.deadlineAt
               ? new Date(agreement.deadlineAt).toLocaleString()
               : "Milestone deadlines apply if configured."}
           </dd>
         </div>
-        <div className="border border-border p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs uppercase">Cancellation</dt>
-          <dd className="text-hr-text-primary mt-1">
+        <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <dt className="hr-text-secondary">Cancellation</dt>
+          <dd className="hr-text-primary">
             Cancellation follows Highrable workflow rules, funding state, overdue state, and dispute
             outcome where applicable.
           </dd>
         </div>
-        <div className="border border-border p-3">
-          <dt className="text-hr-text-primary/50 font-mono text-xs uppercase">
-            Disputes and protection
-          </dt>
-          <dd className="text-hr-text-primary mt-1">
+        <div className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+          <dt className="hr-text-secondary">Disputes and protection</dt>
+          <dd className="hr-text-primary">
             Evidence can include proof, revisions, deadlines, chat, and attachments. Pre-settlement
             previews may be protected and access-logged.
           </dd>
@@ -1479,7 +1442,7 @@ export function FreelancerAgreementReview({
       </dl>
       {agreement.agreementType === "client_uploaded" ? (
         <div className="space-y-3">
-          <div className="border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
             I understand this agreement was uploaded by the client. Highrable stores it as part of
             the work record but does not provide legal advice.
           </div>
@@ -1672,32 +1635,14 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
       agreement.status === "ready_to_send");
 
   return (
-    <section className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Work Agreement
-          </p>
-          <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">Agreement</h2>
-          <p className="hr-text-secondary font-sans text-sm">
-            {isClientViewer
-              ? "Create, send, revise, and lock agreement terms from a focused workspace."
-              : "Review and respond to agreement terms from a focused workspace."}
-          </p>
-        </div>
-        {agreement ? (
-          <div className="flex flex-wrap gap-2">
-            <AgreementSourceBadge type={agreement.agreementType} />
-            <AgreementStatusBadge status={agreement.status} />
-          </div>
-        ) : (
-          <AgreementStatusBadge />
-        )}
-      </div>
+    <section aria-labelledby="work-agreement-title" className="space-y-3">
+      <h2 id="work-agreement-title" className="hr-text-primary font-sans text-base font-semibold">
+        Agreement
+      </h2>
 
-      <div className="mt-4 space-y-4">
+      <div className="space-y-4">
         {!walletAddress ? (
-          <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-muted/50 p-4 font-sans text-sm text-muted-foreground">
+          <p className="font-sans text-sm text-muted-foreground">
             Connect the client or selected freelancer wallet to view agreement details.
           </p>
         ) : null}
@@ -1706,27 +1651,30 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
           <p className="text-sm text-gray-500">Loading agreement...</p>
         ) : null}
 
+        {agreement === null ? <AgreementStatusBadge /> : null}
+
         {agreement ? (
           <>
-            <div className="grid gap-5 sm:grid-cols-3">
-              <HighrableV2Metric label="Status" value={getAgreementStatusLabel(agreement.status)} />
-              <HighrableV2Metric
-                label="Source"
-                value={
-                  agreement.agreementType === "client_uploaded" ? "Client Upload" : "Generated"
-                }
-              />
-              <HighrableV2Metric label="Version" value={`v${agreement.version}`} />
-            </div>
-
             <ResponsiveDialog
               open={isAgreementWorkspaceOpen}
               onOpenChange={setIsAgreementWorkspaceOpen}
             >
-              <div className="mt-4 flex justify-end">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <p className="hr-text-primary truncate text-sm font-medium">{agreement.title}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AgreementStatusBadge status={agreement.status} />
+                    <AgreementSourceBadge type={agreement.agreementType} />
+                    <span className="hr-text-muted text-xs">Version {agreement.version}</span>
+                  </div>
+                </div>
                 <ResponsiveDialogTrigger asChild>
-                  <AppButton type="button" variant="primary" className="text-xs">
-                    Open Agreement Workspace
+                  <AppButton
+                    type="button"
+                    variant="outline"
+                    className="h-9 shrink-0 self-start rounded-md px-4 text-sm sm:self-center"
+                  >
+                    Open agreement
                   </AppButton>
                 </ResponsiveDialogTrigger>
               </div>
@@ -1740,7 +1688,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                 </ResponsiveDialogHeader>
                 <ResponsiveDialogBody>
                   <AgreementPreviewShell agreement={agreement}>
-                    <div className="space-y-6 rounded-lg border border-border p-4 shadow-sm">
+                    <div className="space-y-6 rounded-lg border border-border p-4">
                       <AgreementWorkspaceSection
                         title="Snapshot"
                         description="The terms both parties will rely on for payment, review, and dispute context."
@@ -1820,7 +1768,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                                       type="button"
                                       disabled={isSubmitting}
                                       onClick={() => void saveAgreementContent()}
-                                      className="bg-hr-text-primary rounded-none text-white hover:bg-[#FF7003]"
+                                      className="bg-hr-text-primary rounded-none text-white hover:bg-highrable-orange-2"
                                     >
                                       {isSubmitting ? (
                                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
@@ -1852,7 +1800,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
                     {agreement.status === "rejected" ? (
                       <AgreementWorkspaceSection
-                        title="Freelancer response"
+                        title="Freelancer Response"
                         description="Use the feedback to revise the agreement or choose another freelancer."
                       >
                         <div className="space-y-3 border border-red-200 bg-red-50 p-4 text-sm text-red-900">
@@ -1973,7 +1921,7 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
 
                     {isFreelancerViewer && agreement.status === "pending_acceptance" ? (
                       <AgreementWorkspaceSection
-                        title="Your response"
+                        title="Your Response"
                         description="Accept when the scope, payment, deadlines, and revision terms look right."
                       >
                         <AgreementFreelancerResponsePanel
@@ -1985,22 +1933,16 @@ export function WorkAgreementSetupPanel({ jobId, viewerRole }: IWorkAgreementSet
                       </AgreementWorkspaceSection>
                     ) : null}
 
-                    <details className="group mt-8 rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <details className="group mt-8 rounded-lg border border-border bg-card p-4">
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                         <span>
-                          <span className="font-mono text-xs tracking-[0.08em] text-highrable-orange-3 uppercase">
-                            More details
-                          </span>
+                          <span className="hr-text-muted text-xs">More details</span>
                           <span className="mt-1 block font-sans text-sm text-muted-foreground">
                             Versions, audit trail, export, and locked-term guidance.
                           </span>
                         </span>
-                        <span className="font-mono text-xs text-highrable-orange-3 uppercase group-open:hidden">
-                          Show
-                        </span>
-                        <span className="hidden font-mono text-xs text-highrable-orange-3 uppercase group-open:block">
-                          Hide
-                        </span>
+                        <span className="hr-text-muted text-xs group-open:hidden">Show</span>
+                        <span className="hr-text-muted hidden text-xs group-open:block">Hide</span>
                       </summary>
 
                       <div className="mt-2 space-y-4">

@@ -19,6 +19,7 @@ import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { CancelWorkButton } from "@/features/cancellations";
 import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
 import { DisputeActionGuardNotice, OpenDisputeButton } from "@/features/disputes";
+import { EscrowActionProgress } from "@/features/marketplace/components/escrow-action-progress";
 import { useMilestoneEscrowActions } from "@/features/marketplace/hooks/use-milestone-escrow-actions";
 import { useSyncActions } from "@/features/marketplace/hooks/use-sync-actions";
 import { WorkProofSubmissionPanel } from "@/features/work-submissions/components/work-proof-submission-panel";
@@ -62,6 +63,7 @@ export function MilestoneActionPanel({
     role,
     isPending,
     pendingAction,
+    progress,
     error,
     success,
     txExplorerUrl,
@@ -125,9 +127,10 @@ export function MilestoneActionPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl">
+    <div className="space-y-4 rounded-md bg-muted/40 p-4" aria-busy={isPending}>
+      <EscrowActionProgress progress={progress} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="hr-text-primary text-sm font-semibold">Milestone Escrow</h4>
+        <h4 className="hr-text-primary text-sm font-semibold">Payment</h4>
         <StatusBadge label={milestone.status} />
       </div>
 
@@ -152,7 +155,7 @@ export function MilestoneActionPanel({
       {!isStablecoinConfigured && milestoneEscrowAsset?.kind === "stablecoin" ? (
         <TrustWarning
           message={
-            stablecoinConfigValidation.message ?? "Stablecoin token contract is not configured."
+            stablecoinConfigValidation.message ?? "Digital dollar token contract is not configured."
           }
         />
       ) : null}
@@ -162,7 +165,7 @@ export function MilestoneActionPanel({
         />
       ) : null}
       {milestoneEscrowAsset?.kind === "native_xlm" ? (
-        <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+        <TrustWarning message="XLM payment hold is volatile. Final fiat value may change." />
       ) : null}
       {walletIdentity.walletType ? (
         <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 font-sans text-xs text-muted-foreground">
@@ -194,7 +197,7 @@ export function MilestoneActionPanel({
             </AppButton>
           ) : (
             <p className="text-sm text-amber-800">
-              You are assigned. Wait for this milestone escrow to be funded before starting.
+              You are assigned. Wait for this milestone payment hold to be funded before starting.
             </p>
           )}
         </div>
@@ -232,7 +235,7 @@ export function MilestoneActionPanel({
             </>
           ) : (
             <p className="text-sm text-amber-800">
-              Escrow exists but is not funded. Do not start this milestone yet.
+              Payment Hold exists but is not funded. Do not start this milestone yet.
             </p>
           )}
         </div>

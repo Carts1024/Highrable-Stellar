@@ -77,12 +77,10 @@ export function PasskeySendTokenPanel({
 
   if (transfer.step === "confirm") {
     return (
-      <section className="overflow-hidden rounded-xl border border-border">
+      <section className="overflow-hidden rounded-lg border border-border">
         {/* Header */}
         <div className="border-b border-gray-200 bg-gray-50 px-5 py-4">
-          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-            Confirm Transfer
-          </p>
+          <p className="text-xs font-semibold text-gray-600">Confirm Transfer</p>
           <p className="mt-1 font-sans text-sm text-muted-foreground">
             Review before passkey approval.
           </p>
@@ -91,57 +89,43 @@ export function PasskeySendTokenPanel({
         <div className="space-y-5 p-5">
           <dl className="grid gap-4 sm:grid-cols-2">
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Asset
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Asset</dt>
               <dd className="mt-2 font-sans text-sm font-semibold text-foreground">
                 {selectedAssetSymbol}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Amount
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Amount</dt>
               <dd className="mt-2 font-sans text-sm font-semibold text-foreground">
                 {transfer.draft.amount} {selectedAssetSymbol}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                From
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">From</dt>
               <dd className="mt-2 font-mono text-xs break-all text-foreground">
                 {formatAddress(smartAccountAddress)}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Recipient
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Recipient</dt>
               <dd className="mt-2 font-mono text-xs break-all text-foreground">
                 {formatAddress(transfer.draft.recipientAddress.trim().toUpperCase())}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Recipient Type
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Recipient Type</dt>
               <dd className="mt-2 font-sans text-sm text-foreground">
                 {transfer.validation.recipientType === "contract_account"
-                  ? "Passkey Smart Account"
+                  ? "passkey account"
                   : "External Wallet"}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Network
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Network</dt>
               <dd className="mt-2 font-sans text-sm text-foreground">{STELLAR_NETWORK}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-                Estimated Fee Path
-              </dt>
+              <dt className="text-xs font-semibold text-gray-600">Estimated Fee Path</dt>
               <dd className="mt-2 font-sans text-sm text-foreground">
                 {feePath}
                 {transfer.readiness.feeSourceAddress
@@ -151,7 +135,7 @@ export function PasskeySendTokenPanel({
             </div>
           </dl>
 
-          <Alert className="rounded-lg border-amber-300 bg-amber-50">
+          <Alert className="border-l-2 border-amber-400 bg-amber-50/60">
             <AlertDescription className="font-sans text-sm leading-relaxed text-amber-900">
               Transfers are irreversible. Only approve if the recipient and amount are correct.
             </AlertDescription>
@@ -168,7 +152,7 @@ export function PasskeySendTokenPanel({
             </Button>
             <Button
               type="button"
-              className="bg-highrable-orange-2 font-medium text-white shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
+              className="bg-highrable-orange-2 font-medium text-white transition-all hover:bg-highrable-orange-3"
               onClick={() => void transfer.submitTransfer()}
             >
               <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -181,16 +165,12 @@ export function PasskeySendTokenPanel({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border">
+    <section className="overflow-hidden rounded-lg border border-border">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-4">
         <div>
-          <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-            Send Token
-          </p>
-          <p className="mt-1 font-sans text-sm text-muted-foreground">
-            Passkey smart account transfer
-          </p>
+          <p className="text-xs font-semibold text-gray-600">Send Token</p>
+          <p className="mt-1 font-sans text-sm text-muted-foreground">passkey account transfer</p>
         </div>
         <Button
           type="button"
@@ -205,7 +185,7 @@ export function PasskeySendTokenPanel({
 
       <div className="space-y-5 p-5">
         {!transfer.readiness.canSend && transfer.readiness.reason ? (
-          <Alert className="rounded-lg border-amber-300 bg-amber-50">
+          <Alert className="border-l-2 border-amber-400 bg-amber-50/60">
             <AlertDescription className="font-sans text-sm leading-relaxed text-amber-900">
               {transfer.readiness.reason}
             </AlertDescription>
@@ -215,10 +195,7 @@ export function PasskeySendTokenPanel({
         {/* Asset + Recipient row */}
         <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
           <div className="space-y-2">
-            <Label
-              htmlFor="passkey-transfer-asset"
-              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
-            >
+            <Label htmlFor="passkey-transfer-asset" className="text-xs font-semibold text-gray-600">
               Asset
             </Label>
             <Select
@@ -246,7 +223,7 @@ export function PasskeySendTokenPanel({
           <div className="space-y-2">
             <Label
               htmlFor="passkey-transfer-recipient"
-              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+              className="text-xs font-semibold text-gray-600"
             >
               Recipient
             </Label>
@@ -268,7 +245,7 @@ export function PasskeySendTokenPanel({
           <div className="space-y-2">
             <Label
               htmlFor="passkey-transfer-amount"
-              className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase"
+              className="text-xs font-semibold text-gray-600"
             >
               Amount
             </Label>
@@ -282,9 +259,7 @@ export function PasskeySendTokenPanel({
             />
           </div>
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="font-mono text-xs font-semibold tracking-wider text-gray-600 uppercase">
-              Balance
-            </p>
+            <p className="text-xs font-semibold text-gray-600">Balance</p>
             <p className="mt-2 font-sans text-sm font-semibold text-foreground">{balanceDisplay}</p>
           </div>
         </div>
@@ -326,7 +301,7 @@ export function PasskeySendTokenPanel({
         ) : null}
 
         {transfer.step === "success" && transfer.txExplorerUrl ? (
-          <Alert className="rounded-lg border-emerald-300 bg-emerald-50">
+          <Alert className="border-l-2 border-emerald-500 bg-emerald-50/60">
             <AlertDescription className="font-sans text-sm text-emerald-900">
               Transfer submitted.{" "}
               <a
@@ -353,7 +328,7 @@ export function PasskeySendTokenPanel({
         <div className="flex flex-wrap gap-3 pt-1">
           <Button
             type="button"
-            className="bg-highrable-orange-2 font-medium text-white shadow-sm transition-all hover:bg-highrable-orange-3 hover:shadow-md"
+            className="bg-highrable-orange-2 font-medium text-white transition-all hover:bg-highrable-orange-3"
             disabled={primaryDisabled}
             onClick={transfer.prepareConfirmation}
           >

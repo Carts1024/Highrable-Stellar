@@ -14,24 +14,22 @@ function sanitizeThemeMode(value: unknown): ThemeMode {
     : DEFAULT_THEME_MODE;
 }
 
+/**
+ * The theme follows the browser until the user picks one; after that the
+ * choice is stored and wins. `themeMode` is always the theme actually shown.
+ */
 function useThemeMode() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
-  const themeMode = sanitizeThemeMode(theme);
+  const themeMode = sanitizeThemeMode(resolvedTheme);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (isMounted && theme !== themeMode) {
-      setTheme(themeMode);
-    }
-  }, [isMounted, setTheme, theme, themeMode]);
-
   return {
     isMounted,
-    isDarkMode: themeMode === "dark",
+    isDarkMode: isMounted && themeMode === "dark",
     setDarkMode: (enabled: boolean) => setTheme(enabled ? "dark" : "light"),
     themeMode,
   };

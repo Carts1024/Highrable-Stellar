@@ -11,7 +11,6 @@ import {
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Label } from "@repo/ui/components/ui/label";
 import { Textarea as AppTextarea } from "@repo/ui/components/ui/textarea";
@@ -62,56 +61,31 @@ export function ApplyToJobForm({
 
   if (!walletIdentity.isConnected) {
     return (
-      <div className="rounded-xl border border-border bg-muted/30 p-5">
-        <p className="mb-3 text-sm text-muted-foreground">Connect wallet to apply.</p>
-        <WalletConnectTrigger className="hr-v2-button-primary rounded-lg px-4 py-2 text-sm font-medium text-white" />
-      </div>
+      <WalletConnectTrigger
+        label="Connect Wallet to Apply"
+        className="hr-v2-button-primary h-9 rounded-md px-4 text-sm"
+      />
     );
   }
 
   if (!isJobOpen) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-        <p className="font-sans text-sm font-medium text-amber-800">
-          Applications are closed for this job.
-        </p>
-        <p className="mt-1 font-sans text-xs text-amber-700">
-          This position is no longer accepting new applicants.
-        </p>
-      </div>
-    );
+    return <span className="hr-text-secondary font-sans text-sm">Applications closed</span>;
   }
 
   if (isClient) {
     return (
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-        <p className="font-sans text-sm font-medium text-blue-800">
-          You are the client for this job.
-        </p>
-        <p className="mt-1 font-sans text-xs text-blue-700">
-          Clients cannot apply to their own listings.
-        </p>
-      </div>
+      <span className="hr-text-secondary font-sans text-sm">You are the client for this job</span>
     );
   }
 
   if (isCheckingApplicationStatus) {
     return (
-      <div className="rounded-xl border border-border bg-muted/50 px-4 py-3">
-        <p className="font-sans text-sm font-medium">Checking application status...</p>
-      </div>
+      <span className="hr-text-secondary font-sans text-sm">Checking application status...</span>
     );
   }
 
   if (hasApplied) {
-    return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p className="font-sans text-sm font-medium text-emerald-800">Application submitted</p>
-        <p className="mt-1 font-sans text-xs text-emerald-700">
-          You have already applied to this job.
-        </p>
-      </div>
-    );
+    return <span className="font-sans text-sm text-emerald-700">Application submitted</span>;
   }
 
   const handleApply = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -165,29 +139,11 @@ export function ApplyToJobForm({
   };
 
   return (
-    <section className="flex flex-wrap items-center justify-between rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
-      <div className="space-y-2">
-        <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-          Freelancer Action
-        </p>
-        <div className="flex items-center gap-3">
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">Apply</h2>
-          <HighrableV2IconNotice
-            label="Apply safety notice"
-            tone={job.status === "funded" ? "success" : "warning"}
-            message={
-              job.status === "funded"
-                ? "Escrow funding is verified. Still keep all work and approvals in Highrable."
-                : "Only start work after this job shows Verified Funded."
-            }
-          />
-        </div>
-      </div>
-
+    <div>
       <ResponsiveDialog>
         <ResponsiveDialogTrigger asChild>
-          <AppButton type="button" variant="primary" className="text-xs">
-            Apply to Job
+          <AppButton type="button" className="hr-v2-button-primary h-9 rounded-md px-4 text-sm">
+            Apply for this job
           </AppButton>
         </ResponsiveDialogTrigger>
 
@@ -227,7 +183,7 @@ export function ApplyToJobForm({
               />
 
               {error ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p role="alert" className="text-sm text-red-700">
                   {error}
                 </p>
               ) : null}
@@ -253,6 +209,6 @@ export function ApplyToJobForm({
           </ResponsiveDialogBody>
         </ResponsiveDialogContent>
       </ResponsiveDialog>
-    </section>
+    </div>
   );
 }

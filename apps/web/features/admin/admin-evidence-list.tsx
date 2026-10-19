@@ -174,7 +174,7 @@ function AdminEvidenceItem({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Open ${attachment.name}`}
-          className="shrink-0 font-mono text-[0.7rem] tracking-[0.06em] text-[#B94A00] uppercase hover:text-[#E85D00]"
+          className="shrink-0 text-[0.7rem] text-[#B94A00] hover:text-[#E85D00]"
         >
           Open {attachment.name}
         </a>

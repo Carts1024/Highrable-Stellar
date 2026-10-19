@@ -24,6 +24,15 @@ export type TEscrowStatus =
 export type TJobType = "micro_gig" | "milestone_project";
 export type TRevisionPolicy = "none" | "fixed" | "unlimited";
 
+export type TMarketplaceEscrowProgress =
+  | "preparing"
+  | "simulating"
+  | "awaiting_signature"
+  | "submitting"
+  | "confirming"
+  | "recovering_escrow_id"
+  | "recording";
+
 export type TMilestoneStatus =
   | "draft"
   | "open"
