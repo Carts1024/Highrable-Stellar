@@ -36,10 +36,7 @@ export function readStoredDashboardMode(address: string): TDashboardMode | null 
 }
 
 /** The mode a wallet opens in: its last choice, else its role's default. */
-export function resolveDashboardMode(
-  address: string,
-  role: TDashboardRole | null,
-): TDashboardMode {
+export function resolveDashboardMode(address: string, role: TDashboardRole | null): TDashboardMode {
   return readStoredDashboardMode(address) ?? resolveFallbackMode(role);
 }
 
