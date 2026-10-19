@@ -26,6 +26,23 @@ function buildStorageKey(address: string): string {
   return `${DASHBOARD_MODE_STORAGE_PREFIX}:${address.trim().toUpperCase()}`;
 }
 
+/** Reads the mode last chosen for this wallet, or null when none was saved. */
+export function readStoredDashboardMode(address: string): TDashboardMode | null {
+  try {
+    return sanitizeDashboardMode(window.localStorage.getItem(buildStorageKey(address)));
+  } catch {
+    return null;
+  }
+}
+
+/** The mode a wallet opens in: its last choice, else its role's default. */
+export function resolveDashboardMode(
+  address: string,
+  role: TDashboardRole | null,
+): TDashboardMode {
+  return readStoredDashboardMode(address) ?? resolveFallbackMode(role);
+}
+
 interface IUseDashboardModeArgs {
   readonly role: TDashboardRole | null;
   readonly address: string | null;

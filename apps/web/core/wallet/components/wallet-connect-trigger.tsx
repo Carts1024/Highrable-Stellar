@@ -23,11 +23,14 @@ import { useState } from "react";
 interface IWalletConnectTriggerProps {
   className?: string;
   label?: string;
+  /** Called when the person opens the connect dialog. */
+  onOpen?: () => void;
 }
 
 export function WalletConnectTrigger({
   className,
   label = "Connect Wallet",
+  onOpen,
 }: IWalletConnectTriggerProps) {
   const { clearWalletError, connectWallet, walletState } = useWallet();
   const { setActiveWalletMode } = usePasskeySmartAccount();
@@ -94,7 +97,15 @@ export function WalletConnectTrigger({
     : connectionFeedback;
 
   return (
-    <ResponsiveDialog open={isOpen} onOpenChange={setIsOpen}>
+    <ResponsiveDialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (open) {
+          onOpen?.();
+        }
+      }}
+    >
       <ResponsiveDialogTrigger asChild>
         <AppButton
           type="button"

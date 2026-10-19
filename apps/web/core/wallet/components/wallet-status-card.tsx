@@ -16,12 +16,7 @@ function formatAddressGroups(address: string): string {
 }
 
 export function WalletStatusCard() {
-  const {
-    walletState,
-    refreshWalletState,
-    checkFundingStatus,
-    fundTestnetAccount,
-  } = useWallet();
+  const { walletState, refreshWalletState, checkFundingStatus, fundTestnetAccount } = useWallet();
   const [copied, setCopied] = useState(false);
 
   if (!walletState.isConnected) {
