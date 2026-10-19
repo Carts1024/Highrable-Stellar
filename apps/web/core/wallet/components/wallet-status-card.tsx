@@ -39,7 +39,7 @@ export function WalletStatusCard() {
     <section className="w-full">
       {/* The wallet, drawn as a card */}
       <div
-        className="relative h-full w-full overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6"
+        className="hr-mode-fill relative h-full w-full overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6"
         style={{
           backgroundImage: "var(--mode-gradient)",
           color: "var(--mode-on, #fff)",
