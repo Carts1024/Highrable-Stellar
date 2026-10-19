@@ -135,8 +135,12 @@ export function Header() {
                 </Link>
               ))}
               {isAdminRoute ? null : (
-                <div onClick={() => setMobileMenuOpen(false)} role="presentation" className="pt-2">
-                  <HeaderProfileLink showLabel className="w-full" />
+                <div className="pt-2">
+                  <HeaderProfileLink
+                    showLabel
+                    className="w-full"
+                    onNavigate={() => setMobileMenuOpen(false)}
+                  />
                 </div>
               )}
               {!walletIdentity.isConnected ? (

@@ -20,10 +20,10 @@ export function ModeBanner() {
       role="status"
       aria-live="polite"
       className={cn(
-        "border-b",
+        "border-b dark:border-(--mode-border) dark:bg-(--mode-soft) dark:text-(--mode-text)",
         mode === "client"
-          ? "border-[#facc15]/50 bg-[#fefce8] text-[#713f12] dark:text-[#4a2a0c]"
-          : "border-[#ff7003]/25 bg-[#fff7ef] text-[#9a3f00] dark:text-[#5c2600]",
+          ? "border-[#facc15]/50 bg-[#fefce8] text-[#713f12]"
+          : "border-[#ff7003]/25 bg-[#fff7ef] text-[#9a3f00]",
       )}
     >
       <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-1 text-xs sm:px-6">

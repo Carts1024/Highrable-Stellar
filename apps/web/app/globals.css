@@ -659,6 +659,66 @@ body {
   border-color: color-mix(in oklab, var(--color-rose-500) 35%, transparent);
 }
 
+/* Pale tints with an opacity suffix (bg-amber-50/60) used on notices */
+.dark [class*="bg-red-50/"] {
+  background-color: color-mix(in oklab, var(--color-red-500) 12%, transparent);
+}
+.dark [class*="bg-orange-50/"] {
+  background-color: color-mix(in oklab, var(--color-orange-500) 12%, transparent);
+}
+.dark [class*="bg-amber-50/"] {
+  background-color: color-mix(in oklab, var(--color-amber-500) 12%, transparent);
+}
+.dark [class*="bg-yellow-50/"] {
+  background-color: color-mix(in oklab, var(--color-yellow-500) 12%, transparent);
+}
+.dark [class*="bg-green-50/"] {
+  background-color: color-mix(in oklab, var(--color-green-500) 12%, transparent);
+}
+.dark [class*="bg-emerald-50/"] {
+  background-color: color-mix(in oklab, var(--color-emerald-500) 12%, transparent);
+}
+.dark [class*="bg-sky-50/"] {
+  background-color: color-mix(in oklab, var(--color-sky-500) 12%, transparent);
+}
+.dark [class*="bg-blue-50/"] {
+  background-color: color-mix(in oklab, var(--color-blue-500) 12%, transparent);
+}
+.dark .hover\:bg-gray-100\/60:hover {
+  background-color: #262626;
+}
+
+/* Remaining light hex surfaces */
+.dark .bg-\[\#f7f7f7\] {
+  background-color: var(--highrable-surface-muted);
+}
+.dark .bg-\[\#fff6ef\] {
+  background-color: var(--highrable-surface-accent);
+}
+.dark .hover\:bg-\[\#ffe8d8\]:hover {
+  background-color: rgb(255 112 3 / 18%);
+}
+.dark .hover\:bg-\[\#f7fff9\]\/40:hover {
+  background-color: color-mix(in oklab, var(--color-emerald-500) 8%, transparent);
+}
+
+/* Chips sitting on a solid mode fill (orange/yellow stays bright in dark mode) need an opaque
+   base, or the fill shows through their translucent tint and their light text disappears. */
+.dark
+  :is(.hr-mode-band, .hr-mode-fill)
+  :is(
+    .bg-emerald-50,
+    .bg-emerald-100,
+    .bg-amber-50,
+    .bg-amber-100,
+    .bg-sky-50,
+    .bg-sky-100,
+    .bg-red-50,
+    .bg-red-100
+  ) {
+  background-color: rgb(23 23 23 / 82%);
+}
+
 /* Dark text shades on tints become light shades */
 .dark .text-red-600 {
   color: var(--color-red-400);

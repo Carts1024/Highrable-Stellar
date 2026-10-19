@@ -5,10 +5,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/ui/dropdown-menu";
-import { Check, Copy, Coins, LogOut, MoreVertical, RefreshCw, Wallet } from "lucide-react";
+import { Check, Copy, Coins, MoreVertical, RefreshCw, Wallet } from "lucide-react";
 import { useState } from "react";
 
 /** Splits the address into groups of four so it reads like a card number. */
@@ -17,13 +16,7 @@ function formatAddressGroups(address: string): string {
 }
 
 export function WalletStatusCard() {
-  const {
-    walletState,
-    disconnectWallet,
-    refreshWalletState,
-    checkFundingStatus,
-    fundTestnetAccount,
-  } = useWallet();
+  const { walletState, refreshWalletState, checkFundingStatus, fundTestnetAccount } = useWallet();
   const [copied, setCopied] = useState(false);
 
   if (!walletState.isConnected) {
@@ -46,7 +39,7 @@ export function WalletStatusCard() {
     <section className="w-full">
       {/* The wallet, drawn as a card */}
       <div
-        className="relative h-full w-full overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6"
+        className="hr-mode-fill relative h-full w-full overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6"
         style={{
           backgroundImage: "var(--mode-gradient)",
           color: "var(--mode-on, #fff)",
@@ -102,11 +95,6 @@ export function WalletStatusCard() {
                       {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => void disconnectWallet()}>
-                    <LogOut className="h-4 w-4" aria-hidden="true" />
-                    Disconnect
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
