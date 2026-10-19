@@ -5,10 +5,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@repo/ui/components/ui/dropdown-menu";
-import { Check, Copy, Coins, LogOut, MoreVertical, RefreshCw, Wallet } from "lucide-react";
+import { Check, Copy, Coins, MoreVertical, RefreshCw, Wallet } from "lucide-react";
 import { useState } from "react";
 
 /** Splits the address into groups of four so it reads like a card number. */
@@ -19,7 +18,6 @@ function formatAddressGroups(address: string): string {
 export function WalletStatusCard() {
   const {
     walletState,
-    disconnectWallet,
     refreshWalletState,
     checkFundingStatus,
     fundTestnetAccount,
@@ -102,11 +100,6 @@ export function WalletStatusCard() {
                       {walletState.isFundingWithFriendbot ? "Funding..." : "Fund Testnet Account"}
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={() => void disconnectWallet()}>
-                    <LogOut className="h-4 w-4" aria-hidden="true" />
-                    Disconnect
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

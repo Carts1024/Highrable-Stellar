@@ -1,7 +1,8 @@
 "use client";
 
+import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { AppModeProvider, ModeBanner, useAppMode } from "@/features/mode";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { Footer } from "./footer";
@@ -42,8 +43,23 @@ function useScrollToTopOnNavigate(pathname: string) {
   }, [pathname]);
 }
 
+/** Sends the user to the home page whenever their wallet goes from connected to disconnected. */
+function useRedirectHomeOnDisconnect() {
+  const router = useRouter();
+  const { isConnected } = useHighrableWalletIdentity();
+  const wasConnected = useRef(isConnected);
+
+  useEffect(() => {
+    if (wasConnected.current && !isConnected) {
+      router.push("/");
+    }
+    wasConnected.current = isConnected;
+  }, [isConnected, router]);
+}
+
 function ShellFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  useRedirectHomeOnDisconnect();
   const { mode } = useAppMode();
   const isAdminRoute = isAdminPath(pathname);
   const activeMode = isAdminRoute ? "admin" : mode;
