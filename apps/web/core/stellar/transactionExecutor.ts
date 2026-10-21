@@ -28,6 +28,7 @@ export interface IExecuteHighrableContractCallParams {
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
   readonly signTransaction?: TSignedTransactionSubmitter;
+  readonly preSignCheck?: () => Promise<void>;
   readonly operationId?: string;
   readonly passkeyReadiness?: IPasskeyEscrowExecutionReadiness;
   readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
@@ -51,11 +52,14 @@ export async function executeHighrableContractCall(
       method: params.method,
       args: [...params.args],
       signTransaction: params.signTransaction,
+      preSignCheck: params.preSignCheck,
       operationId: params.operationId,
       onSigned: params.onSigned,
       onPhase: params.onPhase,
     });
   }
+
+  await params.preSignCheck?.();
 
   const result = await executeWithPasskeySmartAccount({
     smartAccountAddress: params.walletAddress,

@@ -180,7 +180,14 @@ beforeEach(() => {
     },
   );
   runtime.fundEscrowOnChain.mockImplementation(
-    async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+    async ({
+      onPhase,
+      preSignCheck,
+    }: {
+      onPhase?: (phase: TStellarExecutionPhase) => void;
+      preSignCheck?: () => Promise<void>;
+    }) => {
+      await preSignCheck?.();
       onPhase?.("simulation");
       return { txHash };
     },

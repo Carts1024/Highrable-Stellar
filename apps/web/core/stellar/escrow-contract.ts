@@ -25,6 +25,7 @@ type TBaseEscrowCallParams = {
   escrowContractId: string;
   sourceAddress: string;
   signTransaction?: TSignedTransactionSubmitter;
+  preSignCheck?: () => Promise<void>;
   walletType?: TWalletExecutionMode;
   operationId?: string;
   passkeyReadiness?: IPasskeyEscrowExecutionReadiness;
@@ -114,6 +115,7 @@ async function executeEscrowContract(
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
     signTransaction: params.signTransaction,
+    preSignCheck: params.preSignCheck,
     operationId: params.operationId,
     passkeyReadiness: params.passkeyReadiness,
     onSigned: params.onSigned,
@@ -634,6 +636,7 @@ export async function fundEscrowOnChain(
     method: "fund_escrow",
     args: [addressScVal(params.client), u64ScVal(params.escrowId)],
     signTransaction: params.signTransaction,
+    preSignCheck: params.preSignCheck,
     onSigned: params.onSigned,
     walletType: params.walletType,
     operationId: params.operationId,

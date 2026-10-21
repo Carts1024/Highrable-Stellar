@@ -169,7 +169,14 @@ beforeEach(() => {
     },
   );
   runtime.fundEscrowOnChain.mockImplementation(
-    async ({ onPhase }: { onPhase?: (phase: TStellarExecutionPhase) => void }) => {
+    async ({
+      onPhase,
+      preSignCheck,
+    }: {
+      onPhase?: (phase: TStellarExecutionPhase) => void;
+      preSignCheck?: () => Promise<void>;
+    }) => {
+      await preSignCheck?.();
       onPhase?.("simulation");
       return { txHash };
     },
@@ -293,11 +300,34 @@ describe("useEscrowActions progress and execution guards", () => {
         walletType: "external_wallet",
         escrowId: "42",
         onPhase: expect.any(Function),
+        preSignCheck: expect.any(Function),
       }),
     );
+    expect(runtime.getTokenBalanceOnChain).toHaveBeenCalledOnce();
     expect(runtime.mutations.updateEscrowStatus).toHaveBeenCalledWith(
       expect.objectContaining({ escrowId: "42", status: "funded", txHash, txType: "fund_escrow" }),
     );
+  });
+
+  it("keeps insufficient-balance funding blocked before wallet signing", async () => {
+    runtime.getTokenBalanceOnChain.mockResolvedValueOnce(0n);
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.fundEscrowOnChain).toHaveBeenCalledOnce();
+    expect(runtime.mutations.updateEscrowStatus).not.toHaveBeenCalled();
+    expect(runtime.mutations.updateTransactionStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "failed" }),
+    );
+    expect(hook.result.current.error).toContain("You need more USDC");
   });
 
   it("forwards validated passkey readiness into standalone micro-gig funding", async () => {

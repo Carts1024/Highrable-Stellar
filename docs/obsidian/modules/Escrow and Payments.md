@@ -27,6 +27,7 @@ Core escrow lifecycle is implemented in both the Rust contract and web execution
 
 - Build Soroban calls using raw token units and 32-byte hashes.
 - Execute through external wallet or passkey smart account.
+- For standalone micro-gig and milestone funding, check the token balance before signing; external-wallet balance reads overlap with transaction preparation, and both checks must succeed before the wallet prompt.
 - For standalone micro-gig and milestone funding, reuse the feature-validated passkey readiness result only when its account, RPC, passphrase, verified WASM, relayer path, and fee-source scope still matches; mismatches trigger a fresh execution check.
 - Recover escrow IDs when a smart-account wrapper does not return the inner `u64`.
 - Store Convex escrow rows, operation tx hashes, job/milestone linkage, and sync metadata.

@@ -494,25 +494,27 @@ export function useMilestoneEscrowActions({
           throw new Error("Milestone escrow must be created before it can be funded.");
         }
 
-        const requiredBalance = parseEscrowAssetAmount(escrowAsset, milestone.amount);
-        const escrowTokenBalance = await getTokenBalanceOnChain({
-          rpcUrl: config.rpcUrl,
-          networkPassphrase: config.networkPassphrase,
-          tokenContractId: escrowAsset.tokenContractId,
-          sourceAddress:
-            activeWalletType === "passkey_smart_account"
-              ? getSmartAccountKit().deployerPublicKey
-              : activeWalletAddress!,
-          walletAddress: activeWalletAddress!,
-        });
+        const preSignCheck = async () => {
+          const requiredBalance = parseEscrowAssetAmount(escrowAsset, milestone.amount);
+          const escrowTokenBalance = await getTokenBalanceOnChain({
+            rpcUrl: config.rpcUrl,
+            networkPassphrase: config.networkPassphrase,
+            tokenContractId: escrowAsset.tokenContractId,
+            sourceAddress:
+              activeWalletType === "passkey_smart_account"
+                ? getSmartAccountKit().deployerPublicKey
+                : activeWalletAddress!,
+            walletAddress: activeWalletAddress!,
+          });
 
-        if (escrowTokenBalance < requiredBalance) {
-          throw new Error(
-            activeWalletType === "passkey_smart_account"
-              ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
-              : `You do not have enough ${escrowAsset.symbol} to fund this milestone.`,
-          );
-        }
+          if (escrowTokenBalance < requiredBalance) {
+            throw new Error(
+              activeWalletType === "passkey_smart_account"
+                ? `Your passkey smart account does not have enough ${escrowAsset.symbol}.`
+                : `You do not have enough ${escrowAsset.symbol} to fund this milestone.`,
+            );
+          }
+        };
 
         const result = await fundEscrowOnChain({
           rpcUrl: config.rpcUrl,
@@ -520,6 +522,7 @@ export function useMilestoneEscrowActions({
           escrowContractId: config.escrowContractId,
           sourceAddress: activeWalletAddress!,
           signTransaction,
+          preSignCheck,
           walletType: activeWalletType,
           operationId: clientRequestId,
           passkeyReadiness: passkeyReadiness ?? undefined,

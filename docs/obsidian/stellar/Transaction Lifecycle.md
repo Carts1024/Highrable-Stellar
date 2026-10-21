@@ -21,6 +21,8 @@ The shared path in `apps/web/core/stellar/transaction.ts` is:
 7. Poll for confirmation up to 18 attempts with a 1.5-second delay.
 8. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
 
+Standalone micro-gig and milestone funding also checks the token balance before wallet signing. For external wallets, that read-only balance preflight runs concurrently with source-account loading and transaction preparation; both the balance check and the `fund_escrow` simulation must pass before the signing prompt opens. Passkey funding retains its preflight-before-execution order.
+
 `simulateContractCall` is the read/preflight helper. `invokeContract` is the signed submission helper.
 
 ## Optional Velo-sponsored Testnet call
