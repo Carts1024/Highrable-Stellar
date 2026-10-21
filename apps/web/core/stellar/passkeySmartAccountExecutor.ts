@@ -57,6 +57,7 @@ export interface IPasskeySmartAccountExecutionParams {
   readonly args: readonly xdr.ScVal[];
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
+  readonly executionReadiness?: IPasskeyEscrowExecutionReadiness;
   readonly onPhase?: (phase: TStellarExecutionPhase) => void;
   readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
 }
@@ -82,6 +83,20 @@ export interface IPasskeyEscrowExecutionReadiness {
 const CONTRACT_ACCOUNT_PATTERN = /^C[A-Z2-7]{55}$/;
 const CLASSIC_ACCOUNT_PATTERN = /^G[A-Z2-7]{55}$/;
 const DEFAULT_CONTEXT_RULE_ID = 0;
+type TVerifiedPasskeyReadinessContext = {
+  readonly smartAccountAddress: string;
+  readonly rpcUrl: string;
+  readonly networkPassphrase: string;
+  readonly configuredWasmHash: string;
+  readonly verifiedWasmHash: string;
+  readonly usesRelayer: boolean;
+  readonly classicSourceAddress?: string;
+  readonly feePath: TPasskeyFeePath;
+};
+const verifiedPasskeyReadiness = new WeakMap<
+  IPasskeyEscrowExecutionReadiness,
+  TVerifiedPasskeyReadinessContext
+>();
 export const SMART_ACCOUNT_COMPATIBILITY_ERROR_MESSAGE = `Connected passkey smart account is not compatible with smart-account-kit ${SMART_ACCOUNT_KIT_VERSION}. Use NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH=${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app, clear the old local passkey session, then create a new passkey smart account.`;
 type TCallContractContextRuleType = Extract<ContextRuleType, { tag: "CallContract" }>;
 type TCreateContractContextRuleType = Extract<ContextRuleType, { tag: "CreateContract" }>;
@@ -161,6 +176,68 @@ function createPasskeyExecutionReadiness(
     usesRelayer: input.feePath === "relayer",
     feeSourceAddress: input.classicSourceAddress ?? null,
   };
+}
+
+function bindPasskeyReadinessToExecution(
+  readiness: IPasskeyEscrowExecutionReadiness,
+  config: NonNullable<ReturnType<typeof getSmartAccountConfig>>,
+  smartAccountAddress: string,
+  verifiedWasmHash: string,
+): IPasskeyEscrowExecutionReadiness {
+  const boundReadiness = {
+    ...readiness,
+  };
+  verifiedPasskeyReadiness.set(boundReadiness, {
+    smartAccountAddress,
+    rpcUrl: config.rpcUrl,
+    networkPassphrase: config.networkPassphrase,
+    configuredWasmHash: normalizeWasmHash(config.accountWasmHash),
+    verifiedWasmHash: normalizeWasmHash(verifiedWasmHash),
+    usesRelayer: readiness.usesRelayer,
+    classicSourceAddress: readiness.classicSourceAddress,
+    feePath: readiness.feePath,
+  });
+  return boundReadiness;
+}
+
+function readinessMatchesExecution(
+  readiness: IPasskeyEscrowExecutionReadiness | undefined,
+  params: IPasskeySmartAccountExecutionParams,
+  smartAccountAddress: string,
+  kit: ReturnType<typeof getSmartAccountKit>,
+): readiness is IPasskeyEscrowExecutionReadiness {
+  const context = readiness ? verifiedPasskeyReadiness.get(readiness) : undefined;
+  const config = getSmartAccountConfig();
+  const classicSourceAddress = CLASSIC_ACCOUNT_PATTERN.test(kit.deployerPublicKey)
+    ? kit.deployerPublicKey
+    : undefined;
+  const hasRelayer = Boolean(config?.relayerUrl) || kit.relayer !== null;
+  const feePath = hasRelayer
+    ? "relayer"
+    : classicSourceAddress
+      ? "classic_source_account"
+      : "missing";
+
+  return Boolean(
+    readiness?.canExecute &&
+    context &&
+    config &&
+    kit.isConnected &&
+    kit.contractId === smartAccountAddress &&
+    context.smartAccountAddress === smartAccountAddress &&
+    context.rpcUrl === params.rpcUrl &&
+    context.networkPassphrase === params.networkPassphrase &&
+    context.configuredWasmHash === normalizeWasmHash(config.accountWasmHash) &&
+    context.verifiedWasmHash === context.configuredWasmHash &&
+    context.usesRelayer === hasRelayer &&
+    context.classicSourceAddress === classicSourceAddress &&
+    context.feePath === feePath &&
+    readiness.usesRelayer === context.usesRelayer &&
+    readiness.classicSourceAddress === context.classicSourceAddress &&
+    readiness.feePath === context.feePath &&
+    config.rpcUrl === params.rpcUrl &&
+    config.networkPassphrase === params.networkPassphrase,
+  );
 }
 
 function toReadablePasskeyError(error: unknown): string {
@@ -1367,18 +1444,23 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
             "Mainnet passkey escrow is blocked until readiness issues are resolved.",
         ];
 
-    return createPasskeyExecutionReadiness({
-      canExecute: canExecute && relayerMissingReasons.length === 0,
-      network: readiness.network,
-      hasRelayer: true,
-      ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
-      hasClassicSourceAccount: Boolean(classicSourceAddress),
-      ...(classicSourceAddress ? { classicSourceAddress } : {}),
-      classicSourceIsFunded: false,
-      feePath: "relayer",
-      missingReasons: relayerMissingReasons,
-      warnings: readiness.warnings,
-    });
+    return bindPasskeyReadinessToExecution(
+      createPasskeyExecutionReadiness({
+        canExecute: canExecute && relayerMissingReasons.length === 0,
+        network: readiness.network,
+        hasRelayer: true,
+        ...(config.relayerUrl ? { relayerUrl: config.relayerUrl } : {}),
+        hasClassicSourceAccount: Boolean(classicSourceAddress),
+        ...(classicSourceAddress ? { classicSourceAddress } : {}),
+        classicSourceIsFunded: false,
+        feePath: "relayer",
+        missingReasons: relayerMissingReasons,
+        warnings: readiness.warnings,
+      }),
+      config,
+      kit.contractId ?? "",
+      connectedAccountWasmHash ?? "",
+    );
   }
 
   if (!classicSourceAddress) {
@@ -1415,17 +1497,22 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
           ]
         : missingReasons;
 
-    return createPasskeyExecutionReadiness({
-      canExecute: readinessMissingReasons.length === 0,
-      network: readiness.network,
-      hasRelayer: false,
-      hasClassicSourceAccount: true,
-      classicSourceAddress,
-      classicSourceIsFunded: true,
-      feePath: readinessMissingReasons.length === 0 ? "classic_source_account" : "missing",
-      missingReasons: readinessMissingReasons,
-      warnings: readiness.warnings,
-    });
+    return bindPasskeyReadinessToExecution(
+      createPasskeyExecutionReadiness({
+        canExecute: readinessMissingReasons.length === 0,
+        network: readiness.network,
+        hasRelayer: false,
+        hasClassicSourceAccount: true,
+        classicSourceAddress,
+        classicSourceIsFunded: true,
+        feePath: readinessMissingReasons.length === 0 ? "classic_source_account" : "missing",
+        missingReasons: readinessMissingReasons,
+        warnings: readiness.warnings,
+      }),
+      config,
+      kit.contractId ?? "",
+      connectedAccountWasmHash ?? "",
+    );
   } catch {
     const readiness = evaluateSmartAccountMainnetReadiness({
       connectedAccountAddress: kit.contractId,
@@ -1480,7 +1567,14 @@ export async function executeWithPasskeySmartAccount(
   let submissionIdentity: TStellarSubmissionIdentity | undefined;
   let submissionAttempted = false;
   try {
-    const readiness = await getPasskeyEscrowExecutionReadiness();
+    const readiness = readinessMatchesExecution(
+      params.executionReadiness,
+      params,
+      smartAccountAddress,
+      kit,
+    )
+      ? params.executionReadiness
+      : await getPasskeyEscrowExecutionReadiness();
     if (!readiness.canExecute) {
       throw new Error(
         readiness.reason ??

@@ -108,7 +108,10 @@ export async function POST(
         operationId: attempt.operationId,
         errorMessage: "No signed transaction was persisted, so no settlement was submitted.",
       });
-      return NextResponse.json({ status: "failed", result }, { status: 200 });
+      return NextResponse.json(
+        { status: "failed", result, failureKind: "not_submitted" },
+        { status: 200 },
+      );
     }
     if (!attempt.transactionHash || attempt.transactionValidUntil === undefined) {
       return NextResponse.json(

@@ -194,6 +194,9 @@ function getOutcomeMessage(outcome: TAdminResolutionOutcomeResponse): string {
   if (outcome.status === "pending") {
     return "Settlement is unresolved. Reconcile the saved transaction before trying again.";
   }
+  if (outcome.failureKind === "not_submitted") {
+    return "No Stellar transaction was submitted. The unfinished attempt is closed, and you can start a new settlement now.";
+  }
   return "Settlement failed on Stellar and was recorded as failed. A new settlement can be started after refresh.";
 }
 

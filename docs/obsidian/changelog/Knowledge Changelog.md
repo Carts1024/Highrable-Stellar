@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-19
+last_updated: 2026-10-21
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-21
+
+- Distinguished stale unsigned administrator settlement recovery from an on-chain transaction failure. A `started` attempt without a persisted transaction hash is closed as `not_submitted`, the UI explains that no transaction was sent, and the refreshed dispute allows a new operation. Signed attempts retain saved-hash verification and are never resubmitted. See [[modules/Disputes and Cancellations]].
 
 ## 2026-10-19
 

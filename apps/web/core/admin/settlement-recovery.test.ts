@@ -262,6 +262,40 @@ describe("C19 recovery route with real chain verification and mocked RPC", () =>
     );
   });
 
+  it("closes an unsigned attempt as not submitted without reading Stellar", async () => {
+    query.mockResolvedValueOnce({
+      disputeId: "dispute-1",
+      operationId: "operation-1",
+      actorWallet: actor,
+      transactionHash: undefined,
+      transactionValidUntil: undefined,
+      onChainEscrowId: "42",
+      freelancerShareBps: 5000,
+      network: "testnet",
+      contractId: contract,
+      status: "started",
+    });
+
+    const response = await recover();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: "failed",
+      result: true,
+      failureKind: "not_submitted",
+    });
+    expect(mutation).toHaveBeenCalledWith(
+      "failed",
+      expect.objectContaining({
+        operationId: "operation-1",
+        errorMessage: "No signed transaction was persisted, so no settlement was submitted.",
+      }),
+    );
+    expect(rpc.Server.prototype.getTransaction).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.simulateTransaction).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it("rejects an attempt saved for a different case before verification or finalization", async () => {
     query.mockResolvedValueOnce({
       disputeId: "other-dispute",
