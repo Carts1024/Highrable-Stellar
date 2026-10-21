@@ -235,7 +235,11 @@ describe("useMilestoneEscrowActions", () => {
       }),
     );
     expect(runtime.fundEscrowOnChain).toHaveBeenCalledWith(
-      expect.objectContaining({ walletType: "passkey_smart_account", escrowId: "51" }),
+      expect.objectContaining({
+        walletType: "passkey_smart_account",
+        escrowId: "51",
+        passkeyReadiness: runtime.passkeyReadiness,
+      }),
     );
     expect(runtime.mutations.createTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ feePath: "relayer", walletType: "passkey_smart_account" }),

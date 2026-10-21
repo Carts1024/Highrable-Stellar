@@ -11,6 +11,11 @@ const runtime = vi.hoisted(() => ({
     isConnected: true,
     canSignEscrowTransactions: true,
   },
+  passkeyReadiness: {
+    canExecute: true,
+    feePath: "relayer",
+    classicSourceAddress: null,
+  },
   createEscrowOnChain: vi.fn(),
   fundEscrowOnChain: vi.fn(),
   getTokenBalanceOnChain: vi.fn(),
@@ -63,7 +68,7 @@ vi.mock("@/core/stellar/hashes", () => ({
   toBytesN32Hash: vi.fn(async () => new Uint8Array(32).fill(1)),
 }));
 vi.mock("@/core/stellar/passkeySmartAccountExecutor", () => ({
-  getPasskeyEscrowExecutionReadiness: vi.fn(),
+  getPasskeyEscrowExecutionReadiness: vi.fn(async () => runtime.passkeyReadiness),
 }));
 vi.mock("@/core/stellar/payment-assets", () => ({
   parseEscrowAssetAmount: vi.fn(() => 25_000_000n),
@@ -292,6 +297,35 @@ describe("useEscrowActions progress and execution guards", () => {
     );
     expect(runtime.mutations.updateEscrowStatus).toHaveBeenCalledWith(
       expect.objectContaining({ escrowId: "42", status: "funded", txHash, txType: "fund_escrow" }),
+    );
+  });
+
+  it("forwards validated passkey readiness into standalone micro-gig funding", async () => {
+    const passkeyAddress = "C" + "F".repeat(55);
+    runtime.activeWallet = passkeyAddress;
+    runtime.identity = {
+      walletAddress: passkeyAddress,
+      walletType: "passkey_smart_account",
+      isConnected: true,
+      canSignEscrowTransactions: true,
+    };
+    const escrow = {
+      _id: "escrows:1",
+      escrowId: "42",
+      status: "created",
+    } as unknown as TConvexDoc<"escrows">;
+    const hook = renderActions(escrow);
+
+    await act(async () => {
+      await hook.result.current.fundEscrow();
+    });
+
+    expect(runtime.fundEscrowOnChain).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletType: "passkey_smart_account",
+        escrowId: "42",
+        passkeyReadiness: runtime.passkeyReadiness,
+      }),
     );
   });
 

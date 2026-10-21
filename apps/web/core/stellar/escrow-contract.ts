@@ -1,5 +1,6 @@
 import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 
+import type { IPasskeyEscrowExecutionReadiness } from "./passkeySmartAccountExecutor";
 import type {
   TConfirmedContractTx,
   TStellarSubmissionIdentity,
@@ -26,6 +27,7 @@ type TBaseEscrowCallParams = {
   signTransaction?: TSignedTransactionSubmitter;
   walletType?: TWalletExecutionMode;
   operationId?: string;
+  passkeyReadiness?: IPasskeyEscrowExecutionReadiness;
   onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   onPhase?: (phase: TStellarExecutionPhase) => void;
   onRecovery?: () => void;
@@ -113,6 +115,7 @@ async function executeEscrowContract(
     networkPassphrase: params.networkPassphrase,
     signTransaction: params.signTransaction,
     operationId: params.operationId,
+    passkeyReadiness: params.passkeyReadiness,
     onSigned: params.onSigned,
     onPhase: params.onPhase,
   });

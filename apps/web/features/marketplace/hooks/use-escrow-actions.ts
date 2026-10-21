@@ -547,7 +547,7 @@ export function useEscrowActions({
   const fundEscrow = useCallback(async () => {
     return await runEscrowAction(
       "fund_escrow",
-      async ({ clientRequestId, config, escrowAsset, onPhase, onProgress }) => {
+      async ({ clientRequestId, config, escrowAsset, passkeyReadiness, onPhase, onProgress }) => {
         const escrowId = getEscrowIdOrThrow(escrow);
         if (escrow?.status !== "created") {
           throw new Error("Escrow must be created before it can be funded.");
@@ -572,6 +572,7 @@ export function useEscrowActions({
             signTransaction,
             walletType: activeWalletType,
             operationId: clientRequestId,
+            passkeyReadiness: passkeyReadiness ?? undefined,
             onPhase: (phase) => {
               executionPhase = phase;
               onPhase(phase);

@@ -158,4 +158,72 @@ describe("passkey escrow readiness", () => {
     expect(result.status).toBe("failed");
     expect(rpc.Server.prototype.getLedgerEntries).toHaveBeenCalledOnce();
   });
+
+  it("reuses readiness already verified for the same account and network", async () => {
+    const readiness = await getPasskeyEscrowExecutionReadiness();
+    vi.spyOn(stellarContract.AssembledTransaction, "buildWithOp").mockRejectedValue(
+      new Error("stop after executor readiness"),
+    );
+
+    const result = await executeWithPasskeySmartAccount({
+      smartAccountAddress,
+      actionLabel: "fund_escrow",
+      contractId,
+      method: "fund_escrow",
+      args: [],
+      rpcUrl: "https://rpc.example.test",
+      networkPassphrase: "Test SDF Network ; September 2015",
+      executionReadiness: readiness,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.errorMessage).toBe("stop after executor readiness");
+    expect(rpc.Server.prototype.getLedgerEntries).toHaveBeenCalledOnce();
+    expect(rpc.Server.prototype.getAccount).toHaveBeenCalledOnce();
+  });
+
+  it("rechecks readiness when the account differs from the validated context", async () => {
+    const readiness = await getPasskeyEscrowExecutionReadiness();
+    const otherSmartAccountAddress = StrKey.encodeContract(Buffer.alloc(32, 11));
+    const kit = runtime.getSmartAccountKit.mock.results[0]?.value as ReturnType<typeof createKit>;
+    kit.contractId = otherSmartAccountAddress;
+    vi.spyOn(stellarContract.AssembledTransaction, "buildWithOp").mockRejectedValue(
+      new Error("stop after executor readiness"),
+    );
+
+    const result = await executeWithPasskeySmartAccount({
+      smartAccountAddress: otherSmartAccountAddress,
+      actionLabel: "fund_escrow",
+      contractId,
+      method: "fund_escrow",
+      args: [],
+      rpcUrl: "https://rpc.example.test",
+      networkPassphrase: "Test SDF Network ; September 2015",
+      executionReadiness: readiness,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(rpc.Server.prototype.getLedgerEntries).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not reuse a copied readiness result", async () => {
+    const readiness = await getPasskeyEscrowExecutionReadiness();
+    vi.spyOn(stellarContract.AssembledTransaction, "buildWithOp").mockRejectedValue(
+      new Error("stop after executor readiness"),
+    );
+
+    const result = await executeWithPasskeySmartAccount({
+      smartAccountAddress,
+      actionLabel: "fund_escrow",
+      contractId,
+      method: "fund_escrow",
+      args: [],
+      rpcUrl: "https://rpc.example.test",
+      networkPassphrase: "Test SDF Network ; September 2015",
+      executionReadiness: { ...readiness },
+    });
+
+    expect(result.status).toBe("failed");
+    expect(rpc.Server.prototype.getLedgerEntries).toHaveBeenCalledTimes(2);
+  });
 });

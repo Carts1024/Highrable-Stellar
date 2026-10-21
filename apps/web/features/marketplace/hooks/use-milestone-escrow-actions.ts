@@ -488,7 +488,7 @@ export function useMilestoneEscrowActions({
   const fundEscrow = useCallback(async () => {
     return await runEscrowAction(
       "fund_escrow",
-      async ({ clientRequestId, config, escrowAsset, onPhase, onProgress }) => {
+      async ({ clientRequestId, config, escrowAsset, passkeyReadiness, onPhase, onProgress }) => {
         const escrowId = getEscrowIdOrThrow(escrow);
         if (escrow?.status !== "created") {
           throw new Error("Milestone escrow must be created before it can be funded.");
@@ -522,6 +522,7 @@ export function useMilestoneEscrowActions({
           signTransaction,
           walletType: activeWalletType,
           operationId: clientRequestId,
+          passkeyReadiness: passkeyReadiness ?? undefined,
           onPhase,
           client: job.clientWallet,
           escrowId,
