@@ -45,6 +45,10 @@ export function isAdminApiError(error: unknown): error is AdminApiError {
   return error instanceof AdminApiError;
 }
 
+export function isAdminApiRejection(error: unknown): error is AdminApiError {
+  return isAdminApiError(error) && error.status >= 400;
+}
+
 export function isAdminAccessError(error: unknown): error is AdminApiError {
   return isAdminApiError(error) && (error.status === 401 || error.status === 403);
 }

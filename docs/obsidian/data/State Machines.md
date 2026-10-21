@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-21
 source_of_truth: repository
 ---
 
@@ -85,9 +85,11 @@ Deliverable 3 C18 regression coverage verifies the saved-hash `not_marked` guard
 
 Settlement attempts are single-active per escrow and use `started → signed → submission_unknown → succeeded` or `failed` (with `submitted` retained for compatibility). A start requires an assigned, non-conflicted admin, a nonterminal dispute, and a disputed escrow. Resolution terms are exact integer basis points: client `0`, freelancer `10_000`, or split `1–9999`.
 
+Before persisting a new start, the admin server route reads the persisted dispute/escrow context and the exact scoped Soroban escrow. It requires matching network, contract, escrow ID, participants, and `Disputed` chain status. A mismatch returns a conflict without creating an attempt or transaction record; reconcile the chain state, and use a fresh authorized dispute mark only if the escrow remains eligible.
+
 | Callback | Required current state | Result |
 | --- | --- | --- |
-| started | assigned admin; nonterminal dispute; disputed escrow; no other active attempt | Persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
+| started | assigned admin; nonterminal dispute; disputed Convex and Soroban escrow; matching persisted scope and participants; no other active attempt | After server-side chain preflight, persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
 | signed | initiating assigned admin; active attempt | Persist one 64-hex hash and positive safe expiry; matching replay preserves phase/timestamps/errors, including `submission_unknown`; conflicting identity or failed attempt rejects. |
 | submission unknown | saved hash and expiry; active attempt | Keep attempt and transaction pending/locked; first uncertainty details win; duplicate callbacks and terminal attempts do not write. |
 | succeeded | saved hash and expiry; server-verified exact settlement | Atomically map dispute/escrow/parent/transaction to terminal state and emit existing audit/notification effects once; authorized matching replay is harmless. |

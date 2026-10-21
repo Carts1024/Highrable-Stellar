@@ -8,7 +8,7 @@ import {
   isPendingStellarTransactionError,
   normalizeStellarError,
 } from "@/core/stellar/transaction";
-import { postAdminResolution } from "@/features/admin/lib/admin-api";
+import { isAdminApiRejection, postAdminResolution } from "@/features/admin/lib/admin-api";
 import { resolveSettlementTerms } from "@/features/admin/lib/settlement-validation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -704,6 +704,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       // Never continue bookkeeping under a different wallet or case.
       if (!isCurrent()) {
         return;
+      }
+      // A received non-success response rejects the start before this route acknowledges
+      // an attempt. Transport errors and malformed success acknowledgments remain ambiguous.
+      if (isAdminApiRejection(nextError)) {
+        startRequestConfirmed = false;
       }
       params.handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);

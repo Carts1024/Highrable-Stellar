@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-21
 
+- Added a server-side settlement preflight that checks the assigned admin's saved escrow context against the configured network/contract and Soroban status before creating an attempt. State, identity, or participant mismatches now leave settlement records untouched; status recovery remains explicit. See [[data/State Machines]] and [[backend/Admin and Server Routes]].
 - Distinguished stale unsigned administrator settlement recovery from an on-chain transaction failure. A `started` attempt without a persisted transaction hash is closed as `not_submitted`, the UI explains that no transaction was sent, and the refreshed dispute allows a new operation. Signed attempts retain saved-hash verification and are never resubmitted. See [[modules/Disputes and Cancellations]].
 
 ## 2026-10-19

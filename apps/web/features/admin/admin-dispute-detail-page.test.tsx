@@ -1501,6 +1501,37 @@ describe("AdminDisputeDetailPage", () => {
     );
   });
 
+  it("shows a chain-state preflight failure without creating or failing a settlement attempt", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response(
+          {
+            error:
+              "Settlement requires on-chain escrow 42 to be Disputed; Stellar reports Funded. Reconcile the dispute state before retrying.",
+            details: { code: "settlement_preflight_failed", onChainStatus: "Funded" },
+          },
+          409,
+        ),
+      );
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(await screen.findByText(/Stellar reports Funded/)).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+    const settlementCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith("/resolve"),
+    );
+    expect(settlementCalls).toHaveLength(1);
+    expect(settlementCalls[0]?.[1]).toEqual(
+      expect.objectContaining({ body: expect.stringContaining('"phase":"started"') }),
+    );
+  });
+
   it("executes a new operation after failure bookkeeping succeeds", async () => {
     const detail = createActiveDetail({ dispute: { status: "under_review" } });
     const fetchMock = vi
