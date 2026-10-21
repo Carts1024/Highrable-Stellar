@@ -3,10 +3,7 @@
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { showSuccessToast } from "@/features/common";
 import { api } from "@repo/convex-client";
-import { Alert, AlertDescription } from "@repo/ui/components/ui/alert";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { useQuery } from "convex/react";
-import { Flag } from "lucide-react";
 import { useState } from "react";
 
 import type { TConvexId } from "@repo/convex-client";
@@ -24,20 +21,18 @@ export function ReportJobButton({ jobId }: IReportJobButtonProps) {
 
   return (
     <div className="space-y-2">
-      <AppButton
+      <button
         type="button"
-        variant="outline"
         onClick={() => setIsDialogOpen(true)}
-        className="gap-2 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="hr-text-secondary text-sm hover:text-destructive hover:underline"
       >
-        <Flag className="h-3.5 w-3.5" />
-        Report Suspicious Job
-      </AppButton>
+        Report this job
+      </button>
 
       {(reportCount ?? 0) >= 3 ? (
-        <Alert className="border-amber-200 bg-amber-50 text-amber-900" role="note">
-          <AlertDescription>This job has multiple reports. Proceed carefully.</AlertDescription>
-        </Alert>
+        <p role="note" className="text-sm text-amber-800">
+          This job has multiple reports. Proceed carefully.
+        </p>
       ) : null}
 
       <ReportJobDialog

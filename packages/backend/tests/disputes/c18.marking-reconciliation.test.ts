@@ -28,6 +28,10 @@ const RPC_CONFIG = {
   rpcUrl: "https://rpc.example.test",
   readSourceAccount: RPC_CLIENT,
 };
+const SYNC_SCOPE = {
+  expectedEscrowContractId: RPC_CONTRACT,
+  expectedNetworkPassphrase: "Test SDF Network ; September 2015",
+};
 
 type ParentType = "micro_gig" | "milestone";
 type WalletType = "external_wallet" | "passkey_smart_account";
@@ -519,7 +523,9 @@ describe("C18 participant marking recovery and reconciliation", () => {
       }
 
       const callbackBeforeSync = await readCallbackState(t, disputeId);
-      await expect(t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).resolves.toMatchObject({
+      await expect(
+        t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...SYNC_SCOPE }),
+      ).resolves.toMatchObject({
         ok: false,
         reason: "onchain_read_failed",
       });
@@ -533,7 +539,9 @@ describe("C18 participant marking recovery and reconciliation", () => {
       });
 
       const beforeSuccessfulSync = await readCallbackState(t, disputeId);
-      await expect(t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).resolves.toMatchObject({
+      await expect(
+        t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...SYNC_SCOPE }),
+      ).resolves.toMatchObject({
         ok: true,
         changed: true,
         newStatus: "disputed",
@@ -554,7 +562,9 @@ describe("C18 participant marking recovery and reconciliation", () => {
       }
 
       const beforeRepeatedSync = await readCallbackState(t, disputeId);
-      await expect(t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).resolves.toMatchObject({
+      await expect(
+        t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...SYNC_SCOPE }),
+      ).resolves.toMatchObject({
         ok: true,
         changed: false,
         reason: "already_up_to_date",

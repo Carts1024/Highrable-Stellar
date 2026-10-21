@@ -5,6 +5,7 @@ import {
   approveAndReleaseOnChain,
   cancelEscrowOnChain,
   createEscrowOnChain,
+  EscrowIdRecoveryError,
   fundEscrowOnChain,
   getTokenBalanceOnChain,
   markDisputedOnChain,
@@ -30,13 +31,15 @@ import {
   getEscrowActionGuard,
   type TEscrowActionGuardAction,
 } from "@/features/marketplace/lib/escrow-action-guards";
+import { mapStellarPhaseToMarketplaceProgress } from "@/features/marketplace/lib/escrow-progress";
 import { isSameWallet } from "@/features/marketplace/lib/wallet";
 import { api } from "@repo/convex-client";
-import { useMutation } from "convex/react";
-import { useCallback, useMemo, useState } from "react";
+import { useAction, useMutation } from "convex/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { IPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
-import type { TActorRole } from "@/features/marketplace/types";
+import type { TStellarExecutionPhase } from "@/core/stellar/transaction";
+import type { TActorRole, TMarketplaceEscrowProgress } from "@/features/marketplace/types";
 import type { TConvexDoc } from "@repo/convex-client";
 
 type TEscrowAction = TEscrowActionGuardAction;
@@ -46,6 +49,13 @@ type TEscrowActionState = {
   error: string | null;
   success: string | null;
   txHash: string | null;
+  progress: TMarketplaceEscrowProgress | null;
+};
+
+type TSyncEscrowStatusResult = {
+  readonly ok: boolean;
+  readonly newStatus?: string;
+  readonly reason?: string;
 };
 
 function detectRole(
@@ -87,6 +97,11 @@ function getEscrowIdOrThrow(escrow: TConvexDoc<"escrows"> | null | undefined): s
   }
 
   return escrow.escrowId;
+}
+
+function isInvalidEscrowStatusError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\bInvalidStatus\b|invalid status|Error\(Contract,\s*#6\)/i.test(message);
 }
 
 function requireRating(rating: number): void {
@@ -158,11 +173,14 @@ export function useEscrowActions({
   const createEscrowRecord = useMutation(api.escrows.createEscrowRecord);
   const updateEscrowStatus = useMutation(api.escrows.updateEscrowStatus);
   const createReputationRecord = useMutation(api.reputation.createReputationRecord);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const syncEscrowStatusAction = useAction((api as any).sync.syncEscrowStatus);
   const [state, setState] = useState<TEscrowActionState>({
     pendingAction: null,
     error: null,
     success: null,
     txHash: null,
+    progress: null,
   });
 
   const role = useMemo(
@@ -173,6 +191,27 @@ export function useEscrowActions({
   const txExplorerUrl = state.txHash ? getTxExplorerUrl(state.txHash) : null;
   const activeWalletAddress = walletIdentity.walletAddress;
   const activeWalletType = walletIdentity.walletType ?? "external_wallet";
+  const actionContextKey = `${job._id}:${activeWalletAddress ?? ""}:${walletIdentity.walletType ?? ""}:${walletIdentity.isConnected}:${walletIdentity.canSignEscrowTransactions}:${walletState.isTestnet}:${walletState.isFunded}:${walletState.canWriteContracts}`;
+  const actionContextRef = useRef(actionContextKey);
+  const mountedRef = useRef(false);
+  const activeActionRef = useRef(false);
+  const actionAttemptRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      actionAttemptRef.current += 1;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (actionContextRef.current !== actionContextKey) {
+      actionAttemptRef.current += 1;
+    }
+    actionContextRef.current = actionContextKey;
+    setState((current) => (current.progress ? { ...current, progress: null } : current));
+  }, [actionContextKey]);
 
   const validateBaseAction = useCallback(
     async (action: TEscrowAction) => {
@@ -278,18 +317,30 @@ export function useEscrowActions({
         config: ReturnType<typeof getRequiredEscrowActionConfig>;
         escrowAsset: TEscrowPaymentAsset;
         passkeyReadiness: IPasskeyEscrowExecutionReadiness | null;
+        onPhase: (phase: TStellarExecutionPhase) => void;
+        onRecovery: () => void;
+        onProgress: (progress: TMarketplaceEscrowProgress, txHash?: string) => void;
       }) => Promise<{ txHash: string; success: string }>,
     ): Promise<boolean> => {
-      if (state.pendingAction) {
+      if (activeActionRef.current) {
         return false;
       }
 
+      activeActionRef.current = true;
+      const actionAttempt = ++actionAttemptRef.current;
+      const actionContext = actionContextRef.current;
+      const isCurrentAction = () =>
+        mountedRef.current &&
+        actionAttemptRef.current === actionAttempt &&
+        actionContextRef.current === actionContext;
+      let confirmedTxHash: string | undefined;
       const clientRequestId = createClientRequestId(action, job._id);
       setState({
         pendingAction: action,
         error: null,
         success: null,
         txHash: null,
+        progress: "preparing",
       });
 
       try {
@@ -309,25 +360,69 @@ export function useEscrowActions({
           status: "pending",
         });
 
-        const result = await callback({ clientRequestId, config, escrowAsset, passkeyReadiness });
+        const result = await callback({
+          clientRequestId,
+          config,
+          escrowAsset,
+          passkeyReadiness,
+          onPhase: (phase) => {
+            if (isCurrentAction()) {
+              setState((current) => ({
+                ...current,
+                progress: mapStellarPhaseToMarketplaceProgress(phase),
+              }));
+            }
+          },
+          onRecovery: () => {
+            if (isCurrentAction()) {
+              setState((current) => ({ ...current, progress: "recovering_escrow_id" }));
+            }
+          },
+          onProgress: (progress, txHash) => {
+            if (progress === "recording" && txHash) {
+              confirmedTxHash = txHash;
+            }
+            if (isCurrentAction()) {
+              setState((current) => ({ ...current, progress }));
+            }
+          },
+        });
 
-        await updateTransactionStatus({
+        const updatedTransaction = await updateTransactionStatus({
           clientRequestId,
           txHash: result.txHash,
           transactionHash: result.txHash,
           status: "success",
         });
+        if (!updatedTransaction) {
+          throw new Error("The confirmed transaction history row could not be found.");
+        }
 
-        setState({
-          pendingAction: null,
-          error: null,
-          success: result.success,
-          txHash: result.txHash,
-        });
+        if (isCurrentAction()) {
+          setState({
+            pendingAction: null,
+            error: null,
+            success: result.success,
+            txHash: result.txHash,
+            progress: null,
+          });
+        } else if (mountedRef.current) {
+          setState((current) => ({ ...current, pendingAction: null, progress: null }));
+        }
 
         return true;
       } catch (error) {
-        const errorMessage = normalizeStellarError(error);
+        const confirmedRecovery = error instanceof EscrowIdRecoveryError && error.chainConfirmed;
+        const uncertainRecovery = error instanceof EscrowIdRecoveryError && !error.chainConfirmed;
+        if (confirmedRecovery) {
+          confirmedTxHash = error.txHash;
+        }
+        const normalizedError = normalizeStellarError(error);
+        const errorMessage = confirmedTxHash
+          ? `Stellar confirmed transaction ${confirmedTxHash}, but local escrow bookkeeping could not be completed. ${normalizedError}`
+          : uncertainRecovery
+            ? `Stellar has not confirmed transaction ${error.txHash}; escrow ID recovery could not establish its outcome. The transaction remains pending. Check its status before retrying. ${normalizedError}`
+            : normalizedError;
         const failedTxHash =
           typeof error === "object" &&
           error !== null &&
@@ -337,25 +432,43 @@ export function useEscrowActions({
             : undefined;
 
         try {
-          await updateTransactionStatus({
-            clientRequestId,
-            ...(failedTxHash ? { txHash: failedTxHash } : {}),
-            ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
-            status: isPendingStellarTransactionError(error) ? "pending" : "failed",
-            errorMessage,
-          });
+          if (confirmedTxHash) {
+            await updateTransactionStatus({
+              clientRequestId,
+              txHash: confirmedTxHash,
+              transactionHash: confirmedTxHash,
+              status: "success",
+              errorMessage,
+            });
+          } else {
+            await updateTransactionStatus({
+              clientRequestId,
+              ...(failedTxHash ? { txHash: failedTxHash } : {}),
+              ...(failedTxHash ? { transactionHash: failedTxHash } : {}),
+              status:
+                uncertainRecovery || isPendingStellarTransactionError(error) ? "pending" : "failed",
+              errorMessage,
+            });
+          }
         } catch {
           // The transaction row might not exist if validation failed before creation.
         }
 
-        setState({
-          pendingAction: null,
-          error: errorMessage,
-          success: null,
-          txHash: failedTxHash ?? null,
-        });
+        if (isCurrentAction()) {
+          setState({
+            pendingAction: null,
+            error: errorMessage,
+            success: null,
+            txHash: confirmedTxHash ?? failedTxHash ?? null,
+            progress: null,
+          });
+        } else if (mountedRef.current) {
+          setState((current) => ({ ...current, pendingAction: null, progress: null }));
+        }
 
         return false;
+      } finally {
+        activeActionRef.current = false;
       }
     },
     [
@@ -365,7 +478,6 @@ export function useEscrowActions({
       createTransaction,
       escrow?.escrowId,
       job._id,
-      state.pendingAction,
       updateTransactionStatus,
       validateBaseAction,
     ],
@@ -374,7 +486,7 @@ export function useEscrowActions({
   const createEscrow = useCallback(async () => {
     return await runEscrowAction(
       "create_escrow",
-      async ({ clientRequestId, config, escrowAsset }) => {
+      async ({ clientRequestId, config, escrowAsset, onPhase, onRecovery, onProgress }) => {
         if (job.status !== "selected" || escrow) {
           throw new Error("Escrow can only be created after a freelancer is selected.");
         }
@@ -395,6 +507,8 @@ export function useEscrowActions({
           signTransaction,
           walletType: activeWalletType,
           operationId: clientRequestId,
+          onPhase,
+          onRecovery,
           client: job.clientWallet,
           freelancer: job.selectedFreelancerWallet!,
           asset: escrowAsset.tokenContractId,
@@ -403,6 +517,7 @@ export function useEscrowActions({
           jobHash,
         });
 
+        onProgress("recording", result.txHash);
         await createEscrowRecord({
           jobId: job._id,
           escrowId: result.escrowId,
@@ -432,7 +547,7 @@ export function useEscrowActions({
   const fundEscrow = useCallback(async () => {
     return await runEscrowAction(
       "fund_escrow",
-      async ({ clientRequestId, config, escrowAsset }) => {
+      async ({ clientRequestId, config, escrowAsset, onPhase, onProgress }) => {
         const escrowId = getEscrowIdOrThrow(escrow);
         if (escrow?.status !== "created") {
           throw new Error("Escrow must be created before it can be funded.");
@@ -446,18 +561,68 @@ export function useEscrowActions({
           amount: job.budget,
         });
 
-        const result = await fundEscrowOnChain({
-          rpcUrl: config.rpcUrl,
-          networkPassphrase: config.networkPassphrase,
-          escrowContractId: config.escrowContractId,
-          sourceAddress: activeWalletAddress!,
-          signTransaction,
-          walletType: activeWalletType,
-          operationId: clientRequestId,
-          client: job.clientWallet,
-          escrowId,
-        });
+        let executionPhase: TStellarExecutionPhase | null = null;
+        let result: Awaited<ReturnType<typeof fundEscrowOnChain>>;
+        try {
+          result = await fundEscrowOnChain({
+            rpcUrl: config.rpcUrl,
+            networkPassphrase: config.networkPassphrase,
+            escrowContractId: config.escrowContractId,
+            sourceAddress: activeWalletAddress!,
+            signTransaction,
+            walletType: activeWalletType,
+            operationId: clientRequestId,
+            onPhase: (phase) => {
+              executionPhase = phase;
+              onPhase(phase);
+            },
+            client: job.clientWallet,
+            escrowId,
+          });
+        } catch (error) {
+          if (executionPhase !== "simulation" || !isInvalidEscrowStatusError(error)) {
+            throw error;
+          }
 
+          let syncResult: TSyncEscrowStatusResult | null = null;
+          try {
+            syncResult = (await syncEscrowStatusAction({
+              escrowId,
+              expectedEscrowContractId: config.escrowContractId,
+              expectedNetworkPassphrase: config.networkPassphrase,
+            })) as TSyncEscrowStatusResult;
+          } catch {
+            // Preserve the simulation failure if status reconciliation is unavailable.
+          }
+
+          if (syncResult?.newStatus && syncResult.newStatus !== "created") {
+            throw new Error(
+              `Funding was not submitted because the escrow is ${syncResult.newStatus} on Stellar. ${
+                syncResult.ok
+                  ? "Highrable refreshed the local escrow status."
+                  : "Highrable kept the current local status because it could not apply this chain update."
+              }`,
+            );
+          }
+
+          if (syncResult?.reason === "contract_config_mismatch") {
+            throw new Error(
+              "Stellar rejected funding with InvalidStatus. Highrable could not refresh the local record because its web and Convex contract/network configuration differ.",
+            );
+          }
+
+          if (syncResult?.ok && syncResult.newStatus === "created") {
+            throw new Error(
+              "Stellar rejected funding even though the latest escrow state is Created. No transaction was submitted; verify the configured escrow deployment before retrying.",
+            );
+          }
+
+          throw new Error(
+            "Stellar rejected funding with InvalidStatus, but Highrable could not verify the latest on-chain status. No transaction was submitted; check the escrow on Stellar before retrying.",
+          );
+        }
+
+        onProgress("recording", result.txHash);
         await updateEscrowStatus({
           escrowId,
           status: "funded",
@@ -479,41 +644,47 @@ export function useEscrowActions({
     job.clientWallet,
     runEscrowAction,
     signTransaction,
+    syncEscrowStatusAction,
     updateEscrowStatus,
   ]);
 
   const submitWork = useCallback(async () => {
-    return await runEscrowAction("submit_work", async ({ clientRequestId, config }) => {
-      const escrowId = getEscrowIdOrThrow(escrow);
-      if (escrow?.status !== "funded") {
-        throw new Error("Escrow must be funded before work can be submitted.");
-      }
+    return await runEscrowAction(
+      "submit_work",
+      async ({ clientRequestId, config, onPhase, onProgress }) => {
+        const escrowId = getEscrowIdOrThrow(escrow);
+        if (escrow?.status !== "funded") {
+          throw new Error("Escrow must be funded before work can be submitted.");
+        }
 
-      const result = await submitWorkOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress!,
-        signTransaction,
-        walletType: activeWalletType,
-        operationId: clientRequestId,
-        freelancer: job.selectedFreelancerWallet!,
-        escrowId,
-        proofHash: await toBytesN32Hash(`legacy-submit-work:${escrowId}:${job._id}`),
-      });
+        const result = await submitWorkOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          escrowContractId: config.escrowContractId,
+          sourceAddress: activeWalletAddress!,
+          signTransaction,
+          walletType: activeWalletType,
+          operationId: clientRequestId,
+          onPhase,
+          freelancer: job.selectedFreelancerWallet!,
+          escrowId,
+          proofHash: await toBytesN32Hash(`legacy-submit-work:${escrowId}:${job._id}`),
+        });
 
-      await updateEscrowStatus({
-        escrowId,
-        status: "submitted",
-        txHash: result.txHash,
-        txType: "submit_work",
-      });
+        onProgress("recording", result.txHash);
+        await updateEscrowStatus({
+          escrowId,
+          status: "submitted",
+          txHash: result.txHash,
+          txType: "submit_work",
+        });
 
-      return {
-        txHash: result.txHash,
-        success: "Work submitted on Stellar.",
-      };
-    });
+        return {
+          txHash: result.txHash,
+          success: "Work submitted on Stellar.",
+        };
+      },
+    );
   }, [
     activeWalletAddress,
     activeWalletType,
@@ -526,55 +697,60 @@ export function useEscrowActions({
 
   const approveAndRelease = useCallback(
     async ({ rating, reviewText }: { rating: number; reviewText: string }) => {
-      return await runEscrowAction("release_payment", async ({ clientRequestId, config }) => {
-        const escrowId = getEscrowIdOrThrow(escrow);
-        if (escrow?.status !== "submitted") {
-          throw new Error("Escrow must be submitted before payment can be released.");
-        }
+      return await runEscrowAction(
+        "release_payment",
+        async ({ clientRequestId, config, onPhase, onProgress }) => {
+          const escrowId = getEscrowIdOrThrow(escrow);
+          if (escrow?.status !== "submitted") {
+            throw new Error("Escrow must be submitted before payment can be released.");
+          }
 
-        requireRating(rating);
+          requireRating(rating);
 
-        const normalizedReviewText = reviewText.trim();
-        const reviewSource = normalizedReviewText || "Highrable MVP verified review";
-        const reviewHash = await toBytesN32Hash(reviewSource);
-        const result = await approveAndReleaseOnChain({
-          rpcUrl: config.rpcUrl,
-          networkPassphrase: config.networkPassphrase,
-          escrowContractId: config.escrowContractId,
-          sourceAddress: activeWalletAddress!,
-          signTransaction,
-          walletType: activeWalletType,
-          operationId: clientRequestId,
-          client: job.clientWallet,
-          escrowId,
-          rating,
-          reviewHash,
-        });
+          const normalizedReviewText = reviewText.trim();
+          const reviewSource = normalizedReviewText || "Highrable MVP verified review";
+          const reviewHash = await toBytesN32Hash(reviewSource);
+          const result = await approveAndReleaseOnChain({
+            rpcUrl: config.rpcUrl,
+            networkPassphrase: config.networkPassphrase,
+            escrowContractId: config.escrowContractId,
+            sourceAddress: activeWalletAddress!,
+            signTransaction,
+            walletType: activeWalletType,
+            operationId: clientRequestId,
+            onPhase,
+            client: job.clientWallet,
+            escrowId,
+            rating,
+            reviewHash,
+          });
 
-        await updateEscrowStatus({
-          escrowId,
-          status: "released",
-          txHash: result.txHash,
-          txType: "release_payment",
-        });
+          onProgress("recording", result.txHash);
+          await updateEscrowStatus({
+            escrowId,
+            status: "released",
+            txHash: result.txHash,
+            txType: "release_payment",
+          });
 
-        await createReputationRecord({
-          escrowId,
-          jobId: job._id,
-          clientWallet: job.clientWallet,
-          freelancerWallet: job.selectedFreelancerWallet!,
-          amount: job.budget,
-          rating,
-          ...(normalizedReviewText ? { reviewText: normalizedReviewText } : {}),
-          reviewHash: bytesToHex(reviewHash),
-          txHash: result.txHash,
-        });
+          await createReputationRecord({
+            escrowId,
+            jobId: job._id,
+            clientWallet: job.clientWallet,
+            freelancerWallet: job.selectedFreelancerWallet!,
+            amount: job.budget,
+            rating,
+            ...(normalizedReviewText ? { reviewText: normalizedReviewText } : {}),
+            reviewHash: bytesToHex(reviewHash),
+            txHash: result.txHash,
+          });
 
-        return {
-          txHash: result.txHash,
-          success: "Payment released and reputation recorded.",
-        };
-      });
+          return {
+            txHash: result.txHash,
+            success: "Payment released and reputation recorded.",
+          };
+        },
+      );
     },
     [
       activeWalletAddress,
@@ -592,36 +768,41 @@ export function useEscrowActions({
   );
 
   const cancelEscrow = useCallback(async () => {
-    return await runEscrowAction("cancel_escrow", async ({ clientRequestId, config }) => {
-      const escrowId = getEscrowIdOrThrow(escrow);
-      if (escrow?.status !== "created" && escrow?.status !== "funded") {
-        throw new Error("Escrow can only be cancelled before work is submitted.");
-      }
+    return await runEscrowAction(
+      "cancel_escrow",
+      async ({ clientRequestId, config, onPhase, onProgress }) => {
+        const escrowId = getEscrowIdOrThrow(escrow);
+        if (escrow?.status !== "created" && escrow?.status !== "funded") {
+          throw new Error("Escrow can only be cancelled before work is submitted.");
+        }
 
-      const result = await cancelEscrowOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress!,
-        signTransaction,
-        walletType: activeWalletType,
-        operationId: clientRequestId,
-        client: job.clientWallet,
-        escrowId,
-      });
+        const result = await cancelEscrowOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          escrowContractId: config.escrowContractId,
+          sourceAddress: activeWalletAddress!,
+          signTransaction,
+          walletType: activeWalletType,
+          operationId: clientRequestId,
+          onPhase,
+          client: job.clientWallet,
+          escrowId,
+        });
 
-      await updateEscrowStatus({
-        escrowId,
-        status: "cancelled",
-        txHash: result.txHash,
-        txType: "cancel_escrow",
-      });
+        onProgress("recording", result.txHash);
+        await updateEscrowStatus({
+          escrowId,
+          status: "cancelled",
+          txHash: result.txHash,
+          txType: "cancel_escrow",
+        });
 
-      return {
-        txHash: result.txHash,
-        success: "Escrow cancelled on Stellar.",
-      };
-    });
+        return {
+          txHash: result.txHash,
+          success: "Escrow cancelled on Stellar.",
+        };
+      },
+    );
   }, [
     activeWalletAddress,
     activeWalletType,
@@ -633,36 +814,41 @@ export function useEscrowActions({
   ]);
 
   const markDisputed = useCallback(async () => {
-    return await runEscrowAction("mark_disputed", async ({ clientRequestId, config }) => {
-      const escrowId = getEscrowIdOrThrow(escrow);
-      if (escrow?.status !== "funded" && escrow?.status !== "submitted") {
-        throw new Error("Escrow can only be disputed after funding and before release.");
-      }
+    return await runEscrowAction(
+      "mark_disputed",
+      async ({ clientRequestId, config, onPhase, onProgress }) => {
+        const escrowId = getEscrowIdOrThrow(escrow);
+        if (escrow?.status !== "funded" && escrow?.status !== "submitted") {
+          throw new Error("Escrow can only be disputed after funding and before release.");
+        }
 
-      const result = await markDisputedOnChain({
-        rpcUrl: config.rpcUrl,
-        networkPassphrase: config.networkPassphrase,
-        escrowContractId: config.escrowContractId,
-        sourceAddress: activeWalletAddress!,
-        signTransaction,
-        walletType: activeWalletType,
-        operationId: clientRequestId,
-        caller: activeWalletAddress!,
-        escrowId,
-      });
+        const result = await markDisputedOnChain({
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+          escrowContractId: config.escrowContractId,
+          sourceAddress: activeWalletAddress!,
+          signTransaction,
+          walletType: activeWalletType,
+          operationId: clientRequestId,
+          onPhase,
+          caller: activeWalletAddress!,
+          escrowId,
+        });
 
-      await updateEscrowStatus({
-        escrowId,
-        status: "disputed",
-        txHash: result.txHash,
-        txType: "mark_disputed",
-      });
+        onProgress("recording", result.txHash);
+        await updateEscrowStatus({
+          escrowId,
+          status: "disputed",
+          txHash: result.txHash,
+          txType: "mark_disputed",
+        });
 
-      return {
-        txHash: result.txHash,
-        success: "Escrow marked disputed on Stellar.",
-      };
-    });
+        return {
+          txHash: result.txHash,
+          success: "Escrow marked disputed on Stellar.",
+        };
+      },
+    );
   }, [
     activeWalletAddress,
     activeWalletType,

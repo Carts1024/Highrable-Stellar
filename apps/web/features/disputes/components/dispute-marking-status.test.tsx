@@ -78,7 +78,12 @@ vi.mock("@/core/stellar/transaction", () => ({
   normalizeStellarError: (error: Error) => error.message,
 }));
 vi.mock("@/features/attachments/components", () => ({ AttachmentList: () => null }));
-vi.mock("@/features/common", () => ({ showWarningToast: vi.fn() }));
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+  showWarningToast: vi.fn(),
+}));
 vi.mock("@/features/work-agreements/components", () => ({ AgreementReferenceCard: () => null }));
 vi.mock("./dispute-participant-actions", () => ({ DisputeParticipantActions: () => null }));
 vi.mock("./dispute-timeline", () => ({ ParticipantDisputeTimeline: () => null }));

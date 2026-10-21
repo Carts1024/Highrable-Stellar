@@ -2,7 +2,7 @@
 type: module
 area: escrow
 status: current
-last_updated: 2026-09-30
+last_updated: 2026-10-18
 source_of_truth: repository
 ---
 
@@ -57,7 +57,19 @@ create → fund → assign if open → submit work → approve/release
 funded/submitted → mark disputed → admin resolve with freelancer share bps
 ```
 
+### Micro-gig fund-now posting
+
+The external-wallet-only **fund now** option posts the job first, then calls `create_and_fund_open_escrow` once. It creates one `create_escrow` transaction-history row and operation ID; the confirmed funded escrow mirror stores the same confirmed transaction hash in `createTxHash` and `fundTxHash`. This path does not create two history rows for the shared hash. A rejected call leaves the posted job without a new escrow. An uncertain submission keeps its known hash pending and must not be resubmitted automatically. If Stellar confirms but escrow-ID recovery or Convex recording fails, transaction history retains the confirmed hash and the UI reports that local work needs recovery; chain submission is not repeated.
+
+Standalone micro-gig and milestone creation/funding remain available through their existing separate contract calls and bookkeeping flows. The fund-now atomic path retains its token balance check and stores the job and attachments before chain work.
+
+When a successful create call omits its escrow ID, recovery reads `get_next_escrow_id` and scans from the pre-submission ID boundary in ascending batches of at most four escrow reads. It checks client, freelancer, asset, raw amount, and job hash, then returns the lowest matching ID. Individual unreadable candidate records are skipped; an unreadable range or no match remains a recovery error with the submitted hash preserved. If the executor returned a hash but confirmation is uncertain, the history row stays pending and the user is told to check status before retrying.
+
 Release transfers the configured token from the escrow contract to the freelancer and calls reputation. Dispute settlement splits/refunds escrow funds but does not call reputation.
+
+### Funding status reconciliation
+
+`fund_escrow` accepts only an escrow whose on-chain status is `Created`. If Convex still says `created` but Soroban simulation returns `Error(Contract, #6)` (`InvalidStatus`), the marketplace hook reads the on-chain status and lets the existing sync path update Convex only when the failure occurred during simulation. It does not retry funding or mark the escrow funded from the failed call. Convex compares the browser's expected escrow contract ID and network passphrase with its configured scope before reading RPC or applying a status update; a mismatch returns `contract_config_mismatch` without reconciliation writes. Align the web and Convex deployment configuration before using sync to reconcile this escrow.
 
 ## Soroban Dispute Events
 
@@ -74,6 +86,7 @@ Contract behavior belongs in Rust first. Frontend call arguments/fee paths belon
 - Convex status updates are not the same as chain confirmation; retain tx hashes and sync metadata.
 - `resolve_dispute` accepts `_resolution_hash` and emits it in the resolution event, but does not store it.
 - Existing deployments lack C16 event emission; reputation events also remain absent.
+- The atomic frontend path requires the configured deployed contract to expose `create_and_fund_open_escrow`; local source/tests do not verify deployed availability. Check the configured target read-only before release. The application intentionally has no two-transaction fallback.
 
 ## Related Notes
 

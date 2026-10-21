@@ -1,14 +1,20 @@
 "use client";
 
-import { RouteEmptyState } from "@/features/common";
+import { RouteEmptyState, SectionHeading } from "@/features/common";
+import {
+  LoadMoreButton,
+  WorkList,
+  WorkListRow,
+  WorkListSkeleton,
+  WorkMeta,
+} from "@/features/common/components/work-list";
 import { StatusPill } from "@/features/dashboard/components/status-pill";
 import { useClientPostedJobs } from "@/features/dashboard/hooks/use-client-posted-jobs";
 import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
 import { DeadlineBadge } from "@/features/deadlines";
 import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
-import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { Briefcase, Plus, User, Users } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
@@ -19,93 +25,38 @@ export function PostedJobsSection() {
     useClientPostedJobs();
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-            Posted Jobs
-          </p>
-          <h2 className="hr-text-primary font-sans text-lg font-semibold">Client work board</h2>
-          <p className="hr-text-secondary mt-1 font-sans text-sm">
-            Jobs you posted with applicant volume and current progress.
-          </p>
-        </div>
-        <AppButton
-          asChild
-          variant="outline"
-          className="h-9 gap-2 rounded-lg px-4 text-xs font-semibold"
-        >
-          <Link href="/post-job">
-            <Plus className="h-3.5 w-3.5" />
-            Post a Job
-          </Link>
-        </AppButton>
-      </div>
+    <section className="space-y-3">
+      <SectionHeading title="Posted jobs" />
 
       {isInitialLoading ? (
-        <div className="flex flex-col gap-4">
-          {[0, 1].map((i) => (
-            <div
-              key={i}
-              className="h-44 animate-pulse rounded-xl border border-border/60 bg-muted/30"
-            />
-          ))}
-        </div>
+        <WorkListSkeleton />
       ) : items.length === 0 ? (
         <RouteEmptyState
-          icon={<Briefcase className="h-10 w-10" />}
-          title="No posted jobs yet"
-          description="Post a job to start receiving applications from freelancers."
+          title="You have not posted a job yet"
+          description="Once you post a job, applications and payment progress show up here."
+          action={
+            <Link href="/post-job" className="hr-mode-text text-sm font-medium hover:underline">
+              Post your first job
+            </Link>
+          }
         />
       ) : (
-        <div className="flex flex-col gap-4">
+        <WorkList>
           {items.map((item) => (
-            <article
+            <WorkListRow
               key={item.jobId}
-              className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <StatusPill label={item.jobStatus} />
-                    {item.escrowStatus ? <StatusPill label={item.escrowStatus} /> : null}
-                  </div>
-                  <h3 className="hr-text-primary truncate text-lg font-bold transition-colors group-hover:text-highrable-orange-3">
-                    {item.title}
-                  </h3>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-sans text-lg leading-none font-bold tracking-tight text-highrable-orange-3">
-                    {formatAmount(item.budget)} {formatAsset(item.asset)}
-                  </p>
-                  <p className="mt-1 font-mono text-[10px] tracking-[0.08em] text-muted-foreground/60 uppercase">
-                    Budget
-                  </p>
-                </div>
-              </div>
-
-              <div className="-mx-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-                    Created
-                  </span>
-                  <span className="font-semibold text-foreground">
-                    {formatDate(item.createdAt)}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground/50" />
-                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-                    Applicants
-                  </span>
-                  <span className="font-semibold text-foreground">{item.applicationCount}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-                    Deadline
-                  </span>
+              href={`/marketplace/jobs/${item.jobId}`}
+              title={item.title}
+              amount={`${formatAmount(item.budget)} ${formatAsset(item.asset)}`}
+              status={
+                <>
+                  <StatusPill label={item.jobStatus} />
+                  {item.escrowStatus ? (
+                    <>
+                      <span className="hr-text-muted text-xs">Payment hold</span>
+                      <StatusPill label={item.escrowStatus} />
+                    </>
+                  ) : null}
                   <DeadlineBadge
                     deadlineAt={item.deadlineAt}
                     submittedAt={item.submittedAt}
@@ -115,47 +66,31 @@ export function PostedJobsSection() {
                     workStatus={item.jobStatus}
                     compact
                   />
-                </div>
-
-                {item.selectedFreelancerWallet ? (
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-                    <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-                      Selected
-                    </span>
-                    <span className="font-mono text-xs font-semibold text-foreground">
-                      {shortenWalletAddress(item.selectedFreelancerWallet)}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="flex justify-end">
-                <AppButton
-                  asChild
-                  variant="outline"
-                  className="h-9 rounded-lg px-4 text-xs font-semibold hover:bg-muted/60"
-                >
-                  <Link href={`/marketplace/jobs/${item.jobId}`}>Manage</Link>
-                </AppButton>
-              </div>
-            </article>
+                </>
+              }
+              meta={
+                <>
+                  <WorkMeta label="Applicants">{item.applicationCount}</WorkMeta>
+                  {item.selectedFreelancerWallet ? (
+                    <WorkMeta label="Hired">
+                      <span className="font-mono">
+                        {shortenWalletAddress(item.selectedFreelancerWallet)}
+                      </span>
+                    </WorkMeta>
+                  ) : null}
+                  <WorkMeta label="Posted">{formatDate(item.createdAt)}</WorkMeta>
+                </>
+              }
+            />
           ))}
-        </div>
+        </WorkList>
       )}
 
-      {(canLoadMore || isLoadingMore) && (
-        <div className="flex justify-end">
-          <AppButton
-            variant="outline"
-            onClick={() => loadMore(nextPageSize)}
-            disabled={!canLoadMore || isLoadingMore}
-            className="h-9 rounded-lg px-4 text-xs font-semibold"
-          >
-            {isLoadingMore ? "Loading..." : "Load more"}
-          </AppButton>
-        </div>
-      )}
+      <LoadMoreButton
+        canLoadMore={canLoadMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={() => loadMore(nextPageSize)}
+      />
     </section>
   );
 }
