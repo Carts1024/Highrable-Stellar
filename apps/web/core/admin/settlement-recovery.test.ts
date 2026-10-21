@@ -35,6 +35,7 @@ vi.mock("@/core/admin/server-api", () => ({
 vi.mock("@repo/convex-client/server", () => ({
   api: {
     admin: {
+      getAdminSettlementPreflight: "settlement-preflight",
       getSettlementAttemptByOperation: "attempt",
       recordDisputeResolutionStarted: "started",
       recordDisputeResolutionSigned: "signed",
@@ -91,6 +92,17 @@ function readArgs() {
   return { sourceAddress: actor, escrowId: "42", network: "testnet", contractId: contract };
 }
 
+function settlementPreflight() {
+  return {
+    network: "testnet",
+    contractId: contract,
+    onChainEscrowId: "42",
+    escrowStatus: "disputed",
+    clientWallet: client,
+    freelancerWallet: freelancer,
+  };
+}
+
 function reply(value: unknown) {
   return { result: { retval: nativeToScVal(value) } } as never;
 }
@@ -104,6 +116,21 @@ async function recover() {
     new NextRequest("http://localhost/api/admin/disputes/dispute-1/resolve", {
       method: "POST",
       body: JSON.stringify({ phase: "reconcile", operationId: "operation-1" }),
+    }),
+    { params: Promise.resolve({ disputeId: "dispute-1" }) },
+  );
+}
+
+async function startSettlement() {
+  return POST(
+    new NextRequest("http://localhost/api/admin/disputes/dispute-1/resolve", {
+      method: "POST",
+      body: JSON.stringify({
+        phase: "started",
+        status: "split_resolution",
+        freelancerShareBps: 5000,
+        operationId: "operation-1",
+      }),
     }),
     { params: Promise.resolve({ disputeId: "dispute-1" }) },
   );
@@ -238,6 +265,63 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
+  it("does not create a settlement attempt while the on-chain escrow is not disputed", async () => {
+    query.mockResolvedValueOnce(settlementPreflight());
+    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
+      reply(escrow(["Funded"])),
+    );
+
+    const response = await startSettlement();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "Settlement requires on-chain escrow 42 to be Disputed; Stellar reports Funded. Reconcile the dispute state before retrying.",
+      details: { code: "settlement_preflight_failed", onChainStatus: "Funded" },
+    });
+    expect(query).toHaveBeenCalledWith(
+      "settlement-preflight",
+      expect.objectContaining({ disputeId: "dispute-1", adminWallet: actor }),
+    );
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.getTransaction).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("starts settlement only after the scoped on-chain escrow and participants are verified", async () => {
+    query.mockResolvedValueOnce(settlementPreflight());
+    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
+      reply(escrow(["Disputed"])),
+    );
+
+    const response = await startSettlement();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ success: true, phase: "started" });
+    expect(mutation).toHaveBeenCalledWith(
+      "started",
+      expect.objectContaining({ disputeId: "dispute-1", operationId: "operation-1" }),
+    );
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects an escrow-ID collision whose on-chain participants differ from the saved dispute", async () => {
+    query.mockResolvedValueOnce(settlementPreflight());
+    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
+      reply({ ...escrow(["Disputed"]), client: freelancer, freelancer: client }),
+    );
+
+    const response = await startSettlement();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "On-chain escrow participants do not match the saved dispute.",
+      details: { code: "settlement_preflight_failed" },
+    });
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it("passes through the complete verified settlement result", async () => {
     const result = {
       status: "split_resolution",

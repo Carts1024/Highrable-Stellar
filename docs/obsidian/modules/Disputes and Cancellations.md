@@ -109,6 +109,7 @@ participant opens dispute
   → on-chain mark disputed (hashless retry only if not submitted; known hashes require reconciliation)
   → active admin claim or owner assignment
   → assigned admin review
+  → server preflight of scoped on-chain escrow status and participants before recording settlement start
   → persist signed transaction identity before submission
   → server verifies contract/escrow/actor/split and current escrow state
   → idempotent Convex settlement record and parent terminal-state patch
