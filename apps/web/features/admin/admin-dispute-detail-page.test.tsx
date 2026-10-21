@@ -1639,6 +1639,91 @@ describe("AdminDisputeDetailPage", () => {
     expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(2);
   });
 
+  it("reconciles a stale unsigned attempt as not submitted and lets the admin retry", async () => {
+    const operationId = "resolve_dispute:cancelled-wallet-attempt";
+    const transactionHash = "c".repeat(64);
+    const unsignedDetail = createActiveDetail({
+      dispute: { status: "under_review" },
+      settlementAttempts: [
+        {
+          _id: "settlement-attempt-1",
+          operationId,
+          actorWallet: adminWallet,
+          status: "started",
+          transactionHash: undefined,
+        },
+      ],
+    });
+    const failedDetail = createActiveDetail({
+      dispute: { status: "under_review" },
+      settlementAttempts: [
+        {
+          _id: "settlement-attempt-1",
+          operationId,
+          actorWallet: adminWallet,
+          status: "failed",
+          transactionHash: undefined,
+        },
+      ],
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(unsignedDetail))
+      .mockResolvedValueOnce(
+        response({ status: "failed", result: true, failureKind: "not_submitted" }),
+      )
+      .mockResolvedValueOnce(response(failedDetail))
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "started",
+          result: { operationId: "resolve_dispute:fresh-after-cancel", freelancerShareBps: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          success: true,
+          phase: "signed",
+          result: {
+            operationId: "resolve_dispute:fresh-after-cancel",
+            transactionHash,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response({
+          status: "succeeded",
+          result: successfulResolutionResult("resolved_client", 0, transactionHash),
+        }),
+      )
+      .mockResolvedValueOnce(response(resolvedDetail));
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+    runtime.stellar.resolveDisputeOnChain.mockImplementationOnce(
+      async (args: {
+        readonly onSigned: (value: {
+          readonly transactionHash: string;
+          readonly transactionValidUntil: number;
+        }) => Promise<void>;
+      }) => {
+        await args.onSigned({ transactionHash, transactionValidUntil: 123 });
+        return { txHash: transactionHash };
+      },
+    );
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Reconcile" }));
+
+    expect(await screen.findByText(/No Stellar transaction was submitted/)).toBeTruthy();
+    expect(screen.queryByText(/failed on Stellar/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resolve On-Chain" }));
+
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).toHaveBeenCalledTimes(1);
+  });
+
   it("permits a fresh chain attempt after a verified failed settlement outcome", async () => {
     const activeDetail = createActiveDetail({ dispute: { status: "under_review" } });
     const transactionHashOne = "1".repeat(64);

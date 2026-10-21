@@ -587,7 +587,9 @@ function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutc
   if (
     !isRecord(value) ||
     (value.status !== "pending" && value.status !== "succeeded" && value.status !== "failed") ||
-    !hasResult(value)
+    !hasResult(value) ||
+    (value.failureKind !== undefined &&
+      (value.status !== "failed" || value.failureKind !== "not_submitted"))
   ) {
     return false;
   }
