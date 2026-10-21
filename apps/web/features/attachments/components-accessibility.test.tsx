@@ -7,7 +7,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => ({ walletAddress: "GCLIENT", walletType: "external_wallet" }),
 }));
-vi.mock("@/features/common", () => ({ showWarningToast: vi.fn() }));
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+  showWarningToast: vi.fn(),
+}));
 vi.mock("@/features/attachments/protected-viewer", () => ({
   AttachmentProtectionBadge: () => null,
   ProtectedAttachmentDialog: () => null,

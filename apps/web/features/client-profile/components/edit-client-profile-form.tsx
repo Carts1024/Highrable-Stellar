@@ -84,7 +84,7 @@ export function EditClientProfileForm({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      className="space-y-4 rounded-2xl border border-[#e8e8e8] bg-white p-5 shadow-sm"
+      className="space-y-4 rounded-lg border border-[#e8e8e8] bg-white p-5"
     >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -140,7 +140,7 @@ export function EditClientProfileForm({
       </div>
 
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
           {error}
         </p>
       ) : null}

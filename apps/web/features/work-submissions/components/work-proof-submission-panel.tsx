@@ -21,16 +21,6 @@ import {
   normalizeSubmissionNotes,
 } from "@/features/work-submissions/lib/proof-hash";
 import { api } from "@repo/convex-client";
-import {
-  HighrableV2Bullet,
-  HighrableV2Metric,
-  SectionLabel,
-} from "@repo/ui/components/highrable/v2-marketing";
-import {
-  // V2_BUTTON_SECONDARY_CLASS,
-  // V2_PANEL_CLASS,
-  V2_THEME,
-} from "@repo/ui/components/highrable/v2-theme";
 import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/ui/popover";
@@ -46,18 +36,9 @@ import {
   ResponsiveDialogTrigger,
 } from "@repo/ui/responsive-dialog";
 import { useMutation, useQuery } from "convex/react";
-import {
-  ArrowUpRight,
-  Check,
-  Clock3,
-  Eye,
-  FileCheck2,
-  GitPullRequest,
-  Info,
-  RotateCcw,
-  Send,
-} from "lucide-react";
+import { ArrowUpRight, Check, Clock3, GitPullRequest, Info, RotateCcw, Send } from "lucide-react";
 import { useState } from "react";
+import React from "react";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
 import type { TConvexDoc, TConvexId } from "@repo/convex-client";
@@ -241,7 +222,7 @@ function WorkProofSubmissionDialogContent({
       throw new Error("Missing wallet identity.");
     }
     if (!submission.proofHash) {
-      throw new Error("Proof hash is missing.");
+      throw new Error("Proof receipt ID is missing.");
     }
 
     const config = getRequiredEscrowActionConfig();
@@ -317,7 +298,7 @@ function WorkProofSubmissionDialogContent({
       throw new Error(
         isPendingStellarTransactionError(error)
           ? "Proof anchoring is still pending. Use transaction recovery before retrying."
-          : "Proof metadata was saved, but on-chain anchoring failed. You can retry.",
+          : "Proof metadata was saved, but on the network anchoring failed. You can retry.",
       );
     }
   };
@@ -325,7 +306,7 @@ function WorkProofSubmissionDialogContent({
   const handleSubmit = async () => {
     setError(null);
     if (!escrow?.escrowId || !escrow.freelancerWallet) {
-      setWarning("This escrow is not ready for proof submission.");
+      setWarning("This payment hold is not ready for proof submission.");
       return;
     }
     if (!walletIdentity.walletAddress || !walletIdentity.walletType) {
@@ -336,7 +317,7 @@ function WorkProofSubmissionDialogContent({
       setWarning(
         isRevisionPolicyLoading
           ? "Revision policy is still loading."
-          : "Only the assigned freelancer can submit proof for this escrow.",
+          : "Only the assigned freelancer can submit proof for this payment hold.",
       );
       return;
     }
@@ -503,38 +484,32 @@ function WorkProofSubmissionDialogContent({
       : "Submit Proof";
 
   return (
-    <div className="space-y-10">
-      <section className="grid gap-8 border-b border-[#e8e8e8] pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-        <div className="space-y-5">
-          <SectionLabel>Project Delivery</SectionLabel>
-          <h1 className="text-3xl font-semibold tracking-tight text-[#0a0a0a]">
-            {milestone ? milestone.title : job.title}
-          </h1>
-          <p className={cn("max-w-2xl text-sm leading-6", V2_THEME.colors.textMuted)}>
-            Your files and notes are securely stored. Finalized work is verified on the Stellar
-            blockchain for trust and transparency.
-          </p>
+    <div className="space-y-8">
+      <dl className="hr-text-secondary flex flex-wrap gap-x-6 gap-y-1 border-b pb-4 text-sm">
+        <div className="flex gap-1.5">
+          <dt>Work</dt>
+          <dd className="hr-text-primary font-medium">{milestone ? milestone.title : job.title}</dd>
         </div>
-
-        <div className="grid gap-5 border-l border-[#e8e8e8] py-2">
-          <HighrableV2Metric
-            label="Revision policy"
-            value={formatRevisionPolicy(revisionPolicy ?? undefined)}
-          />
-          <HighrableV2Metric label="Submissions" value={submissions?.length ?? 0} />
-          {walletIdentity.walletType && (
-            <HighrableV2Metric
-              label="Wallet Type"
-              value={walletIdentity.walletType.replace(/_/g, " ")}
-            />
-          )}
+        <div className="flex gap-1.5">
+          <dt>Revisions</dt>
+          <dd className="hr-text-primary">{formatRevisionPolicy(revisionPolicy ?? undefined)}</dd>
         </div>
-      </section>
+        <div className="flex gap-1.5">
+          <dt>Submissions</dt>
+          <dd className="hr-text-primary hr-num">{submissions?.length ?? 0}</dd>
+        </div>
+        {walletIdentity.walletType ? (
+          <div className="flex gap-1.5">
+            <dt>Wallet</dt>
+            <dd className="hr-text-primary">{walletIdentity.walletType.replace(/_/g, " ")}</dd>
+          </div>
+        ) : null}
+      </dl>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3 border-b border-[#e8e8e8] pb-2">
           <div className="flex items-center gap-2">
-            <SectionLabel>Submission Action</SectionLabel>
+            <h3 className="hr-text-primary text-sm font-semibold">Submit work</h3>
             {walletIdentity.isConnected &&
               isSameWallet(
                 walletIdentity.walletAddress,
@@ -552,7 +527,7 @@ function WorkProofSubmissionDialogContent({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-80 rounded-none border-none bg-white p-4 text-sm shadow-xl"
+                    className="w-80 rounded-none border-none bg-white p-4 text-sm"
                     align="start"
                   >
                     <p className="leading-relaxed text-[#5f5f5f]">
@@ -570,7 +545,7 @@ function WorkProofSubmissionDialogContent({
                 </Popover>
               )}
           </div>
-          <span className="font-mono text-[10px] tracking-widest text-[#7f7f7f] uppercase">
+          <span className="text-xs text-[#7f7f7f]">
             {canSubmit ? "Freelancer Mode" : "Client Mode"}
           </span>
         </div>
@@ -606,7 +581,7 @@ function WorkProofSubmissionDialogContent({
                   ? "Summarize the revised work and what changed from the previous submission."
                   : "Summarize completed work, delivery notes, links, or acceptance details."
               }
-              className="min-h-32 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+              className="min-h-32 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-ring/30"
             />
             <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
               <AttachmentUploader
@@ -638,8 +613,10 @@ function WorkProofSubmissionDialogContent({
                       : "Submitting..."
                   : submitButtonLabel}
               </AppButton>
-              <div className="flex items-center gap-2 font-mono text-xs tracking-wider text-[#7f7f7f] uppercase">
-                <HighrableV2Bullet tone="muted" />
+              <div className="flex items-center gap-2 text-xs text-[#7f7f7f]">
+                <span aria-hidden="true" className="hr-text-muted">
+                  ·
+                </span>
                 {attachmentIds.length} attachment{attachmentIds.length === 1 ? "" : "s"} ready
               </div>
             </div>
@@ -647,7 +624,7 @@ function WorkProofSubmissionDialogContent({
         ) : null}
 
         {canAcceptPreview && (
-          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+          <div className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-accent/40">
             <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
@@ -684,8 +661,8 @@ function WorkProofSubmissionDialogContent({
                   Ready for Network Recording
                 </h4>
                 <p className="max-w-xl text-sm leading-relaxed text-[#5f5f5f]">
-                  Work has been accepted. Finalize the details on the blockchain to move the escrow
-                  to the next stage.
+                  Work has been accepted. Finalize the details on the blockchain to move the payment
+                  hold to the next milestone.
                 </p>
               </div>
               <AppButton
@@ -713,15 +690,15 @@ function WorkProofSubmissionDialogContent({
                 value={revisionReason}
                 disabled={requestingRevision}
                 onChange={(event) => setRevisionReason(event.target.value)}
-                placeholder="Short reason (e.g., Code Style, Missing Assets)"
-                className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-[#FF7003]/30"
+                placeholder="Short reason (e.g., Code Style, Missing Currencies)"
+                className="min-h-16 rounded-none border-[#e8e8e8] focus-visible:ring-ring/30"
               />
               <Textarea
                 value={requestedChanges}
                 disabled={requestingRevision}
                 onChange={(event) => setRequestedChanges(event.target.value)}
                 placeholder="Detailed change requests..."
-                className="min-h-28 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
+                className="min-h-28 rounded-none border-[#e8e8e8] bg-white focus-visible:ring-ring/30"
               />
             </div>
             <div className="border border-[#e8e8e8] bg-[#fafafa] p-4">
@@ -755,13 +732,8 @@ function WorkProofSubmissionDialogContent({
         </div>
       ) : null}
 
-      <section className="space-y-6 border-t border-[#e8e8e8] pt-10">
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-1">
-            <SectionLabel>Delivery Details</SectionLabel>
-            <h2 className="text-xl font-semibold text-[#0a0a0a]">Submission Feed</h2>
-          </div>
-        </div>
+      <section className="space-y-4 border-t pt-6">
+        <h3 className="hr-text-primary text-sm font-semibold">Submissions</h3>
 
         {canViewProof && submissions === undefined ? (
           <div className="grid gap-4">
@@ -771,10 +743,10 @@ function WorkProofSubmissionDialogContent({
           </div>
         ) : latestSubmission ? (
           <div className="space-y-8">
-            <article className="group border border-[#e8e8e8] bg-white p-6 transition-colors hover:bg-[#fff7ed]/40">
+            <article className="rounded-lg border bg-white p-4 sm:p-5">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-[#e8e8e8] pb-4">
                 <div className="flex items-center gap-3">
-                  <Badge className="rounded-none bg-[#0a0a0a] px-3 py-1 text-[10px] font-bold tracking-widest text-white uppercase">
+                  <Badge variant="secondary" className="rounded-md px-2 py-0.5 text-xs font-medium">
                     {getStatusLabel(latestSubmission.status)}
                   </Badge>
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
@@ -790,7 +762,7 @@ function WorkProofSubmissionDialogContent({
                       size="sm"
                       disabled={pending}
                       onClick={() => void handleRetry(latestSubmission)}
-                      className="gap-2 rounded-none border-[#e8e8e8] hover:bg-[#0a0a0a] hover:text-white"
+                      className="gap-2 rounded-none border-[#e8e8e8] hover:bg-accent hover:text-accent-foreground"
                     >
                       <RotateCcw className="h-3 w-3" />
                       Retry network recording
@@ -809,20 +781,24 @@ function WorkProofSubmissionDialogContent({
                   <AttachmentList attachments={latestSubmission.attachments ?? []} readOnly />
                 </div>
 
-                <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2 font-mono text-xs font-medium tracking-wider text-[#7f7f7f] uppercase">
+                <div className="flex flex-wrap gap-x-8 gap-y-3 pt-2 text-xs font-medium text-[#7f7f7f]">
                   <span className="inline-flex items-center gap-2">
-                    <HighrableV2Bullet tone="muted" />
+                    <span aria-hidden="true" className="hr-text-muted">
+                      ·
+                    </span>
                     Status: {latestSubmission.deadlineStatus?.replace(/_/g, " ") ?? "Unknown"}
                   </span>
                   <span className="inline-flex items-center gap-2">
-                    <HighrableV2Bullet tone="muted" />
+                    <span aria-hidden="true" className="hr-text-muted">
+                      ·
+                    </span>
                     Verify:{" "}
                     {latestSubmission.stellarExpertUrl ? (
                       <a
                         href={latestSubmission.stellarExpertUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#FF7003] hover:underline"
+                        className="hr-mode-text hover:underline"
                       >
                         Stellar Explorer
                         <ArrowUpRight className="ml-0.5 inline h-3 w-3" />
@@ -843,7 +819,7 @@ function WorkProofSubmissionDialogContent({
 
             {revisionTimeline && revisionTimeline.length > 0 && (
               <div className="space-y-4">
-                <SectionLabel>History & Revisions</SectionLabel>
+                <p className="hr-text-muted text-xs">History & Revisions</p>
                 <div className="border-y border-[#e8e8e8]">
                   {revisionTimeline.map((event) => (
                     <div
@@ -855,7 +831,7 @@ function WorkProofSubmissionDialogContent({
                           <div className="flex items-center gap-2">
                             <Badge
                               variant="secondary"
-                              className="rounded-none border-[#e8e8e8] text-[10px] font-bold tracking-widest uppercase"
+                              className="rounded-none border-[#e8e8e8] text-[10px] font-semibold tracking-widest uppercase"
                             >
                               {event.kind === "submission"
                                 ? event.submission?.revisionRequestId
@@ -870,7 +846,7 @@ function WorkProofSubmissionDialogContent({
                         </div>
                         {event.kind !== "submission" && (
                           <div className="space-y-2">
-                            <h5 className="text-sm font-bold text-[#0a0a0a]">
+                            <h5 className="text-sm font-semibold text-[#0a0a0a]">
                               Revision #{event.revision?.revisionNumber}
                             </h5>
                             <p className="text-sm leading-relaxed text-[#5f5f5f]">
@@ -985,21 +961,17 @@ export function WorkProofSubmissionPanel({
   const isReleased = escrow?.status === "released" || job.status === "completed";
 
   return (
-    <section
-      className="space-y-3 rounded-lg border border-border/80 bg-muted/50 p-5 sm:p-6"
-      aria-label="Work submission"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0 space-y-2">
+    <section className="rounded-lg border p-4" aria-label="Work submission">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <FileCheck2 className="h-4 w-4 text-highrable-orange-2" aria-hidden="true" />
-            <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+            <h2 className="hr-text-primary font-sans text-sm font-medium">
               {isReleased ? "Final Work" : "Work Submission"}
             </h2>
             {latestSubmission ? (
-              <Badge variant="secondary" className="text-[10px] tracking-wider uppercase">
-                {getStatusLabel(latestSubmission.status)}
-              </Badge>
+              <span className="hr-text-secondary text-xs">
+                · {getStatusLabel(latestSubmission.status)}
+              </span>
             ) : null}
           </div>
           <p className="hr-text-secondary font-sans text-sm">{summary}</p>
@@ -1011,10 +983,9 @@ export function WorkProofSubmissionPanel({
               type="button"
               variant="outline"
               disabled={!escrow?.escrowId || !walletIdentity.isConnected}
-              className="shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-9 shrink-0 self-start rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
               aria-label={buttonLabel}
             >
-              <Eye className="h-4 w-4" />
               {buttonLabel}
             </AppButton>
           </ResponsiveDialogTrigger>

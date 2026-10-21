@@ -26,16 +26,33 @@ function buildStorageKey(address: string): string {
   return `${DASHBOARD_MODE_STORAGE_PREFIX}:${address.trim().toUpperCase()}`;
 }
 
+/** Reads the mode last chosen for this wallet, or null when none was saved. */
+export function readStoredDashboardMode(address: string): TDashboardMode | null {
+  try {
+    return sanitizeDashboardMode(window.localStorage.getItem(buildStorageKey(address)));
+  } catch {
+    return null;
+  }
+}
+
+/** The mode a wallet opens in: its last choice, else its role's default. */
+export function resolveDashboardMode(address: string, role: TDashboardRole | null): TDashboardMode {
+  return readStoredDashboardMode(address) ?? resolveFallbackMode(role);
+}
+
 interface IUseDashboardModeArgs {
   readonly role: TDashboardRole | null;
   readonly address: string | null;
   readonly isConnected: boolean;
+  /** A mode the visitor asked for (e.g. from a link). Wins over the stored choice and is saved. */
+  readonly preferredMode?: TDashboardMode | null;
 }
 
 export function useDashboardMode({
   role,
   address,
   isConnected,
+  preferredMode = null,
 }: IUseDashboardModeArgs): IDashboardModeState {
   const fallbackMode = useMemo(() => resolveFallbackMode(role), [role]);
   const [selectedMode, setSelectedModeState] = useState<TDashboardMode>(fallbackMode);
@@ -51,21 +68,21 @@ export function useDashboardMode({
 
   useEffect(() => {
     if (!isConnected || !storageKey) {
-      setSelectedModeState(fallbackMode);
+      setSelectedModeState(preferredMode ?? fallbackMode);
       setIsReady(true);
       return;
     }
 
     const stored = sanitizeDashboardMode(window.localStorage.getItem(storageKey));
-    const nextMode = stored ?? fallbackMode;
+    const nextMode = preferredMode ?? stored ?? fallbackMode;
 
     setSelectedModeState(nextMode);
     setIsReady(true);
 
-    if (stored === null) {
+    if (stored !== nextMode) {
       window.localStorage.setItem(storageKey, nextMode);
     }
-  }, [fallbackMode, isConnected, storageKey]);
+  }, [fallbackMode, isConnected, preferredMode, storageKey]);
 
   const setSelectedMode = useCallback(
     (mode: TDashboardMode) => {

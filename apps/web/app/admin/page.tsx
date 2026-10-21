@@ -11,8 +11,8 @@ export const metadata: Metadata = buildNoIndexMetadata(
 
 export default function AdminHomeRoutePage() {
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-6xl">
       <AdminDashboardPage />
-    </main>
+    </div>
   );
 }

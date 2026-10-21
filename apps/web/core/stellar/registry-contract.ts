@@ -19,6 +19,26 @@ const CONTRACT_ADDRESS_PATTERN = /^C[A-Z2-7]{55}$/;
 const HASH_PATTERN = /^[0-9a-fA-F]{64}$/;
 const NO_HASH_RETRY_GRACE_SECONDS = 120;
 
+function normalizeLedgerCloseTime(value: unknown, name: string): number {
+  let normalized: number;
+  if (typeof value === "number") {
+    normalized = value;
+  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+    const timestamp = BigInt(value);
+    if (timestamp > BigInt(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`Stellar RPC returned an invalid ${name} time.`);
+    }
+    normalized = Number(timestamp);
+  } else {
+    throw new Error(`Stellar RPC returned an invalid ${name} time.`);
+  }
+
+  if (!Number.isSafeInteger(normalized) || normalized < 0) {
+    throw new Error(`Stellar RPC returned an invalid ${name} time.`);
+  }
+  return normalized;
+}
+
 export type TOnChainUserRegistration = {
   readonly address: string;
   readonly registeredAt: number;
@@ -175,14 +195,14 @@ export async function checkRegistryTransaction(params: {
     return { status: "pending" };
   }
 
-  const latestCloseTime = transaction.latestLedgerCloseTime;
-  const oldestCloseTime = transaction.oldestLedgerCloseTime;
-  if (!Number.isSafeInteger(latestCloseTime) || latestCloseTime < 0) {
-    throw new Error("Stellar RPC returned an invalid latest-ledger time.");
-  }
-  if (!Number.isSafeInteger(oldestCloseTime) || oldestCloseTime < 0) {
-    throw new Error("Stellar RPC returned an invalid oldest-ledger time.");
-  }
+  const latestCloseTime = normalizeLedgerCloseTime(
+    transaction.latestLedgerCloseTime,
+    "latest-ledger",
+  );
+  const oldestCloseTime = normalizeLedgerCloseTime(
+    transaction.oldestLedgerCloseTime,
+    "oldest-ledger",
+  );
 
   const fallbackValidUntil = Math.floor(params.createdAt / 1000) + NO_HASH_RETRY_GRACE_SECONDS;
   const validUntil = params.validUntil ?? fallbackValidUntil;

@@ -209,7 +209,12 @@ vi.mock("@/features/attachments/components", () => ({
 vi.mock("@/features/attachments/lib", () => ({
   getReadableAttachmentError: (error: Error) => error.message,
 }));
-vi.mock("@/features/common", () => ({ showWarningToast: vi.fn() }));
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+  showWarningToast: vi.fn(),
+}));
 vi.mock("@/features/work-agreements/components", () => ({ AgreementReferenceCard: () => null }));
 vi.mock("@repo/ui/components/ui/button", () => ({
   Button: ({ children, asChild, ...props }: { children: ReactNode; asChild?: boolean }) =>

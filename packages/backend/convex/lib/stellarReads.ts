@@ -70,6 +70,8 @@ export type TStellarReadConfig = {
   readSourceAccount: string;
 };
 
+export type TStellarReadScope = Pick<TStellarReadConfig, "networkPassphrase" | "escrowContractId">;
+
 function requireEnvVar(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -78,19 +80,23 @@ function requireEnvVar(name: string): string {
   return value;
 }
 
-export function loadStellarReadConfig(): TStellarReadConfig {
+export function loadStellarReadScope(): TStellarReadScope {
   const network = requireEnvVar("STELLAR_NETWORK");
-  const rpcUrl = requireEnvVar("STELLAR_RPC_URL");
   const escrowContractId = requireEnvVar("ESCROW_CONTRACT_ID");
+  const networkPassphrase = STELLAR_NETWORK_PASSPHRASES[network] ?? network;
+
+  return { networkPassphrase, escrowContractId };
+}
+
+export function loadStellarReadConfig(): TStellarReadConfig {
+  const scope = loadStellarReadScope();
+  const rpcUrl = requireEnvVar("STELLAR_RPC_URL");
   const reputationContractId = requireEnvVar("REPUTATION_CONTRACT_ID");
   const readSourceAccount = requireEnvVar("STELLAR_READ_SOURCE_ACCOUNT");
 
-  const networkPassphrase = STELLAR_NETWORK_PASSPHRASES[network] ?? network;
-
   return {
     rpcUrl,
-    networkPassphrase,
-    escrowContractId,
+    ...scope,
     reputationContractId,
     readSourceAccount,
   };

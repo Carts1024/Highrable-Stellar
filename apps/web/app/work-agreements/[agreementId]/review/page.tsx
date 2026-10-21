@@ -10,8 +10,8 @@ export default async function WorkAgreementReviewPage({
   const { agreementId } = await params;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-4xl">
       <FreelancerAgreementReview agreementId={agreementId as TConvexId<"workAgreements">} />
-    </main>
+    </div>
   );
 }

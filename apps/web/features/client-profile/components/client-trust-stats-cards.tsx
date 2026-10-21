@@ -2,8 +2,8 @@ import {
   formatAssetAmountList,
   formatPercent,
 } from "@/features/client-profile/lib/client-profile-format";
-import { HighrableV2Metric, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
-import { Badge } from "@repo/ui/components/ui/badge";
+import { StatCard } from "@/features/common";
+import React from "react";
 
 import type { TClientTrustStats } from "@/features/client-profile/types";
 
@@ -16,7 +16,7 @@ type TStatItem = {
 export function ClientTrustStatsCards({ stats }: { readonly stats: TClientTrustStats }) {
   const totalFunded = formatAssetAmountList(
     stats.totalEscrowFundedByAsset,
-    "No funded escrow history yet.",
+    "No funded payment hold history yet.",
   );
   const totalPaid = formatAssetAmountList(stats.totalPaidByAsset, "No completed payments yet.");
   const statItems: readonly TStatItem[] = [
@@ -26,72 +26,49 @@ export function ClientTrustStatsCards({ stats }: { readonly stats: TClientTrustS
       helper: "Jobs created by this wallet",
     },
     {
-      label: "Escrows funded",
+      label: "Payment holds funded",
       value: stats.fundedEscrows.toString(),
       helper: `${stats.escrowsCreated} escrow${stats.escrowsCreated === 1 ? "" : "s"} created`,
     },
     {
       label: "Completed payments",
       value: stats.completedEscrows.toString(),
-      helper: "Released Stellar escrow payments",
+      helper: "Payments that were paid out",
     },
     {
-      label: "Total escrow funded",
+      label: "Total put on hold",
       value: totalFunded,
-      helper: "Funded, submitted, and released escrows by asset",
+      helper: "Funded, submitted and released",
     },
     {
       label: "Total paid",
       value: totalPaid,
-      helper: "Released payments grouped by asset",
+      helper: "Released to freelancers",
     },
     {
       label: "Funding reliability",
       value: formatPercent(stats.fundingReliabilityRate),
-      helper: "Funded escrows divided by created escrows",
+      helper: "Funded ÷ created",
     },
     {
-      label: "Disputed escrows",
+      label: "Disputed",
       value: stats.disputedEscrows.toString(),
       helper: `${formatPercent(stats.disputeRate)} dispute rate`,
     },
     {
-      label: "Cancelled escrows",
+      label: "Cancelled",
       value: stats.cancelledEscrows.toString(),
       helper: `${formatPercent(stats.cancellationRate)} cancellation rate`,
     },
   ];
 
   return (
-    <section className="border border-[#e8e8e8] bg-white">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#e8e8e8] p-5 sm:p-6">
-        <div>
-          <SectionLabel>Escrow Behavior</SectionLabel>
-          <h2 className="mt-2 text-xl font-semibold text-[#0a0a0a]">Trust stats</h2>
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
+      {statItems.map((item) => (
+        <div key={item.label} className="bg-card p-4">
+          <StatCard label={item.label} value={item.value} description={item.helper} />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {stats.disputedEscrows > 0 ? (
-            <Badge variant="outline" className="border-red-200 bg-red-50 text-red-800">
-              Dispute activity recorded
-            </Badge>
-          ) : null}
-          {stats.fundedEscrows === 0 ? (
-            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">
-              No funded escrow history yet
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-      <div className="grid gap-y-6 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
-        {statItems.map((item) => (
-          <HighrableV2Metric
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            description={item.helper}
-          />
-        ))}
-      </div>
-    </section>
+      ))}
+    </div>
   );
 }
