@@ -22,10 +22,10 @@ interface IWalletStatusDialogProps {
 
 export function WalletStatusDialog({ trigger }: IWalletStatusDialogProps) {
   const { walletState } = useWallet();
-  const { activeWalletMode } = usePasskeySmartAccount();
+  const { activeWalletMode, isEnabled } = usePasskeySmartAccount();
   const hasExternalWalletConnection = walletState.isConnected && Boolean(walletState.walletAddress);
   const showPasskeyWalletDetails =
-    activeWalletMode === "passkey_smart_account" || !hasExternalWalletConnection;
+    isEnabled && (activeWalletMode === "passkey_smart_account" || !hasExternalWalletConnection);
 
   return (
     <ResponsiveDialog>
@@ -38,7 +38,11 @@ export function WalletStatusDialog({ trigger }: IWalletStatusDialogProps) {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <ResponsiveDialogBody>
-          {!showPasskeyWalletDetails && hasExternalWalletConnection ? (
+          {!isEnabled && !hasExternalWalletConnection ? (
+            <p className="text-sm text-muted-foreground">
+              Passkey accounts are disabled. Connect an external wallet to use wallet features.
+            </p>
+          ) : !showPasskeyWalletDetails && hasExternalWalletConnection ? (
             <ExternalWalletDetailsCardContainer />
           ) : (
             <PasskeySmartAccountCard />

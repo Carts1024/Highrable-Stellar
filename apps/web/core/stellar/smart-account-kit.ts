@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  assertPasskeyFeatureEnabled,
   getSmartAccountConfigOrThrow,
   type ISmartAccountConfig,
   PasskeyConfigError,
@@ -226,6 +227,7 @@ export function getSmartAccountKit(): TSmartAccountKit {
 export async function connectFreshPasskeySmartAccount(
   options: IConnectFreshPasskeyOptions = {},
 ): Promise<ConnectWalletResult> {
+  assertPasskeyFeatureEnabled();
   const kit = getSmartAccountKit();
   const preferredContractId = options.preferredContractId
     ? normalizeContractId(options.preferredContractId)

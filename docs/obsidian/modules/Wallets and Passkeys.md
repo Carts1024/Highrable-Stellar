@@ -2,7 +2,7 @@
 type: module
 area: wallet
 status: current
-last_updated: 2026-10-10
+last_updated: 2026-10-22
 source_of_truth: repository
 ---
 
@@ -33,6 +33,7 @@ Both identity modes are implemented. Passkey escrow execution is compatibility-s
 - Preserve the kit's configured Testnet/Mainnet WalletConnect chain and its phone handoff/desktop QR flow. WalletConnect is omitted on the local network and without a project ID.
 - Detect network/funding and use Friendbot only for testnet account funding.
 - Create, silently restore, reconnect, and choose among discovered smart accounts.
+- Gate passkey UI, session restoration, reconnection, and transaction execution with `NEXT_PUBLIC_ENABLE_PASSKEYS` (enabled by default).
 - Persist `walletType` and active address to Convex.
 - Validate WebAuthn support, RP ID, signer membership, configured verifier, account WASM hash, and fee path.
 
