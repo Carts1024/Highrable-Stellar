@@ -2,7 +2,7 @@
 type: reference
 area: operations
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-22
 source_of_truth: repository
 ---
 
@@ -16,6 +16,7 @@ The authoritative schemas are `apps/web/core/config/env.ts`, `apps/web/.env.exam
 | --- | --- |
 | Network | `NEXT_PUBLIC_STELLAR_NETWORK`, `NEXT_PUBLIC_STELLAR_RPC_URL`, `NEXT_PUBLIC_STELLAR_HORIZON_URL`, `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE` |
 | Convex/app | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_WAITLIST_MODE`, `NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER` |
+| Passkeys | `NEXT_PUBLIC_ENABLE_PASSKEYS` — optional boolean, defaults to `true`; set to `false` to hide passkey UI and block passkey account actions. Restart or redeploy after changing it. |
 | Optional Velo feature flag | `NEXT_PUBLIC_ENABLE_VELO_GAS_STATION` — must remain false unless the Testnet Velo policy and deployment are verified. |
 | Convex/app | `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_APP_DOMAIN`, `NEXT_PUBLIC_WAITLIST_MODE` (explicit `true` enables route gate; otherwise app routes remain open), `NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER` |
 | Contracts | `NEXT_PUBLIC_ESCROW_CONTRACT_ID`, `NEXT_PUBLIC_REPUTATION_CONTRACT_ID`, `NEXT_PUBLIC_REGISTRY_CONTRACT_ID` |

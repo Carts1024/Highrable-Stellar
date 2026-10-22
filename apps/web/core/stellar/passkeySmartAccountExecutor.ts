@@ -6,6 +6,7 @@ import { toTokenUnits } from "@/core/stellar/amounts";
 import { bytesToHex } from "@/core/stellar/hashes";
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
+  assertPasskeyFeatureEnabled,
   getSmartAccountConfig,
   KNOWN_INCOMPATIBLE_SMART_ACCOUNT_WASM_HASHES,
   SMART_ACCOUNT_KIT_TESTNET_DEFAULTS,
@@ -1547,6 +1548,7 @@ export async function getPasskeyEscrowExecutionReadiness(): Promise<IPasskeyEscr
 export async function executeWithPasskeySmartAccount(
   params: IPasskeySmartAccountExecutionParams,
 ): Promise<IPasskeySmartAccountExecutionResult> {
+  assertPasskeyFeatureEnabled();
   const smartAccountAddress = sanitizeContractId(
     params.smartAccountAddress,
     "Smart account address",

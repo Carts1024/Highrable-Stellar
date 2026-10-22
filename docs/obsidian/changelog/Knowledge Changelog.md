@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-21
+last_updated: 2026-10-22
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-22
+
+- Added the public `NEXT_PUBLIC_ENABLE_PASSKEYS` feature switch. It defaults to enabled for compatibility; setting it to `false` hides the passkey card and blocks restore, reconnect, creation, and transaction execution. Restart or redeploy the web app after changing it. See [[operations/Environment Variables]] and [[modules/Wallets and Passkeys]].
 
 ## 2026-10-21
 
