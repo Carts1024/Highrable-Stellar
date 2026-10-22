@@ -49,6 +49,93 @@ function normalizeCredentialIdToHex(credentialId: string): string {
   }
 }
 
+function isTemporaryIndexerFailure(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name !== "IndexerError") {
+    return false;
+  }
+
+  const status = "status" in error ? error.status : undefined;
+  return (
+    typeof status === "number" &&
+    (status === 0 || status === 408 || status === 429 || status >= 500)
+  );
+}
+
+export async function discoverPasskeyContractsWithFallback(
+  kit: TSmartAccountKit,
+  credentialId: string,
+): Promise<IndexedContractSummary[] | null> {
+  try {
+    return await kit.discoverContractsByCredential(credentialId);
+  } catch (error) {
+    if (isTemporaryIndexerFailure(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function credentialIdMatchesOnChainSigner(signer: unknown, credentialId: string): boolean {
+  if (
+    typeof signer !== "object" ||
+    signer === null ||
+    !("tag" in signer) ||
+    signer.tag !== "External"
+  ) {
+    return false;
+  }
+
+  if (!("values" in signer) || !Array.isArray(signer.values)) {
+    return false;
+  }
+
+  const keyData = signer.values[1];
+  if (!(keyData instanceof Uint8Array)) {
+    return false;
+  }
+
+  const credentialHex = normalizeCredentialIdToHex(credentialId);
+  if (!credentialHex || keyData.byteLength <= credentialHex.length / 2) {
+    return false;
+  }
+
+  const keyDataHex = Array.from(keyData, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return keyDataHex.endsWith(credentialHex);
+}
+
+function assertOnChainPasskeySigner(
+  signer: unknown,
+  credentialId: string,
+  configuredVerifierAddress: string,
+): void {
+  if (!credentialIdMatchesOnChainSigner(signer, credentialId)) {
+    throw new Error(
+      "The authenticated passkey is not an active signer on the default smart account rule.",
+    );
+  }
+
+  if (
+    typeof signer !== "object" ||
+    signer === null ||
+    !("values" in signer) ||
+    !Array.isArray(signer.values)
+  ) {
+    throw new Error("Failed to load the authenticated passkey signer details from Stellar RPC.");
+  }
+
+  const signerAddress = signer.values[0];
+  if (typeof signerAddress !== "string") {
+    throw new Error("The authenticated signer is missing its WebAuthn verifier address.");
+  }
+
+  if (normalizeContractId(signerAddress) !== configuredVerifierAddress) {
+    throw new Error(
+      `This smart account uses WebAuthn verifier ${signerAddress} instead of the configured verifier ${configuredVerifierAddress}.`,
+    );
+  }
+}
+
 function selectDiscoveredContract(
   contracts: readonly IndexedContractSummary[],
   preferredContractId?: string,
@@ -233,7 +320,7 @@ export async function connectFreshPasskeySmartAccount(
     ? normalizeContractId(options.preferredContractId)
     : undefined;
   const { credentialId } = await kit.authenticatePasskey();
-  const discoveredContracts = await kit.discoverContractsByCredential(credentialId);
+  const discoveredContracts = await discoverPasskeyContractsWithFallback(kit, credentialId);
   const matchedContract = discoveredContracts
     ? selectDiscoveredContract(discoveredContracts, preferredContractId)
     : null;
@@ -278,9 +365,46 @@ export async function ensureConnectedPasskeyWalletShape(params: {
   const kit = params.kit ?? getSmartAccountKit();
   const config = getSmartAccountConfigOrThrow();
   const contractId = normalizeContractId(params.contractId);
+  if (!kit.wallet) {
+    return;
+  }
+
+  if (params.credentialId) {
+    let onChainDefaultSigners: readonly unknown[] = [];
+    try {
+      const defaultRule = await kit.wallet.get_context_rule({ context_rule_id: 0 });
+      onChainDefaultSigners = defaultRule.result?.signers ?? [];
+    } catch {
+      // Older or specialized accounts may keep their signer in a non-default rule.
+      // Use indexer details below when the direct default-rule read is inconclusive.
+    }
+
+    const matchingSigners = onChainDefaultSigners.filter((signer) =>
+      credentialIdMatchesOnChainSigner(signer, params.credentialId!),
+    );
+
+    if (matchingSigners.length === 1) {
+      assertOnChainPasskeySigner(
+        matchingSigners[0],
+        params.credentialId,
+        config.webauthnVerifierAddress,
+      );
+      return;
+    }
+
+    if (matchingSigners.length > 1) {
+      throw new Error(
+        "Multiple active signers matched this passkey on the default smart account rule.",
+      );
+    }
+  }
+
   const details = await kit.getContractDetailsFromIndexer(contractId);
 
-  if (!details || !kit.wallet) {
+  if (!details) {
+    if (params.credentialId) {
+      throw new Error("Could not verify the passkey signer from the smart account on Stellar.");
+    }
     return;
   }
 

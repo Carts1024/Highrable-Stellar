@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: experimental
-last_updated: 2026-09-21
+last_updated: 2026-10-22
 source_of_truth: repository
 ---
 
@@ -16,9 +16,11 @@ Passkey accounts are Soroban contract accounts controlled by a WebAuthn credenti
 
 `apps/web/core/stellar/smart-account-kit.ts` provides namespaced IndexedDB/localStorage persistence, account discovery/reconnection, credential handling, and active-signer/verifier checks. `passkey-smart-account-context.tsx` creates/restores/reconnects/selects accounts and persists the passkey identity to Convex.
 
+When credential discovery hits a temporary indexer failure, reconnect continues with the SDK's deterministic contract address derivation and `connectWallet` checks that the account exists through RPC. Highrable then reads default context rule `0` on-chain and verifies the authenticated credential and configured WebAuthn verifier. The indexer remains necessary to offer a picker for multiple accounts and to inspect signers that exist only in specialized context rules.
+
 ## Execution
 
-The executor handles account preflight, WebAuthn context rules, AuthPayload encoding, authorization-entry signing, and contract submission. It supports passkey versions of the main escrow actions, including create/fund, submit, approve/release, cancel, and mark disputed.
+The executor handles account preflight, WebAuthn context rules, AuthPayload encoding, authorization-entry signing, and contract submission. It supports passkey versions of the main escrow actions, including create/fund, submit, approve/release, cancel, and mark disputed. Account creation and reconnect validate the default-rule signer directly through RPC when available, so a temporary indexer database failure does not by itself make those flows fail.
 
 ## Relayer paths
 

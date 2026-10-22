@@ -332,12 +332,19 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       setState((currentValue) => ({ ...currentValue, isReconnecting: true, error: null }));
 
       let result;
-      const { ensureConnectedPasskeyWalletShape, getSmartAccountKit, resetSmartAccountKit } =
-        await loadSmartAccountRuntime();
+      const {
+        discoverPasskeyContractsWithFallback,
+        ensureConnectedPasskeyWalletShape,
+        getSmartAccountKit,
+        resetSmartAccountKit,
+      } = await loadSmartAccountRuntime();
       try {
         const kit = getSmartAccountKit();
         const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
+        const contracts = await discoverPasskeyContractsWithFallback(
+          kit,
+          authentication.credentialId,
+        );
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
@@ -372,7 +379,10 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         await resetSmartAccountKit();
         const kit = getSmartAccountKit();
         const authentication = await kit.authenticatePasskey();
-        const contracts = await kit.discoverContractsByCredential(authentication.credentialId);
+        const contracts = await discoverPasskeyContractsWithFallback(
+          kit,
+          authentication.credentialId,
+        );
 
         if (contracts && contracts.length > 1) {
           setDiscoveredContracts(contracts);
