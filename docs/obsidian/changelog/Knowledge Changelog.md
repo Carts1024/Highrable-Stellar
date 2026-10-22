@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-22
 
+- Updated the profile wallet-status card to use the unified wallet identity. Passkey-only users now see and can copy their `C...` smart-account address even without an external wallet connection; classic-wallet funding controls remain external-wallet-only. See [[modules/Wallets and Passkeys]].
 - Added the public `NEXT_PUBLIC_ENABLE_PASSKEYS` feature switch. It defaults to enabled for compatibility; setting it to `false` hides the passkey card and blocks restore, reconnect, creation, and transaction execution. Restart or redeploy the web app after changing it. See [[operations/Environment Variables]] and [[modules/Wallets and Passkeys]].
 - Refactored passkey discovery so SDK `IndexerError`s do not block the normal create/reconnect flow: derive the account from the authenticated credential, verify its existence via RPC, and verify a default-rule passkey signer and verifier on-chain. Reconnect reads default rule `0` by simulating the supported singular `get_context_rule` entrypoint (the configured WASM does not expose `get_context_rules`) and uses the SDK's credential-ID parser. Indexer lookup remains optional picker metadata for multi-account selection and specialized signer rules; added regression coverage for the HTTP 500 case.
 
