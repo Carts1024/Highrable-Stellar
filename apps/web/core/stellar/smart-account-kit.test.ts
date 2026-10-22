@@ -13,6 +13,8 @@ vi.mock("smart-account-kit", () => ({
   },
   LocalStorageAdapter: class {},
   SmartAccountKit: class {},
+  getCredentialIdFromSigner: (signer: { values: readonly [string, Uint8Array] }) =>
+    Buffer.from(signer.values[1]).subarray(65).toString("base64url"),
 }));
 
 vi.mock("@/core/stellar/smart-account-config", () => ({
@@ -28,6 +30,12 @@ vi.mock("@/core/stellar/smart-account-config", () => ({
   }),
   PasskeyConfigError: class PasskeyConfigError extends Error {},
 }));
+
+vi.mock("@/core/stellar/smart-account-context-rules", () => ({
+  readDefaultContextRule: vi.fn(),
+}));
+
+import { readDefaultContextRule } from "@/core/stellar/smart-account-context-rules";
 
 import {
   discoverPasskeyContractsWithFallback,
@@ -45,25 +53,33 @@ describe("smart-account-kit passkey discovery", () => {
     await expect(discoverPasskeyContractsWithFallback(kit, "010203")).resolves.toBeNull();
   });
 
-  it("validates a default-rule passkey signer on-chain without requesting indexer details", async () => {
+  it("validates a default-rule passkey signer from direct RPC data without requesting indexer details", async () => {
     const credentialId = "010203";
-    const keyData = new Uint8Array(68);
+    const keyData = Buffer.alloc(68);
     keyData.set([1, 2, 3], 65);
     const getContractDetailsFromIndexer = vi.fn(async () => {
       throw new Error("The indexer must not be called for a default-rule passkey.");
     });
+    const getContextRules = vi.fn(async () => {
+      throw new Error("The unsupported get_context_rules entrypoint must not be called.");
+    });
+    vi.mocked(readDefaultContextRule).mockResolvedValue({
+      context_type: { tag: "Default", values: undefined },
+      id: 0,
+      name: "Default",
+      policies: [],
+      signers: [
+        {
+          tag: "External",
+          values: ["C" + "A".repeat(55), keyData],
+        },
+      ],
+      valid_until: undefined,
+    });
     const kit = {
+      deployerPublicKey: "G" + "A".repeat(55),
       wallet: {
-        get_context_rule: vi.fn(async () => ({
-          result: {
-            signers: [
-              {
-                tag: "External",
-                values: ["C" + "A".repeat(55), keyData],
-              },
-            ],
-          },
-        })),
+        get_context_rules: getContextRules,
       },
       getContractDetailsFromIndexer,
     } as never;
@@ -75,6 +91,13 @@ describe("smart-account-kit passkey discovery", () => {
         credentialId,
       }),
     ).resolves.toBeUndefined();
+    expect(readDefaultContextRule).toHaveBeenCalledWith({
+      rpcUrl: "https://rpc.example.test",
+      networkPassphrase: "Test SDF Network ; September 2015",
+      contractId: "C" + "B".repeat(55),
+      sourceAccount: "G" + "A".repeat(55),
+    });
+    expect(getContextRules).not.toHaveBeenCalled();
     expect(getContractDetailsFromIndexer).not.toHaveBeenCalled();
   });
 });

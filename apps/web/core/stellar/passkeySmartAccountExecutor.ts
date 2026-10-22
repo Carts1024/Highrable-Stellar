@@ -13,6 +13,11 @@ import {
   SMART_ACCOUNT_KIT_VERSION,
 } from "@/core/stellar/smart-account-config";
 import {
+  contextRuleCanAuthorize,
+  parseContextRule,
+  readDefaultContextRule,
+} from "@/core/stellar/smart-account-context-rules";
+import {
   clearSmartAccountLocalSession,
   connectFreshPasskeySmartAccount,
   getSmartAccountKit,
@@ -99,8 +104,6 @@ const verifiedPasskeyReadiness = new WeakMap<
   TVerifiedPasskeyReadinessContext
 >();
 export const SMART_ACCOUNT_COMPATIBILITY_ERROR_MESSAGE = `Connected passkey smart account is not compatible with smart-account-kit ${SMART_ACCOUNT_KIT_VERSION}. Use NEXT_PUBLIC_SMART_ACCOUNT_WASM_HASH=${SMART_ACCOUNT_KIT_TESTNET_DEFAULTS.accountWasmHash}, restart the web app, clear the old local passkey session, then create a new passkey smart account.`;
-type TCallContractContextRuleType = Extract<ContextRuleType, { tag: "CallContract" }>;
-type TCreateContractContextRuleType = Extract<ContextRuleType, { tag: "CreateContract" }>;
 
 async function resetStalePasskeySessionIfNeeded(error: unknown): Promise<void> {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -1038,41 +1041,6 @@ async function signAndSubmitWithAuthPayload(
   return { ...result, submissionIdentity };
 }
 
-function contextRuleTypesEqual(left: ContextRuleType, right: ContextRuleType): boolean {
-  if (left.tag !== right.tag) {
-    return false;
-  }
-
-  switch (left.tag) {
-    case "Default":
-      return true;
-    case "CallContract": {
-      const rightCallContractType = right as TCallContractContextRuleType;
-      return left.values[0] === rightCallContractType.values[0];
-    }
-    case "CreateContract": {
-      const rightCreateContractType = right as TCreateContractContextRuleType;
-      const leftValue = left.values[0];
-      const rightValue = rightCreateContractType.values[0];
-
-      if (leftValue.byteLength !== rightValue.byteLength) {
-        return false;
-      }
-
-      return leftValue.every((byte, index) => byte === rightValue[index]);
-    }
-    default:
-      return false;
-  }
-}
-
-function contextRuleCanAuthorize(
-  ruleType: ContextRuleType,
-  requestedType: ContextRuleType,
-): boolean {
-  return ruleType.tag === "Default" || contextRuleTypesEqual(ruleType, requestedType);
-}
-
 type TContextRule = {
   readonly context_type: ContextRuleType;
   readonly signers: readonly ContractSigner[];
@@ -1087,128 +1055,6 @@ type TSmartAccountWalletWithContextRuleFallback = {
   }) => Promise<{ result: TContextRule[] }>;
   __highrableContextRulesFallbackInstalled?: boolean;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isTuple(value: unknown): value is readonly unknown[] {
-  return Array.isArray(value);
-}
-
-function toBuffer(value: unknown): Buffer | null {
-  if (Buffer.isBuffer(value)) {
-    return value;
-  }
-
-  if (value instanceof Uint8Array) {
-    return Buffer.from(value);
-  }
-
-  return null;
-}
-
-function parseContextRuleType(value: unknown): ContextRuleType | null {
-  if (!isTuple(value) || typeof value[0] !== "string") {
-    return null;
-  }
-
-  switch (value[0]) {
-    case "Default":
-      return { tag: "Default", values: undefined };
-    case "CallContract":
-      return typeof value[1] === "string"
-        ? { tag: "CallContract", values: [sanitizeContractId(value[1], "Context rule contract")] }
-        : null;
-    case "CreateContract": {
-      const wasmHash = toBuffer(value[1]);
-      return wasmHash ? { tag: "CreateContract", values: [wasmHash] } : null;
-    }
-    default:
-      return null;
-  }
-}
-
-function parseContractSigner(value: unknown): ContractSigner | null {
-  if (!isTuple(value) || typeof value[0] !== "string") {
-    return null;
-  }
-
-  switch (value[0]) {
-    case "Delegated":
-      return typeof value[1] === "string"
-        ? { tag: "Delegated", values: [sanitizeClassicAccount(value[1], "Delegated signer")] }
-        : null;
-    case "External": {
-      if (typeof value[1] !== "string") {
-        return null;
-      }
-
-      const keyData = toBuffer(value[2]);
-      return keyData
-        ? {
-            tag: "External",
-            values: [sanitizeContractId(value[1], "External signer verifier"), keyData],
-          }
-        : null;
-    }
-    default:
-      return null;
-  }
-}
-
-function parseContextRule(value: unknown): ContextRule | null {
-  if (!isRecord(value) || !isTuple(value.signers)) {
-    return null;
-  }
-
-  const contextType = parseContextRuleType(value.context_type);
-  const id = typeof value.id === "number" ? value.id : null;
-  const name = typeof value.name === "string" ? value.name : null;
-  const signers = value.signers.map(parseContractSigner);
-
-  if (!contextType || id === null || name === null || signers.some((signer) => signer === null)) {
-    return null;
-  }
-
-  return {
-    context_type: contextType,
-    id,
-    name,
-    policies: [],
-    signers: signers as ContractSigner[],
-    valid_until: typeof value.valid_until === "number" ? value.valid_until : undefined,
-  };
-}
-
-async function readDefaultContextRule(params: {
-  readonly rpcUrl: string;
-  readonly networkPassphrase: string;
-  readonly contractId: string;
-  readonly sourceAccount: string;
-}): Promise<ContextRule | null> {
-  const server = createRpcServer(params.rpcUrl);
-  const smartAccount = new Contract(params.contractId);
-  const transaction = new TransactionBuilder(new Account(params.sourceAccount, "0"), {
-    fee: BASE_FEE,
-    networkPassphrase: params.networkPassphrase,
-  })
-    .addOperation(
-      smartAccount.call(
-        "get_context_rule",
-        nativeToScVal(DEFAULT_CONTEXT_RULE_ID, { type: "u32" }),
-      ),
-    )
-    .setTimeout(30)
-    .build();
-  const simulation = await server.simulateTransaction(transaction);
-
-  if (rpc.Api.isSimulationError(simulation) || !simulation.result?.retval) {
-    return null;
-  }
-
-  return parseContextRule(scValToNative(simulation.result.retval));
-}
 
 function installContextRulesCompatibilityFallback(
   kit: ReturnType<typeof getSmartAccountKit>,

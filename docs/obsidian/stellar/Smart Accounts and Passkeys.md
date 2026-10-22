@@ -16,11 +16,11 @@ Passkey accounts are Soroban contract accounts controlled by a WebAuthn credenti
 
 `apps/web/core/stellar/smart-account-kit.ts` provides namespaced IndexedDB/localStorage persistence, account discovery/reconnection, credential handling, and active-signer/verifier checks. `passkey-smart-account-context.tsx` creates/restores/reconnects/selects accounts and persists the passkey identity to Convex.
 
-Credential discovery is treated as optional account-picker metadata. If the SDK reports an `IndexerError`, reconnect continues with its deterministic contract address derivation and `connectWallet` checks that the account exists through RPC. Highrable then reads default context rule `0` on-chain and verifies the authenticated credential and configured WebAuthn verifier without an indexer request. The indexer is still used to offer a picker for multiple accounts and to inspect signers that exist only in specialized context rules.
+Credential discovery is treated as optional account-picker metadata. If the SDK reports an `IndexerError`, reconnect continues with its deterministic contract address derivation and `connectWallet` checks that the account exists through RPC. Highrable reads Default rule `0` by simulating the contract's singular `get_context_rule` entrypoint directly through RPC, then verifies the authenticated credential with the SDK's credential-ID extractor and configured WebAuthn verifier. This avoids the SDK `get_context_rules` collection call, which is absent from the currently configured account WASM. The indexer remains optional picker metadata and is used to inspect signers that exist only in specialized context rules.
 
 ## Execution
 
-The executor handles account preflight, WebAuthn context rules, AuthPayload encoding, authorization-entry signing, and contract submission. It supports passkey versions of the main escrow actions, including create/fund, submit, approve/release, cancel, and mark disputed. Account creation and reconnect validate the default-rule signer directly through RPC when available, so a temporary indexer database failure does not by itself make those flows fail.
+The executor handles account preflight, WebAuthn context rules, AuthPayload encoding, authorization-entry signing, and contract submission. It supports passkey versions of the main escrow actions, including create/fund, submit, approve/release, cancel, and mark disputed. Account creation and reconnect validate the default-rule signer directly through RPC when available, so an indexer database failure does not by itself make those flows fail.
 
 ## Relayer paths
 
