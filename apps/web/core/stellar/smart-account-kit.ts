@@ -6,15 +6,18 @@ import {
   type ISmartAccountConfig,
   PasskeyConfigError,
 } from "@/core/stellar/smart-account-config";
+import { readDefaultContextRule } from "@/core/stellar/smart-account-context-rules";
 import {
   IndexedDBStorage,
   IndexerError,
   LocalStorageAdapter,
   SmartAccountKit,
+  getCredentialIdFromSigner,
 } from "smart-account-kit";
 
 import type {
   ConnectWalletResult,
+  ContractSigner,
   IndexedContractSummary,
   StorageAdapter,
   StoredCredential,
@@ -81,22 +84,19 @@ function credentialIdMatchesOnChainSigner(signer: unknown, credentialId: string)
     return false;
   }
 
-  if (!("values" in signer) || !Array.isArray(signer.values)) {
+  if (
+    !("values" in signer) ||
+    !Array.isArray(signer.values) ||
+    !(signer.values[1] instanceof Uint8Array)
+  ) {
     return false;
   }
 
-  const keyData = signer.values[1];
-  if (!(keyData instanceof Uint8Array)) {
-    return false;
-  }
-
-  const credentialHex = normalizeCredentialIdToHex(credentialId);
-  if (!credentialHex || keyData.byteLength <= credentialHex.length / 2) {
-    return false;
-  }
-
-  const keyDataHex = Array.from(keyData, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return keyDataHex.endsWith(credentialHex);
+  const signerCredentialId = getCredentialIdFromSigner(signer as ContractSigner);
+  return (
+    signerCredentialId !== null &&
+    normalizeCredentialIdToHex(signerCredentialId) === normalizeCredentialIdToHex(credentialId)
+  );
 }
 
 function assertOnChainPasskeySigner(
@@ -370,11 +370,16 @@ export async function ensureConnectedPasskeyWalletShape(params: {
 
   let onChainDefaultSigners: readonly unknown[] = [];
   try {
-    const defaultRule = await kit.wallet.get_context_rule({ context_rule_id: 0 });
-    onChainDefaultSigners = defaultRule.result?.signers ?? [];
+    const defaultRule = await readDefaultContextRule({
+      rpcUrl: config.rpcUrl,
+      networkPassphrase: config.networkPassphrase,
+      contractId,
+      sourceAccount: kit.deployerPublicKey,
+    });
+    onChainDefaultSigners = defaultRule?.signers ?? [];
   } catch {
     // Existing accounts may have the authenticated signer in a specialized rule.
-    // The indexer can supply candidate rule IDs; the rule itself is still read on-chain.
+    // The indexer can supply candidate rule IDs when the direct default-rule RPC read fails.
   }
 
   const matchingSigners = onChainDefaultSigners.filter((signer) =>
