@@ -249,7 +249,22 @@ describe("admin API client errors", () => {
 
   it.each([
     [202, { status: "pending", result: { status: "submission_unknown" } }, "pending"],
-    [200, { status: "succeeded", result: { status: "resolved_client" } }, "succeeded"],
+    [
+      200,
+      {
+        status: "succeeded",
+        result: {
+          status: "resolved_client",
+          freelancerShareBps: 0,
+          freelancerPayoutAmount: 0.25,
+          clientRefundAmount: 99.75,
+          resolutionTxHash: "a".repeat(64),
+          resolutionStellarExpertUrl:
+            "https://stellar.expert/explorer/testnet/tx/" + "a".repeat(64),
+        },
+      },
+      "succeeded",
+    ],
     [200, { status: "failed", result: true }, "failed"],
   ] as const)("returns the recognized settlement outcome %s", async (status, body, outcome) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(body, status)));
@@ -257,6 +272,95 @@ describe("admin API client errors", () => {
     await expect(
       postAdminResolution("dispute-1", { phase: "reconcile", operationId: "operation-123" }),
     ).resolves.toMatchObject({ status: outcome });
+  });
+
+  it("preserves a recovered attempt that was closed before Stellar submission", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ status: "failed", result: true, failureKind: "not_submitted" }, 200),
+        ),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", {
+        phase: "reconcile",
+        operationId: "operation-123",
+      }),
+    ).resolves.toMatchObject({ status: "failed", failureKind: "not_submitted" });
+  });
+
+  it("rejects an unknown settlement failure kind", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ status: "failed", result: true, failureKind: "unknown" }, 200),
+        ),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", {
+        phase: "reconcile",
+        operationId: "operation-123",
+      }),
+    ).rejects.toThrow("unrecognized settlement outcome");
+  });
+
+  it.each([
+    ["fixed client terms", { status: "resolved_client", freelancerShareBps: 1 }],
+    ["fixed freelancer terms", { status: "resolved_freelancer", freelancerShareBps: 9_999 }],
+    ["split lower bound", { status: "split_resolution", freelancerShareBps: 0 }],
+    ["split upper bound", { status: "split_resolution", freelancerShareBps: 10_000 }],
+    ["split fractional terms", { status: "split_resolution", freelancerShareBps: 1.5 }],
+    ["negative payout", { freelancerPayoutAmount: -1 }],
+    ["infinite refund", { clientRefundAmount: Number.POSITIVE_INFINITY }],
+    ["short transaction hash", { resolutionTxHash: "a".repeat(63) }],
+    ["unsafe explorer URL", { resolutionStellarExpertUrl: "javascript:alert(1)" }],
+  ] as const)("rejects malformed successful result: %s", async (_label, override) => {
+    const result = {
+      status: "resolved_client" as const,
+      freelancerShareBps: 0,
+      freelancerPayoutAmount: 0,
+      clientRefundAmount: 100,
+      resolutionTxHash: "b".repeat(64),
+      resolutionStellarExpertUrl: "https://stellar.expert/explorer/testnet/tx/" + "b".repeat(64),
+      ...override,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ status: "succeeded", result }, 200)),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", { phase: "succeeded", operationId: "operation-123" }),
+    ).rejects.toMatchObject({
+      name: "AdminApiError",
+      status: 200,
+      message: "Admin API returned an unrecognized settlement outcome.",
+    });
+  });
+
+  it("preserves validated returned settlement amounts and links", async () => {
+    const result = {
+      status: "split_resolution" as const,
+      freelancerShareBps: 4_321,
+      freelancerPayoutAmount: 123.45,
+      clientRefundAmount: 876.55,
+      resolutionTxHash: "c".repeat(64),
+      resolutionStellarExpertUrl: "https://stellar.expert/explorer/testnet/tx/" + "c".repeat(64),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ status: "succeeded", result }, 200)),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", { phase: "reconcile", operationId: "operation-123" }),
+    ).resolves.toEqual({ status: "succeeded", result });
   });
 
   it("rejects a successful HTTP response that does not identify a settlement outcome", async () => {

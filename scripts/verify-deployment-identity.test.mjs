@@ -754,6 +754,33 @@ test("fails unknown if instance changes while code is read", async () => {
   assert.equal((await verifyDeploymentIdentity(f)).code, "contract_changed_during_verification");
 });
 
+for (const [label, finalLedger, expectedStatus] of [
+  ["at the final ledger", 101, "matched"],
+  ["before the final ledger", 102, "unknown"],
+]) {
+  test(`checks code lifetime ${label}`, async () => {
+    const f = fixture();
+    f.codes[0].liveUntilLedgerSeq = 101;
+    let reads = 0;
+    f.reader.getLedgerEntries = async () => {
+      reads += 1;
+      return {
+        latestLedger: reads === 3 ? finalLedger : 100,
+        entries: reads === 2 ? f.codes : f.instances,
+      };
+    };
+    const result = await verifyDeploymentIdentity(f);
+    assert.equal(result.status, expectedStatus);
+    if (expectedStatus === "unknown") {
+      assert.equal(result.code, "code_expired_during_verification");
+      assert.equal(exitCode(result), 2);
+      assert.equal(result.ledger, undefined);
+    } else {
+      assert.equal(result.ledger, finalLedger);
+    }
+  });
+}
+
 for (const field of [
   "STELLAR_NETWORK",
   "STELLAR_RPC_URL",

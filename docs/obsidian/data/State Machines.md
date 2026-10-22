@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-21
 source_of_truth: repository
 ---
 
@@ -29,6 +29,26 @@ The contract enum is `Created`, `Funded`, `Submitted`, `Released`, `Cancelled`, 
 ## Convex job/escrow mirror
 
 Convex uses lowercase equivalents: `created`, `funded`, `submitted`, `released`, `cancelled`, `disputed`. Escrow helpers rank `created < funded < submitted < released`; cancelled/disputed are terminal for safe sync purposes. Job mapping generally maps funded/submitted/released/cancelled/disputed to the corresponding job status (`released` becomes `completed`).
+
+## Signup and registry registration
+
+The onboarding UI coordinates profile drafts, transaction recovery, a verified registry mirror, and the existing user completion timestamp. The intermediate UI phases are not stored as a separate state machine.
+
+```text
+profile draft saved → registry read/reconciliation → transaction pending
+  → (success | failed | pending recovery) → RPC mirror verified → onboarding complete
+```
+
+| Durable value | Meaning |
+| --- | --- |
+| `users.onboardingCompletedAt` absent | New user has not completed onboarding; an incomplete profile draft may already exist. |
+| `transactions.status = pending` | A registry transaction is unresolved; the UI checks its known transaction identity and expiry before any retry. |
+| `transactions.status = success` | A transaction was confirmed; the UI still syncs the registry state before treating membership as verified. |
+| `transactions.status = failed` | A definite failure or established expiry; another registration attempt may be started. |
+| `registryRegistrations` row | RPC-verified on-chain address/timestamp for one network and registry contract. |
+| `users.onboardingCompletedAt` present | New signup completion is durable. Existing completed values are preserved and are not gated on registry configuration. |
+
+The internal mirror mutation is idempotent for the same on-chain timestamp and rejects a conflicting timestamp or scope. Client transaction callbacks never create registry mirror rows.
 
 ## Work agreements
 
@@ -65,9 +85,11 @@ Deliverable 3 C18 regression coverage verifies the saved-hash `not_marked` guard
 
 Settlement attempts are single-active per escrow and use `started → signed → submission_unknown → succeeded` or `failed` (with `submitted` retained for compatibility). A start requires an assigned, non-conflicted admin, a nonterminal dispute, and a disputed escrow. Resolution terms are exact integer basis points: client `0`, freelancer `10_000`, or split `1–9999`.
 
+Before persisting a new start, the admin server route reads the persisted dispute/escrow context and the exact scoped Soroban escrow. It requires matching network, contract, escrow ID, participants, and `Disputed` chain status. A mismatch returns a conflict without creating an attempt or transaction record; reconcile the chain state, and use a fresh authorized dispute mark only if the escrow remains eligible.
+
 | Callback | Required current state | Result |
 | --- | --- | --- |
-| started | assigned admin; nonterminal dispute; disputed escrow; no other active attempt | Persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
+| started | assigned admin; nonterminal dispute; disputed Convex and Soroban escrow; matching persisted scope and participants; no other active attempt | After server-side chain preflight, persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
 | signed | initiating assigned admin; active attempt | Persist one 64-hex hash and positive safe expiry; matching replay preserves phase/timestamps/errors, including `submission_unknown`; conflicting identity or failed attempt rejects. |
 | submission unknown | saved hash and expiry; active attempt | Keep attempt and transaction pending/locked; first uncertainty details win; duplicate callbacks and terminal attempts do not write. |
 | succeeded | saved hash and expiry; server-verified exact settlement | Atomically map dispute/escrow/parent/transaction to terminal state and emit existing audit/notification effects once; authorized matching replay is harmless. |
@@ -85,4 +107,4 @@ Requests track `draft`, `pending_freelancer_response`, `approved_for_cancel`, `r
 
 Deadline status is derived (`upcoming`, `due_soon`, `due_very_soon`, `overdue`, submitted/completed on-time/late, released, cancelled, disputed). Revision requests move through `requested`, `acknowledged`, `revision_submitted`, `accepted`, `cancelled`, or `expired`.
 
-See [[contracts/Escrow Contract]], [[modules/Disputes and Cancellations]], and [[backend/Sync and Scheduled Jobs]].
+See [[contracts/Escrow Contract]], [[contracts/User Registry Contract]], [[modules/Disputes and Cancellations]], and [[backend/Sync and Scheduled Jobs]].

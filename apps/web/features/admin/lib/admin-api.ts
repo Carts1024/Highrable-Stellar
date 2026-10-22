@@ -12,6 +12,7 @@ import type {
   IAdminResolutionSignedResponse,
   IAdminResolutionStartedResponse,
   IAdminSessionResponse,
+  TAdminResolutionSucceededResult,
   TAdminResolutionOutcomeResponse,
   TAdminResolutionRequest,
   TAdminResolutionResponse,
@@ -42,6 +43,10 @@ const ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE = "Admin API returned an inconsiste
 
 export function isAdminApiError(error: unknown): error is AdminApiError {
   return error instanceof AdminApiError;
+}
+
+export function isAdminApiRejection(error: unknown): error is AdminApiError {
+  return isAdminApiError(error) && error.status >= 400;
 }
 
 export function isAdminAccessError(error: unknown): error is AdminApiError {
@@ -583,11 +588,67 @@ function isAdminResolutionFailedResponse(value: unknown): value is IAdminResolut
 }
 
 function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutcomeResponse {
-  return (
-    isRecord(value) &&
-    (value.status === "pending" || value.status === "succeeded" || value.status === "failed") &&
-    hasResult(value)
-  );
+  if (
+    !isRecord(value) ||
+    (value.status !== "pending" && value.status !== "succeeded" && value.status !== "failed") ||
+    !hasResult(value) ||
+    (value.failureKind !== undefined &&
+      (value.status !== "failed" || value.failureKind !== "not_submitted"))
+  ) {
+    return false;
+  }
+
+  return value.status !== "succeeded" || isAdminResolutionSucceededResult(value.result);
+}
+
+function isAdminResolutionSucceededResult(
+  value: unknown,
+): value is TAdminResolutionSucceededResult {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const status = value.status;
+  const freelancerShareBps = value.freelancerShareBps;
+  const freelancerPayoutAmount = value.freelancerPayoutAmount;
+  const clientRefundAmount = value.clientRefundAmount;
+  const resolutionTxHash = value.resolutionTxHash;
+  const resolutionStellarExpertUrl = value.resolutionStellarExpertUrl;
+
+  if (
+    (status !== "resolved_client" &&
+      status !== "resolved_freelancer" &&
+      status !== "split_resolution") ||
+    typeof freelancerShareBps !== "number" ||
+    !Number.isFinite(freelancerShareBps) ||
+    !Number.isSafeInteger(freelancerShareBps) ||
+    (status === "resolved_client" && freelancerShareBps !== 0) ||
+    (status === "resolved_freelancer" && freelancerShareBps !== 10_000) ||
+    (status === "split_resolution" && (freelancerShareBps < 1 || freelancerShareBps > 9_999)) ||
+    typeof freelancerPayoutAmount !== "number" ||
+    !Number.isFinite(freelancerPayoutAmount) ||
+    freelancerPayoutAmount < 0 ||
+    typeof clientRefundAmount !== "number" ||
+    !Number.isFinite(clientRefundAmount) ||
+    clientRefundAmount < 0 ||
+    typeof resolutionTxHash !== "string" ||
+    !/^[0-9a-fA-F]{64}$/.test(resolutionTxHash) ||
+    typeof resolutionStellarExpertUrl !== "string" ||
+    !isValidExplorerUrl(resolutionStellarExpertUrl)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isValidExplorerUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "stellar.expert";
+  } catch {
+    return false;
+  }
 }
 
 function normalizeTransactionHash(transactionHash: string): string {

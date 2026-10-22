@@ -16,7 +16,6 @@ import { showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
 import {
   HighrableV2Badge,
-  HighrableV2Bullet,
   HighrableV2IconNotice,
 } from "@repo/ui/components/highrable/v2-marketing";
 import { Badge } from "@repo/ui/components/ui/badge";
@@ -179,7 +178,7 @@ export function AttachmentFileIcon({ type }: IAttachmentFileIconProps) {
 
 export function AttachmentTypeBadge({ type }: IAttachmentTypeBadgeProps) {
   return (
-    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] tracking-[0.06em] uppercase hover:bg-muted">
+    <Badge className="hr-text-secondary rounded-md border-border bg-muted px-2 py-0.5 text-xs hover:bg-muted">
       {getAttachmentLabel(type)}
     </Badge>
   );
@@ -356,7 +355,9 @@ export function AttachmentList({ attachments, readOnly = false, onRemove }: IAtt
   if (attachments.length === 0) {
     return (
       <div className="hr-text-secondary flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-4 font-sans text-sm">
-        <HighrableV2Bullet tone="muted" aria-hidden="true" />
+        <span aria-hidden="true" className="hr-text-muted">
+          ·
+        </span>
         <span>No attachments added.</span>
       </div>
     );
@@ -812,7 +813,7 @@ export function AttachmentUploader({
 
       {/* Upload/action error */}
       {error ? (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+        <div className="flex items-center gap-2 border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-600">
           <HighrableV2IconNotice label="Attachment action error" tone="danger" message={error} />
           <span>Attachment action failed</span>
         </div>

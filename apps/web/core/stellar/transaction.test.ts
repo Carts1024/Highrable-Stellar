@@ -125,6 +125,24 @@ describe("invokeContract execution phases and recovery identity", () => {
     ]);
   });
 
+  it("persists the signed transaction hash and expiry before submission", async () => {
+    const onSigned = vi.fn(async () => undefined);
+
+    const result = await invokeContract({
+      ...invokeParams,
+      operationId: "registration-operation",
+      signTransaction: vi.fn().mockResolvedValue("signed-xdr"),
+      onSigned,
+    });
+
+    expect(onSigned).toHaveBeenCalledWith({
+      operationId: "registration-operation",
+      transactionHash: "010203",
+      transactionValidUntil: 123,
+    });
+    expect(result.transactionValidUntil).toBe(123);
+  });
+
   it("does not sign or submit when simulation/preparation fails", async () => {
     runtime.prepareTransaction.mockRejectedValue(new Error("simulation failed"));
     const signTransaction = vi.fn();
@@ -132,6 +150,73 @@ describe("invokeContract execution phases and recovery identity", () => {
     await expect(invokeContract({ ...invokeParams, signTransaction })).rejects.toThrow(
       "simulation failed",
     );
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(runtime.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not submit when the wallet rejects the signature request", async () => {
+    const onSigned = vi.fn();
+    const signTransaction = vi.fn().mockRejectedValue(new Error("User declined the signature."));
+
+    await expect(invokeContract({ ...invokeParams, signTransaction, onSigned })).rejects.toThrow(
+      "User declined the signature.",
+    );
+    expect(onSigned).not.toHaveBeenCalled();
+    expect(runtime.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("runs a pre-sign check alongside transaction preparation and waits for both", async () => {
+    let releaseCheck: (() => void) | undefined;
+    let markCheckStarted: (() => void) | undefined;
+    let markPreparationStarted: (() => void) | undefined;
+    const checkStarted = new Promise<void>((resolve) => {
+      markCheckStarted = resolve;
+    });
+    const preparationStarted = new Promise<void>((resolve) => {
+      markPreparationStarted = resolve;
+    });
+    const checkGate = new Promise<void>((resolve) => {
+      releaseCheck = resolve;
+    });
+    const preSignCheck = vi.fn(async () => {
+      markCheckStarted?.();
+      await checkGate;
+    });
+    runtime.prepareTransaction.mockImplementationOnce(async () => {
+      markPreparationStarted?.();
+      return { toXDR: () => "prepared-xdr" };
+    });
+    const signTransaction = vi.fn().mockResolvedValue("signed-xdr");
+
+    const invocation = invokeContract({
+      ...invokeParams,
+      signTransaction,
+      preSignCheck,
+    });
+
+    await Promise.all([checkStarted, preparationStarted]);
+    expect(signTransaction).not.toHaveBeenCalled();
+
+    releaseCheck?.();
+    await invocation;
+
+    expect(preSignCheck).toHaveBeenCalledOnce();
+    expect(signTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("does not request a wallet signature when a pre-sign check fails", async () => {
+    const signTransaction = vi.fn();
+
+    await expect(
+      invokeContract({
+        ...invokeParams,
+        signTransaction,
+        preSignCheck: async () => {
+          throw new Error("Insufficient USDC balance.");
+        },
+      }),
+    ).rejects.toThrow("Insufficient USDC balance.");
+
     expect(signTransaction).not.toHaveBeenCalled();
     expect(runtime.sendTransaction).not.toHaveBeenCalled();
   });

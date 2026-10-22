@@ -265,6 +265,10 @@ export async function verifyDeploymentIdentity({
     // point-in-time observation, not a guarantee about subsequent ledgers.
     const confirmed = await readEntries(reads, instanceKeys);
     requireInput(confirmed.ledger >= codes.ledger, "ledger_regressed");
+    requireInput(
+      codes.entries.every((entry) => entry.liveUntilLedgerSeq >= confirmed.ledger),
+      "code_expired_during_verification",
+    );
     for (let i = 0; i < names.length; i++) {
       if (
         confirmed.entries[i].val.toXDR("base64") !== instancesResult.entries[i].val.toXDR("base64")

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminSessionGate, useAdminSessionAccess } from "@/features/admin/admin-session-gate";
+import { AdminMark } from "@/features/admin/components/admin-mark";
 import {
   AdminBreakdownMatrix,
   AdminDisputeQueue,
@@ -86,29 +87,29 @@ export function AdminDashboardContent() {
 
     return [
       {
-        title: "Users By Role",
+        title: "Users by Role",
         description: "Access segmentation for client, freelancer, and admin wallets.",
         values: metrics.users.byRole,
       },
       {
-        title: "Jobs By Status",
+        title: "Jobs by Status",
         description: "Marketplace demand grouped by current work state.",
         values: metrics.jobs.byStatus,
       },
       {
-        title: "Escrows By Status",
+        title: "Escrows by Status",
         description: "Escrow-backed stats for funding, release, and dispute readiness.",
         values: metrics.escrows.byStatus,
       },
       {
-        title: "Disputes By Status",
+        title: "Disputes by Status",
         description: "Review queue state for open, waiting, and resolved cases.",
         values: metrics.disputes.byStatus,
         formatLabel: (label) =>
           isDisputeStatus(label) ? getDisputeStatusLabel(label) : formatBreakdownLabel(label),
       },
       {
-        title: "Disputes By On-Chain",
+        title: "Disputes by On-Chain",
         description: "On-chain marking state for dispute settlement integrity.",
         values: metrics.disputes.byOnChainStatus,
         formatLabel: (label) =>
@@ -136,12 +137,12 @@ export function AdminDashboardContent() {
         values: metrics.workSubmissions.byOnChainStatus,
       },
       {
-        title: "Revisions By Status",
+        title: "Revisions by Status",
         description: "Revision loop pressure across active work agreements.",
         values: metrics.revisions.byStatus,
       },
       {
-        title: "Reminders By Status",
+        title: "Reminders by Status",
         description: "Deadline reminder delivery state for overdue work prevention.",
         values: metrics.deadlineReminders.byStatus,
       },
@@ -150,26 +151,22 @@ export function AdminDashboardContent() {
 
   return (
     <div className="space-y-6">
-      <ProductPageHero
-        label="Platform Operations"
-        title={
-          <>
-            Highrable <span className="hr-v2-gradient-text">Admin Console</span>
-          </>
-        }
-        description="Monitor platform operations, review dispute pipeline health, and inspect lifecycle counts in one place."
-      />
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <AppButton asChild variant="secondary" size="sm">
-          <Link href="/admin/disputes">Open Dispute Console</Link>
-        </AppButton>
-        <AppButton asChild variant="secondary" size="sm">
-          <Link href="/admin/admins">Manage Dispute Admins</Link>
-        </AppButton>
-        <AppButton size="sm" onClick={() => void loadMetrics()} disabled={isLoading}>
-          {isLoading ? "Refreshing..." : "Refresh Metrics"}
-        </AppButton>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <ProductPageHero
+          meta={<AdminMark />}
+          title="Overview"
+          description="Platform totals, lifecycle counts, and the newest dispute cases."
+        />
+        <div className="shrink-0">
+          <AppButton
+            variant="outline"
+            size="sm"
+            onClick={() => void loadMetrics()}
+            disabled={isLoading}
+          >
+            {isLoading ? "Refreshing..." : "Refresh"}
+          </AppButton>
+        </div>
       </div>
 
       {error ? <RouteCallout tone="danger">{error}</RouteCallout> : null}
@@ -180,11 +177,7 @@ export function AdminDashboardContent() {
         </RouteCallout>
       ) : (
         <div className="space-y-6">
-          <AdminSection
-            label="Operations Snapshot"
-            title="Platform totals"
-            description="A compact read on the core platform objects before drilling into lifecycle health."
-          >
+          <AdminSection title="Platform totals">
             <AdminMetricRail items={platformMetrics} />
           </AdminSection>
 
@@ -195,24 +188,16 @@ export function AdminDashboardContent() {
             </RouteCallout>
           ) : null}
 
-          <AdminSection
-            label="Escrow-backed Stats"
-            title="Lifecycle breakdown"
-            description="Grouped counts are organized by operational theme so unusual states are easier to scan."
-          >
+          <AdminSection title="Lifecycle breakdown">
             <AdminBreakdownMatrix groups={lifecycleGroups} />
           </AdminSection>
 
-          <AdminSection
-            label="Verified Reviews"
-            title="Work history health"
-            description="Submission, revision, and reminder activity that feeds escrow-backed reputation."
-          >
+          <AdminSection title="Work submissions and deadlines">
             <div className="space-y-5">
               <AdminMetricRail
                 items={[
                   {
-                    label: "Work submissions",
+                    label: "Work Submissions",
                     value: metrics.workSubmissions.total,
                     description: "Submitted deliverables available for review.",
                   },
@@ -238,13 +223,11 @@ export function AdminDashboardContent() {
           </AdminSection>
 
           <AdminSection
-            label="Work History"
             title="Recent disputes"
-            description="Newest review cases that may affect escrow settlement and portable reputation."
             action={
-              <AppButton asChild variant="secondary" size="sm">
-                <Link href="/admin/disputes">View All</Link>
-              </AppButton>
+              <Link href="/admin/disputes" className="hr-mode-text text-sm hover:underline">
+                All disputes
+              </Link>
             }
           >
             <AdminDisputeQueue

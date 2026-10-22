@@ -2,11 +2,15 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-21
 source_of_truth: repository
 ---
 
 # Disputes and Cancellations
+
+## Deliverable 2 C24 follow-up — saved-case reopening acceptance
+
+Six integration cases now verify client/freelancer access after outsider denial, saved marking hashes across `not_marked`/`marking`/`mark_failed`, component remount without local execution state, preserved historical events, and authoritative confirmation. None permits a blind marking retry or issues a mutation/Stellar call. The existing implementation passes these added paths; this is regression evidence, not a new runtime state model. See [C24 acceptance evidence](../../instawards/Deliverable-2-C24-Participant-Acceptance-Evidence.md) for current local results and live-verification limits.
 
 ## Deliverable 2 C16 follow-up — marking confirmation and safe retry
 
@@ -105,6 +109,7 @@ participant opens dispute
   → on-chain mark disputed (hashless retry only if not submitted; known hashes require reconciliation)
   → active admin claim or owner assignment
   → assigned admin review
+  → server preflight of scoped on-chain escrow status and participants before recording settlement start
   → persist signed transaction identity before submission
   → server verifies contract/escrow/actor/split and current escrow state
   → idempotent Convex settlement record and parent terminal-state patch
@@ -245,6 +250,7 @@ Known-hash failures remain blocked pending reconciliation. Hashless retries and 
 - Success requires the persisted signed identity and the existing server-side chain verification boundary. It applies escrow, dispute, parent, transaction, audit, system-message, and notification updates atomically once; authorized matching replays are harmless. Failure supports unsigned failure or reconciliation with the matching saved hash, preserves the first failure and known hash, and suppresses duplicate or stale-success side effects.
 - Explicit populated dispute/attempt contract and escrow references must match the configured scope and escrow. Legacy records may omit those optional dispute fields and continue using the linked escrow and current scope. Resolution audit metadata includes the operation ID; failure events include known hashes without adding event types.
 - Terminal mappings remain `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. `packages/backend/tests/disputes/c17.settlement.test.ts` covers both parent types, all mappings, malformed/conflicting inputs, authorization/replay paths, uncertainty recovery, atomic updates, and side-effect counts.
+- Recovery closes a stale `started` attempt with no persisted signed transaction as `not_submitted`, without querying or submitting to Stellar. The admin UI refreshes the case and permits a new operation; signed attempts still require saved-hash verification and are never resubmitted.
 
 Payment-amount arithmetic is unchanged: payout bookkeeping still uses whole-unit truncation (`Math.trunc`) before the client refund is derived. Token-precision arithmetic is a separate follow-up and must be designed with asset decimals before changing settlement amounts.
 

@@ -85,7 +85,11 @@ vi.mock("@/features/attachments/components", () => ({
     return createElement("span", null, "Evidence mounted");
   },
 }));
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   showWarningToast: vi.fn(),
   RouteCallout: ({ children }: { children: ReactNode }) =>
     createElement("div", { role: "alert" }, children),

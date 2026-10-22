@@ -119,6 +119,7 @@ export interface IAdminResolutionSucceededResponse {
 export interface IAdminResolutionVerifiedFailedResponse {
   readonly status: "failed";
   readonly result: TAdminResolutionFailedResult;
+  readonly failureKind?: "not_submitted";
 }
 
 export type TAdminResolutionOutcomeResponse =

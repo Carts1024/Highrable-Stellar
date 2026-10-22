@@ -1,5 +1,6 @@
 "use client";
 
+import { ESCROW_CONTRACT_ID, STELLAR_NETWORK_PASSPHRASE } from "@/core/config/stellar-contracts";
 import { api } from "@repo/convex-client";
 import { useAction } from "convex/react";
 import { useCallback, useState } from "react";
@@ -91,6 +92,8 @@ export function useSyncActions({ escrow }: { escrow: TConvexDoc<"escrows"> | nul
     try {
       const result = (await syncEscrowStatusAction({
         escrowId: escrow.escrowId,
+        expectedEscrowContractId: ESCROW_CONTRACT_ID ?? "",
+        expectedNetworkPassphrase: STELLAR_NETWORK_PASSPHRASE,
       })) as TSyncResult;
 
       setState({ isSyncing: false, syncResult: result });

@@ -36,6 +36,18 @@ export class PasskeySmartAccountCompatibilityError extends Error {
   }
 }
 
+export function isPasskeyFeatureEnabled(): boolean {
+  return env.NEXT_PUBLIC_ENABLE_PASSKEYS;
+}
+
+export function assertPasskeyFeatureEnabled(): void {
+  if (!isPasskeyFeatureEnabled()) {
+    throw new PasskeyConfigError(
+      "Passkey smart accounts are disabled by NEXT_PUBLIC_ENABLE_PASSKEYS.",
+    );
+  }
+}
+
 function readOptionalValue(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : null;

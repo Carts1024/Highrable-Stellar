@@ -57,6 +57,52 @@ export async function POST(
     const disputeId = params.disputeId as TConvexId<"disputes">;
 
     if (body.phase === "started") {
+      const preflight = await client.query(api.admin.getAdminSettlementPreflight, {
+        adminWallet: adminContext.adminWallet,
+        adminApiSecret: adminContext.adminApiSecret,
+        disputeId,
+      });
+      if (preflight.escrowStatus !== "disputed") {
+        return NextResponse.json(
+          {
+            error: "Settlement requires the Convex escrow mirror to be disputed.",
+            details: { code: "settlement_preflight_failed" },
+          },
+          { status: 409 },
+        );
+      }
+
+      const onChainEscrow = await readDisputedEscrowStatus({
+        sourceAddress: adminContext.adminWallet,
+        escrowId: preflight.onChainEscrowId,
+        network: preflight.network,
+        contractId: preflight.contractId,
+      });
+      if (
+        onChainEscrow.client !== preflight.clientWallet.trim().toUpperCase() ||
+        onChainEscrow.freelancer !== (preflight.freelancerWallet?.trim().toUpperCase() ?? null)
+      ) {
+        return NextResponse.json(
+          {
+            error: "On-chain escrow participants do not match the saved dispute.",
+            details: { code: "settlement_preflight_failed" },
+          },
+          { status: 409 },
+        );
+      }
+      if (onChainEscrow.status !== "Disputed") {
+        return NextResponse.json(
+          {
+            error: `Settlement requires on-chain escrow ${preflight.onChainEscrowId} to be Disputed; Stellar reports ${onChainEscrow.status}. Reconcile the dispute state before retrying.`,
+            details: {
+              code: "settlement_preflight_failed",
+              onChainStatus: onChainEscrow.status,
+            },
+          },
+          { status: 409 },
+        );
+      }
+
       const result = await client.mutation(api.admin.recordDisputeResolutionStarted, {
         adminWallet: adminContext.adminWallet,
         adminApiSecret: adminContext.adminApiSecret,
@@ -108,7 +154,10 @@ export async function POST(
         operationId: attempt.operationId,
         errorMessage: "No signed transaction was persisted, so no settlement was submitted.",
       });
-      return NextResponse.json({ status: "failed", result }, { status: 200 });
+      return NextResponse.json(
+        { status: "failed", result, failureKind: "not_submitted" },
+        { status: 200 },
+      );
     }
     if (!attempt.transactionHash || attempt.transactionValidUntil === undefined) {
       return NextResponse.json(
