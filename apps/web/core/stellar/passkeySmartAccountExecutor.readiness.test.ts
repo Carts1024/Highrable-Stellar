@@ -9,6 +9,7 @@ const runtime = vi.hoisted(() => ({
 }));
 
 vi.mock("@/core/stellar/smart-account-config", () => ({
+  assertPasskeyFeatureEnabled: vi.fn(),
   getSmartAccountConfig: () => runtime.config,
   KNOWN_INCOMPATIBLE_SMART_ACCOUNT_WASM_HASHES: new Set(["f".repeat(64)]),
   SMART_ACCOUNT_KIT_TESTNET_DEFAULTS: { accountWasmHash: "e".repeat(64) },

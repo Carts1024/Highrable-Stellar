@@ -6,7 +6,12 @@ import {
   type ISmartAccountConfig,
   PasskeyConfigError,
 } from "@/core/stellar/smart-account-config";
-import { IndexedDBStorage, LocalStorageAdapter, SmartAccountKit } from "smart-account-kit";
+import {
+  IndexedDBStorage,
+  IndexerError,
+  LocalStorageAdapter,
+  SmartAccountKit,
+} from "smart-account-kit";
 
 import type {
   ConnectWalletResult,
@@ -46,6 +51,83 @@ function normalizeCredentialIdToHex(credentialId: string): string {
     ).join("");
   } catch {
     return normalized.toLowerCase();
+  }
+}
+
+export async function discoverPasskeyContractsWithFallback(
+  kit: TSmartAccountKit,
+  credentialId: string,
+): Promise<IndexedContractSummary[] | null> {
+  try {
+    return await kit.discoverContractsByCredential(credentialId);
+  } catch (error) {
+    // Discovery is a convenience for accounts/picker UI, not proof of ownership.
+    // The SDK can derive the account address from the credential and verify it on RPC.
+    if (error instanceof IndexerError) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function credentialIdMatchesOnChainSigner(signer: unknown, credentialId: string): boolean {
+  if (
+    typeof signer !== "object" ||
+    signer === null ||
+    !("tag" in signer) ||
+    signer.tag !== "External"
+  ) {
+    return false;
+  }
+
+  if (!("values" in signer) || !Array.isArray(signer.values)) {
+    return false;
+  }
+
+  const keyData = signer.values[1];
+  if (!(keyData instanceof Uint8Array)) {
+    return false;
+  }
+
+  const credentialHex = normalizeCredentialIdToHex(credentialId);
+  if (!credentialHex || keyData.byteLength <= credentialHex.length / 2) {
+    return false;
+  }
+
+  const keyDataHex = Array.from(keyData, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return keyDataHex.endsWith(credentialHex);
+}
+
+function assertOnChainPasskeySigner(
+  signer: unknown,
+  credentialId: string,
+  configuredVerifierAddress: string,
+): void {
+  if (!credentialIdMatchesOnChainSigner(signer, credentialId)) {
+    throw new Error(
+      "The authenticated passkey is not an active signer on the default smart account rule.",
+    );
+  }
+
+  if (
+    typeof signer !== "object" ||
+    signer === null ||
+    !("values" in signer) ||
+    !Array.isArray(signer.values)
+  ) {
+    throw new Error("Failed to load the authenticated passkey signer details from Stellar RPC.");
+  }
+
+  const signerAddress = signer.values[0];
+  if (typeof signerAddress !== "string") {
+    throw new Error("The authenticated signer is missing its WebAuthn verifier address.");
+  }
+
+  if (normalizeContractId(signerAddress) !== configuredVerifierAddress) {
+    throw new Error(
+      `This smart account uses WebAuthn verifier ${signerAddress} instead of the configured verifier ${configuredVerifierAddress}.`,
+    );
   }
 }
 
@@ -233,7 +315,7 @@ export async function connectFreshPasskeySmartAccount(
     ? normalizeContractId(options.preferredContractId)
     : undefined;
   const { credentialId } = await kit.authenticatePasskey();
-  const discoveredContracts = await kit.discoverContractsByCredential(credentialId);
+  const discoveredContracts = await discoverPasskeyContractsWithFallback(kit, credentialId);
   const matchedContract = discoveredContracts
     ? selectDiscoveredContract(discoveredContracts, preferredContractId)
     : null;
@@ -278,20 +360,66 @@ export async function ensureConnectedPasskeyWalletShape(params: {
   const kit = params.kit ?? getSmartAccountKit();
   const config = getSmartAccountConfigOrThrow();
   const contractId = normalizeContractId(params.contractId);
-  const details = await kit.getContractDetailsFromIndexer(contractId);
-
-  if (!details || !kit.wallet) {
+  if (!kit.wallet) {
     return;
+  }
+
+  if (!params.credentialId) {
+    return;
+  }
+
+  let onChainDefaultSigners: readonly unknown[] = [];
+  try {
+    const defaultRule = await kit.wallet.get_context_rule({ context_rule_id: 0 });
+    onChainDefaultSigners = defaultRule.result?.signers ?? [];
+  } catch {
+    // Existing accounts may have the authenticated signer in a specialized rule.
+    // The indexer can supply candidate rule IDs; the rule itself is still read on-chain.
+  }
+
+  const matchingSigners = onChainDefaultSigners.filter((signer) =>
+    credentialIdMatchesOnChainSigner(signer, params.credentialId!),
+  );
+
+  if (matchingSigners.length === 1) {
+    assertOnChainPasskeySigner(
+      matchingSigners[0],
+      params.credentialId,
+      config.webauthnVerifierAddress,
+    );
+    return;
+  }
+
+  if (matchingSigners.length > 1) {
+    throw new Error(
+      "Multiple active signers matched this passkey on the default smart account rule.",
+    );
+  }
+
+  // Keep support for older accounts whose signer only appears in a specialized
+  // context rule. This is not needed for accounts created by Highrable, whose
+  // passkey is registered in the default rule.
+  let details;
+  try {
+    details = await kit.getContractDetailsFromIndexer(contractId);
+  } catch (error) {
+    if (error instanceof IndexerError) {
+      throw new Error(
+        "Could not verify this passkey on the smart account's on-chain default rule. The account may use a specialized signer rule, but the account indexer is currently unavailable.",
+      );
+    }
+
+    throw error;
+  }
+
+  if (!details) {
+    throw new Error("Could not verify the passkey signer from the smart account on Stellar.");
   }
 
   const activeSigners = details.contextRules.flatMap((rule) => rule.signers);
 
   if (details.contextRules.length > 0 && activeSigners.length === 0) {
     throw new Error("Failed to load active signer details for the connected smart account.");
-  }
-
-  if (!params.credentialId) {
-    return;
   }
 
   const credentialId = normalizeCredentialIdToHex(params.credentialId);

@@ -34,6 +34,7 @@ Both identity modes are implemented. Passkey escrow execution is compatibility-s
 - Detect network/funding and use Friendbot only for testnet account funding.
 - Create, silently restore, reconnect, and choose among discovered smart accounts.
 - Gate passkey UI, session restoration, reconnection, and transaction execution with `NEXT_PUBLIC_ENABLE_PASSKEYS` (enabled by default).
+- Treat credential discovery as optional picker metadata: on `IndexerError`, use the SDK-derived account address, RPC-check account existence, and verify default-rule signer/verifier on-chain; keep the indexer for multiple-account selection and specialized context rules.
 - Persist `walletType` and active address to Convex.
 - Validate WebAuthn support, RP ID, signer membership, configured verifier, account WASM hash, and fee path.
 
