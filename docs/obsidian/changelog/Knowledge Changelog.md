@@ -11,7 +11,7 @@ source_of_truth: repository
 ## 2026-10-22
 
 - Added the public `NEXT_PUBLIC_ENABLE_PASSKEYS` feature switch. It defaults to enabled for compatibility; setting it to `false` hides the passkey card and blocks restore, reconnect, creation, and transaction execution. Restart or redeploy the web app after changing it. See [[operations/Environment Variables]] and [[modules/Wallets and Passkeys]].
-- Added a Testnet smart-account indexer outage fallback: derive the account from the authenticated credential, verify its existence via RPC, and verify a default-rule passkey signer and verifier on-chain. Indexer lookup remains used for multi-account selection and specialized signer rules.
+- Refactored passkey discovery so SDK `IndexerError`s do not block the normal create/reconnect flow: derive the account from the authenticated credential, verify its existence via RPC, and verify a default-rule passkey signer and verifier on-chain. Indexer lookup remains optional picker metadata for multi-account selection and specialized signer rules; added regression coverage for the HTTP 500 case.
 
 ## 2026-10-21
 
