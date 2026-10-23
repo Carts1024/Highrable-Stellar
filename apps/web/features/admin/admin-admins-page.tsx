@@ -247,7 +247,7 @@ function AdminAdminsContent() {
       {actionError ? <RouteCallout tone="danger">{actionError}</RouteCallout> : null}
       {actionSuccess ? <RouteCallout>{actionSuccess}</RouteCallout> : null}
 
-      <AdminSection title="Grant or Revoke Dispute Access">
+      <AdminSection title="Grant or Revoke Dispute Access" variant="card" accent="band">
         <div className="flex flex-wrap items-end gap-3">
           <label
             htmlFor="dispute-admin-wallet"

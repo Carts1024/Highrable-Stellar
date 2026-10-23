@@ -37,6 +37,11 @@ interface IAdminSectionProps {
   readonly className?: string;
   /** `card` draws a bordered container with a header strip; use it for forms and grouped facts. */
   readonly variant?: "plain" | "card";
+  /**
+   * Card header colour: `band` fills the header with the admin orange-to-yellow gradient (use for
+   * the main working cards); `line` adds a thin gradient strip above a neutral header.
+   */
+  readonly accent?: "band" | "line";
   readonly bodyClassName?: string;
 }
 
@@ -79,16 +84,36 @@ export function AdminSection({
   children,
   className,
   variant = "plain",
+  accent = "line",
   bodyClassName,
 }: IAdminSectionProps) {
   if (variant === "card") {
+    const isBand = accent === "band";
+
     return (
       <section className={cn("overflow-hidden rounded-lg border bg-card", className)}>
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
+        {isBand ? null : <div className="h-1 bg-(image:--mode-gradient)" aria-hidden="true" />}
+        <header
+          className={cn(
+            "flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3 sm:px-5",
+            isBand ? "hr-mode-band" : "bg-muted/30",
+          )}
+        >
           <div className="min-w-0">
-            <h2 className="hr-text-primary text-sm font-semibold">{title}</h2>
+            <h2
+              className={cn("text-sm font-semibold", isBand ? "text-inherit" : "hr-text-primary")}
+            >
+              {title}
+            </h2>
             {description ? (
-              <p className="hr-text-secondary mt-0.5 text-xs leading-relaxed">{description}</p>
+              <p
+                className={cn(
+                  "mt-0.5 text-xs leading-relaxed",
+                  isBand ? "text-inherit opacity-80" : "hr-text-secondary",
+                )}
+              >
+                {description}
+              </p>
             ) : null}
           </div>
           {action ? (
@@ -118,7 +143,7 @@ export function AdminSection({
 
 export function AdminMetricRail({ items }: IAdminMetricRailProps) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
+    <div className="relative grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border pt-1 before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-(image:--mode-gradient) lg:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="bg-card p-4">
           <StatCard label={item.label} value={item.value} description={item.description} />
@@ -181,7 +206,7 @@ export function AdminDisputeQueue({
     <div className="overflow-hidden rounded-lg border bg-card">
       <div
         className={cn(
-          "hr-text-secondary hidden gap-4 border-b bg-muted/50 px-4 py-2 text-xs font-medium lg:grid",
+          "hr-mode-band hidden gap-4 border-b px-4 py-2 text-xs font-semibold lg:grid",
           QUEUE_GRID_COLUMNS,
         )}
       >

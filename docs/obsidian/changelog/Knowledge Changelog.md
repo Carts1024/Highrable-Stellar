@@ -10,6 +10,8 @@ source_of_truth: repository
 
 ## 2026-10-23
 
+- **Admin navigation:** Overview and Admins tabs are now shown only to the verified platform owner; dispute admins see only Disputes. Session query key/hook moved to `features/admin/lib/admin-session-query.ts` and shared by the gate and header. Admin cards gained orange-to-yellow gradient header accents. See [[modules/Admin Operations]].
+
 - **Admin session gate / settlement interruption:** the gate no longer unmounts verified admin pages during background session re-checks (e.g. the focus-return refetch after a wallet signing popup). This had been aborting in-flight dispute settlements, which then needed reconciliation, and clearing the resolution form. Failed re-checks still fail-close. Admin dispute UI was also reorganised (two-column detail, top-of-page settlement recovery panel, a neutral notice for reconciled not-submitted attempts); no API, schema, or chain behavior changed. See [[modules/Admin Operations]].
 
 - Added automatic administrator recovery for successful prior `resolve_dispute` transactions when Stellar is terminal but Convex still shows the escrow disputed. The server discovers the call in the assigned admin's Horizon history, uses the saved dispute-mark hash as a ledger anchor when available, verifies the exact call through RPC/current escrow state, and uses normal Convex bookkeeping without asking for a hash or resubmitting. Testnet evidence for escrow 24 and bounded-history limitations are recorded in [[evidence/Admin-Resolution External Transaction Recovery Evidence]], [[backend/Admin and Server Routes]], [[data/State Machines]], and [[workflows/Debugging]].

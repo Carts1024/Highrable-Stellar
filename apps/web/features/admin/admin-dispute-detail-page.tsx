@@ -301,7 +301,7 @@ function AdminCaseFacts({ detail }: IAdminCaseBriefProps) {
     detail.dispute.parentType === "milestone";
 
   return (
-    <AdminSection title="Case details" variant="card">
+    <AdminSection title="Case details" variant="card" accent="band">
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
         <DisputeStatusBadge status={detail.dispute.status} />
         <DisputeOnChainStatusBadge status={detail.dispute.onChainStatus} />
@@ -488,6 +488,7 @@ function AdminAssignmentWorkspace({
       title="Assignment"
       description="Only the assigned active admin can act on this case. The platform owner can reassign or release it."
       variant="card"
+      accent="band"
     >
       <div className="space-y-3">
         <div>
@@ -594,6 +595,7 @@ function AdminModeratorWorkspace({
       title="Moderator Workflow"
       description="Add internal context or request a party response without leaving the case record."
       variant="card"
+      accent="band"
     >
       <div className="grid gap-6 xl:grid-cols-2 xl:divide-x">
         <div className="flex flex-col gap-2 xl:pr-6">
@@ -700,6 +702,7 @@ function AdminResolutionWorkspace({
       title="Resolve Dispute On-chain"
       description="Settlement calls resolve_dispute with the assigned, active dispute admin wallet."
       variant="card"
+      accent="band"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid content-start gap-1.5 text-sm" htmlFor="resolution-status">

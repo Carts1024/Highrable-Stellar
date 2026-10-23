@@ -2,28 +2,14 @@
 
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
-import {
-  AdminApiError,
-  fetchAdminSession,
-  isAdminAccessError,
-  shouldRetryAdminRead,
-} from "@/features/admin/lib/admin-api";
+import { AdminApiError, isAdminAccessError } from "@/features/admin/lib/admin-api";
+import { ADMIN_QUERY_KEY, useAdminSessionQuery } from "@/features/admin/lib/admin-session-query";
 import { RouteCallout, RoutePanel, RoutePanelHeader } from "@/features/common";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import type { IAdminSessionResponse } from "@/features/admin/types";
-
-export const ADMIN_QUERY_KEY = ["admin"] as const;
+export { ADMIN_QUERY_KEY };
 
 type TAdminSessionAccessContext = {
   readonly verifiedWallet: string;
@@ -87,22 +73,8 @@ export function AdminSessionGate({
   const [forcedAccessError, setForcedAccessError] = useState<AdminApiError | null>(null);
   const previousExternalWalletRef = useRef<string | null>(null);
 
-  const externalWalletAddress = walletState.isConnected ? walletState.walletAddress : null;
+  const { sessionQuery, sessionQueryKey, externalWalletAddress } = useAdminSessionQuery();
   const isExternalWalletActive = walletIdentity.activeWalletMode === "external_wallet";
-  const shouldCheckSession =
-    isExternalWalletActive && walletState.isConnected && externalWalletAddress !== null;
-  const sessionQueryKey = useMemo(
-    () => [...ADMIN_QUERY_KEY, "session", externalWalletAddress, authSession?.expiresAt ?? null],
-    [authSession?.expiresAt, externalWalletAddress],
-  );
-
-  const sessionQuery = useQuery<IAdminSessionResponse, AdminApiError>({
-    queryKey: sessionQueryKey,
-    queryFn: ({ signal }) => fetchAdminSession({ signal }),
-    enabled: shouldCheckSession,
-    staleTime: 0,
-    retry: shouldRetryAdminRead,
-  });
 
   const clearProtectedQueries = useCallback(
     async (preserveQueryKey?: readonly unknown[]) => {

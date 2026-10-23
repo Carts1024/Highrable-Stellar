@@ -105,6 +105,8 @@ Routes: `/admin`, `/admin/admins`, `/admin/disputes`, `/admin/disputes/[disputeI
 
 The shared session gate blocks protected content only while no verified session result exists (`isPending`, or a fetch without a prior success). Background re-checks of an already-verified session — notably React Query's refetch when focus returns from a wallet signing popup — keep the page mounted, so in-flight settlements and unsaved form input survive signing. A rejected re-check still fail-closes through the 401/403/error branches. Before this, focus-return refetches unmounted the dispute detail mid-settlement, abandoning the attempt (forcing reconciliation) and clearing the resolution form.
 
+Admin header navigation shows the owner-only tabs (Overview `/admin`, Admins `/admin/admins`) only after the server has verified the connected external wallet as the platform owner; dispute admins and unverified sessions see only Disputes. The header reads the same cached session query as the gate through `features/admin/lib/admin-session-query.ts` (kept free of `@/features/common` imports to avoid a cycle). Hiding tabs is presentation only — the owner pages still enforce `requiredCapability="owner"` in the gate.
+
 The `/dashboard` admin-profile branch uses the verified capability response as an entry router. The shared dispute-capability session gate must first verify the connected external wallet; verified owners render the existing platform dashboard, while verified dispute admins without owner capability are redirected with history replacement to `/admin/disputes`. The profile-role selection remains the entry condition and is not an authorization source.
 
 ## Data Model
