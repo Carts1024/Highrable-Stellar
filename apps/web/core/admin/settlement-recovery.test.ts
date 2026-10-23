@@ -265,28 +265,30 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
-  it("does not create a settlement attempt while the on-chain escrow is not disputed", async () => {
-    query.mockResolvedValueOnce(settlementPreflight());
-    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
-      reply(escrow(["Funded"])),
-    );
+  it.each(["Funded", "Released"] as const)(
+    "does not create a settlement attempt while the on-chain escrow is %s",
+    async (status) => {
+      query.mockResolvedValueOnce(settlementPreflight());
+      vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
+        reply(escrow([status])),
+      );
 
-    const response = await startSettlement();
+      const response = await startSettlement();
 
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error:
-        "Settlement requires on-chain escrow 42 to be Disputed; Stellar reports Funded. Reconcile the dispute state before retrying.",
-      details: { code: "settlement_preflight_failed", onChainStatus: "Funded" },
-    });
-    expect(query).toHaveBeenCalledWith(
-      "settlement-preflight",
-      expect.objectContaining({ disputeId: "dispute-1", adminWallet: actor }),
-    );
-    expect(mutation).not.toHaveBeenCalled();
-    expect(rpc.Server.prototype.getTransaction).not.toHaveBeenCalled();
-    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        error: `Settlement requires on-chain escrow 42 to be Disputed; Stellar reports ${status}. Reconcile the dispute state before retrying.`,
+        details: { code: "settlement_preflight_failed", onChainStatus: status },
+      });
+      expect(query).toHaveBeenCalledWith(
+        "settlement-preflight",
+        expect.objectContaining({ disputeId: "dispute-1", adminWallet: actor }),
+      );
+      expect(mutation).not.toHaveBeenCalled();
+      expect(rpc.Server.prototype.getTransaction).not.toHaveBeenCalled();
+      expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+    },
+  );
 
   it("starts settlement only after the scoped on-chain escrow and participants are verified", async () => {
     query.mockResolvedValueOnce(settlementPreflight());
