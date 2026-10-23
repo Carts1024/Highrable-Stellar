@@ -14,7 +14,7 @@ Connect external Stellar wallets, create/restore/reconnect passkey smart account
 
 ## Current Status
 
-Both identity modes are implemented. Passkey escrow execution is compatibility-sensitive and deployment metadata is not complete for production smart-account operation.
+Both identity modes are implemented. Passkey escrow execution is compatibility-sensitive and deployment metadata is not complete for production smart-account operation. The profile wallet-status card reads the unified wallet identity, so passkey users can see and copy their `C...` smart-account address without an external wallet connection; external-only funding controls remain limited to classic `G...` wallets.
 
 ## Primary Locations
 
@@ -60,7 +60,7 @@ See [[stellar/Smart Accounts and Passkeys]] for the complete external/passkey ex
 
 ## Common Change Locations
 
-Identity selection: `use-highrable-wallet-identity.ts`; external connection: wallet client/context; passkey storage/config: `smart-account-kit.ts` and `smart-account-config.ts`; contract execution: `transactionExecutor.ts` and `passkeySmartAccountExecutor.ts`.
+Identity selection: `use-highrable-wallet-identity.ts`; profile wallet display: `apps/web/core/wallet/components/wallet-status-card.tsx`; external connection: wallet client/context; passkey storage/config: `smart-account-kit.ts` and `smart-account-config.ts`; contract execution: `transactionExecutor.ts` and `passkeySmartAccountExecutor.ts`.
 
 ## Risks / Gotchas
 

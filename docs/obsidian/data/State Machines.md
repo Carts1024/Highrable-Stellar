@@ -52,11 +52,11 @@ The internal mirror mutation is idempotent for the same on-chain timestamp and r
 
 ## Work agreements
 
-`draft → pending_preview/ready_to_send → pending_acceptance → accepted → locked` with rejection/cancellation/superseded branches. Amendments use new versions rather than mutating immutable locked content.
+`draft → pending_preview/ready_to_send → pending_acceptance → accepted → locked` with rejection/cancellation/superseded branches. Client and selected-freelancer visibility begins after assignment; proof submission is gated on `locked`. Amendments use new versions rather than mutating immutable locked content.
 
 ## Work submissions
 
-`draft → submitted_for_review → accepted_for_final/submitted → anchoring → anchored`, with `revision_requested → revision_submitted` and `anchor_failed → retry` branches. Submitted/anchored records become read-only under helper guards.
+`draft → submitted_for_review → accepted_for_final/submitted → anchoring → anchored`, with `revision_requested → revision_submitted` and `anchor_failed → retry` branches. Creation and participant reads are gated on a locked agreement for new work; submitted/anchored records become read-only under helper guards.
 
 ## Disputes
 

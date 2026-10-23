@@ -14,7 +14,7 @@ Represent client-uploaded or Highrable-generated terms, review/acceptance, immut
 
 ## Current Status
 
-Implemented in Convex and integrated into work-start/proof guards. Agreement file-integrity hashing is not complete for all source uploads.
+Implemented in Convex and integrated into work-start/proof guards. Client agreement visibility starts after a freelancer is selected; proof submission visibility and creation require the agreement to be locked. Agreement file-integrity hashing is not complete for all source uploads.
 
 ## Primary Locations
 
@@ -28,7 +28,7 @@ Implemented in Convex and integrated into work-start/proof guards. Agreement fil
 - Normalize content and store rich-text/markdown representations.
 - Create version rows, snapshots, SHA-256 agreement hashes, and event audit rows.
 - Send, accept, reject, revise rejected versions, confirm, lock, cancel, and propose/accept/reject amendments.
-- Gate proof submission/work start on accepted agreements, with legacy exemptions for already-progressed records.
+- Gate proof submission/work start on accepted agreements, with proof submission requiring the agreement to be locked and legacy exemptions for already-progressed records.
 
 ## Main Entry Points
 
@@ -54,7 +54,7 @@ draft → ready_to_send → pending_acceptance → accepted → locked
 locked → amendment proposed → new version accepted/locked or rejected
 ```
 
-Escrow funding can lock an accepted agreement. Work submission and start guards query the accepted agreement context before allowing progression.
+Escrow funding can lock an accepted agreement. The client and selected freelancer can view the agreement after assignment, while work submission is hidden and blocked until the agreement is locked.
 
 ## Common Change Locations
 

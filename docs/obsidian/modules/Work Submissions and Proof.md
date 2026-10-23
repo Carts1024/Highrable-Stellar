@@ -28,7 +28,7 @@ Implemented with draft, review, revision, acceptance, anchoring, and retry state
 
 - Validate lowercase 64-character SHA-256 proof hashes and sanitized notes.
 - Link submissions to job/milestone/escrow, agreement version, revision request, attachments, and deadline status.
-- Enforce assigned-freelancer ownership for creation/anchoring and participant visibility for viewing.
+- Enforce assigned-freelancer ownership for creation/anchoring, locked-agreement gating for new proof, and participant visibility for viewing.
 - Track `not_submitted`, `pending`, `confirmed`, and `failed` on-chain anchor states.
 - Render proof data with linked reputation, profiles, timeline, and escrow context.
 
@@ -55,6 +55,8 @@ draft → submitted_for_review → accepted_for_final/submitted
       ↘ revision_requested → revision_submitted → accepted_for_final
 submitted/accepted_for_final → anchoring → anchored or anchor_failed → retry
 ```
+
+New submissions remain hidden and cannot be created until the related work agreement is locked; legacy progressed records retain their existing exemption.
 
 ## Common Change Locations
 
