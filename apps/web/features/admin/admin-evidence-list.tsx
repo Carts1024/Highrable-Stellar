@@ -82,30 +82,30 @@ function EvidenceStateMessage({
 
   return (
     <div className="space-y-1">
-      <p className="text-sm font-semibold text-[#7f1d1d]">{stateLabel}</p>
+      <p className="text-sm font-semibold text-red-700">{stateLabel}</p>
       {state === "missing" ? (
-        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+        <p className="hr-text-secondary text-xs leading-relaxed">
           The referenced attachment was not returned. This does not indicate deletion.
         </p>
       ) : null}
       {state === "blocked" || state === "deleted" ? (
-        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+        <p className="hr-text-secondary text-xs leading-relaxed">
           The returned attachment is {state} and cannot be opened from this view.
         </p>
       ) : null}
       {state === "invalid" ? (
-        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+        <p className="hr-text-secondary text-xs leading-relaxed">
           The attachment has a malformed or unsafe opening URL, or an unsupported status.
         </p>
       ) : null}
       {state === "url_unavailable" ? (
-        <p className="text-xs leading-relaxed text-[#5f5f5f]">
+        <p className="hr-text-secondary text-xs leading-relaxed">
           No opening URL is available. Refreshing the detail may recover it, but recovery is not
           guaranteed.
         </p>
       ) : null}
       {referenceId ? (
-        <p className="font-mono text-xs break-all text-[#7f7f7f]">
+        <p className="hr-text-muted font-mono text-xs break-all">
           Referenced record: {referenceId}
         </p>
       ) : null}
@@ -130,7 +130,7 @@ function AdminEvidenceItem({
 }) {
   if (!attachment) {
     return (
-      <li className="border border-dashed border-[#e8e8e8] bg-[#fafafa] px-3 py-3">
+      <li className="rounded-md border border-dashed bg-muted/30 px-3 py-3">
         <EvidenceStateMessage state="missing" referenceId={referenceId} />
       </li>
     );
@@ -139,17 +139,21 @@ function AdminEvidenceItem({
   const presentation = getAttachmentPresentation(attachment);
 
   return (
-    <li className="flex min-w-0 flex-wrap items-start justify-between gap-4 border border-[#e8e8e8] bg-[#fafafa] px-3 py-3">
+    <li className="flex min-w-0 flex-wrap items-start justify-between gap-3 rounded-md border bg-muted/30 px-3 py-3">
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate text-sm font-semibold text-[#0a0a0a]">{attachment.name}</p>
-        <dl className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#5f5f5f]">
+        <p className="hr-text-primary truncate text-sm font-semibold" title={attachment.name}>
+          {attachment.name}
+        </p>
+        <dl className="hr-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs">
           <div>
             <dt className="sr-only">Type</dt>
             <dd>Type: {formatAttachmentType(attachment.type)}</dd>
           </div>
-          <div>
+          <div className="max-w-full min-w-0">
             <dt className="sr-only">Uploader</dt>
-            <dd>Uploaded by: {attachment.uploadedByWallet}</dd>
+            <dd className="truncate" title={attachment.uploadedByWallet}>
+              Uploaded by: {attachment.uploadedByWallet}
+            </dd>
           </div>
           {attachment.size !== undefined ? (
             <div>
@@ -174,9 +178,9 @@ function AdminEvidenceItem({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Open ${attachment.name}`}
-          className="shrink-0 text-[0.7rem] text-[#B94A00] hover:text-[#E85D00]"
+          className="hr-mode-text inline-flex max-w-full shrink-0 items-center rounded-md border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted"
         >
-          Open {attachment.name}
+          <span className="truncate">Open {attachment.name}</span>
         </a>
       ) : null}
     </li>
@@ -193,7 +197,7 @@ export function AdminEvidenceList({
   const references = getEvidenceReferences(attachmentIds, attachments);
 
   if (references.length === 0) {
-    return <p className="text-sm text-[#5f5f5f]">No evidence attached.</p>;
+    return <p className="hr-text-secondary text-sm">No evidence attached.</p>;
   }
 
   return (

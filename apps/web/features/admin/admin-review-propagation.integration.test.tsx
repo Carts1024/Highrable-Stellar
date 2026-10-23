@@ -268,6 +268,7 @@ vi.mock("lucide-react", () => ({
   ArrowLeft: () => createElement("span"),
   ExternalLink: () => createElement("span"),
   RotateCcw: () => createElement("span"),
+  RefreshCw: () => createElement("span"),
 }));
 vi.mock("next/link", () => ({
   default: ({
