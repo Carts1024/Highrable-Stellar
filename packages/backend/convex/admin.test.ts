@@ -339,6 +339,120 @@ describe("admin dispute authorization and coordination", () => {
     expect(attempts).toHaveLength(1);
   });
 
+  it("reconciles a verified prior resolution hash into dispute and escrow records", async () => {
+    const t = createTest();
+    await seedMembership(t, ADMIN_A);
+    const { disputeId, escrowId } = await seedSettlementCase(t, ADMIN_A);
+    const transactionHash = "f".repeat(64);
+    const reconciliation = {
+      ...context(ADMIN_A),
+      disputeId,
+      transactionHash,
+      transactionValidUntil: 900,
+      freelancerShareBps: 10_000,
+    };
+
+    const recorded = await t.mutation(
+      api.admin.recordDisputeResolutionReconciliationStarted,
+      reconciliation,
+    );
+    await expect(
+      t.mutation(api.admin.recordDisputeResolutionReconciliationStarted, reconciliation),
+    ).resolves.toEqual(recorded);
+    await t.mutation(api.admin.recordDisputeResolutionSucceeded, {
+      ...context(ADMIN_A),
+      operationId: recorded.operationId,
+      transactionHash,
+      transactionValidUntil: 900,
+    });
+
+    const [dispute, escrow, attempt] = await t.run(async ({ db }) => [
+      await db.get(disputeId),
+      await db.get(escrowId),
+      await db
+        .query("settlementAttempts")
+        .withIndex("by_operationId", (q) => q.eq("operationId", recorded.operationId))
+        .unique(),
+    ]);
+    expect(dispute).toMatchObject({
+      status: "resolved_freelancer",
+      resolutionTxHash: transactionHash,
+      freelancerShareBps: 10_000,
+    });
+    expect(escrow).toMatchObject({ status: "released", releaseTxHash: transactionHash });
+    expect(attempt).toMatchObject({
+      status: "succeeded",
+      transactionHash,
+      resolutionStatus: "resolved_freelancer",
+    });
+  });
+
+  it("rejects external settlement reconciliation by an unassigned active admin", async () => {
+    const t = createTest();
+    await seedMembership(t, ADMIN_A);
+    await seedMembership(t, ADMIN_B);
+    const { disputeId } = await seedSettlementCase(t, ADMIN_A);
+
+    await expect(
+      t.mutation(api.admin.recordDisputeResolutionReconciliationStarted, {
+        ...context(ADMIN_B),
+        disputeId,
+        transactionHash: "a".repeat(64),
+        transactionValidUntil: 900,
+        freelancerShareBps: 10_000,
+      }),
+    ).rejects.toThrow();
+
+    const [attempts, transactions] = await t.run(async ({ db }) => [
+      await db.query("settlementAttempts").collect(),
+      await db.query("transactions").collect(),
+    ]);
+    expect(attempts).toHaveLength(0);
+    expect(transactions).toHaveLength(0);
+  });
+
+  it("does not replace a different hash already saved on an active settlement", async () => {
+    const t = createTest();
+    await seedMembership(t, ADMIN_A);
+    const { disputeId, escrowId } = await seedSettlementCase(t, ADMIN_A);
+    const operationId = "settlement-existing-admin-a-001";
+    const existingHash = "b".repeat(64);
+    const input = {
+      ...context(ADMIN_A),
+      disputeId,
+      status: "resolved_freelancer" as const,
+      freelancerShareBps: 10_000,
+      operationId,
+    };
+    await t.mutation(api.admin.recordDisputeResolutionStarted, input);
+    await t.mutation(api.admin.recordDisputeResolutionSigned, {
+      ...context(ADMIN_A),
+      operationId,
+      transactionHash: existingHash,
+      transactionValidUntil: 800,
+    });
+
+    await expect(
+      t.mutation(api.admin.recordDisputeResolutionReconciliationStarted, {
+        ...context(ADMIN_A),
+        disputeId,
+        transactionHash: "c".repeat(64),
+        transactionValidUntil: 900,
+        freelancerShareBps: 10_000,
+      }),
+    ).rejects.toThrow();
+
+    const attempt = await t.run(({ db }) =>
+      db
+        .query("settlementAttempts")
+        .withIndex("by_escrow_status", (q) =>
+          q.eq("escrowDocumentId", escrowId).eq("status", "signed"),
+        )
+        .unique(),
+    );
+    expect(attempt).toMatchObject({ transactionHash: existingHash, transactionValidUntil: 800 });
+  });
+
   it("keeps confirmed settlement completion idempotent against later failure callbacks", async () => {
     const t = createTest();
     await seedMembership(t, ADMIN_A);

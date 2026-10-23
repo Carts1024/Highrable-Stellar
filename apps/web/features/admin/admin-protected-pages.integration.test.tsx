@@ -681,6 +681,14 @@ describe("protected administrator pages", () => {
             } satisfies IAdminResolutionStartedResponse),
           );
         }
+        if (body.phase === "reconcile_external") {
+          return Promise.resolve(
+            response(
+              { error: "External transaction reconciliation is not part of this test." },
+              409,
+            ),
+          );
+        }
         expect(body.operationId).toBe(operationId);
         if (body.phase === "signed") {
           expect(body).toEqual({

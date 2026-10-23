@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     fileParallelism: false,
-    include: ["tests/**/*.test.ts"],
+    include: ["tests/**/*.test.ts", "convex/**/*.test.ts"],
     restoreMocks: true,
     setupFiles: ["./tests/setup.ts"],
     unstubEnvs: true,

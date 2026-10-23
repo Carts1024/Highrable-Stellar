@@ -2,7 +2,7 @@
 type: module
 area: operations
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -53,6 +53,8 @@ deadline set/update → audit row + reminder upsert
 cron every 15 min → scan due reminders/overdue parents → notification + reminder status
 workflow transition → recompute deadline status and reminder set
 ```
+
+Deadline system messages use the escrow conversation when the escrow has an assigned freelancer. If only the job or milestone is assigned, they use that parent conversation; before either relationship has both participants, reminder notifications and status updates still run without creating a chat message. Conversation participant checks remain authoritative.
 
 ## Common Change Locations
 
