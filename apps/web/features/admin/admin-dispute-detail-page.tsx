@@ -154,14 +154,12 @@ interface IAdminResolutionWorkspaceProps {
   readonly settlementBlockingReason: string | null;
   readonly canSettle: boolean;
   readonly isSubmitting: boolean;
-  readonly requiresHashReconciliation: boolean;
-  readonly reconciliationHash: string;
+  readonly requiresOnChainReconciliation: boolean;
   readonly onResolutionStatusChange: (value: TAdminResolutionStatus) => void;
   readonly onResolutionShareInputChange: (value: string) => void;
   readonly onResolutionNoteChange: (value: string) => void;
-  readonly onReconciliationHashChange: (value: string) => void;
   readonly onResolveOnChain: () => void;
-  readonly onReconcileKnownSettlement: () => void;
+  readonly onReconcileOnChainResult: () => void;
 }
 
 interface IAdminTimelineProps {
@@ -639,17 +637,13 @@ function AdminResolutionWorkspace({
   settlementBlockingReason,
   canSettle,
   isSubmitting,
-  requiresHashReconciliation,
-  reconciliationHash,
+  requiresOnChainReconciliation,
   onResolutionStatusChange,
   onResolutionShareInputChange,
   onResolutionNoteChange,
-  onReconciliationHashChange,
   onResolveOnChain,
-  onReconcileKnownSettlement,
+  onReconcileOnChainResult,
 }: IAdminResolutionWorkspaceProps) {
-  const isReconciliationHashValid = /^[0-9a-fA-F]{64}$/.test(reconciliationHash.trim());
-
   return (
     <AdminSection
       title="Resolve Dispute On-chain"
@@ -733,7 +727,7 @@ function AdminResolutionWorkspace({
           onClick={onResolveOnChain}
           disabled={
             isSubmitting ||
-            requiresHashReconciliation ||
+            requiresOnChainReconciliation ||
             !canSettle ||
             resolutionShareError !== null
           }
@@ -743,36 +737,21 @@ function AdminResolutionWorkspace({
         </AppButton>
       </div>
 
-      {requiresHashReconciliation ? (
-        <div className="grid gap-3 border-t border-[#e8e8e8] pt-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-          <label className="grid gap-1.5 text-sm text-[#5f5f5f]" htmlFor="resolution-tx-hash">
-            <span className="text-xs text-[#7f7f7f]">
-              Confirmed resolve_dispute transaction hash
-            </span>
-            <AppInput
-              id="resolution-tx-hash"
-              aria-label="Confirmed resolve_dispute transaction hash"
-              type="text"
-              value={reconciliationHash}
-              onChange={(event) => onReconciliationHashChange(event.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-              className="h-11 rounded-none border-[#e8e8e8] bg-white font-mono focus-visible:ring-[#FF7003]/30"
-              disabled={isSubmitting}
-            />
-            <span className="text-xs leading-relaxed text-[#7f7f7f]">
-              Verify and record a resolution that already succeeded on Stellar. This does not submit
-              another transaction.
-            </span>
-          </label>
+      {requiresOnChainReconciliation ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e8e8] pt-5">
+          <p className="max-w-2xl text-sm leading-relaxed text-[#5f5f5f]">
+            Highrable searches this admin wallet&apos;s Stellar history for a successful resolution
+            of this escrow, verifies the transaction and current contract state, then updates the
+            dispute record without submitting another transaction.
+          </p>
           <AppButton
             type="button"
             variant="secondary"
-            onClick={onReconcileKnownSettlement}
-            disabled={isSubmitting || !isReconciliationHashValid}
+            onClick={onReconcileOnChainResult}
+            disabled={isSubmitting}
             className="rounded-none"
           >
-            {isSubmitting ? "Verifying…" : "Verify and reconcile"}
+            {isSubmitting ? "Searching Stellar history…" : "Retry automatic reconciliation"}
           </AppButton>
         </div>
       ) : null}
@@ -943,7 +922,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     useState<TAdminResolutionStatus>("resolved_client");
   const [resolutionShareInput, setResolutionShareInput] = useState("5000");
   const [resolutionNote, setResolutionNote] = useState("");
-  const [reconciliationHash, setReconciliationHash] = useState("");
   const [reviewStatusRefreshFailed, setReviewStatusRefreshFailed] = useState(false);
   const [assignmentRefreshFailed, setAssignmentRefreshFailed] = useState(false);
   const [detailRefreshFailed, setDetailRefreshFailed] = useState(false);
@@ -986,7 +964,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
     setResolutionStatus("resolved_client");
     setResolutionShareInput("5000");
     setResolutionNote("");
-    setReconciliationHash("");
     setReviewStatusRefreshFailed(false);
     setAssignmentRefreshFailed(false);
     setDetailRefreshFailed(false);
@@ -1719,8 +1696,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           settlementBlockingReason={settlementBlockingReason}
           canSettle={canSettle}
           isSubmitting={isAnyActionRunning}
-          requiresHashReconciliation={settlement.phase === "reconciliation_required"}
-          reconciliationHash={reconciliationHash}
+          requiresOnChainReconciliation={settlement.phase === "reconciliation_required"}
           onResolutionStatusChange={(value) => {
             setResolutionStatus(value);
           }}
@@ -1728,11 +1704,8 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           onResolutionNoteChange={(value) =>
             setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
           }
-          onReconciliationHashChange={setReconciliationHash}
           onResolveOnChain={() => void settlement.resolve()}
-          onReconcileKnownSettlement={() =>
-            void settlement.reconcileKnownTransaction(reconciliationHash)
-          }
+          onReconcileOnChainResult={() => void settlement.reconcileOnChainResult()}
         />
       ) : null}
 

@@ -84,7 +84,7 @@ export interface IUseAdminSettlementResult {
   readonly transactionExplorerUrl: string | null;
   readonly resolve: () => Promise<void>;
   readonly reconcile: (operationId: string, transactionHash?: string | null) => Promise<void>;
-  readonly reconcileKnownTransaction: (transactionHash: string) => Promise<void>;
+  readonly reconcileOnChainResult: () => Promise<void>;
   readonly clearRefreshError: () => void;
 }
 
@@ -451,85 +451,75 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     [isCurrent, isExecutionCurrent, params, reconcileOperation, updateAttempt, updatePhase],
   );
 
-  const reconcileKnownTransaction = useCallback(
-    async (transactionHash: string) => {
-      if (executionRef.current || !isCurrent()) {
-        return;
-      }
-
-      const normalizedHash = transactionHash.trim().toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(normalizedHash)) {
-        setError("Enter the 64-character hash of the successful resolve_dispute transaction.");
-        updatePhase("reconciliation_required");
-        return;
-      }
-
-      const token: TSettlementExecutionToken = {
-        generation: generationRef.current,
-        operationId: `reconcile_dispute:${params.disputeId}:${normalizedHash}`,
-      };
-      executionRef.current = token;
-      setIsExecuting(true);
-      setError(null);
-      setSuccess(null);
+  const reconcileDiscoveredSettlement = useCallback(
+    async (token: TSettlementExecutionToken) => {
+      assertExecutionCurrent(token);
       updatePhase("reconciling", token);
+      const response = await postAdminResolution(params.disputeId, {
+        phase: "reconcile_external",
+      });
+      assertExecutionCurrent(token);
+      if (
+        !("status" in response) ||
+        response.status !== "succeeded" ||
+        !("operationId" in response) ||
+        !("transactionValidUntil" in response)
+      ) {
+        throw new Error("Stellar did not return a verified settlement reconciliation.");
+      }
 
-      try {
-        const response = await postAdminResolution(params.disputeId, {
-          phase: "reconcile_external",
-          transactionHash: normalizedHash,
-        });
-        assertExecutionCurrent(token);
-        if (
-          !("status" in response) ||
-          response.status !== "succeeded" ||
-          !("operationId" in response) ||
-          !("transactionValidUntil" in response)
-        ) {
-          throw new Error("Stellar did not return a verified settlement reconciliation.");
-        }
+      const transactionHash = response.result.resolutionTxHash.trim().toLowerCase();
+      updateAttempt(
+        {
+          operationId: response.operationId,
+          transactionHash,
+          transactionValidUntil: response.transactionValidUntil,
+          resolutionStatus: response.result.status,
+          freelancerShareBps: response.result.freelancerShareBps,
+        },
+        token,
+      );
+      await finishOutcome(response, transactionHash, token);
+    },
+    [assertExecutionCurrent, finishOutcome, params.disputeId, updateAttempt, updatePhase],
+  );
 
-        updateAttempt(
-          {
-            operationId: response.operationId,
-            transactionHash: normalizedHash,
-            transactionValidUntil: response.transactionValidUntil,
-            resolutionStatus: response.result.status,
-            freelancerShareBps: response.result.freelancerShareBps,
-          },
-          token,
+  const reconcileOnChainResult = useCallback(async () => {
+    if (executionRef.current || !isCurrent()) {
+      return;
+    }
+
+    const token: TSettlementExecutionToken = {
+      generation: generationRef.current,
+      operationId: `reconcile_dispute:${params.disputeId}`,
+    };
+    executionRef.current = token;
+    setIsExecuting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await reconcileDiscoveredSettlement(token);
+    } catch (nextError) {
+      if (isExecutionCurrent(token)) {
+        params.handleProtectedApiError(nextError);
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : "Automatic settlement reconciliation could not be completed. Retry reconciliation.",
         );
-        await finishOutcome(response, normalizedHash, token);
-      } catch (nextError) {
-        if (isExecutionCurrent(token)) {
-          params.handleProtectedApiError(nextError);
-          setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "Settlement reconciliation could not be completed. Verify the hash and retry.",
-          );
-          updatePhase("reconciliation_required", token);
-          await params.loadDetail().catch(() => undefined);
-        }
-      } finally {
-        if (executionRef.current === token) {
-          executionRef.current = null;
-          if (isCurrent()) {
-            setIsExecuting(false);
-          }
+        updatePhase("reconciliation_required", token);
+        await params.loadDetail().catch(() => undefined);
+      }
+    } finally {
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        if (isCurrent()) {
+          setIsExecuting(false);
         }
       }
-    },
-    [
-      assertExecutionCurrent,
-      finishOutcome,
-      isCurrent,
-      isExecutionCurrent,
-      params,
-      updateAttempt,
-      updatePhase,
-    ],
-  );
+    }
+  }, [isCurrent, isExecutionCurrent, params, reconcileDiscoveredSettlement, updatePhase]);
 
   const resolve = useCallback(async () => {
     if (executionRef.current || !isCurrent()) {
@@ -537,7 +527,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     }
 
     if (phase === "reconciliation_required") {
-      setError("Verify the successful on-chain resolution before starting another settlement.");
+      setError("Retry automatic reconciliation before starting another settlement.");
       return;
     }
 
@@ -821,7 +811,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       }
       params.handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
-      const requiresHashReconciliation = isTerminalSettlementPreflightError(nextError);
+      const requiresAutomaticReconciliation = isTerminalSettlementPreflightError(nextError);
       const currentAttempt = readAttemptContext(attemptRef);
       const transactionHash =
         currentAttempt?.transactionHash ?? getTransactionHashFromError(nextError);
@@ -839,6 +829,23 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       }
 
       const hasKnownTransaction = Boolean(transactionHash);
+      if (requiresAutomaticReconciliation && !hasKnownTransaction && !startRequestConfirmed) {
+        try {
+          await reconcileDiscoveredSettlement(token);
+          return;
+        } catch (reconciliationError) {
+          if (isExecutionCurrent(token)) {
+            params.handleProtectedApiError(reconciliationError);
+            setError(
+              `Stellar already reports this escrow as settled. Automatic reconciliation could not verify the successful resolve_dispute transaction. ${reconciliationError instanceof Error ? reconciliationError.message : "Retry automatic reconciliation."} No new transaction was submitted.`,
+            );
+            updatePhase("reconciliation_required", token);
+            await params.loadDetail().catch(() => undefined);
+          }
+          return;
+        }
+      }
+
       if (hasKnownTransaction || isPendingStellarTransactionError(nextError)) {
         const outcome = await reconcileAfterUncertainExecution(normalizedError);
         if (outcome) {
@@ -862,14 +869,17 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
           updatePhase("reconciling", token);
         } else {
           setError(
-            requiresHashReconciliation
-              ? "Stellar already reports this escrow as settled. Verify the successful resolve_dispute transaction to reconcile Highrable's records."
+            requiresAutomaticReconciliation
+              ? "Stellar already reports this escrow as settled. Retry automatic reconciliation before starting another settlement."
               : normalizedError,
           );
         }
         if (!startRequestConfirmed) {
           updateAttempt(null, token);
-          updatePhase(requiresHashReconciliation ? "reconciliation_required" : "failed", token);
+          updatePhase(
+            requiresAutomaticReconciliation ? "reconciliation_required" : "failed",
+            token,
+          );
         }
       }
 
@@ -900,6 +910,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     phase,
     params,
     refreshAfterStateChange,
+    reconcileDiscoveredSettlement,
     reconcileOperation,
     updateAttempt,
     updatePhase,
@@ -929,7 +940,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       : null,
     resolve,
     reconcile,
-    reconcileKnownTransaction,
+    reconcileOnChainResult,
     clearRefreshError,
   };
 }

@@ -1,7 +1,7 @@
 import {
+  findSuccessfulAdminResolutionTransaction,
   readDisputedEscrowStatus,
   verifyAdminChainOperation,
-  verifySuccessfulAdminResolutionTransaction,
 } from "@/core/admin/chain-verification";
 import { createAdminConvexClient, createAdminErrorResponse } from "@/core/admin/server-api";
 import { requireAdminRequestContext } from "@/core/admin/server-auth";
@@ -34,7 +34,6 @@ const BodySchema = z.discriminatedUnion("phase", [
   }),
   z.object({
     phase: z.literal("reconcile_external"),
-    transactionHash: z.string().regex(/^[0-9a-fA-F]{64}$/),
   }),
   z.object({
     phase: z.literal("failed"),
@@ -148,13 +147,23 @@ export async function POST(
         );
       }
 
-      const verified = await verifySuccessfulAdminResolutionTransaction({
-        transactionHash: body.transactionHash,
+      const verified = await findSuccessfulAdminResolutionTransaction({
         network: preflight.network,
         contractId: preflight.contractId,
         actorWallet: adminContext.adminWallet,
         escrowId: preflight.onChainEscrowId,
+        ...(preflight.disputeTxHash ? { searchAfterTransactionHash: preflight.disputeTxHash } : {}),
       });
+      if (!verified) {
+        return NextResponse.json(
+          {
+            error:
+              "Automatic search found no matching successful resolve_dispute transaction in recent history for this admin wallet. No new transaction was submitted; retry the search or contact support if this persists.",
+            details: { code: "resolution_transaction_not_found" },
+          },
+          { status: 409 },
+        );
+      }
       const onChainEscrow = await readDisputedEscrowStatus({
         sourceAddress: adminContext.adminWallet,
         escrowId: preflight.onChainEscrowId,
@@ -193,7 +202,7 @@ export async function POST(
           adminWallet: adminContext.adminWallet,
           adminApiSecret: adminContext.adminApiSecret,
           disputeId,
-          transactionHash: body.transactionHash.toLowerCase(),
+          transactionHash: verified.transactionHash,
           transactionValidUntil: verified.transactionValidUntil,
           freelancerShareBps: verified.freelancerShareBps,
         },
@@ -202,7 +211,7 @@ export async function POST(
         adminWallet: adminContext.adminWallet,
         adminApiSecret: adminContext.adminApiSecret,
         operationId: reconciled.operationId,
-        transactionHash: reconciled.transactionHash,
+        transactionHash: verified.transactionHash,
         transactionValidUntil: verified.transactionValidUntil,
       });
       return NextResponse.json(

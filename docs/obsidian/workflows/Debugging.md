@@ -17,7 +17,7 @@ source_of_truth: repository
 5. Inspect simulation output before retrying a failed submission.
 6. If a hash exists, check chain confirmation before submitting a duplicate.
 7. Compare Convex phase/transaction records with contract reads using [[backend/Sync and Scheduled Jobs]].
-8. If the chain is terminal while Convex still says `Disputed`, do not retry settlement. Use the successful `resolve_dispute` hash with the admin reconciliation path so the server can verify the original call and apply local bookkeeping without resubmitting. There is no historical transaction indexer to find a missing hash.
+8. If the chain is terminal while Convex still says `Disputed`, do not retry settlement. The admin recovery path searches the assigned admin's Horizon account history, matches the exact successful `resolve_dispute` call, verifies its hash through RPC and reconciles normal local bookkeeping without resubmitting or requesting a pasted hash. The scan is anchored after the dispute-mark transaction when available; without that anchor it is bounded to recent history, and Highrable has no continuously maintained historical transaction indexer.
 
 ## Common patterns
 
@@ -28,7 +28,7 @@ source_of_truth: repository
 | Passkey auth failure | WASM hash, verifier, RP ID/current hostname, active signer, context rule IDs, kit version. |
 | Trustline/top-up failure | Horizon network, funded classic account, USDC trustline, spendable XLM, path liquidity/slippage. |
 | Convex state stale | Whether the product flow invoked sync, action env config, on-chain read, terminal-state guard. |
-| Admin escrow is `Released` but dispute remains open | Confirm the exact contract/escrow and successful resolution hash, then reconcile local records; do not attempt a second settlement. |
+| Admin escrow is `Released` but dispute remains open | Run automatic admin reconciliation for the exact contract/escrow; the server searches the assigned admin's history and will not submit a second settlement. |
 | Confirmation timeout | Preserve hash, inspect explorer/RPC, avoid blind retry, reconcile local phase. |
 
 ## Evidence discipline

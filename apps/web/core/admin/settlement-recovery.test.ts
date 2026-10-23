@@ -2,6 +2,7 @@ import {
   Account,
   Address,
   Contract,
+  Horizon,
   nativeToScVal,
   rpc,
   StrKey,
@@ -13,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { settings, query, mutation } = vi.hoisted(() => ({
   settings: {
     NEXT_PUBLIC_STELLAR_RPC_URL: "https://rpc.example.test",
+    NEXT_PUBLIC_STELLAR_HORIZON_URL: "https://horizon.example.test",
     NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
     NEXT_PUBLIC_STELLAR_NETWORK: "testnet",
     NEXT_PUBLIC_ESCROW_CONTRACT_ID: "",
@@ -141,14 +143,34 @@ async function startSettlement() {
   );
 }
 
-async function reconcileExternalSettlement(transactionHash = verificationArgs().transactionHash) {
+async function reconcileExternalSettlement() {
   return POST(
     new NextRequest("http://localhost/api/admin/disputes/dispute-1/resolve", {
       method: "POST",
-      body: JSON.stringify({ phase: "reconcile_external", transactionHash }),
+      body: JSON.stringify({ phase: "reconcile_external" }),
     }),
     { params: Promise.resolve({ disputeId: "dispute-1" }) },
   );
+}
+
+function mockHorizonHistory(
+  records: readonly Record<string, unknown>[],
+  disputeMarkLedger?: number,
+) {
+  const page = {
+    records,
+    next: vi.fn().mockResolvedValue({ records: [], next: vi.fn() }),
+  };
+  const disputeMark = { call: vi.fn().mockResolvedValue({ ledger_attr: disputeMarkLedger }) };
+  const builder = {
+    forAccount: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    call: vi.fn().mockResolvedValue(page),
+    transaction: vi.fn().mockReturnValue(disputeMark),
+  };
+  vi.spyOn(Horizon.Server.prototype, "transactions").mockReturnValue(builder as never);
+  return builder;
 }
 
 beforeEach(() => {
@@ -292,9 +314,27 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
-  it("records a successful prior resolution after verifying its hash and current chain state", async () => {
-    const transactionHash = verificationArgs().transactionHash;
-    query.mockResolvedValueOnce(settlementPreflight());
+  it("discovers, verifies, and records a prior resolution without a supplied hash", async () => {
+    const tx = transaction();
+    const transactionHash = tx.hash().toString("hex");
+    const history = mockHorizonHistory(
+      [
+        {
+          successful: true,
+          hash: transaction(43n).hash().toString("hex"),
+          envelope_xdr: transaction(43n).toEnvelope().toXDR("base64"),
+          ledger_attr: 100,
+        },
+        {
+          successful: true,
+          hash: transactionHash,
+          envelope_xdr: tx.toEnvelope().toXDR("base64"),
+          ledger_attr: 101,
+        },
+      ],
+      99,
+    );
+    query.mockResolvedValueOnce({ ...settlementPreflight(), disputeTxHash: "d".repeat(64) });
     mutation
       .mockReset()
       .mockResolvedValueOnce({ operationId: "reconcile_dispute:dispute-1:hash", transactionHash })
@@ -335,10 +375,58 @@ describe("C19 recovery route with real chain verification and mocked RPC", () =>
         transactionValidUntil: 1_000,
       }),
     );
+    expect(history.forAccount).toHaveBeenCalledWith(actor);
+    expect(history.transaction).toHaveBeenCalledWith("d".repeat(64));
+    expect(history.order).toHaveBeenCalledWith("desc");
+    expect(history.limit).toHaveBeenCalledWith(200);
     expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
   });
 
-  it("does not record a hash when the current chain state disagrees with its resolution", async () => {
+  it("does not write bookkeeping when automatic history discovery finds no matching call", async () => {
+    query.mockResolvedValueOnce(settlementPreflight());
+    mockHorizonHistory([]);
+
+    const response = await reconcileExternalSettlement();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      details: { code: "resolution_transaction_not_found" },
+    });
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not trust a successful Horizon history row when Soroban RPC reports failure", async () => {
+    const tx = transaction();
+    mockHorizonHistory([
+      {
+        successful: true,
+        hash: tx.hash().toString("hex"),
+        envelope_xdr: tx.toEnvelope().toXDR("base64"),
+      },
+    ]);
+    query.mockResolvedValueOnce(settlementPreflight());
+    vi.mocked(rpc.Server.prototype.getTransaction).mockResolvedValueOnce({
+      status: "FAILED",
+      envelopeXdr: tx.toEnvelope(),
+    } as never);
+
+    const response = await reconcileExternalSettlement();
+
+    expect(response.status).toBe(500);
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not record reconciliation when the current chain state disagrees with its resolution", async () => {
+    const tx = transaction();
+    mockHorizonHistory([
+      {
+        successful: true,
+        hash: tx.hash().toString("hex"),
+        envelope_xdr: tx.toEnvelope().toXDR("base64"),
+      },
+    ]);
     query.mockResolvedValueOnce(settlementPreflight());
     vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
       reply(escrow(["Disputed"])),

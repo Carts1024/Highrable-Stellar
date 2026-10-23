@@ -83,7 +83,6 @@ export interface IAdminResolutionRequestReconcile {
 
 export interface IAdminResolutionRequestReconcileExternal {
   readonly phase: "reconcile_external";
-  readonly transactionHash: string;
 }
 
 export type TAdminResolutionRequest =
