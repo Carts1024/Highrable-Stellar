@@ -354,10 +354,27 @@ export async function createDeadlineSystemMessage(
   input: { parent: TDeadlineParentContext; reminderType: TDeadlineReminderType },
 ) {
   const message = buildDeadlineReminderMessage(input);
+  let conversationParentType: TDeadlineParentType | "escrow" = input.parent.parentType;
+  let conversationParentId = input.parent.parentId;
+
+  if (input.parent.escrowId !== undefined) {
+    const escrow = await ctx.db.get(input.parent.escrowId);
+    if (escrow?.freelancerWallet !== undefined) {
+      conversationParentType = "escrow";
+      conversationParentId = input.parent.escrowId;
+    }
+  }
+
+  // Open funded escrows can exist before the freelancer is assigned. Keep the
+  // reminder notification and state transition, but do not create a chat thread
+  // until the job or escrow relationship has both participants.
+  if (input.parent.freelancerWallet === undefined) {
+    return null;
+  }
 
   return await createSystemMessageForEvent(ctx, {
-    parentType: input.parent.escrowId !== undefined ? "escrow" : input.parent.parentType,
-    parentId: input.parent.escrowId ?? input.parent.parentId,
+    parentType: conversationParentType,
+    parentId: conversationParentId,
     eventType: input.reminderType === "deadline_overdue" ? "deadline_missed" : "deadline_warning",
     body: message.body,
     eventPayload: {

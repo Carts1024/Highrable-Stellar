@@ -2,11 +2,15 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-22
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
+
+## 2026-10-23
+
+- Hardened deadline reminders for funded open escrows: notification and status processing continues before freelancer assignment without attempting to create an unavailable chat, while assigned work falls back to its job or milestone conversation until the escrow is assigned. Assigned escrow conversations retain their existing behavior and participant checks. See [[modules/Deadlines and Notifications]].
 
 ## 2026-10-22
 
