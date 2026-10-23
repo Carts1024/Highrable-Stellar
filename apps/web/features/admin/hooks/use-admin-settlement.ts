@@ -211,6 +211,10 @@ function isTerminalSettlementPreflightError(error: unknown): boolean {
   );
 }
 
+/** Reconcile closed an attempt that never reached Stellar; nothing moved, so it is not a real failure. */
+export const SETTLEMENT_NOT_SUBMITTED_MESSAGE =
+  "No Stellar transaction was submitted. The unfinished attempt is closed, and you can start a new settlement now.";
+
 function getOutcomeMessage(outcome: TAdminResolutionOutcomeResponse): string {
   if (outcome.status === "succeeded") {
     return "Dispute settlement was verified on Stellar and recorded.";
@@ -219,7 +223,7 @@ function getOutcomeMessage(outcome: TAdminResolutionOutcomeResponse): string {
     return "Settlement is unresolved. Reconcile the saved transaction before trying again.";
   }
   if (outcome.failureKind === "not_submitted") {
-    return "No Stellar transaction was submitted. The unfinished attempt is closed, and you can start a new settlement now.";
+    return SETTLEMENT_NOT_SUBMITTED_MESSAGE;
   }
   return "Settlement failed on Stellar and was recorded as failed. A new settlement can be started after refresh.";
 }

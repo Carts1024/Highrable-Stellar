@@ -19,7 +19,10 @@ import {
 } from "@/features/admin/admin-session-gate";
 import { AdminMark } from "@/features/admin/components/admin-mark";
 import { AdminSection } from "@/features/admin/components/admin-operations-ui";
-import { useAdminSettlement } from "@/features/admin/hooks/use-admin-settlement";
+import {
+  SETTLEMENT_NOT_SUBMITTED_MESSAGE,
+  useAdminSettlement,
+} from "@/features/admin/hooks/use-admin-settlement";
 import {
   AdminApiError,
   fetchAdminDispute,
@@ -159,11 +162,12 @@ interface IAdminResolutionWorkspaceProps {
   readonly canSettle: boolean;
   readonly isSubmitting: boolean;
   readonly requiresOnChainReconciliation: boolean;
+  /** True while the recovery panel at the top of the page is asking for a reconcile. */
+  readonly hasSettlementRecovery: boolean;
   readonly onResolutionStatusChange: (value: TAdminResolutionStatus) => void;
   readonly onResolutionShareInputChange: (value: string) => void;
   readonly onResolutionNoteChange: (value: string) => void;
   readonly onResolveOnChain: () => void;
-  readonly onReconcileOnChainResult: () => void;
 }
 
 interface IAdminTimelineProps {
@@ -685,11 +689,11 @@ function AdminResolutionWorkspace({
   canSettle,
   isSubmitting,
   requiresOnChainReconciliation,
+  hasSettlementRecovery,
   onResolutionStatusChange,
   onResolutionShareInputChange,
   onResolutionNoteChange,
   onResolveOnChain,
-  onReconcileOnChainResult,
 }: IAdminResolutionWorkspaceProps) {
   return (
     <AdminSection
@@ -788,6 +792,14 @@ function AdminResolutionWorkspace({
               {settlementBlockingReason}
             </p>
           ) : null}
+          {hasSettlementRecovery ? (
+            <a
+              href={`#${SETTLEMENT_RECOVERY_ID}`}
+              className="inline-flex text-sm font-medium text-amber-800 underline"
+            >
+              Go to the Reconcile step ↑
+            </a>
+          ) : null}
         </div>
         <AppButton
           type="button"
@@ -803,25 +815,116 @@ function AdminResolutionWorkspace({
           {isSubmitting ? "Resolving..." : "Resolve On-Chain"}
         </AppButton>
       </div>
-
-      {requiresOnChainReconciliation ? (
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
-          <p className="hr-text-secondary max-w-xl text-xs leading-relaxed">
-            Highrable searches this admin wallet&apos;s Stellar history for a successful resolution
-            of this escrow, verifies the transaction and current contract state, then updates the
-            dispute record without submitting another transaction.
-          </p>
-          <AppButton
-            type="button"
-            variant="secondary"
-            onClick={onReconcileOnChainResult}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Searching Stellar history…" : "Retry automatic reconciliation"}
-          </AppButton>
-        </div>
-      ) : null}
     </AdminSection>
+  );
+}
+
+const SETTLEMENT_RECOVERY_ID = "settlement-recovery";
+
+interface IAdminSettlementRecoveryPanelProps {
+  readonly attempts: IAdminDisputeDetail["settlementAttempts"];
+  readonly requiresOnChainReconciliation: boolean;
+  readonly isSubmitting: boolean;
+  readonly onReconcileAttempt: (operationId: string, transactionHash?: string | null) => void;
+  readonly onReconcileOnChainResult: () => void;
+}
+
+/**
+ * Settlement recovery, shown first on the page: a settlement transaction was started but its
+ * outcome was never recorded, so new settlement stays blocked until the result is checked.
+ */
+function AdminSettlementRecoveryPanel({
+  attempts,
+  requiresOnChainReconciliation,
+  isSubmitting,
+  onReconcileAttempt,
+  onReconcileOnChainResult,
+}: IAdminSettlementRecoveryPanelProps) {
+  if (attempts.length === 0 && !requiresOnChainReconciliation) {
+    return null;
+  }
+
+  return (
+    <section
+      id={SETTLEMENT_RECOVERY_ID}
+      aria-labelledby={`${SETTLEMENT_RECOVERY_ID}-title`}
+      className="scroll-mt-6 overflow-hidden rounded-lg border border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/30"
+    >
+      <header className="border-b border-amber-200 px-4 py-3 sm:px-5 dark:border-amber-800">
+        <p className="text-xs font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-300">
+          Action needed
+        </p>
+        <h2
+          id={`${SETTLEMENT_RECOVERY_ID}-title`}
+          className="hr-text-primary mt-0.5 text-base font-semibold"
+        >
+          Confirm the settlement result
+        </h2>
+        <p className="hr-text-secondary mt-1 max-w-2xl text-sm leading-relaxed">
+          A settlement transaction was started, but its result was never recorded in Highrable.
+          Reconcile checks Stellar for that transaction and records what actually happened. It never
+          sends a new transaction, so funds cannot move twice. Settlement stays locked until this is
+          done.
+        </p>
+      </header>
+
+      <div className="space-y-3 p-4 sm:p-5">
+        {attempts.map((attempt) => {
+          const canReconcileAttempt =
+            Boolean(attempt.transactionHash) || attempt.status === "started";
+
+          return (
+            <div
+              key={attempt._id}
+              className="flex flex-wrap items-center justify-between gap-4 rounded-md border bg-background p-4"
+            >
+              <dl className="grid min-w-0 flex-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
+                <dt className="hr-text-secondary text-xs leading-5">Attempt status</dt>
+                <dd className="hr-text-primary font-medium capitalize">
+                  {attempt.status.replaceAll("_", " ")}
+                </dd>
+                <dt className="hr-text-secondary text-xs leading-5">Started by</dt>
+                <dd className="hr-text-muted min-w-0 font-mono text-xs leading-5 break-all">
+                  {attempt.actorWallet}
+                </dd>
+                <dt className="hr-text-secondary text-xs leading-5">Transaction</dt>
+                <dd className="hr-text-muted min-w-0 font-mono text-xs leading-5 break-all">
+                  {attempt.transactionHash ?? "Awaiting signed transaction"}
+                </dd>
+              </dl>
+              <div className="flex flex-col items-start gap-1 sm:items-end">
+                <AppButton
+                  type="button"
+                  disabled={isSubmitting || !canReconcileAttempt}
+                  onClick={() => onReconcileAttempt(attempt.operationId, attempt.transactionHash)}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? "Checking…" : "Reconcile"}
+                </AppButton>
+                {!canReconcileAttempt ? (
+                  <p className="hr-text-muted max-w-48 text-xs leading-relaxed sm:text-right">
+                    Waiting for a transaction hash. Refresh the detail to check again.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+
+        {requiresOnChainReconciliation ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border bg-background p-4">
+            <p className="hr-text-secondary max-w-xl text-sm leading-relaxed">
+              Highrable searches this admin wallet&apos;s Stellar history for a successful
+              resolution of this escrow, verifies the transaction and current contract state, then
+              updates the dispute record without submitting another transaction.
+            </p>
+            <AppButton type="button" onClick={onReconcileOnChainResult} disabled={isSubmitting}>
+              {isSubmitting ? "Searching Stellar history…" : "Retry automatic reconciliation"}
+            </AppButton>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -890,6 +993,25 @@ function AdminSettlementProgress({
 }: IAdminSettlementProgressProps) {
   if (phase === "idle" && !operationId && !error && !success) {
     return null;
+  }
+
+  if (error === SETTLEMENT_NOT_SUBMITTED_MESSAGE) {
+    return (
+      <AdminSection
+        title="Unfinished attempt closed"
+        description="Reconcile result"
+        variant="card"
+        className="border-l-2 border-l-emerald-500"
+      >
+        <div className="hr-text-secondary space-y-2 text-sm" role="status" aria-live="polite">
+          <p className="hr-text-primary">{error}</p>
+          <p>
+            The wallet never signed this attempt, so nothing was sent to Stellar and no funds moved.
+            Use Resolve On-Chain to settle the dispute again.
+          </p>
+        </div>
+      </AdminSection>
+    );
   }
 
   return (
@@ -1617,6 +1739,14 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
   }
 
   const isReadOnlyDispute = isTerminalDisputeStatus(detail.dispute.status);
+  const activeSettlementAttempts = detail.settlementAttempts.filter((attempt) =>
+    isActiveSettlementAttemptStatus(attempt.status),
+  );
+  // The automatic search was previously only offered alongside the (non-terminal) resolution form.
+  const requiresOnChainReconciliation =
+    !isReadOnlyDispute && settlement.phase === "reconciliation_required";
+  const hasSettlementRecovery =
+    activeSettlementAttempts.length > 0 || requiresOnChainReconciliation;
   const canShowRetryMarkDisputed = canRetryMarkDisputed && !isReadOnlyDispute;
   const isAssignedAdmin = canReviewCurrentDispute;
   const assignedAdminAccessState = detail.dispute.assignedAdminWallet
@@ -1663,6 +1793,14 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           <span>Status: {getDisputeStatusLabel(detail.dispute.status)}</span>
           <span>On-chain: {getDisputeOnChainStatusLabel(detail.dispute.onChainStatus)}</span>
           <span>Events: {detail.timeline.length}</span>
+          {hasSettlementRecovery ? (
+            <a
+              href={`#${SETTLEMENT_RECOVERY_ID}`}
+              className="inline-flex items-center rounded-full bg-amber-100 px-2 text-xs leading-5 font-medium text-amber-900 hover:underline dark:bg-amber-900/40 dark:text-amber-200"
+            >
+              Action needed: reconcile settlement
+            </a>
+          ) : null}
         </p>
       </header>
 
@@ -1689,6 +1827,16 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
         </aside>
 
         <div className="min-w-0 space-y-6 lg:col-start-1 lg:row-start-1">
+          <AdminSettlementRecoveryPanel
+            attempts={activeSettlementAttempts}
+            requiresOnChainReconciliation={requiresOnChainReconciliation}
+            isSubmitting={isAnyActionRunning}
+            onReconcileAttempt={(operationId, transactionHash) =>
+              void settlement.reconcile(operationId, transactionHash)
+            }
+            onReconcileOnChainResult={() => void settlement.reconcileOnChainResult()}
+          />
+
           {canShowRetryMarkDisputed ? (
             <RouteCallout tone="danger">
               The previous on-chain dispute mark failed. Retry will attempt mark_disputed again and
@@ -1702,52 +1850,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
               Assign this case to your wallet before adding moderator notes, changing review status,
               or starting settlement.
             </RouteCallout>
-          ) : null}
-
-          {detail.settlementAttempts.some((attempt) =>
-            isActiveSettlementAttemptStatus(attempt.status),
-          ) ? (
-            <AdminSection
-              title="Pending Transaction"
-              description="Recovery checks the persisted transaction identity and never submits it again."
-              variant="card"
-              className="border-l-2 border-l-amber-400"
-            >
-              <div className="space-y-3">
-                {detail.settlementAttempts
-                  .filter((attempt) => isActiveSettlementAttemptStatus(attempt.status))
-                  .map((attempt) => (
-                    <div
-                      key={attempt._id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 p-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="hr-text-primary text-sm font-medium capitalize">
-                          {attempt.status.replaceAll("_", " ")}
-                        </p>
-                        <p className="hr-text-muted mt-1 font-mono text-xs break-all">
-                          {attempt.actorWallet} ·{" "}
-                          {attempt.transactionHash ?? "Awaiting signed transaction"}
-                        </p>
-                      </div>
-                      <AppButton
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={
-                          isAnyActionRunning ||
-                          (!attempt.transactionHash && attempt.status !== "started")
-                        }
-                        onClick={() =>
-                          void settlement.reconcile(attempt.operationId, attempt.transactionHash)
-                        }
-                      >
-                        {isAnyActionRunning ? "Checking…" : "Reconcile"}
-                      </AppButton>
-                    </div>
-                  ))}
-              </div>
-            </AdminSection>
           ) : null}
 
           <AdminCaseStatement detail={detail} />
@@ -1789,6 +1891,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
               canSettle={canSettle}
               isSubmitting={isAnyActionRunning}
               requiresOnChainReconciliation={settlement.phase === "reconciliation_required"}
+              hasSettlementRecovery={hasSettlementRecovery}
               onResolutionStatusChange={(value) => {
                 setResolutionStatus(value);
               }}
@@ -1797,7 +1900,6 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
                 setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
               }
               onResolveOnChain={() => void settlement.resolve()}
-              onReconcileOnChainResult={() => void settlement.reconcileOnChainResult()}
             />
           ) : null}
 

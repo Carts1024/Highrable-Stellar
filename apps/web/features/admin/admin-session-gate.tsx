@@ -257,7 +257,11 @@ export function AdminSessionGate({
     );
   }
 
-  if (sessionQuery.isPending || sessionQuery.isFetching) {
+  // Only block on checks that have no verified result yet. Background re-checks (e.g. the refetch
+  // when focus returns from a wallet signing popup) must keep the page mounted, or in-progress
+  // settlements and unsaved form input are thrown away. A failed re-check still closes the page
+  // through the error branches below.
+  if (sessionQuery.isPending || (sessionQuery.isFetching && !sessionQuery.isSuccess)) {
     return (
       <AdminSessionPanel
         title="Checking Admin Access"
