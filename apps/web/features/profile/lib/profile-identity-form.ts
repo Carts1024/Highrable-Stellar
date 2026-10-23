@@ -47,8 +47,8 @@ export const TProfileIdentityFormSchema = z.object({
     .pipe(
       z
         .string()
-        .min(3, "Public handle must be at least 3 characters.")
-        .max(32, "Public handle must be 32 characters or less.")
+        .min(3, "Username must be at least 3 characters.")
+        .max(32, "Username must be 32 characters or less.")
         .refine(
           (value) => HANDLE_PATTERN.test(value),
           "Use letters, numbers, underscores, and hyphens only.",
@@ -68,8 +68,8 @@ export const TProfileIdentityFormSchema = z.object({
     .pipe(
       z
         .array(z.string().min(1).max(40, "Each skill must be 40 characters or less."))
-        .min(1, "Add at least one core skill.")
-        .max(10, "Add 10 core skills or fewer."),
+        .min(1, "Add at least one skill.")
+        .max(10, "Add 10 skills or fewer."),
     ),
   discordHandle: optionalHandleSchema("Discord"),
   xHandle: optionalHandleSchema("X"),

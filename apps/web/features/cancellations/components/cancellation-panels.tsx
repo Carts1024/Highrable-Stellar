@@ -38,7 +38,7 @@ export function CancellationEligibilityNotice({ eligibility }: ICancellationNoti
   if (!eligibility) return null;
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+    <div className="border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-950">
       <p className="font-semibold">
         {eligibility.blocked ? "Cancellation blocked" : "Cancellation eligibility checked"}
       </p>
@@ -62,7 +62,7 @@ export function CancellationEligibilityNotice({ eligibility }: ICancellationNoti
 export function CancellationActionGuardNotice({ eligibility }: ICancellationNoticeProps) {
   if (!eligibility?.blocked) return null;
   return (
-    <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+    <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-800">
       {eligibility.reason ?? "Cancellation is not available right now."}
     </p>
   );
@@ -81,7 +81,7 @@ export function CancellationTimeline({ cancellationRequestId }: ICancellationTim
 
   return (
     <div className="rounded-lg border border-[#e8e8e8] bg-white p-3">
-      <p className="font-mono text-xs text-[#6f6f6f] uppercase">Cancellation Timeline</p>
+      <p className="text-xs text-[#6f6f6f]">Cancellation Timeline</p>
       <ol className="mt-3 space-y-3">
         {timeline.map((event) => (
           <li key={event._id} className="border-l border-[#d8d8d8] pl-3 text-sm">

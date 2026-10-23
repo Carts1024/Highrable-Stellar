@@ -2,7 +2,7 @@
 type: reference
 area: backend
 status: current
-last_updated: 2026-10-08
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -23,11 +23,13 @@ The admin HTTP boundary is under `apps/web/app/api/admin`. `apps/web/core/admin/
 | `POST /api/admin/disputes/[disputeId]/claim` / `assignment` | Atomic active-admin claim and owner-only assignment/release. |
 | `POST /api/admin/disputes/[disputeId]/status` | Review status update. |
 | `POST /api/admin/disputes/[disputeId]/note` | Moderator note. |
-| `POST /api/admin/disputes/[disputeId]/resolve` | Persist settlement start/sign identity and recover the existing operation after server RPC verification. |
+| `POST /api/admin/disputes/[disputeId]/resolve` | Persist settlement start/sign identity, recover saved operations, or automatically discover and verify a prior successful resolution from the assigned admin's Horizon account history. |
 
-The admin route handlers validate request bodies with Zod and then call typed Convex server functions. The shared Stellar executor persists a signed transaction hash and expiry before submitting. The resolve route checks the exact contract, method, actor, escrow, and split, and verifies current escrow state before applying existing Convex updates. Recovery never resubmits. Structured Convex application errors preserve their codes at this boundary; `NOT_FOUND` becomes HTTP 404 for detail reads, while malformed requests remain distinct from server failures.
+The admin route handlers validate request bodies with Zod and then call typed Convex server functions. Before recording a new settlement start, the resolve route reads the authorized persisted dispute context and the exact Soroban escrow under Convex's network/contract scope. It requires matching escrow identity and participants plus on-chain `Disputed` status; a mismatch returns a conflict without writing an attempt or transaction. The shared Stellar executor persists a signed transaction hash and expiry before submitting. The resolve route checks the exact contract, method, actor, escrow, and split, and verifies current escrow state before applying existing Convex updates. Recovery never resubmits. Structured Convex application errors preserve their codes at this boundary; `NOT_FOUND` becomes HTTP 404 for detail reads, while malformed requests remain distinct from server failures.
 
 Deliverable 2 C19 additionally verifies the returned transaction envelope hash under the configured network against the saved hash, including inner-hash lookup for fee-bump envelopes. Unknown RPC statuses and unreadable ledger close times cannot be treated as definitive failure/expiry. Escrow reads require the requested escrow ID, recognized status, and readable addresses. Rejected reads leave settlement bookkeeping untouched so the same saved transaction can be checked again. This is covered by the real route/verifier with mocked RPC and Convex transport in `apps/web/core/admin/settlement-recovery.test.ts`.
+
+When on-chain state is terminal but no saved attempt exists, the same endpoint searches Horizon transactions affecting the assigned admin wallet. It parses successful envelopes and matches the configured contract, `resolve_dispute` method, admin actor, and escrow ID; it uses the saved dispute-mark transaction as a ledger cutoff when available and otherwise scans up to 2,000 recent account transactions. It then independently verifies the candidate hash and successful envelope through RPC, reads the current escrow and participants, and creates or attaches the settlement attempt before calling the existing success mutation. The route never calls `sendTransaction`, and the UI does not request a user-supplied hash. This is on-demand history recovery, not a continuously maintained indexer; an older transaction may exceed the bounded fallback scan or RPC history window. See [[evidence/Admin-Resolution External Transaction Recovery Evidence]].
 
 ## Stellar authentication routes
 

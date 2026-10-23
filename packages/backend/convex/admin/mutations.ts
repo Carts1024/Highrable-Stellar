@@ -1015,6 +1015,162 @@ export const recordDisputeResolutionStarted = mutation({
   },
 });
 
+export const recordDisputeResolutionReconciliationStarted = mutation({
+  args: {
+    adminWallet: v.string(),
+    adminApiSecret: v.string(),
+    disputeId: v.id("disputes"),
+    transactionHash: v.string(),
+    transactionValidUntil: v.number(),
+    freelancerShareBps: v.number(),
+  },
+  returns: v.object({ operationId: v.string(), transactionHash: v.string() }),
+  handler: async (ctx, args) => {
+    const adminWallet = await assertDisputeAdminContext(ctx, args);
+    const dispute = await getDisputeOrThrow(ctx, args.disputeId);
+    assertAssignedDisputeAdmin(adminWallet, dispute);
+    const context = await getSettlementContext(ctx, dispute);
+    const transactionHash = normalizeSettlementTransactionHash(args.transactionHash);
+    const transactionValidUntil = requireSettlementExpiry(args.transactionValidUntil);
+    const freelancerShareBps = args.freelancerShareBps;
+    if (
+      !Number.isSafeInteger(freelancerShareBps) ||
+      freelancerShareBps < 0 ||
+      freelancerShareBps > 10_000
+    ) {
+      throw new BadRequestError("freelancerShareBps must be an integer from 0 to 10000.");
+    }
+
+    const resolutionStatus: TAdminResolutionStatus =
+      freelancerShareBps === 0
+        ? "resolved_client"
+        : freelancerShareBps === 10_000
+          ? "resolved_freelancer"
+          : "split_resolution";
+    resolveFreelancerShareBps(resolutionStatus, freelancerShareBps);
+
+    const operationId = `reconcile_dispute:${dispute._id}:${transactionHash}`;
+    const existingAttempt = await ctx.db
+      .query("settlementAttempts")
+      .withIndex("by_operationId", (q) => q.eq("operationId", operationId))
+      .unique();
+    if (existingAttempt) {
+      await getSettlementContext(ctx, dispute, existingAttempt);
+      if (
+        existingAttempt.actorWallet.trim().toUpperCase() !== adminWallet ||
+        existingAttempt.resolutionStatus !== resolutionStatus ||
+        existingAttempt.freelancerShareBps !== freelancerShareBps ||
+        existingAttempt.transactionHash !== transactionHash ||
+        existingAttempt.transactionValidUntil !== transactionValidUntil ||
+        existingAttempt.status === "failed"
+      ) {
+        throw new ConflictError(
+          "This transaction hash is already bound to a different settlement.",
+        );
+      }
+      return { operationId: existingAttempt.operationId, transactionHash };
+    }
+
+    const activeAttempts = await Promise.all(
+      (["started", "signed", "submission_unknown", "submitted"] as const).map((status) =>
+        ctx.db
+          .query("settlementAttempts")
+          .withIndex("by_escrow_status", (q) =>
+            q.eq("escrowDocumentId", context.escrow._id).eq("status", status),
+          )
+          .first(),
+      ),
+    );
+    const activeAttemptList = activeAttempts.filter(
+      (attempt): attempt is Doc<"settlementAttempts"> => attempt !== null,
+    );
+    if (activeAttemptList.length > 1) {
+      throw new ConflictError("Multiple settlement attempts require manual reconciliation.");
+    }
+    const activeAttempt = activeAttemptList[0];
+    if (activeAttempt) {
+      await getSettlementContext(ctx, dispute, activeAttempt);
+      if (
+        activeAttempt.actorWallet.trim().toUpperCase() !== adminWallet ||
+        activeAttempt.resolutionStatus !== resolutionStatus ||
+        activeAttempt.freelancerShareBps !== freelancerShareBps ||
+        (activeAttempt.transactionHash !== undefined &&
+          normalizeSettlementTransactionHash(activeAttempt.transactionHash) !== transactionHash) ||
+        (activeAttempt.transactionValidUntil !== undefined &&
+          requireSettlementExpiry(activeAttempt.transactionValidUntil) !== transactionValidUntil)
+      ) {
+        throw new ConflictError(
+          "A different settlement attempt is already pending for this escrow.",
+        );
+      }
+
+      if (
+        activeAttempt.transactionHash === undefined ||
+        activeAttempt.transactionValidUntil === undefined
+      ) {
+        const now = Date.now();
+        await ctx.db.patch(activeAttempt._id, {
+          status: "signed",
+          transactionHash,
+          transactionValidUntil,
+          updatedAt: now,
+          errorMessage: undefined,
+        });
+        if (activeAttempt.transactionId) {
+          await ctx.db.patch(activeAttempt.transactionId, {
+            txHash: transactionHash,
+            transactionHash,
+            transactionValidUntil,
+            updatedAt: now,
+          });
+        }
+      }
+      return { operationId: activeAttempt.operationId, transactionHash };
+    }
+
+    assertActiveSettlementContext(context);
+    const now = Date.now();
+    const transactionId = await ctx.db.insert("transactions", {
+      walletAddress: adminWallet,
+      walletType: DEFAULT_ADMIN_WALLET_TYPE,
+      type: "resolve_dispute",
+      status: "pending",
+      txHash: transactionHash,
+      transactionHash,
+      transactionValidUntil,
+      clientRequestId: operationId,
+      escrowId: context.onChainEscrowId,
+      onChainEscrowId: context.onChainEscrowId,
+      ...(dispute.jobId ? { jobId: dispute.jobId } : {}),
+      ...(dispute.milestoneId ? { milestoneId: dispute.milestoneId } : {}),
+      network: context.network,
+      contractId: context.contractId,
+      sourceAccount: adminWallet,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.insert("settlementAttempts", {
+      disputeId: dispute._id,
+      escrowDocumentId: context.escrow._id,
+      onChainEscrowId: context.onChainEscrowId,
+      network: context.network,
+      contractId: context.contractId,
+      actorWallet: adminWallet,
+      status: "signed",
+      resolutionStatus,
+      freelancerShareBps,
+      operationId,
+      transactionHash,
+      transactionValidUntil,
+      transactionId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { operationId, transactionHash };
+  },
+});
+
 export const recordDisputeResolutionSucceeded = mutation({
   args: {
     adminWallet: v.string(),

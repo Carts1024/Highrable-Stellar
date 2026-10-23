@@ -171,7 +171,7 @@ describe("C19 participant evidence and response actions", () => {
 
   it("submits owned evidence and response with the active identity", async () => {
     renderActions();
-    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    const evidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
     fireEvent.click(evidence.querySelector("button")!);
     fireEvent.change(screen.getByLabelText("Response"), {
       target: { value: "  The submitted work differs.  " },
@@ -203,7 +203,7 @@ describe("C19 participant evidence and response actions", () => {
     renderActions();
     fireEvent.click(screen.getByRole("button", { name: "Add Evidence" }));
     expect(screen.getByRole("alert").textContent).toContain("Add at least one evidence");
-    const response = screen.getByRole("heading", { name: "Add response" }).parentElement!;
+    const response = screen.getByRole("heading", { name: "Add Response" }).parentElement!;
     fireEvent.click(response.querySelector("button")!);
     fireEvent.click(response.querySelectorAll("button")[1]!);
     fireEvent.change(screen.getByLabelText("Response"), { target: { value: "Please review." } });
@@ -250,8 +250,8 @@ describe("C19 participant evidence and response actions", () => {
     console.error = () => {};
     try {
       const view = renderActions();
-      const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
-      const response = screen.getByRole("heading", { name: "Add response" }).parentElement!;
+      const evidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
+      const response = screen.getByRole("heading", { name: "Add Response" }).parentElement!;
       fireEvent.click(evidence.querySelector("button")!);
       fireEvent.change(screen.getByLabelText("Note (optional)"), {
         target: { value: "Evidence draft" },
@@ -331,7 +331,7 @@ describe("C19 participant evidence and response actions", () => {
     const pendingEvidence = createDeferred<true>();
     addEvidence.mockReturnValueOnce(pendingEvidence.promise);
     const view = renderActions();
-    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    const evidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
     fireEvent.click(evidence.querySelector("button")!);
     fireEvent.submit(evidence);
     fireEvent.submit(evidence);
@@ -345,7 +345,7 @@ describe("C19 participant evidence and response actions", () => {
     expect(screen.getByRole("status")).toBeTruthy();
     permission.result = { allowed: true, role: "client", reason: null };
     rerenderActions(view);
-    const recoveredEvidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    const recoveredEvidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
     expect(
       (screen.getByRole("button", { name: "Adding evidence..." }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -364,7 +364,7 @@ describe("C19 participant evidence and response actions", () => {
   it("clears only the form whose write succeeds and retains rejected drafts for retry", async () => {
     addEvidence.mockRejectedValueOnce(new Error("Evidence was rejected."));
     renderActions();
-    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
+    const evidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
     fireEvent.click(evidence.querySelector("button")!);
     fireEvent.change(screen.getByLabelText("Note (optional)"), {
       target: { value: "Rejected evidence" },
@@ -396,8 +396,8 @@ describe("C19 participant evidence and response actions", () => {
     wallet.walletType = "passkey_smart_account";
     permission.result = { allowed: true, role: "freelancer", reason: null };
     renderActions();
-    const evidence = screen.getByRole("heading", { name: "Add evidence" }).parentElement!;
-    const response = screen.getByRole("heading", { name: "Add response" }).parentElement!;
+    const evidence = screen.getByRole("heading", { name: "Add Evidence" }).parentElement!;
+    const response = screen.getByRole("heading", { name: "Add Response" }).parentElement!;
     fireEvent.click(evidence.querySelector("button")!);
     fireEvent.click(response.querySelector("button")!);
     fireEvent.click(screen.getByRole("button", { name: "Add Evidence" }));

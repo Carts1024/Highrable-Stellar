@@ -9,6 +9,7 @@ import type {
   IAdminMembershipOperationRequest,
   IAdminMembershipOperationResponse,
   IAdminResolutionFailedResponse,
+  IAdminResolutionReconciledResponse,
   IAdminResolutionSignedResponse,
   IAdminResolutionStartedResponse,
   IAdminSessionResponse,
@@ -43,6 +44,10 @@ const ADMIN_DETAIL_CONSISTENCY_ERROR_MESSAGE = "Admin API returned an inconsiste
 
 export function isAdminApiError(error: unknown): error is AdminApiError {
   return error instanceof AdminApiError;
+}
+
+export function isAdminApiRejection(error: unknown): error is AdminApiError {
+  return isAdminApiError(error) && error.status >= 400;
 }
 
 export function isAdminAccessError(error: unknown): error is AdminApiError {
@@ -547,6 +552,9 @@ export async function postAdminResolution(
   if (payload.phase === "failed" && isAdminResolutionFailedResponse(result)) {
     return result;
   }
+  if (payload.phase === "reconcile_external" && isAdminResolutionReconciledResponse(result)) {
+    return result;
+  }
   if (
     (payload.phase === "reconcile" || payload.phase === "succeeded") &&
     isAdminResolutionOutcome(result)
@@ -583,11 +591,26 @@ function isAdminResolutionFailedResponse(value: unknown): value is IAdminResolut
   return isRecord(value) && value.success === true && value.phase === "failed" && hasResult(value);
 }
 
+function isAdminResolutionReconciledResponse(
+  value: unknown,
+): value is IAdminResolutionReconciledResponse {
+  return (
+    isRecord(value) &&
+    value.status === "succeeded" &&
+    typeof value.operationId === "string" &&
+    Number.isSafeInteger(value.transactionValidUntil) &&
+    (value.transactionValidUntil as number) > 0 &&
+    isAdminResolutionOutcome(value)
+  );
+}
+
 function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutcomeResponse {
   if (
     !isRecord(value) ||
     (value.status !== "pending" && value.status !== "succeeded" && value.status !== "failed") ||
-    !hasResult(value)
+    !hasResult(value) ||
+    (value.failureKind !== undefined &&
+      (value.status !== "failed" || value.failureKind !== "not_submitted"))
   ) {
     return false;
   }

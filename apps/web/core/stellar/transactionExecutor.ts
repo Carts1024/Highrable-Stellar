@@ -7,6 +7,7 @@ import {
   StellarTransactionPendingError,
 } from "@/core/stellar/transaction";
 
+import type { IPasskeyEscrowExecutionReadiness } from "@/core/stellar/passkeySmartAccountExecutor";
 import type {
   TConfirmedContractTx,
   TStellarSubmissionIdentity,
@@ -27,7 +28,9 @@ export interface IExecuteHighrableContractCallParams {
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
   readonly signTransaction?: TSignedTransactionSubmitter;
+  readonly preSignCheck?: () => Promise<void>;
   readonly operationId?: string;
+  readonly passkeyReadiness?: IPasskeyEscrowExecutionReadiness;
   readonly onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   readonly onPhase?: (phase: TStellarExecutionPhase) => void;
   readonly metadata?: Readonly<Record<string, unknown>>;
@@ -49,11 +52,14 @@ export async function executeHighrableContractCall(
       method: params.method,
       args: [...params.args],
       signTransaction: params.signTransaction,
+      preSignCheck: params.preSignCheck,
       operationId: params.operationId,
       onSigned: params.onSigned,
       onPhase: params.onPhase,
     });
   }
+
+  await params.preSignCheck?.();
 
   const result = await executeWithPasskeySmartAccount({
     smartAccountAddress: params.walletAddress,
@@ -63,6 +69,7 @@ export async function executeHighrableContractCall(
     args: params.args,
     rpcUrl: params.rpcUrl,
     networkPassphrase: params.networkPassphrase,
+    executionReadiness: params.passkeyReadiness,
     onSigned: params.onSigned,
     onPhase: params.onPhase,
   });

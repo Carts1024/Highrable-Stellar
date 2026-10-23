@@ -26,11 +26,15 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { AttachmentUploader } from "@/features/attachments/components";
 import {
+  FormStepNav,
+  FormStepPanel,
+  FormStepTabs,
   sanitizeMultilineInput,
   sanitizeSingleLineInput,
   showErrorToast,
   showSuccessToast,
   showWarningToast,
+  TermHint,
 } from "@/features/common";
 import {
   getLocalTimezoneLabel,
@@ -62,6 +66,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 import type { TDraftAttachment } from "@/features/attachments/types";
+import type { IFormStep } from "@/features/common";
 import type {
   TCreateJobFormErrors,
   TCreateJobFormState,
@@ -100,8 +105,8 @@ const CREATE_JOB_SCHEMA = z.object({
   asset: z
     .string()
     .transform(sanitizeSingleLineInput)
-    .pipe(z.string().min(3, "Payment asset is required."))
-    .pipe(z.string().max(255, "Payment asset is too long.")),
+    .pipe(z.string().min(3, "Payment currency is required."))
+    .pipe(z.string().max(255, "Payment currency is too long.")),
   deadlineAt: z.string().transform(sanitizeSingleLineInput).optional(),
 });
 
@@ -199,6 +204,61 @@ function hasPositiveBudget(value: string): boolean {
   }
 }
 
+// Step tabs
+
+const CREATE_JOB_ID_PREFIX = "create-job";
+
+const CREATE_JOB_STEPS: readonly IFormStep[] = [
+  {
+    id: "type",
+    title: "Job Type",
+    hint: "Choose whether this is one quick task or a bigger project.",
+  },
+  {
+    id: "details",
+    title: "Describe the Work",
+    hint: "Tell freelancers what you need, so they can decide if it fits them.",
+  },
+  {
+    id: "pay",
+    title: "Budget & Payment",
+    hint: "Set how much you will pay, when it is due, and in which currency.",
+  },
+  {
+    id: "review",
+    title: "Review & Post",
+    hint: "Check everything, then decide how to secure the payment.",
+  },
+] as const;
+
+/** Which step each validation error belongs to, so a failed submit can jump to the right tab. */
+function getStepIndexForErrorKey(key: keyof TCreateJobFormErrors): number {
+  switch (key) {
+    case "title":
+    case "description":
+    case "revisionPolicy":
+    case "revisionLimit":
+      return 1;
+    case "budget":
+    case "asset":
+    case "deadlineAt":
+    case "milestones":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+function getErrorStepIndexes(errors: TCreateJobFormErrors): Set<number> {
+  const indexes = new Set<number>();
+  for (const key of Object.keys(errors) as (keyof TCreateJobFormErrors)[]) {
+    if (errors[key]) {
+      indexes.add(getStepIndexForErrorKey(key));
+    }
+  }
+  return indexes;
+}
+
 // Sub-components
 
 /** Thin labelled divider used as a section header */
@@ -206,7 +266,7 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div className="mb-4 flex items-center gap-3">
       <div className="h-2 w-2 bg-highrable-text-accent" />
-      <span className="font-mono text-sm font-semibold tracking-widest whitespace-nowrap text-highrable-text-accent uppercase">
+      <span className="text-sm font-semibold whitespace-nowrap text-highrable-text-accent">
         {label}
       </span>
     </div>
@@ -231,9 +291,9 @@ function RevisionPolicyControls({
   onLimitChange: (limit: string) => void;
 }) {
   const options: Array<{ value: TRevisionPolicy; label: string }> = [
-    { value: "none", label: "No revisions" },
-    { value: "fixed", label: "Fixed revisions" },
-    { value: "unlimited", label: "Unlimited revisions" },
+    { value: "none", label: "No Revisions" },
+    { value: "fixed", label: "Fixed Revisions" },
+    { value: "unlimited", label: "Unlimited Revisions" },
   ];
 
   return (
@@ -247,7 +307,7 @@ function RevisionPolicyControls({
             onClick={() => onPolicyChange(option.value)}
             className={`rounded-lg border px-4 py-2.5 text-left font-sans text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               revisionPolicy === option.value
-                ? "border-highrable-text-primary bg-highrable-text-primary text-primary-foreground"
+                ? "border-highrable-orange-3 bg-highrable-orange-2 text-[var(--mode-on)]"
                 : "border-border bg-card text-muted-foreground hover:border-highrable-orange-2/50"
             }`}
             aria-pressed={revisionPolicy === option.value}
@@ -273,7 +333,7 @@ function RevisionPolicyControls({
         </div>
       ) : null}
       {revisionPolicy === "unlimited" ? (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-2 px-4 font-sans text-sm text-amber-800">
+        <div className="mt-4 border-l-2 border-amber-400 bg-amber-50/60 p-2 pr-3 pl-3 font-sans text-sm text-amber-800">
           Unlimited revisions can delay completion. Use this only when both parties agree on a
           flexible review process.
         </div>
@@ -356,6 +416,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
     [formState.asset],
   );
   const [errors, setErrors] = useState<TCreateJobFormErrors>({});
+  const [stepIndex, setStepIndex] = useState(0);
   const [draftAttachments, setDraftAttachments] = useState<TDraftAttachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitInProgressRef = useRef(false);
@@ -395,7 +456,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       )}).`;
     }
 
-    return "Enter the stablecoin token contract ID only if you need an off-chain draft before central config is set.";
+    return "Enter the digital dollar token contract ID only if you need an off-chain draft before central config is set.";
   }, [isStablecoinConfigured]);
 
   const isMilestoneProject = formState.jobType === "milestone_project";
@@ -409,7 +470,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
   const budgetHelperText = isMilestoneProject
     ? "Project budget is calculated from milestone amounts."
-    : "This amount will be locked in Stellar escrow after the client funds the contract.";
+    : "This amount will be held safely after the client pays.";
   const shouldShowStablecoinFundingReadiness =
     !isMilestoneProject &&
     hasPositiveBudget(formState.budget) &&
@@ -542,6 +603,10 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
   const setFormWarning = (formErrors: TCreateJobFormErrors) => {
     setErrors(formErrors);
+    const errorSteps = [...getErrorStepIndexes(formErrors)].sort((a, b) => a - b);
+    if (errorSteps.length > 0) {
+      setStepIndex(errorSteps[0] ?? 0);
+    }
     const firstError = getFirstFormError(formErrors);
     if (firstError) {
       showWarningToast(firstError);
@@ -665,7 +730,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
       setFormWarning({
         asset:
           stablecoinValidation.message ??
-          "Payment asset is required until stablecoin configuration is set.",
+          "Payment currency is required until digital dollar configuration is set.",
       });
       return;
     }
@@ -803,7 +868,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
         if (walletIdentity.walletType === "passkey_smart_account") {
           setFormWarning({
             submit:
-              "Create the job with your passkey smart account, then create and fund escrow from the escrow action panel.",
+              "Create the job with your passkey account, then create and fund payment hold from the payment hold action panel.",
           });
           setIsSubmitting(false);
           return;
@@ -811,7 +876,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (!walletIdentity.canSignEscrowTransactions || !address || !isConnected) {
           setFormWarning({
-            submit: "Connect a Stellar wallet before funding escrow.",
+            submit: "Connect a Stellar wallet before funding payment hold.",
           });
           setIsSubmitting(false);
           return;
@@ -819,7 +884,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (!isWalletOnConfiguredNetwork(walletState)) {
           setFormWarning({
-            submit: getWalletNetworkMismatchMessage("funding escrow"),
+            submit: getWalletNetworkMismatchMessage("funding payment hold"),
           });
           setIsSubmitting(false);
           return;
@@ -827,7 +892,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (walletState.isFunded === false) {
           setFormWarning({
-            submit: "Fund your Stellar testnet account with Friendbot before funding escrow.",
+            submit: "Fund your Stellar testnet account with Friendbot before funding payment hold.",
           });
           setIsSubmitting(false);
           return;
@@ -835,7 +900,8 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
         if (walletState.canWriteContracts === false) {
           setFormWarning({
-            submit: "This wallet can view jobs but cannot sign escrow contract actions right now.",
+            submit:
+              "This wallet can view jobs but cannot sign payment hold contract actions right now.",
           });
           setIsSubmitting(false);
           return;
@@ -945,30 +1011,25 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
   };
 
   return (
-    <section className="rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
-      {/* Card header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
-        <div className="space-y-1">
-          <h2 className="hr-text-primary font-mono text-xl font-semibold">Post a freelance job</h2>
-          <p className="hr-text-secondary max-w-2xl font-sans text-sm">
-            Define escrow-ready job terms with the configured payment asset.
-          </p>
-        </div>
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-6">
+        <p className="hr-text-secondary font-sans text-sm">
+          You can go back and change any step before you post.
+        </p>
 
-        {/* Status notices */}
         <div className="flex flex-wrap items-center gap-2">
           {!isStablecoinConfigured ? (
             <HighrableV2IconNotice
-              label="Stablecoin configuration warning"
+              label="Digital dollar configuration warning"
               tone="warning"
-              message="Stablecoin token is not configured. You can create off-chain jobs, but escrow funding will be disabled until NEXT_PUBLIC_STABLECOIN_TOKEN_CONTRACT_ID is set."
+              message="The digital-dollar payment option is not set up yet. You can still post jobs, but holding the payment is switched off until it is configured."
             />
           ) : null}
           {walletIdentity.walletType === "passkey_smart_account" ? (
             <HighrableV2IconNotice
-              label="Passkey smart account connected"
+              label="passkey account connected"
               tone="success"
-              message="Passkey smart account connected. Escrow signing is enabled with passkey from the escrow action panel after the job is created."
+              message="Your passkey account is connected. After the job is created you will approve the payment hold with your passkey."
             />
           ) : null}
           {walletIdentity.walletType === "external_wallet" &&
@@ -977,7 +1038,7 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
             <HighrableV2IconNotice
               label="Funded account warning"
               tone="warning"
-              message="You can create off-chain jobs, but Stellar transactions in later steps require a funded testnet account."
+              message="You can post the job, but approving payments later needs a funded practice account (test XLM)."
             />
           ) : null}
         </div>
@@ -985,526 +1046,604 @@ export function CreateJobForm({ onCreated }: { onCreated: (jobId: string) => voi
 
       {/* Wallet gate */}
       {!walletIdentity.isConnected ? (
-        <div className="mx-5 mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:mx-6">
-          <p className="mb-3">
-            Connect an external wallet or passkey smart account to create a job.
-          </p>
-          <WalletConnectTrigger className="hr-v2-button-primary rounded-lg px-4 py-2 text-sm font-medium text-white" />
+        <div className="mx-5 mt-5 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-800 sm:mx-6">
+          <p className="mb-3">Connect your wallet or passkey to post a job.</p>
+          <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
         </div>
       ) : null}
 
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="space-y-10 p-5 sm:p-6"
+        onKeyDown={(event) => {
+          // Enter inside a text box should move forward, not post a half-finished job.
+          if (
+            event.key === "Enter" &&
+            stepIndex < CREATE_JOB_STEPS.length - 1 &&
+            event.target instanceof HTMLInputElement
+          ) {
+            event.preventDefault();
+            setStepIndex((value) => Math.min(CREATE_JOB_STEPS.length - 1, value + 1));
+          }
+        }}
+        className="space-y-8 p-5 sm:p-6"
         aria-busy={isSubmitting}
       >
-        {/* ── Section: Work mode ── */}
-        <section aria-labelledby="section-work-mode">
-          <SectionDivider label="Work mode" />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => updateJobType("micro_gig")}
-              className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
-                formState.jobType === "micro_gig"
-                  ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
-                  : "border-border bg-card hover:border-highrable-orange-2/50"
-              }`}
-              aria-pressed={formState.jobType === "micro_gig"}
-            >
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
-                <Zap className="h-4 w-4" />
-              </div>
-              <div>
-                <span className="hr-text-primary block font-mono text-sm font-semibold">
-                  Micro Gig
-                </span>
-                <span className="hr-text-secondary mt-0.5 block font-sans text-xs">
-                  Small task · one freelancer · single payout.
-                </span>
-              </div>
-            </button>
+        <FormStepTabs
+          steps={CREATE_JOB_STEPS.map((step, index) => ({
+            ...step,
+            hasError: getErrorStepIndexes(errors).has(index),
+          }))}
+          activeIndex={stepIndex}
+          onSelect={setStepIndex}
+          idPrefix={CREATE_JOB_ID_PREFIX}
+        />
 
-            <button
-              type="button"
-              onClick={() => updateJobType("milestone_project")}
-              className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
-                formState.jobType === "milestone_project"
-                  ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
-                  : "border-border bg-card hover:border-highrable-orange-2/50"
-              }`}
-              aria-pressed={formState.jobType === "milestone_project"}
-            >
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
-                <Layers className="h-4 w-4" />
-              </div>
-              <div>
-                <span className="hr-text-primary block font-sans text-sm font-semibold">
-                  Milestone Project
-                </span>
-                <span className="hr-text-secondary mt-0.5 block font-sans text-xs">
-                  Larger project · split deliverables · per-milestone payments.
-                </span>
-              </div>
-            </button>
-          </div>
-        </section>
+        <FormStepPanel stepId="type" isActive={stepIndex === 0} idPrefix={CREATE_JOB_ID_PREFIX}>
+          {/* ── Section: Work mode ── */}
+          <section aria-labelledby="section-work-mode">
+            <SectionDivider label="What kind of job is this?" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => updateJobType("micro_gig")}
+                className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
+                  formState.jobType === "micro_gig"
+                    ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
+                    : "border-border bg-card hover:border-highrable-orange-2/50"
+                }`}
+                aria-pressed={formState.jobType === "micro_gig"}
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
+                  <Zap className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="hr-text-primary block font-sans text-sm font-semibold">
+                    Quick Job
+                  </span>
+                  <span className="hr-text-secondary mt-0.5 block font-sans text-xs">
+                    One task, one freelancer, one payment.
+                  </span>
+                </div>
+              </button>
 
-        {/* ── Section: Job details ── */}
-        <section aria-labelledby="section-job-details">
-          <SectionDivider label="Job details" />
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="marketplace-job-title">Job title</Label>
-              <AppInput
-                id="marketplace-job-title"
-                value={formState.title}
-                onChange={(event) => updateField("title", event.target.value)}
-                maxLength={140}
-                placeholder="Build a responsive frontend with Stellar wallet integration"
-              />
-              {errors.title ? (
-                <p className="font-sans text-xs text-red-600">{errors.title}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="marketplace-job-description">Description</Label>
-              <AppTextarea
-                id="marketplace-job-description"
-                value={formState.description}
-                onChange={(event) => updateField("description", event.target.value)}
-                rows={5}
-                maxLength={4000}
-                placeholder="Scope, deliverables, and acceptance criteria"
-              />
-              {errors.description ? (
-                <p className="font-sans text-xs text-red-600">{errors.description}</p>
-              ) : null}
-            </div>
-
-            {scamAnalysis.signals.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <HighrableV2IconNotice
-                  label={
-                    scamAnalysis.isBlocked
-                      ? "Blocked scam language"
-                      : "Suspicious job language warning"
-                  }
-                  tone={scamAnalysis.isBlocked ? "danger" : "warning"}
-                  message={
-                    <span className="space-y-1">
-                      <span className="block">
-                        {scamAnalysis.isBlocked
-                          ? DISALLOWED_JOB_POST_MESSAGE
-                          : "This job post contains language that may look suspicious to freelancers."}
-                      </span>
-                      {scamAnalysis.signals.map((signal) => (
-                        <span key={signal.type} className="block">
-                          {signal.message}
-                        </span>
-                      ))}
-                    </span>
-                  }
-                />
-                <span className="font-mono text-xs tracking-[0.06em] text-muted-foreground uppercase">
-                  Review safety language
-                </span>
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        {/* ── Section: Budget & deadline ── */}
-        {!isMilestoneProject ? (
-          <section aria-labelledby="section-budget-deadline">
-            <SectionDivider label="Budget & deadline" />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="marketplace-job-budget">Budget</Label>
-                <AppInput
-                  id="marketplace-job-budget"
-                  type="text"
-                  inputMode="decimal"
-                  value={formState.budget}
-                  onChange={(event) => updateField("budget", event.target.value)}
-                  placeholder="500"
-                />
-                <p className="font-sans text-xs text-muted-foreground">{budgetHelperText}</p>
-                {errors.budget ? (
-                  <p className="font-sans text-xs text-red-600">{errors.budget}</p>
-                ) : null}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="marketplace-job-deadline">Deadline</Label>
-                <DateTimePicker
-                  id="marketplace-job-deadline"
-                  min={minimumDeadlineInputValue}
-                  value={formState.deadlineAt}
-                  onValueChange={(value) =>
-                    updateField("deadlineAt", clampDeadlineInputValue(value))
-                  }
-                />
-                <p className="font-sans text-xs text-muted-foreground">
-                  Stored in UTC · displayed in {getLocalTimezoneLabel()}.
-                </p>
-                {errors.deadlineAt ? (
-                  <p className="font-sans text-xs text-red-600">{errors.deadlineAt}</p>
-                ) : null}
-              </div>
+              <button
+                type="button"
+                onClick={() => updateJobType("milestone_project")}
+                className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors ${
+                  formState.jobType === "milestone_project"
+                    ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
+                    : "border-border bg-card hover:border-highrable-orange-2/50"
+                }`}
+                aria-pressed={formState.jobType === "milestone_project"}
+              >
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-highrable-orange-2/10 text-highrable-orange-2">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="hr-text-primary block font-sans text-sm font-semibold">
+                    Milestone Project
+                  </span>
+                  <span className="hr-text-secondary mt-0.5 block font-sans text-xs">
+                    A bigger project paid in milestones. Each milestone is paid when it is done.
+                  </span>
+                </div>
+              </button>
             </div>
           </section>
-        ) : null}
+        </FormStepPanel>
 
-        {/* ── Section: Payment asset ── */}
-        <section aria-labelledby="section-payment-asset">
-          <SectionDivider label="Payment asset" />
-          {isStablecoinConfigured ? (
-            <div className="space-y-3">
-              {supportedEscrowAssets.map((asset) => {
-                const isSelected = formState.asset === asset.tokenContractId;
-                const isDisabled = !asset.isConfigured;
+        <FormStepPanel stepId="details" isActive={stepIndex === 1} idPrefix={CREATE_JOB_ID_PREFIX}>
+          {/* ── Section: Job details ── */}
+          <section aria-labelledby="section-job-details">
+            <SectionDivider label="Job details" />
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="marketplace-job-title">Job title</Label>
+                <AppInput
+                  id="marketplace-job-title"
+                  value={formState.title}
+                  onChange={(event) => updateField("title", event.target.value)}
+                  maxLength={140}
+                  placeholder="Build a responsive frontend with Stellar wallet integration"
+                />
+                {errors.title ? (
+                  <p className="font-sans text-xs text-red-600">{errors.title}</p>
+                ) : null}
+              </div>
 
-                return (
-                  <div
-                    key={asset.kind}
-                    role="button"
-                    tabIndex={isDisabled ? -1 : 0}
-                    onClick={() => !isDisabled && updateField("asset", asset.tokenContractId)}
-                    onKeyDown={(e) => {
-                      if (!isDisabled && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        updateField("asset", asset.tokenContractId);
-                      }
-                    }}
-                    className={`rounded-lg border p-4 text-left transition-colors ${
-                      isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                    } ${
-                      isSelected
-                        ? "border-highrable-text-primary bg-card shadow-[5.67px_5.67px_0px_rgba(0,0,0,0.08)]"
-                        : "border-border bg-card hover:border-highrable-orange-2/50"
-                    }`}
-                    aria-pressed={isSelected}
-                  >
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="hr-text-primary font-medium">{asset.displayName}</span>
-                      {asset.isPrimary ? (
-                        <HighrableV2Badge>Recommended</HighrableV2Badge>
-                      ) : (
-                        <HighrableV2Badge tone="solid">Advanced</HighrableV2Badge>
-                      )}
-                      {asset.kind === "native_xlm" && asset.isConfigured ? (
-                        <HighrableV2IconNotice
-                          label="XLM value warning"
-                          tone="warning"
-                          message="XLM escrow is available, but the job value may fluctuate."
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : null}
-                    </span>
-                    <span className="hr-text-secondary mt-1 block text-sm">
-                      {asset.kind === "stablecoin"
-                        ? "Stable job value. Recommended for freelance escrow."
-                        : asset.isConfigured
-                          ? "Advanced. Job value may fluctuate with XLM market price."
-                          : "XLM escrow is not configured for this deployment."}
-                    </span>
-                    {asset.tokenContractId ? (
-                      <span className="mt-1 block font-mono text-xs break-all text-muted-foreground">
-                        {asset.tokenContractId}
+              <div className="space-y-1.5">
+                <Label htmlFor="marketplace-job-description">Description</Label>
+                <AppTextarea
+                  id="marketplace-job-description"
+                  value={formState.description}
+                  onChange={(event) => updateField("description", event.target.value)}
+                  rows={5}
+                  maxLength={4000}
+                  placeholder="What needs to be done, what you expect to receive, and how you will decide it is finished"
+                />
+                {errors.description ? (
+                  <p className="font-sans text-xs text-red-600">{errors.description}</p>
+                ) : null}
+              </div>
+
+              {scamAnalysis.signals.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <HighrableV2IconNotice
+                    label={
+                      scamAnalysis.isBlocked
+                        ? "Blocked scam language"
+                        : "Suspicious job language warning"
+                    }
+                    tone={scamAnalysis.isBlocked ? "danger" : "warning"}
+                    message={
+                      <span className="space-y-1">
+                        <span className="block">
+                          {scamAnalysis.isBlocked
+                            ? DISALLOWED_JOB_POST_MESSAGE
+                            : "This job post contains language that may look suspicious to freelancers."}
+                        </span>
+                        {scamAnalysis.signals.map((signal) => (
+                          <span key={signal.type} className="block">
+                            {signal.message}
+                          </span>
+                        ))}
                       </span>
-                    ) : null}
-                  </div>
-                );
-              })}
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">Review safety language</span>
+                </div>
+              ) : null}
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label htmlFor="marketplace-job-asset">Token contract ID</Label>
-              <AppInput
-                id="marketplace-job-asset"
-                value={formState.asset}
-                onChange={(event) => updateField("asset", event.target.value)}
-                maxLength={255}
-                placeholder="Stablecoin token contract ID"
+          </section>
+
+          {/* ── Section: Revision policy (micro gig only) ── */}
+          {!isMilestoneProject ? (
+            <section aria-labelledby="section-revision-policy">
+              <SectionDivider label="How many changes can you ask for?" />
+              <RevisionPolicyControls
+                idPrefix="micro-gig"
+                revisionPolicy={formState.revisionPolicy}
+                revisionLimit={formState.revisionLimit}
+                disabled={isSubmitting}
+                error={errors.revisionPolicy ?? errors.revisionLimit}
+                onPolicyChange={updateRevisionPolicy}
+                onLimitChange={updateRevisionLimit}
               />
-            </div>
-          )}
-          <p className="mt-2 font-sans text-xs text-muted-foreground">{helperText}</p>
-          {errors.asset ? (
-            <p className="mt-1 font-sans text-xs text-red-600">{errors.asset}</p>
+            </section>
           ) : null}
-        </section>
 
-        {shouldShowXlmToUsdcTopUp ? (
-          <XlmToUsdcTopUpPanel
-            walletAddress={walletIdentity.walletAddress}
-            walletType={walletIdentity.walletType}
-            missingUsdcAmount={xlmToUsdcMissingAmount}
-            usdcBalance={preFundReadiness.balanceDisplay}
-            jobAssetContractId={formState.asset || stablecoinConfig.tokenContractId}
-            onRefreshBalance={preFundReadiness.refresh}
-          />
-        ) : null}
-
-        {/* ── Section: Revision policy (micro gig only) ── */}
-        {!isMilestoneProject ? (
-          <section aria-labelledby="section-revision-policy">
-            <SectionDivider label="Revision policy" />
-            <RevisionPolicyControls
-              idPrefix="micro-gig"
-              revisionPolicy={formState.revisionPolicy}
-              revisionLimit={formState.revisionLimit}
+          {/* ── Section: Attachments ── */}
+          <section aria-labelledby="section-attachments">
+            <SectionDivider label="Files (optional)" />
+            <AttachmentUploader
+              value={draftAttachments}
+              onChange={setDraftAttachments}
               disabled={isSubmitting}
-              error={errors.revisionPolicy ?? errors.revisionLimit}
-              onPolicyChange={updateRevisionPolicy}
-              onLimitChange={updateRevisionLimit}
             />
           </section>
-        ) : null}
+        </FormStepPanel>
 
-        {/* ── Section: Attachments ── */}
-        <section aria-labelledby="section-attachments">
-          <SectionDivider label="Attachments" />
-          <AttachmentUploader
-            value={draftAttachments}
-            onChange={setDraftAttachments}
-            disabled={isSubmitting}
-          />
-        </section>
-
-        {/* ── Section: Milestones (milestone project only) ── */}
-        {isMilestoneProject ? (
-          <section aria-labelledby="section-milestones">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="h-2 w-2 bg-highrable-text-accent" />
-                <span className="font-mono text-sm font-semibold tracking-widest text-highrable-text-accent uppercase">
-                  Milestones
-                </span>
-              </div>
-              <AppButton
-                type="button"
-                variant="secondary"
-                onClick={addMilestone}
-                className="hr-v2-button-secondary w-full text-sm font-semibold sm:w-auto"
-              >
-                <Plus className="h-4 w-4" />
-                Add Milestone
-              </AppButton>
-            </div>
-
-            <p className="mb-4 font-sans text-sm text-muted-foreground">
-              Define each deliverable and payment amount. Funding happens per milestone after
-              applications arrive.
-            </p>
-
-            <div className="space-y-4">
-              {formState.milestones.map((milestone, index) => (
-                <div
-                  key={milestone.id}
-                  className="space-y-4 rounded-lg border border-border bg-muted/30 p-4"
-                >
-                  {/* Milestone header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                      Milestone {index + 1}
-                    </span>
-                    <AppButton
-                      type="button"
-                      variant="secondary"
-                      disabled={formState.milestones.length === 1}
-                      onClick={() => removeMilestone(milestone.id)}
-                      className="gap-1.5 rounded-lg bg-destructive/10 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-2 w-2" />
-                      Remove
-                    </AppButton>
-                  </div>
-
-                  {/* Title + amount */}
-                  <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`milestone-title-${milestone.id}`}>Title</Label>
-                      <AppInput
-                        id={`milestone-title-${milestone.id}`}
-                        value={milestone.title}
-                        maxLength={140}
-                        onChange={(event) =>
-                          updateMilestone(milestone.id, "title", event.target.value)
-                        }
-                        placeholder="Design landing page"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`milestone-amount-${milestone.id}`}>Amount</Label>
-                      <AppInput
-                        id={`milestone-amount-${milestone.id}`}
-                        value={milestone.amount}
-                        type="text"
-                        inputMode="decimal"
-                        onChange={(event) =>
-                          updateMilestone(milestone.id, "amount", event.target.value)
-                        }
-                        placeholder="50"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`milestone-description-${milestone.id}`}>Description</Label>
-                    <AppTextarea
-                      id={`milestone-description-${milestone.id}`}
-                      value={milestone.description}
-                      rows={3}
-                      maxLength={1200}
-                      onChange={(event) =>
-                        updateMilestone(milestone.id, "description", event.target.value)
-                      }
-                      placeholder="Deliverable details and acceptance criteria"
-                    />
-                  </div>
-
-                  {/* Deadline */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`milestone-deadline-${milestone.id}`}>Deadline</Label>
-                    <DateTimePicker
-                      id={`milestone-deadline-${milestone.id}`}
-                      min={minimumDeadlineInputValue}
-                      value={milestone.deadlineAt}
-                      onValueChange={(value) =>
-                        updateMilestone(milestone.id, "deadlineAt", clampDeadlineInputValue(value))
-                      }
-                    />
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {getLocalTimezoneLabel()}
-                    </p>
-                  </div>
-
-                  {/* Revision policy */}
-                  <div>
-                    <p className="mb-3 font-mono text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                      Revision policy
-                    </p>
-                    <RevisionPolicyControls
-                      idPrefix={`milestone-${milestone.id}`}
-                      revisionPolicy={milestone.revisionPolicy}
-                      revisionLimit={milestone.revisionLimit}
-                      disabled={isSubmitting}
-                      onPolicyChange={(policy) =>
-                        updateMilestoneRevisionPolicy(milestone.id, policy)
-                      }
-                      onLimitChange={(limit) =>
-                        updateMilestone(milestone.id, "revisionLimit", limit)
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Milestone total */}
-            <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
-              <span className="hr-text-primary font-sans font-medium">Total project budget:</span>{" "}
-              <span className="hr-text-secondary font-sans">
-                {parsedMilestoneTotal.toLocaleString(undefined, { maximumFractionDigits: 7 })}{" "}
-                {formatAssetLabel(formState.asset)}
-              </span>
-            </div>
-
-            {errors.milestones ? (
-              <p className="mt-2 text-sm text-red-600">{errors.milestones}</p>
-            ) : null}
-          </section>
-        ) : null}
-
-        {/* ── Section: Escrow funding (micro gig only) ── */}
-        {!isMilestoneProject ? (
-          <section aria-labelledby="section-escrow">
-            <SectionDivider label="Escrow" />
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex gap-1.5">
-                    <Label htmlFor="fund-escrow-now" className="text-sm font-semibold">
-                      Create and fund escrow now
-                    </Label>
-                    {walletIdentity.walletType === "passkey_smart_account" ? (
-                      <HighrableV2IconNotice
-                        label="Passkey escrow funding notice"
-                        tone="warning"
-                        message="Passkey smart accounts create and fund escrow after posting so role checks use the smart account address consistently."
-                      />
-                    ) : (
-                      <HighrableV2IconNotice
-                        label="Escrow funding info"
-                        tone="warning"
-                        message="Locking the budget in escrow demonstrates commitment to applicants and secures the payment for the future freelancer."
-                      />
-                    )}
-                  </div>
-                  <p className="hr-text-secondary mt-1 font-sans text-sm">
-                    Lock the full budget in Stellar escrow while the job is open for applicants.
-                  </p>
-                  {formState.fundEscrowNow ? (
-                    <p className="mt-2 font-sans text-xs text-muted-foreground">
-                      Your wallet will sign one atomic Soroban transaction after the job is created.
-                    </p>
+        <FormStepPanel stepId="pay" isActive={stepIndex === 2} idPrefix={CREATE_JOB_ID_PREFIX}>
+          {/* ── Section: Budget & deadline ── */}
+          {!isMilestoneProject ? (
+            <section aria-labelledby="section-budget-deadline">
+              <SectionDivider label="How much and by when?" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="marketplace-job-budget">Budget</Label>
+                  <AppInput
+                    id="marketplace-job-budget"
+                    type="text"
+                    inputMode="decimal"
+                    value={formState.budget}
+                    onChange={(event) => updateField("budget", event.target.value)}
+                    placeholder="500"
+                  />
+                  <p className="font-sans text-xs text-muted-foreground">{budgetHelperText}</p>
+                  {errors.budget ? (
+                    <p className="font-sans text-xs text-red-600">{errors.budget}</p>
                   ) : null}
                 </div>
-                <AppSwitch
-                  id="fund-escrow-now"
-                  checked={formState.fundEscrowNow}
-                  onCheckedChange={updateFundEscrowNow}
-                  disabled={
-                    !isSelectedEscrowAssetSupported ||
-                    !walletIdentity.canSignEscrowTransactions ||
-                    walletIdentity.walletType === "passkey_smart_account" ||
-                    isSubmitting
-                  }
-                  aria-label="Create and fund escrow when posting this job"
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="marketplace-job-deadline">Deadline</Label>
+                  <DateTimePicker
+                    id="marketplace-job-deadline"
+                    min={minimumDeadlineInputValue}
+                    value={formState.deadlineAt}
+                    onValueChange={(value) =>
+                      updateField("deadlineAt", clampDeadlineInputValue(value))
+                    }
+                  />
+                  <p className="font-sans text-xs text-muted-foreground">
+                    Shown in your local time ({getLocalTimezoneLabel()}).
+                  </p>
+                  {errors.deadlineAt ? (
+                    <p className="font-sans text-xs text-red-600">{errors.deadlineAt}</p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {/* ── Section: Payment asset ── */}
+          <section aria-labelledby="section-payment-asset">
+            <SectionDivider label="Payment currency" />
+            {isStablecoinConfigured ? (
+              <div className="space-y-3">
+                {supportedEscrowAssets.map((asset) => {
+                  const isSelected = formState.asset === asset.tokenContractId;
+                  const isDisabled = !asset.isConfigured;
+
+                  return (
+                    <div
+                      key={asset.kind}
+                      role="button"
+                      tabIndex={isDisabled ? -1 : 0}
+                      onClick={() => !isDisabled && updateField("asset", asset.tokenContractId)}
+                      onKeyDown={(e) => {
+                        if (!isDisabled && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          updateField("asset", asset.tokenContractId);
+                        }
+                      }}
+                      className={`rounded-lg border p-4 text-left transition-colors ${
+                        isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                      } ${
+                        isSelected
+                          ? "border-(--mode-solid) bg-accent ring-1 ring-(--mode-solid)"
+                          : "border-border bg-card hover:border-highrable-orange-2/50"
+                      }`}
+                      aria-pressed={isSelected}
+                    >
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="hr-text-primary font-medium">{asset.displayName}</span>
+                        {asset.isPrimary ? (
+                          <HighrableV2Badge>Recommended</HighrableV2Badge>
+                        ) : (
+                          <HighrableV2Badge tone="solid">Advanced</HighrableV2Badge>
+                        )}
+                        {asset.kind === "native_xlm" && asset.isConfigured ? (
+                          <HighrableV2IconNotice
+                            label="XLM value warning"
+                            tone="warning"
+                            message="XLM payment hold is available, but the job value may fluctuate."
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : null}
+                      </span>
+                      <span className="hr-text-secondary mt-1 block text-sm">
+                        {asset.kind === "stablecoin"
+                          ? "A digital dollar. The price stays steady, so nobody loses out. Recommended."
+                          : asset.isConfigured
+                            ? "Advanced. The value of the job can go up or down with the XLM price."
+                            : "This currency is not available right now."}
+                      </span>
+                      {asset.tokenContractId ? (
+                        <details className="mt-1" onClick={(event) => event.stopPropagation()}>
+                          <summary className="cursor-pointer font-sans text-xs text-muted-foreground">
+                            Technical details
+                          </summary>
+                          <span className="mt-1 block font-mono text-xs break-all text-muted-foreground">
+                            {asset.tokenContractId}
+                          </span>
+                        </details>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="marketplace-job-asset">Currency code (advanced)</Label>
+                <AppInput
+                  id="marketplace-job-asset"
+                  value={formState.asset}
+                  onChange={(event) => updateField("asset", event.target.value)}
+                  maxLength={255}
+                  placeholder="Paste the currency code provided by your team"
                 />
               </div>
-            </div>
+            )}
+            <p className="mt-2 font-sans text-xs text-muted-foreground">{helperText}</p>
+            {errors.asset ? (
+              <p className="mt-1 font-sans text-xs text-red-600">{errors.asset}</p>
+            ) : null}
           </section>
-        ) : (
-          <div>
-            <SectionDivider label="Escrow" />
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 px-4 font-sans text-sm text-amber-800">
-              Milestone projects are not funded upfront. Assign and fund each milestone separately
-              after applications arrive.
+
+          {shouldShowXlmToUsdcTopUp ? (
+            <XlmToUsdcTopUpPanel
+              walletAddress={walletIdentity.walletAddress}
+              walletType={walletIdentity.walletType}
+              missingUsdcAmount={xlmToUsdcMissingAmount}
+              usdcBalance={preFundReadiness.balanceDisplay}
+              jobAssetContractId={formState.asset || stablecoinConfig.tokenContractId}
+              onRefreshBalance={preFundReadiness.refresh}
+            />
+          ) : null}
+
+          {/* ── Section: Milestones (milestone project only) ── */}
+          {isMilestoneProject ? (
+            <section aria-labelledby="section-milestones">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 w-2 bg-highrable-text-accent" />
+                  <span className="text-sm font-semibold text-highrable-text-accent">
+                    Milestones
+                  </span>
+                </div>
+                <AppButton
+                  type="button"
+                  variant="secondary"
+                  onClick={addMilestone}
+                  className="hr-v2-button-secondary w-full text-sm font-semibold sm:w-auto"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Milestone
+                </AppButton>
+              </div>
+
+              <p className="mb-4 font-sans text-sm text-muted-foreground">
+                Split the project into milestones. Each milestone has its own goal, deadline and
+                payment. You pay for a milestone after freelancers apply to it.
+              </p>
+
+              <div className="space-y-4">
+                {formState.milestones.map((milestone, index) => (
+                  <div
+                    key={milestone.id}
+                    className="space-y-4 rounded-lg border border-border bg-muted/30 p-4"
+                  >
+                    {/* Milestone header */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Milestone {index + 1}
+                      </span>
+                      <AppButton
+                        type="button"
+                        variant="secondary"
+                        disabled={formState.milestones.length === 1}
+                        onClick={() => removeMilestone(milestone.id)}
+                        className="gap-1.5 rounded-lg bg-destructive/10 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-2 w-2" />
+                        Remove
+                      </AppButton>
+                    </div>
+
+                    {/* Title + amount */}
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`milestone-title-${milestone.id}`}>Title</Label>
+                        <AppInput
+                          id={`milestone-title-${milestone.id}`}
+                          value={milestone.title}
+                          maxLength={140}
+                          onChange={(event) =>
+                            updateMilestone(milestone.id, "title", event.target.value)
+                          }
+                          placeholder="Design landing page"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`milestone-amount-${milestone.id}`}>Amount</Label>
+                        <AppInput
+                          id={`milestone-amount-${milestone.id}`}
+                          value={milestone.amount}
+                          type="text"
+                          inputMode="decimal"
+                          onChange={(event) =>
+                            updateMilestone(milestone.id, "amount", event.target.value)
+                          }
+                          placeholder="50"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`milestone-description-${milestone.id}`}>Description</Label>
+                      <AppTextarea
+                        id={`milestone-description-${milestone.id}`}
+                        value={milestone.description}
+                        rows={3}
+                        maxLength={1200}
+                        onChange={(event) =>
+                          updateMilestone(milestone.id, "description", event.target.value)
+                        }
+                        placeholder="Deliverable details and acceptance criteria"
+                      />
+                    </div>
+
+                    {/* Deadline */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`milestone-deadline-${milestone.id}`}>Deadline</Label>
+                      <DateTimePicker
+                        id={`milestone-deadline-${milestone.id}`}
+                        min={minimumDeadlineInputValue}
+                        value={milestone.deadlineAt}
+                        onValueChange={(value) =>
+                          updateMilestone(
+                            milestone.id,
+                            "deadlineAt",
+                            clampDeadlineInputValue(value),
+                          )
+                        }
+                      />
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {getLocalTimezoneLabel()}
+                      </p>
+                    </div>
+
+                    {/* Revision policy */}
+                    <div>
+                      <p className="mb-3 text-xs font-semibold text-muted-foreground">
+                        Revision policy
+                      </p>
+                      <RevisionPolicyControls
+                        idPrefix={`milestone-${milestone.id}`}
+                        revisionPolicy={milestone.revisionPolicy}
+                        revisionLimit={milestone.revisionLimit}
+                        disabled={isSubmitting}
+                        onPolicyChange={(policy) =>
+                          updateMilestoneRevisionPolicy(milestone.id, policy)
+                        }
+                        onLimitChange={(limit) =>
+                          updateMilestone(milestone.id, "revisionLimit", limit)
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Milestone total */}
+              <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+                <span className="hr-text-primary font-sans font-medium">Total project budget:</span>{" "}
+                <span className="hr-text-secondary font-sans">
+                  {parsedMilestoneTotal.toLocaleString(undefined, { maximumFractionDigits: 7 })}{" "}
+                  {formatAssetLabel(formState.asset)}
+                </span>
+              </div>
+
+              {errors.milestones ? (
+                <p className="mt-2 text-sm text-red-600">{errors.milestones}</p>
+              ) : null}
+            </section>
+          ) : null}
+        </FormStepPanel>
+
+        <FormStepPanel stepId="review" isActive={stepIndex === 3} idPrefix={CREATE_JOB_ID_PREFIX}>
+          <section aria-labelledby="section-review-summary">
+            <SectionDivider label="Your job at a glance" />
+            <dl className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-xs text-muted-foreground">Type</dt>
+                <dd className="hr-text-primary mt-0.5 font-medium">
+                  {isMilestoneProject ? "Milestone project" : "Quick job"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Title</dt>
+                <dd className="hr-text-primary mt-0.5 font-medium break-words">
+                  {formState.title.trim() || "Not filled in yet"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Budget</dt>
+                <dd className="hr-text-primary mt-0.5 font-medium">
+                  {isMilestoneProject
+                    ? parsedMilestoneTotal.toLocaleString(undefined, { maximumFractionDigits: 7 })
+                    : formState.budget.trim() || "Not filled in yet"}{" "}
+                  {formatAssetLabel(formState.asset)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Due</dt>
+                <dd className="hr-text-primary mt-0.5 font-medium">
+                  {isMilestoneProject
+                    ? `${formState.milestones.length} milestone${formState.milestones.length === 1 ? "" : "s"}, each with its own deadline`
+                    : formState.deadlineAt || "Not filled in yet"}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          {/* ── Section: Escrow funding (micro gig only) ── */}
+          {!isMilestoneProject ? (
+            <section aria-labelledby="section-escrow">
+              <SectionDivider label="Secure the payment" />
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex gap-1.5">
+                      <Label htmlFor="fund-escrow-now" className="text-sm font-semibold">
+                        Put the payment on hold now
+                      </Label>
+                      {walletIdentity.walletType === "passkey_smart_account" ? (
+                        <HighrableV2IconNotice
+                          label="Passkey payment hold funding notice"
+                          tone="warning"
+                          message="Passkey accounts create and fund payment hold after posting so role checks use the passkey account address consistently."
+                        />
+                      ) : (
+                        <HighrableV2IconNotice
+                          label="Payment Hold funding info"
+                          tone="warning"
+                          message="Setting the budget aside shows applicants you are serious and demonstrates commitment to applicants and secures the payment for the future freelancer."
+                        />
+                      )}
+                    </div>
+                    <p className="hr-text-secondary mt-1 font-sans text-sm">
+                      Set the full budget aside in a safe holding account (
+                      <TermHint term="escrow">payment hold</TermHint>) while freelancers apply. It
+                      is only released to the freelancer when you approve their work.
+                    </p>
+                    {formState.fundEscrowNow ? (
+                      <p className="mt-2 font-sans text-xs text-muted-foreground">
+                        After the job is created, your wallet will ask you to approve one payment.
+                      </p>
+                    ) : null}
+                  </div>
+                  <AppSwitch
+                    id="fund-escrow-now"
+                    checked={formState.fundEscrowNow}
+                    onCheckedChange={updateFundEscrowNow}
+                    disabled={
+                      !isSelectedEscrowAssetSupported ||
+                      !walletIdentity.canSignEscrowTransactions ||
+                      walletIdentity.walletType === "passkey_smart_account" ||
+                      isSubmitting
+                    }
+                    aria-label="Put the payment on hold when posting this job"
+                  />
+                </div>
+              </div>
+            </section>
+          ) : (
+            <div>
+              <SectionDivider label="Secure the payment" />
+              <div className="border-l-2 border-amber-400 bg-amber-50/60 p-2 pr-3 pl-3 font-sans text-sm text-amber-800">
+                Project milestones are not paid upfront. You will choose a freelancer and secure the
+                payment for each milestone separately after applications arrive.
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Error summary */}
-        {errors.submit ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {errors.submit}
-          </p>
-        ) : null}
+          {/* Error summary */}
+          {errors.submit ? (
+            <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
+              {errors.submit}
+            </p>
+          ) : null}
+        </FormStepPanel>
 
-        {/* Submit */}
-        <div className="flex justify-end border-t border-border pt-6">
-          <EscrowActionProgress progress={escrowProgress} />
-          <AppButton
-            type="submit"
-            disabled={isSubmitting || !walletIdentity.isConnected}
-            className="hr-v2-button-primary rounded-lg px-6 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting
-              ? formState.fundEscrowNow
-                ? "Posting and Funding..."
-                : "Submitting..."
-              : formState.fundEscrowNow
-                ? "Create Job and Fund Escrow"
-                : isMilestoneProject
-                  ? "Create Milestone Project"
-                  : "Create Job"}
-          </AppButton>
-        </div>
+        <FormStepNav
+          activeIndex={stepIndex}
+          stepCount={CREATE_JOB_STEPS.length}
+          onBack={() => setStepIndex((value) => Math.max(0, value - 1))}
+          onNext={() => setStepIndex((value) => Math.min(CREATE_JOB_STEPS.length - 1, value + 1))}
+          finalAction={
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <EscrowActionProgress progress={escrowProgress} />
+              <AppButton
+                type="submit"
+                disabled={isSubmitting || !walletIdentity.isConnected}
+                className="hr-v2-button-primary rounded-lg px-6 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting
+                  ? formState.fundEscrowNow
+                    ? "Posting and Funding..."
+                    : "Submitting..."
+                  : formState.fundEscrowNow
+                    ? "Post Job and Secure Payment"
+                    : isMilestoneProject
+                      ? "Create Milestone Project"
+                      : "Create Job"}
+              </AppButton>
+            </div>
+          }
+        />
       </form>
     </section>
   );

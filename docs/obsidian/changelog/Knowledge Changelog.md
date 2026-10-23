@@ -2,13 +2,36 @@
 type: changelog
 area: changelog
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
 # Knowledge Changelog
 
+## 2026-10-23
+
+- Added automatic administrator recovery for successful prior `resolve_dispute` transactions when Stellar is terminal but Convex still shows the escrow disputed. The server discovers the call in the assigned admin's Horizon history, uses the saved dispute-mark hash as a ledger anchor when available, verifies the exact call through RPC/current escrow state, and uses normal Convex bookkeeping without asking for a hash or resubmitting. Testnet evidence for escrow 24 and bounded-history limitations are recorded in [[evidence/Admin-Resolution External Transaction Recovery Evidence]], [[backend/Admin and Server Routes]], [[data/State Machines]], and [[workflows/Debugging]].
+- Hardened deadline reminders for funded open escrows: notification and status processing continues before freelancer assignment without attempting to create an unavailable chat, while assigned work falls back to its job or milestone conversation until the escrow is assigned. Assigned escrow conversations retain their existing behavior and participant checks. See [[modules/Deadlines and Notifications]].
+
+## 2026-10-22
+
+- Gated client-side job workflow visibility by assignment and agreement state: agreements stay hidden until a freelancer is selected, and work submissions stay hidden and blocked until the agreement is locked. Legacy progressed submissions retain their existing read exemption. See [[modules/Work Agreements]], [[modules/Work Submissions and Proof]], and [[data/State Machines]].
+- Updated the profile wallet-status card to use the unified wallet identity. Passkey-only users now see and can copy their `C...` smart-account address even without an external wallet connection; classic-wallet funding controls remain external-wallet-only. See [[modules/Wallets and Passkeys]].
+- Added the public `NEXT_PUBLIC_ENABLE_PASSKEYS` feature switch. It defaults to enabled for compatibility; setting it to `false` hides the passkey card and blocks restore, reconnect, creation, and transaction execution. Restart or redeploy the web app after changing it. See [[operations/Environment Variables]] and [[modules/Wallets and Passkeys]].
+- Refactored passkey discovery so SDK `IndexerError`s do not block the normal create/reconnect flow: derive the account from the authenticated credential, verify its existence via RPC, and verify a default-rule passkey signer and verifier on-chain. Reconnect reads default rule `0` by simulating the supported singular `get_context_rule` entrypoint (the configured WASM does not expose `get_context_rules`) and uses the SDK's credential-ID parser. Indexer lookup remains optional picker metadata for multi-account selection and specialized signer rules; added regression coverage for the HTTP 500 case.
+
+## 2026-10-21
+
+- Added a server-side settlement preflight that checks the assigned admin's saved escrow context against the configured network/contract and Soroban status before creating an attempt. State, identity, or participant mismatches now leave settlement records untouched; status recovery remains explicit. See [[data/State Machines]] and [[backend/Admin and Server Routes]].
+- Distinguished stale unsigned administrator settlement recovery from an on-chain transaction failure. A `started` attempt without a persisted transaction hash is closed as `not_submitted`, the UI explains that no transaction was sent, and the refreshed dispute allows a new operation. Signed attempts retain saved-hash verification and are never resubmitted. See [[modules/Disputes and Cancellations]].
+
+## 2026-10-19
+
+- Added user-selectable light/dark mode on all routes. A `ThemeToggle` sits at the right of the landing navbar and the app `Header`; the theme follows the browser until the user chooses. The landing navbar's Find Work / Post a Job buttons became a single Connect Wallet button (`LandingConnectButton`); the hero keeps both. The landing `prefers-color-scheme` block was replaced by the shared `.dark` class, and a dark remap layer for hardcoded light utilities was added to `apps/web/app/globals.css`. See [[frontend/Frontend Overview]].
+
 ## 2026-10-18
+
+- Restyled every product route except the landing page around a neutral, workflow-first layout. Shared primitives changed: `ProductPageHero` is a plain title row; new `StatusText` and `WorkList` primitives; `StatCard` lost icon/tone; `getStatStyle` was removed. Job detail and participant dispute detail now use a main column plus a side column for terms or case facts, with payment actions out of tabs. Dashboards, profiles, the marketplace, and admin queues use divided lists and one figure strip. Nested `<main>` landmarks inside `AppShell` were replaced with `div`s. App-only CSS is scoped to `[data-mode]`; landing files, `Footer`, `WalletConnectTrigger`, `PasskeySmartAccountCard`, and `packages/ui` are unchanged. No routes, data access, Convex functions, or Stellar behavior changed. Validation: TypeScript, Oxlint (no errors), and a production build pass. The web suite passes 536/545; the 9 failures are in `core/wallet/clients/stellar-wallet-kit-client.test.ts` and reproduce on unmodified HEAD. See [[frontend/Frontend Overview]].
 
 - Optimized marketplace escrow execution: external-wallet micro-gig fund-now posting now uses one atomic create-and-fund call and one transaction-history row, with matching create/fund hashes on the funded escrow mirror. Added stage-specific accessible progress to the job, escrow, and milestone controls; batched escrow-ID recovery reads by four; preserved pending transaction identities on uncertain outcomes; and reused each readiness evaluation's verified passkey WASM hash. No schema, deployment, or contract behavior changed. Local validation: web 545 tests, backend 508 tests, escrow contract 83 tests, TypeScript, scoped Oxlint/Oxfmt, and a Webpack production build pass. Mocked delayed-read evidence is documented separately in [[stellar/Transaction Lifecycle]]: 18 calls in both schedules, 40 ms batched versus 160 ms sequential on a 10 ms synthetic delay. These timings are not live RPC measurements; deployed atomic-method availability remains unverified.
 - Fixed signup recovery for pending registry transactions by accepting Stellar RPC's decimal-string ledger close times alongside the SDK's numeric types, while retaining safe-integer validation and the existing expiry rule. A focused regression failed on the string wire format before the fix and passes afterward; the web suite passes 546 tests, TypeScript, scoped Oxlint/Oxfmt, and the web production build pass. No live RPC call or transaction submission was performed.
@@ -144,6 +167,10 @@ source_of_truth: repository
 - Added root `AGENTS.md` with vault-reading and source-authority guidance.
 - Added minimal `.obsidian/app.json` and narrowly scoped ignores for local workspace/cache state.
 - Recorded known contradictions and gaps instead of presenting roadmap or phase prose as current behavior.
+
+## 2026-10-18
+
+- Documented the UI-only Freelancer/Client mode system, yellow client theme, stepped forms, and plain-language term hints in [[frontend/Feature Slices]].
 
 ## Maintenance rule
 

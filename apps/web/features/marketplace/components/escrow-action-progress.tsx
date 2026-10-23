@@ -11,8 +11,8 @@ const PROGRESS_LABELS: Record<TMarketplaceEscrowProgress, string> = {
   awaiting_signature: "Waiting for your wallet signature…",
   submitting: "Submitting to Stellar…",
   confirming: "Waiting for Stellar confirmation…",
-  recovering_escrow_id: "Recovering the escrow ID…",
-  recording: "Recording the confirmed escrow…",
+  recovering_escrow_id: "Recovering the payment hold ID…",
+  recording: "Recording the confirmed payment hold…",
 };
 
 export function EscrowActionProgress({

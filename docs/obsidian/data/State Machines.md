@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -52,11 +52,11 @@ The internal mirror mutation is idempotent for the same on-chain timestamp and r
 
 ## Work agreements
 
-`draft → pending_preview/ready_to_send → pending_acceptance → accepted → locked` with rejection/cancellation/superseded branches. Amendments use new versions rather than mutating immutable locked content.
+`draft → pending_preview/ready_to_send → pending_acceptance → accepted → locked` with rejection/cancellation/superseded branches. Client and selected-freelancer visibility begins after assignment; proof submission is gated on `locked`. Amendments use new versions rather than mutating immutable locked content.
 
 ## Work submissions
 
-`draft → submitted_for_review → accepted_for_final/submitted → anchoring → anchored`, with `revision_requested → revision_submitted` and `anchor_failed → retry` branches. Submitted/anchored records become read-only under helper guards.
+`draft → submitted_for_review → accepted_for_final/submitted → anchoring → anchored`, with `revision_requested → revision_submitted` and `anchor_failed → retry` branches. Creation and participant reads are gated on a locked agreement for new work; submitted/anchored records become read-only under helper guards.
 
 ## Disputes
 
@@ -85,13 +85,17 @@ Deliverable 3 C18 regression coverage verifies the saved-hash `not_marked` guard
 
 Settlement attempts are single-active per escrow and use `started → signed → submission_unknown → succeeded` or `failed` (with `submitted` retained for compatibility). A start requires an assigned, non-conflicted admin, a nonterminal dispute, and a disputed escrow. Resolution terms are exact integer basis points: client `0`, freelancer `10_000`, or split `1–9999`.
 
+Before persisting a new start, the admin server route reads the persisted dispute/escrow context and the exact scoped Soroban escrow. It requires matching network, contract, escrow ID, participants, and `Disputed` chain status. A mismatch returns a conflict without creating an attempt or transaction record; reconcile the chain state, and use a fresh authorized dispute mark only if the escrow remains eligible.
+
 | Callback | Required current state | Result |
 | --- | --- | --- |
-| started | assigned admin; nonterminal dispute; disputed escrow; no other active attempt | Persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
+| started | assigned admin; nonterminal dispute; disputed Convex and Soroban escrow; matching persisted scope and participants; no other active attempt | After server-side chain preflight, persist one attempt and pending transaction; matching active replay is a no-op; failed operation IDs cannot restart. |
 | signed | initiating assigned admin; active attempt | Persist one 64-hex hash and positive safe expiry; matching replay preserves phase/timestamps/errors, including `submission_unknown`; conflicting identity or failed attempt rejects. |
 | submission unknown | saved hash and expiry; active attempt | Keep attempt and transaction pending/locked; first uncertainty details win; duplicate callbacks and terminal attempts do not write. |
 | succeeded | saved hash and expiry; server-verified exact settlement | Atomically map dispute/escrow/parent/transaction to terminal state and emit existing audit/notification effects once; authorized matching replay is harmless. |
 | failed | active unsigned attempt, or saved hash with matching reconciliation hash | Preserve the first error and known hash; duplicate failures and nonconflicting stale failures after success do not write. |
+
+If Soroban is already `Released` or `Cancelled` while the Convex escrow mirror remains disputed and no attempt contains the hash, an assigned admin can provide a successful `resolve_dispute` transaction hash. The server verifies its configured network/contract, method, actor, escrow ID, share, transaction success, current participants, and matching terminal chain state before creating or attaching a signed attempt and applying the existing succeeded callback. This recovers Convex bookkeeping only; it does not make another chain transition or discover transaction history. Rejected evidence leaves settlement records unchanged.
 
 The mapping is `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. Optional legacy dispute contract/escrow references remain optional, but any populated conflicting reference is rejected. The UI/RPC verification layer and payment arithmetic are outside C17; payout bookkeeping still truncates whole units pending a token-precision follow-up.
 

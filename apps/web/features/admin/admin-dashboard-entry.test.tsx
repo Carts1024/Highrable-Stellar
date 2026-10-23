@@ -40,7 +40,11 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => runtime.identity,
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
     createElement("div", { role: "alert" }, children),
   RoutePanel: ({ children }: { readonly children?: ReactNode }) =>
@@ -152,7 +156,7 @@ describe("AdminDashboardEntry", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: /Authentication required|Admin access forbidden/,
+        name: /Authentication Required|Admin Access Forbidden/,
       }),
     ).toBeTruthy();
     expect(runtime.router.replace).not.toHaveBeenCalled();
@@ -169,7 +173,7 @@ describe("AdminDashboardEntry", () => {
     renderEntry();
 
     expect(
-      await screen.findByRole("heading", { name: "Authenticate connected admin wallet" }),
+      await screen.findByRole("heading", { name: "Authenticate Connected Admin Wallet" }),
     ).toBeTruthy();
     expect(runtime.router.replace).not.toHaveBeenCalled();
     expect(screen.queryByTestId("platform-dashboard")).toBeNull();
@@ -185,7 +189,7 @@ describe("AdminDashboardEntry", () => {
     renderEntry();
 
     expect(
-      await screen.findByRole("heading", { name: "Use an external admin wallet" }),
+      await screen.findByRole("heading", { name: "Use an External Admin Wallet" }),
     ).toBeTruthy();
     expect(runtime.router.replace).not.toHaveBeenCalled();
     expect(screen.queryByTestId("platform-dashboard")).toBeNull();

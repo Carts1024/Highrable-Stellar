@@ -2,7 +2,7 @@
 type: reference
 area: stellar
 status: current
-last_updated: 2026-10-18
+last_updated: 2026-10-21
 source_of_truth: repository
 ---
 
@@ -21,6 +21,8 @@ The shared path in `apps/web/core/stellar/transaction.ts` is:
 7. Poll for confirmation up to 18 attempts with a 1.5-second delay.
 8. Return the transaction hash and decoded return value, or preserve the hash when confirmation fails.
 
+Standalone micro-gig and milestone funding also checks the token balance before wallet signing. For external wallets, that read-only balance preflight runs concurrently with source-account loading and transaction preparation; both the balance check and the `fund_escrow` simulation must pass before the signing prompt opens. Passkey funding retains its preflight-before-execution order.
+
 `simulateContractCall` is the read/preflight helper. `invokeContract` is the signed submission helper.
 
 ## Optional Velo-sponsored Testnet call
@@ -33,7 +35,9 @@ With the Velo flag enabled, steps 1–4 are unchanged. The wallet signs the prep
 
 `apps/web/core/stellar/transactionExecutor.ts` routes the call to `passkeySmartAccountExecutor.ts`. That path performs smart-account configuration/readiness checks, builds the contract call, obtains simulation authorization entries, signs them with the WebAuthn/AuthPayload flow, and submits through the selected relayer/source-account path.
 
-Each readiness evaluation fetches and verifies the configured WASM hash once, reusing it for that evaluation. There is no cross-operation cache. Executor validation still runs after connection, and feature readiness checks and existing signer/fee-payer relationships remain enforced.
+Each readiness evaluation fetches and verifies the configured WASM hash once, reusing it for that evaluation. There is no cross-operation cache. After connection, the executor checks a supplied readiness result's scope and runs a fresh evaluation when the result is absent or mismatched. Existing signer and fee-payer checks remain enforced.
+
+Standalone micro-gig and milestone funding pass the successful feature readiness result into the executor. The executor reuses it only when its bound smart-account address, RPC URL, network passphrase, configured and verified WASM hashes, relayer path, and fee source still match the connected account and current configuration; otherwise it performs a fresh readiness check. This avoids repeating the WASM and fee-source reads during the same funding action without adding a cross-operation cache.
 
 ## Marketplace escrow progress
 
@@ -65,7 +69,7 @@ The shared wrapper forwards phase callbacks through standalone escrow creation/f
 
 The administrator settlement coordinator validates the requested outcome terms immediately before execution: `resolved_client` is `0` bps, `resolved_freelancer` is `10000` bps, and `split_resolution` is an integer from `1` through `9999` bps. This protects the API and Stellar path even when a form draft or callback supplies stale or malformed numeric data.
 
-The protected start acknowledgment must echo the requested operation ID and basis points. The signed acknowledgment must echo the operation ID and the normalized transaction hash. Missing, malformed, or mismatched acknowledgments stop the lifecycle before the next side effect. The coordinator rechecks its generation identity after preparation awaits, before signing, and at the signed-identity barrier before submission; case, wallet, connection, network, wallet-mode, signing-capability, and unmount changes invalidate obsolete callbacks. Persisted signed identities still reconcile through the existing server-verified recovery path, and known hashes are never submitted a second time.
+The protected start acknowledgment must echo the requested operation ID and basis points. The signed acknowledgment must echo the operation ID and the normalized transaction hash. Missing, malformed, or mismatched acknowledgments stop the lifecycle before the next side effect. The coordinator rechecks its generation identity after preparation awaits, before signing, and at the signed-identity barrier before submission; case, wallet, connection, network, wallet-mode, signing-capability, and unmount changes invalidate obsolete callbacks. Persisted signed identities still reconcile through the existing server-verified recovery path, and known hashes are never submitted a second time. If the chain is already terminal but no local attempt/hash was saved, the API searches the assigned admin's Horizon account history for the exact resolution call, optionally starting after the escrow's recorded dispute-mark transaction. RPC verification and a current escrow read still gate local bookkeeping; no transaction is submitted and no hash is requested from the admin. The fallback scan is bounded, and RPC transaction history is time-limited, so this recovery is not a substitute for continuous ingestion.
 
 C15 coverage is local mocked frontend/API/executor evidence. It does not prove deployed-contract compatibility, wallet-provider behavior, or live-chain acceptance.
 

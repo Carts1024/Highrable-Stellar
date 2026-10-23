@@ -31,7 +31,7 @@ class ParticipantActionsErrorBoundary extends Component<
       return (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
         >
           <p>Unable to check whether you can add evidence or respond.</p>
           <button
@@ -65,14 +65,14 @@ function ParticipantActionsQuery({
 
   if (permission === undefined) {
     return (
-      <p role="status" className="text-sm text-[#5f5f5f]">
+      <p role="status" className="hr-text-secondary text-sm">
         Checking participant actions...
       </p>
     );
   }
   if (!permission.allowed || !permission.role) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
+      <p className="hr-text-secondary text-sm">
         {permission.reason ?? "This dispute is not accepting new evidence or responses."}
       </p>
     );

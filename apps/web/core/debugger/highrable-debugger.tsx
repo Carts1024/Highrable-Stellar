@@ -114,7 +114,7 @@ export function HighrableDebugger() {
   return (
     <div className="pointer-events-none fixed right-4 bottom-4 z-70 flex max-w-[24rem] flex-col items-end gap-3">
       {isOpen ? (
-        <div className="hr-hard-shadow pointer-events-auto w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border bg-background p-3 text-sm">
+        <div className="hr-hard-shadow pointer-events-auto w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-3 text-sm">
           <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
             <div>
               <p className="hr-label-caps hr-text-accent">Highrable Debugger</p>

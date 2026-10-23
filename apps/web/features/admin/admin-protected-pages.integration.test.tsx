@@ -53,7 +53,11 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
   useHighrableWalletIdentity: () => runtime.identity,
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) =>
     createElement("h1", undefined, title),
   RoutePanel: ({ children }: { readonly children?: ReactNode }) =>
@@ -677,6 +681,14 @@ describe("protected administrator pages", () => {
             } satisfies IAdminResolutionStartedResponse),
           );
         }
+        if (body.phase === "reconcile_external") {
+          return Promise.resolve(
+            response(
+              { error: "External transaction reconciliation is not part of this test." },
+              409,
+            ),
+          );
+        }
         expect(body.operationId).toBe(operationId);
         if (body.phase === "signed") {
           expect(body).toEqual({
@@ -775,7 +787,7 @@ describe("protected administrator pages", () => {
     const detail = renderPage("detail", queue.queryClient);
     expect(await screen.findByRole("link", { name: "Open case-proof.pdf" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Update Status" }));
-    expect(await screen.findByRole("heading", { name: "Admin access forbidden" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Admin Access Forbidden" })).toBeTruthy();
     expect(screen.queryByText("case-proof.pdf")).toBeNull();
     expect(vi.mocked(resolveDisputeOnChain)).not.toHaveBeenCalled();
     expect(resolutionRequests).toHaveLength(0);
@@ -893,7 +905,7 @@ describe("protected administrator pages", () => {
 
       expect(
         await screen.findByRole("heading", {
-          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+          name: status === 401 ? "Authentication Required" : "Admin Access Forbidden",
         }),
       ).toBeTruthy();
       expect(screen.queryByText("Protected detail record")).toBeNull();
@@ -1292,7 +1304,7 @@ describe("protected administrator pages", () => {
       renderPage(page);
 
       expect(
-        await screen.findByRole("heading", { name: "Admin access check failed" }),
+        await screen.findByRole("heading", { name: "Admin Access Check Failed" }),
       ).toBeTruthy();
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(
@@ -1318,7 +1330,7 @@ describe("protected administrator pages", () => {
 
     const queue = renderPage("queue");
     expect(
-      await screen.findByRole("heading", { name: "Authenticate connected admin wallet" }),
+      await screen.findByRole("heading", { name: "Authenticate Connected Admin Wallet" }),
     ).toBeTruthy();
     expect(fetchMock.mock.calls).toHaveLength(1);
     queue.unmount();
@@ -1326,7 +1338,7 @@ describe("protected administrator pages", () => {
     cleanup();
     const detail = renderPage("detail");
     expect(
-      await screen.findByRole("heading", { name: "Authenticate connected admin wallet" }),
+      await screen.findByRole("heading", { name: "Authenticate Connected Admin Wallet" }),
     ).toBeTruthy();
     expect(fetchMock.mock.calls).toHaveLength(2);
     detail.unmount();
@@ -1346,7 +1358,7 @@ describe("protected administrator pages", () => {
       renderPage(page);
 
       expect(
-        await screen.findByRole("heading", { name: "Use an external admin wallet" }),
+        await screen.findByRole("heading", { name: "Use an External Admin Wallet" }),
       ).toBeTruthy();
       expect(fetchMock).not.toHaveBeenCalled();
       expect(
@@ -1356,8 +1368,8 @@ describe("protected administrator pages", () => {
   );
 
   it.each([
-    ["queue", 401, "Authentication required"],
-    ["detail", 403, "Admin access forbidden"],
+    ["queue", 401, "Authentication Required"],
+    ["detail", 403, "Admin Access Forbidden"],
   ] as const)(
     "removes cached protected %s data after a page-level %s",
     async (page, status, heading) => {
@@ -1426,7 +1438,7 @@ describe("protected administrator pages", () => {
 
       expect(
         await screen.findByRole("heading", {
-          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+          name: status === 401 ? "Authentication Required" : "Admin Access Forbidden",
         }),
       ).toBeTruthy();
       await waitFor(() => {
@@ -1573,7 +1585,7 @@ describe("protected administrator pages", () => {
       ),
     );
 
-    expect(await screen.findByRole("heading", { name: "Connect an admin wallet" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Connect an Admin Wallet" })).toBeTruthy();
     expect(screen.queryByText("case-proof.pdf")).toBeNull();
     await waitFor(() => {
       expect(
@@ -1609,7 +1621,7 @@ describe("protected administrator pages", () => {
       ),
     );
 
-    expect(await screen.findByRole("heading", { name: "Connect an admin wallet" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Connect an Admin Wallet" })).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByText("Protected queue record")).toBeNull();
       expect(
@@ -1659,7 +1671,7 @@ describe("protected administrator pages", () => {
 
       expect(
         await screen.findByRole("heading", {
-          name: status === 401 ? "Authentication required" : "Admin access forbidden",
+          name: status === 401 ? "Authentication Required" : "Admin Access Forbidden",
         }),
       ).toBeTruthy();
       expect(screen.queryByText("Protected queue record")).toBeNull();
@@ -1706,8 +1718,8 @@ describe("protected administrator pages", () => {
     expect(await screen.findByText("Protected queue record")).toBeTruthy();
     await waitFor(() => expect(membershipReads).toBe(3));
     expect(screen.getByText("Protected queue record")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Authentication required" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Admin access forbidden" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Authentication Required" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Admin Access Forbidden" })).toBeNull();
   });
 
   it("retries only retryable queue reads and performs no writes", async () => {
