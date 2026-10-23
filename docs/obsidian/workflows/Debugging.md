@@ -2,7 +2,7 @@
 type: workflow
 area: workflow
 status: current
-last_updated: 2026-09-21
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -17,6 +17,7 @@ source_of_truth: repository
 5. Inspect simulation output before retrying a failed submission.
 6. If a hash exists, check chain confirmation before submitting a duplicate.
 7. Compare Convex phase/transaction records with contract reads using [[backend/Sync and Scheduled Jobs]].
+8. If the chain is terminal while Convex still says `Disputed`, do not retry settlement. Use the successful `resolve_dispute` hash with the admin reconciliation path so the server can verify the original call and apply local bookkeeping without resubmitting. There is no historical transaction indexer to find a missing hash.
 
 ## Common patterns
 
@@ -27,6 +28,7 @@ source_of_truth: repository
 | Passkey auth failure | WASM hash, verifier, RP ID/current hostname, active signer, context rule IDs, kit version. |
 | Trustline/top-up failure | Horizon network, funded classic account, USDC trustline, spendable XLM, path liquidity/slippage. |
 | Convex state stale | Whether the product flow invoked sync, action env config, on-chain read, terminal-state guard. |
+| Admin escrow is `Released` but dispute remains open | Confirm the exact contract/escrow and successful resolution hash, then reconcile local records; do not attempt a second settlement. |
 | Confirmation timeout | Preserve hash, inspect explorer/RPC, avoid blind retry, reconcile local phase. |
 
 ## Evidence discipline

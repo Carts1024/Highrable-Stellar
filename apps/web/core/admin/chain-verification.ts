@@ -199,6 +199,74 @@ export async function verifyAdminChainOperation(args: {
   return response.status === rpc.Api.GetTransactionStatus.SUCCESS ? "succeeded" : "failed";
 }
 
+export async function verifySuccessfulAdminResolutionTransaction(args: {
+  readonly transactionHash: string;
+  readonly network: string;
+  readonly contractId: string;
+  readonly actorWallet: string;
+  readonly escrowId: string;
+}): Promise<{ freelancerShareBps: number; transactionValidUntil: number }> {
+  const config = getAdminChainConfig();
+  assertAdminChainScope(config, args.network, args.contractId);
+  if (!/^[0-9a-fA-F]{64}$/.test(args.transactionHash)) {
+    throw new Error("Settlement transaction hash must be a 64-character hexadecimal hash.");
+  }
+
+  const response = await createRpcServer(config).getTransaction(args.transactionHash);
+  if (response.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+    throw new Error("Stellar does not report this resolution transaction as successful.");
+  }
+
+  const transaction = TransactionBuilder.fromXDR(response.envelopeXdr, config.networkPassphrase);
+  const expectedHash = args.transactionHash.toLowerCase();
+  if (
+    transaction.hash().toString("hex") !== expectedHash &&
+    !(
+      transaction instanceof FeeBumpTransaction &&
+      transaction.innerTransaction.hash().toString("hex") === expectedHash
+    )
+  ) {
+    throw new Error("Stellar returned a transaction that does not match the supplied hash.");
+  }
+
+  const envelope = transaction.toEnvelope();
+  const txBody = getTransactionBody(envelope);
+  const operations = txBody.operations();
+  if (
+    operations.length !== 1 ||
+    operations[0]?.body().switch() !== xdr.OperationType.invokeHostFunction()
+  ) {
+    throw new Error("Transaction does not contain a single Soroban resolution call.");
+  }
+
+  const invocation = operations[0]!.body().invokeHostFunctionOp().hostFunction().invokeContract();
+  const contractId = Address.fromScAddress(invocation.contractAddress()).toString().toUpperCase();
+  const argsNative = invocation.args().map((value) => scValToNative(value));
+  if (
+    contractId !== config.escrowContractId.toUpperCase() ||
+    invocation.functionName().toString() !== "resolve_dispute" ||
+    argsNative.length !== 4 ||
+    normalizeAddress(argsNative[0]) !== args.actorWallet.trim().toUpperCase() ||
+    normalizeInteger(argsNative[1]) !== BigInt(args.escrowId)
+  ) {
+    throw new Error("Transaction does not match this dispute's escrow and assigned admin.");
+  }
+
+  const freelancerShareBps = normalizeInteger(argsNative[2]);
+  if (freelancerShareBps < 0n || freelancerShareBps > 10_000n) {
+    throw new Error("Settlement transaction contains an invalid freelancer share.");
+  }
+
+  const submittedTransaction =
+    transaction instanceof FeeBumpTransaction ? transaction.innerTransaction : transaction;
+  const transactionValidUntil = Number(submittedTransaction.timeBounds?.maxTime ?? Number.NaN);
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new Error("Settlement transaction does not contain a usable expiry.");
+  }
+
+  return { freelancerShareBps: Number(freelancerShareBps), transactionValidUntil };
+}
+
 async function simulateContractRead<T>(args: {
   readonly config: TAdminChainConfig;
   readonly sourceAddress: string;

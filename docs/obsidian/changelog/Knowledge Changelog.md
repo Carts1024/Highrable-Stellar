@@ -10,6 +10,7 @@ source_of_truth: repository
 
 ## 2026-10-23
 
+- Added explicit administrator recovery for successful prior `resolve_dispute` transactions when Stellar is terminal but Convex still shows the escrow disputed. Recovery verifies the supplied hash, configured scope, actor, escrow, share, participants, and current chain state, then uses normal Convex settlement bookkeeping without resubmitting. Testnet evidence for escrow 24 and local validation limits are recorded in [[evidence/Admin-Resolution External Transaction Recovery Evidence]], [[backend/Admin and Server Routes]], [[data/State Machines]], and [[workflows/Debugging]].
 - Hardened deadline reminders for funded open escrows: notification and status processing continues before freelancer assignment without attempting to create an unavailable chat, while assigned work falls back to its job or milestone conversation until the escrow is assigned. Assigned escrow conversations retain their existing behavior and participant checks. See [[modules/Deadlines and Notifications]].
 
 ## 2026-10-22

@@ -2,7 +2,7 @@
 type: module
 area: admin
 status: current
-last_updated: 2026-10-15
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -140,7 +140,7 @@ Admin request authentication belongs in `core/admin/server-auth.ts`; server Conv
 - Owner queue membership 401/403 responses close the protected surface and evict protected queue/membership caches; a late queue response cannot restore the removed content.
 - App settlement is limited to the assigned active admin, with the owner able to reconcile an existing attempt. The contract intentionally permits any active, non-conflicted dispute admin to settle directly, independent of app assignment.
 - Revocation disables app access when requested, before the owner signs the on-chain revocation. Membership reconciliation verifies the saved transaction and current on-chain membership without resubmitting.
-- Settlement hashes and expiry are persisted before submission. Recovery verifies the saved invocation and cannot submit it again. Reassignment is blocked while an attempt is active or its outcome is unknown.
+- Settlement hashes and expiry are persisted before submission. Recovery verifies the saved invocation and cannot submit it again. If Stellar is already `Released` or `Cancelled` while Convex still shows a disputed escrow and there is no saved attempt, an assigned admin can supply the confirmed `resolve_dispute` hash. The server verifies its network, contract, method, actor, escrow ID, share, and current terminal chain state before recording the existing settlement bookkeeping; it never submits the transaction. This is explicit hash-based recovery, not historical transaction discovery. Reassignment is blocked while an attempt is active or its outcome is unknown.
 - Keep the initial membership-enabled deployment/database isolated. Existing escrow ID lookup and Convex synchronization are not safe across overlapping contract ID spaces.
 - Dispute detail `NOT_FOUND` Convex errors map to HTTP 404 and render a return-to-queue state. Queue failures remain errors rather than becoming an empty queue.
 - The shared status contract has eight dispute statuses and four on-chain marking phases. Frontend Developer 1 owns the admin routes/features plus shared dispute types, labels/classification helpers, formatting helpers, and badges; Frontend Developer 2 consumes those exports from participant routes/components.

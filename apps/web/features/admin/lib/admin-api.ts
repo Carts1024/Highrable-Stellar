@@ -9,6 +9,7 @@ import type {
   IAdminMembershipOperationRequest,
   IAdminMembershipOperationResponse,
   IAdminResolutionFailedResponse,
+  IAdminResolutionReconciledResponse,
   IAdminResolutionSignedResponse,
   IAdminResolutionStartedResponse,
   IAdminSessionResponse,
@@ -551,6 +552,9 @@ export async function postAdminResolution(
   if (payload.phase === "failed" && isAdminResolutionFailedResponse(result)) {
     return result;
   }
+  if (payload.phase === "reconcile_external" && isAdminResolutionReconciledResponse(result)) {
+    return result;
+  }
   if (
     (payload.phase === "reconcile" || payload.phase === "succeeded") &&
     isAdminResolutionOutcome(result)
@@ -585,6 +589,19 @@ function isAdminResolutionSignedResponse(value: unknown): value is IAdminResolut
 
 function isAdminResolutionFailedResponse(value: unknown): value is IAdminResolutionFailedResponse {
   return isRecord(value) && value.success === true && value.phase === "failed" && hasResult(value);
+}
+
+function isAdminResolutionReconciledResponse(
+  value: unknown,
+): value is IAdminResolutionReconciledResponse {
+  return (
+    isRecord(value) &&
+    value.status === "succeeded" &&
+    typeof value.operationId === "string" &&
+    Number.isSafeInteger(value.transactionValidUntil) &&
+    (value.transactionValidUntil as number) > 0 &&
+    isAdminResolutionOutcome(value)
+  );
 }
 
 function isAdminResolutionOutcome(value: unknown): value is TAdminResolutionOutcomeResponse {

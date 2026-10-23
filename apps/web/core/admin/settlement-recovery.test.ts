@@ -38,6 +38,7 @@ vi.mock("@repo/convex-client/server", () => ({
       getAdminSettlementPreflight: "settlement-preflight",
       getSettlementAttemptByOperation: "attempt",
       recordDisputeResolutionStarted: "started",
+      recordDisputeResolutionReconciliationStarted: "reconciliation-started",
       recordDisputeResolutionSigned: "signed",
       recordDisputeResolutionFailed: "failed",
       recordDisputeResolutionSubmissionUnknown: "unknown",
@@ -48,7 +49,11 @@ vi.mock("@repo/convex-client/server", () => ({
 
 import { POST } from "@/app/api/admin/disputes/[disputeId]/resolve/route";
 
-import { readDisputedEscrowStatus, verifyAdminChainOperation } from "./chain-verification";
+import {
+  readDisputedEscrowStatus,
+  verifyAdminChainOperation,
+  verifySuccessfulAdminResolutionTransaction,
+} from "./chain-verification";
 
 const actor = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 1));
 const client = StrKey.encodeEd25519PublicKey(Buffer.alloc(32, 2));
@@ -136,6 +141,16 @@ async function startSettlement() {
   );
 }
 
+async function reconcileExternalSettlement(transactionHash = verificationArgs().transactionHash) {
+  return POST(
+    new NextRequest("http://localhost/api/admin/disputes/dispute-1/resolve", {
+      method: "POST",
+      body: JSON.stringify({ phase: "reconcile_external", transactionHash }),
+    }),
+    { params: Promise.resolve({ disputeId: "dispute-1" }) },
+  );
+}
+
 beforeEach(() => {
   settings.NEXT_PUBLIC_ESCROW_CONTRACT_ID = contract;
   query.mockReset().mockResolvedValue({
@@ -195,6 +210,18 @@ describe("C19 saved transaction verification", () => {
         transactionHash: feeBump.hash().toString("hex"),
       }),
     ).toBe("succeeded");
+  });
+
+  it("reads resolution terms and expiry from a confirmed transaction", async () => {
+    await expect(
+      verifySuccessfulAdminResolutionTransaction({
+        transactionHash: verificationArgs().transactionHash,
+        network: "testnet",
+        contractId: contract,
+        actorWallet: actor,
+        escrowId: "42",
+      }),
+    ).resolves.toEqual({ freelancerShareBps: 5_000, transactionValidUntil: 1_000 });
   });
 
   it("rejects a different envelope even when its invocation would otherwise match", async () => {
@@ -265,6 +292,68 @@ describe("C19 saved transaction verification", () => {
 });
 
 describe("C19 recovery route with real chain verification and mocked RPC", () => {
+  it("records a successful prior resolution after verifying its hash and current chain state", async () => {
+    const transactionHash = verificationArgs().transactionHash;
+    query.mockResolvedValueOnce(settlementPreflight());
+    mutation
+      .mockReset()
+      .mockResolvedValueOnce({ operationId: "reconcile_dispute:dispute-1:hash", transactionHash })
+      .mockResolvedValueOnce({
+        status: "resolved_freelancer",
+        freelancerShareBps: 5_000,
+        freelancerPayoutAmount: 50,
+        clientRefundAmount: 50,
+        resolutionTxHash: transactionHash,
+        resolutionStellarExpertUrl: "https://stellar.expert/testnet/tx/hash",
+      });
+
+    const response = await reconcileExternalSettlement();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      status: "succeeded",
+      operationId: "reconcile_dispute:dispute-1:hash",
+      transactionValidUntil: 1_000,
+      result: { resolutionTxHash: transactionHash },
+    });
+    expect(mutation).toHaveBeenNthCalledWith(
+      1,
+      "reconciliation-started",
+      expect.objectContaining({
+        disputeId: "dispute-1",
+        transactionHash,
+        transactionValidUntil: 1_000,
+        freelancerShareBps: 5_000,
+      }),
+    );
+    expect(mutation).toHaveBeenNthCalledWith(
+      2,
+      "succeeded",
+      expect.objectContaining({
+        operationId: "reconcile_dispute:dispute-1:hash",
+        transactionHash,
+        transactionValidUntil: 1_000,
+      }),
+    );
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not record a hash when the current chain state disagrees with its resolution", async () => {
+    query.mockResolvedValueOnce(settlementPreflight());
+    vi.mocked(rpc.Server.prototype.simulateTransaction).mockResolvedValueOnce(
+      reply(escrow(["Disputed"])),
+    );
+
+    const response = await reconcileExternalSettlement();
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      details: { code: "settlement_reconciliation_failed", onChainStatus: "Disputed" },
+    });
+    expect(mutation).not.toHaveBeenCalled();
+    expect(rpc.Server.prototype.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it.each(["Funded", "Released"] as const)(
     "does not create a settlement attempt while the on-chain escrow is %s",
     async (status) => {

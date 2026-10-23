@@ -1532,6 +1532,61 @@ describe("AdminDisputeDetailPage", () => {
     );
   });
 
+  it("reconciles a confirmed prior resolution hash without submitting another transaction", async () => {
+    const detail = createActiveDetail({ dispute: { status: "under_review" } });
+    const transactionHash = "b".repeat(64);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(detail))
+      .mockResolvedValueOnce(
+        response(
+          {
+            error:
+              "Settlement requires on-chain escrow 42 to be Disputed; Stellar reports Released. Reconcile the dispute state before retrying.",
+            details: { code: "settlement_preflight_failed", onChainStatus: "Released" },
+          },
+          409,
+        ),
+      )
+      .mockResolvedValueOnce(
+        response({
+          status: "succeeded",
+          operationId: `reconcile_dispute:dispute-1:${transactionHash}`,
+          transactionValidUntil: 2_000,
+          result: successfulResolutionResult("resolved_freelancer", 10_000, transactionHash),
+        }),
+      )
+      .mockResolvedValueOnce(response(detail));
+    vi.stubGlobal("fetch", withSettlementAcknowledgments(fetchMock));
+
+    renderDetail();
+    fireEvent.click(await screen.findByRole("button", { name: "Resolve On-Chain" }));
+
+    const hashInput = await screen.findByRole("textbox", {
+      name: "Confirmed resolve_dispute transaction hash",
+    });
+    expect(screen.getByRole("button", { name: "Resolve On-Chain" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    fireEvent.change(hashInput, { target: { value: transactionHash } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify and reconcile" }));
+
+    expect(
+      await screen.findByText("Dispute settlement was verified on Stellar and recorded."),
+    ).toBeTruthy();
+    expect(runtime.stellar.resolveDisputeOnChain).not.toHaveBeenCalled();
+    const settlementRequests = fetchMock.mock.calls
+      .filter(([url]) => String(url).endsWith("/resolve"))
+      .map(
+        ([, init]) =>
+          JSON.parse(String(init?.body)) as { phase?: string; transactionHash?: string },
+      );
+    expect(settlementRequests).toEqual([
+      expect.objectContaining({ phase: "started" }),
+      { phase: "reconcile_external", transactionHash },
+    ]);
+  });
+
   it("executes a new operation after failure bookkeeping succeeds", async () => {
     const detail = createActiveDetail({ dispute: { status: "under_review" } });
     const fetchMock = vi

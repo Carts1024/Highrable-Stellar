@@ -2,7 +2,7 @@
 type: reference
 area: data
 status: current
-last_updated: 2026-10-21
+last_updated: 2026-10-23
 source_of_truth: repository
 ---
 
@@ -94,6 +94,8 @@ Before persisting a new start, the admin server route reads the persisted disput
 | submission unknown | saved hash and expiry; active attempt | Keep attempt and transaction pending/locked; first uncertainty details win; duplicate callbacks and terminal attempts do not write. |
 | succeeded | saved hash and expiry; server-verified exact settlement | Atomically map dispute/escrow/parent/transaction to terminal state and emit existing audit/notification effects once; authorized matching replay is harmless. |
 | failed | active unsigned attempt, or saved hash with matching reconciliation hash | Preserve the first error and known hash; duplicate failures and nonconflicting stale failures after success do not write. |
+
+If Soroban is already `Released` or `Cancelled` while the Convex escrow mirror remains disputed and no attempt contains the hash, an assigned admin can provide a successful `resolve_dispute` transaction hash. The server verifies its configured network/contract, method, actor, escrow ID, share, transaction success, current participants, and matching terminal chain state before creating or attaching a signed attempt and applying the existing succeeded callback. This recovers Convex bookkeeping only; it does not make another chain transition or discover transaction history. Rejected evidence leaves settlement records unchanged.
 
 The mapping is `0 → resolved_client/cancelled`, `10_000 → resolved_freelancer/released`, and intermediate shares → `split_resolution/released`. Optional legacy dispute contract/escrow references remain optional, but any populated conflicting reference is rejected. The UI/RPC verification layer and payment arithmetic are outside C17; payout bookkeeping still truncates whole units pending a token-precision follow-up.
 
