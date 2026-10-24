@@ -224,13 +224,7 @@ export async function runProductionRelease({
   try {
     await execute(
       env.VERCEL_CLI || "vercel",
-      [
-        "pull",
-        "--yes",
-        "--environment=production",
-        "--token",
-        env.VERCEL_TOKEN,
-      ],
+      ["pull", "--yes", "--environment=production", "--token", env.VERCEL_TOKEN],
       { cwd, env },
     );
 

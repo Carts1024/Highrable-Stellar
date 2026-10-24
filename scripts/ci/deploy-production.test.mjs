@@ -57,7 +57,6 @@ function validEnvironment(cwd, extra = {}) {
     CONVEX_DEPLOY_KEY: deployKey,
     EXPECTED_CONVEX_URL: expectedUrl,
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "test-walletconnect-project-id",
-    VERCEL_PROJECT_DIR: path.join(cwd, "apps/web"),
     GITHUB_OUTPUT: output,
     ...extra,
   };
@@ -69,7 +68,7 @@ function pulledEnv(network = "testnet", convexUrl = expectedUrl) {
 
 function installCliStubs(cwd) {
   const bin = path.join(cwd, "bin");
-  const project = path.join(cwd, "apps/web/.vercel");
+  const project = path.join(cwd, ".vercel");
   mkdirSync(bin, { recursive: true });
   mkdirSync(project, { recursive: true });
   const log = path.join(cwd, "cli-log.txt");
@@ -78,11 +77,11 @@ function installCliStubs(cwd) {
 
   writeFileSync(
     vercel,
-    `#!/usr/bin/env node\nconst fs=require('node:fs');\nconst path=require('node:path');\nconst args=process.argv.slice(2);\nfs.appendFileSync(${JSON.stringify(log)}, 'vercel:'+args[0]+'\\n');\nif(args[0]==='pull'){fs.writeFileSync(path.join(process.env.VERCEL_PROJECT_DIR,'.vercel','.env.production.local'), process.env.STUB_PULLED_ENV);process.exit(0)}\nif(args[0]==='deploy'){if(Number(process.env.STUB_PUBLISH_EXIT))process.exit(Number(process.env.STUB_PUBLISH_EXIT));process.stdout.write('https://highrable-release-test.vercel.app\\n');process.exit(0)}\nif(args[0]==='build'){if(Number(process.env.STUB_BUILD_EXIT))process.exit(Number(process.env.STUB_BUILD_EXIT));process.exit(0)}\nprocess.exit(2);\n`,
+    `#!/usr/bin/env node\nconst fs=require('node:fs');\nconst path=require('node:path');\nconst args=process.argv.slice(2);\nif(args.includes('--cwd'))process.exit(3);\nfs.appendFileSync(${JSON.stringify(log)}, 'vercel:'+args[0]+'\\n');\nif(args[0]==='pull'){fs.writeFileSync(path.join(process.cwd(),'.vercel','.env.production.local'), process.env.STUB_PULLED_ENV);process.exit(0)}\nif(args[0]==='deploy'){if(Number(process.env.STUB_PUBLISH_EXIT))process.exit(Number(process.env.STUB_PUBLISH_EXIT));process.stdout.write('https://highrable-release-test.vercel.app\\n');process.exit(0)}\nif(args[0]==='build'){if(Number(process.env.STUB_BUILD_EXIT))process.exit(Number(process.env.STUB_BUILD_EXIT));process.exit(0)}\nprocess.exit(2);\n`,
   );
   writeFileSync(
     pnpm,
-    `#!/usr/bin/env node\nconst fs=require('node:fs');\nconst args=process.argv.slice(2);\nfs.appendFileSync(${JSON.stringify(log)}, 'pnpm:'+args.join(' ')+'\\n');\nconst command=args[args.indexOf('--cmd')+1];\nif(!command||!command.includes('vercel build --prod --yes --cwd apps/web')||!command.includes('$VERCEL_TOKEN'))process.exit(2);\nfs.appendFileSync(${JSON.stringify(log)}, 'build:vercel\\n');\nif(Number(process.env.STUB_BUILD_EXIT))process.exit(Number(process.env.STUB_BUILD_EXIT));\nif(Number(process.env.STUB_CONVEX_EXIT))process.exit(Number(process.env.STUB_CONVEX_EXIT));\nprocess.exit(0);\n`,
+    `#!/usr/bin/env node\nconst fs=require('node:fs');\nconst args=process.argv.slice(2);\nfs.appendFileSync(${JSON.stringify(log)}, 'pnpm:'+args.join(' ')+'\\n');\nconst command=args[args.indexOf('--cmd')+1];\nif(!command||!command.includes('vercel build --prod --yes')||command.includes('--cwd')||!command.includes('$VERCEL_TOKEN'))process.exit(2);\nfs.appendFileSync(${JSON.stringify(log)}, 'build:vercel\\n');\nif(Number(process.env.STUB_BUILD_EXIT))process.exit(Number(process.env.STUB_BUILD_EXIT));\nif(Number(process.env.STUB_CONVEX_EXIT))process.exit(Number(process.env.STUB_CONVEX_EXIT));\nprocess.exit(0);\n`,
   );
   chmodSync(vercel, 0o755);
   chmodSync(pnpm, 0o755);
