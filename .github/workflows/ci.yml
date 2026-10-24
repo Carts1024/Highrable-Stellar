@@ -223,6 +223,9 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Install Stellar CLI native build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends pkg-config libdbus-1-dev libudev-dev
+
       - name: Install pinned Stellar CLI
         run: |
           if ! command -v stellar >/dev/null || ! stellar --version | grep -q '^stellar 28\.0\.0 '; then
