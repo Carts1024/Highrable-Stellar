@@ -2,6 +2,7 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { useIsVerifiedAdminOwner } from "@/features/admin/lib/admin-session-query";
 import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
 import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
@@ -14,10 +15,20 @@ import { useEffect, useState } from "react";
 
 import { HeaderProfileLink } from "./header-profile-link";
 
-const ADMIN_NAVIGATION: readonly IModeNavItem[] = [
-  { name: "Overview", href: "/admin", description: "Platform totals and recent activity" },
+interface IAdminNavItem extends IModeNavItem {
+  /** Shown only to the verified platform owner; the page itself also enforces this. */
+  readonly ownerOnly?: boolean;
+}
+
+const ADMIN_NAVIGATION: readonly IAdminNavItem[] = [
+  {
+    name: "Overview",
+    href: "/admin",
+    description: "Platform totals and recent activity",
+    ownerOnly: true,
+  },
   { name: "Disputes", href: "/admin/disputes", description: "Review and settle cases" },
-  { name: "Admins", href: "/admin/admins", description: "Who can use this area" },
+  { name: "Admins", href: "/admin/admins", description: "Who can use this area", ownerOnly: true },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -40,7 +51,11 @@ export function Header() {
   const walletIdentity = useHighrableWalletIdentity();
   const { mode } = useAppMode();
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-  const navigation = isAdminRoute ? ADMIN_NAVIGATION : MODE_NAVIGATION[mode];
+  // Owner tabs stay hidden until the server verifies the owner, so dispute admins never see them.
+  const isVerifiedAdminOwner = useIsVerifiedAdminOwner({ enabled: isAdminRoute });
+  const navigation = isAdminRoute
+    ? ADMIN_NAVIGATION.filter((item) => !item.ownerOnly || isVerifiedAdminOwner)
+    : MODE_NAVIGATION[mode];
   const navLabel = isAdminRoute ? "Admin navigation" : `${MODE_COPY[mode].label} navigation`;
 
   const walletActionClass = "hidden px-4 py-2 text-sm sm:block";
