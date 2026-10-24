@@ -19,6 +19,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".yml",
   ".yaml",
 ]);
+const IGNORED_PATH_PREFIXES = ["docs/obsidian/"];
 
 function runGit(args, cwd) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -44,6 +45,7 @@ export function getChangedFormatFiles({ base, head, cwd = process.cwd() }) {
     .filter(Boolean);
 
   return changedPaths
+    .filter((filePath) => !IGNORED_PATH_PREFIXES.some((prefix) => filePath.startsWith(prefix)))
     .filter((filePath) => SUPPORTED_EXTENSIONS.has(path.extname(filePath).toLowerCase()))
     .map((filePath) => `./${filePath}`);
 }

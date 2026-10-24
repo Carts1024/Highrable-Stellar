@@ -78,3 +78,21 @@ test("ignores deletions and unsupported files and accepts empty change sets", ()
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+test("excludes Obsidian vault notes while formatting other Markdown files", () => {
+  const cwd = createRepo();
+  try {
+    mkdirSync(path.join(cwd, "docs/obsidian"), { recursive: true });
+    mkdirSync(path.join(cwd, "docs/guides"), { recursive: true });
+    writeFileSync(path.join(cwd, "docs/obsidian/Operations.md"), "vault note\n");
+    writeFileSync(path.join(cwd, "docs/guides/Setup.md"), "guide\n");
+    const base = commit(cwd, "base");
+    writeFileSync(path.join(cwd, "docs/obsidian/Operations.md"), "changed vault note\n");
+    writeFileSync(path.join(cwd, "docs/guides/Setup.md"), "changed guide\n");
+    const head = commit(cwd, "documentation changes");
+
+    assert.deepEqual(getChangedFormatFiles({ base, head, cwd }), ["./docs/guides/Setup.md"]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
