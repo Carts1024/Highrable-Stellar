@@ -160,10 +160,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      # This isolated build has no production environment variables or live services.
+      # Use the local network so the production WalletConnect requirement is not applied here.
+      NEXT_PUBLIC_STELLAR_NETWORK: local
       NEXT_PUBLIC_STELLAR_RPC_URL: http://127.0.0.1:9980
       NEXT_PUBLIC_STELLAR_HORIZON_URL: http://127.0.0.1:9981
-      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: Test SDF Network ; September 2015
+      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: Standalone Network ; February 2017
       NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3210
       NEXT_PUBLIC_APP_DOMAIN: http://127.0.0.1:3000
       NEXT_PUBLIC_WAITLIST_MODE: "false"
