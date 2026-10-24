@@ -81,12 +81,17 @@ export interface IAdminResolutionRequestReconcile {
   readonly operationId: string;
 }
 
+export interface IAdminResolutionRequestReconcileExternal {
+  readonly phase: "reconcile_external";
+}
+
 export type TAdminResolutionRequest =
   | IAdminResolutionRequestStarted
   | IAdminResolutionRequestSigned
   | IAdminResolutionRequestSucceeded
   | IAdminResolutionRequestFailed
-  | IAdminResolutionRequestReconcile;
+  | IAdminResolutionRequestReconcile
+  | IAdminResolutionRequestReconcileExternal;
 
 export interface IAdminResolutionStartedResponse {
   readonly success: true;
@@ -116,6 +121,11 @@ export interface IAdminResolutionSucceededResponse {
   readonly result: TAdminResolutionSucceededResult;
 }
 
+export interface IAdminResolutionReconciledResponse extends IAdminResolutionSucceededResponse {
+  readonly operationId: string;
+  readonly transactionValidUntil: number;
+}
+
 export interface IAdminResolutionVerifiedFailedResponse {
   readonly status: "failed";
   readonly result: TAdminResolutionFailedResult;
@@ -125,6 +135,7 @@ export interface IAdminResolutionVerifiedFailedResponse {
 export type TAdminResolutionOutcomeResponse =
   | IAdminResolutionPendingResponse
   | IAdminResolutionSucceededResponse
+  | IAdminResolutionReconciledResponse
   | IAdminResolutionVerifiedFailedResponse;
 
 export type TAdminResolutionResponse =

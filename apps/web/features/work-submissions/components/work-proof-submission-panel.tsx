@@ -49,6 +49,36 @@ interface IWorkProofSubmissionPanelProps {
   readonly milestone?: TConvexDoc<"milestones"> | null;
 }
 
+const LEGACY_PROGRESS_STATUSES = new Set([
+  "submitted",
+  "revision_submitted",
+  "completed",
+  "cancelled",
+  "disputed",
+]);
+
+function hasLegacyWorkSubmissionAccess(
+  job: Pick<TConvexDoc<"jobs">, "status" | "submittedAt" | "completedAt" | "approvedAt">,
+  milestone:
+    | Pick<TConvexDoc<"milestones">, "status" | "submittedAt" | "completedAt" | "approvedAt">
+    | null
+    | undefined,
+  agreementStatus: { status?: string | null } | null | undefined,
+): boolean {
+  if (agreementStatus?.status !== null) return false;
+
+  return Boolean(
+    job.submittedAt ||
+    job.completedAt ||
+    job.approvedAt ||
+    LEGACY_PROGRESS_STATUSES.has(job.status) ||
+    milestone?.submittedAt ||
+    milestone?.completedAt ||
+    milestone?.approvedAt ||
+    (milestone && LEGACY_PROGRESS_STATUSES.has(milestone.status)),
+  );
+}
+
 function formatDate(value?: number): string {
   return value ? new Date(value).toLocaleString() : "Pending";
 }
@@ -162,8 +192,9 @@ function WorkProofSubmissionDialogContent({
   const isPreviewEnabled =
     revisionPolicy?.revisionPolicy === "fixed" || revisionPolicy?.revisionPolicy === "unlimited";
   const isRevisionPolicyLoading = viewerWallet !== undefined && revisionPolicy === undefined;
-  const agreementAccepted =
-    agreementStatus?.status === "accepted" || agreementStatus?.status === "locked";
+  const agreementLocked = agreementStatus?.status === "locked";
+  const legacyAgreementExempt = hasLegacyWorkSubmissionAccess(job, milestone, agreementStatus);
+  const agreementReadyForSubmission = agreementLocked || legacyAgreementExempt;
   const canViewProof =
     walletIdentity.isConnected &&
     (isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? null) ||
@@ -171,14 +202,14 @@ function WorkProofSubmissionDialogContent({
   const canSubmitOriginal =
     Boolean(escrow?.escrowId) &&
     escrow?.status === "funded" &&
-    agreementAccepted &&
+    agreementReadyForSubmission &&
     !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.freelancerWallet ?? null);
   const canSubmitRevision =
     Boolean(escrow?.escrowId) &&
     (escrow?.status === "funded" || escrow?.status === "submitted") &&
-    agreementAccepted &&
+    agreementReadyForSubmission &&
     Boolean(activeRevision) &&
     !isRevisionPolicyLoading &&
     walletIdentity.isConnected &&
@@ -550,13 +581,15 @@ function WorkProofSubmissionDialogContent({
           </span>
         </div>
 
-        {!agreementAccepted ? (
+        {!agreementReadyForSubmission ? (
           <div className="border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
             {agreementStatus?.status === "pending_acceptance"
               ? "The freelancer must accept the agreement before work can be submitted."
               : agreementStatus?.status === "rejected"
                 ? "This agreement was rejected. Create a new agreement before continuing."
-                : "A work agreement must be accepted before work can be submitted."}
+                : agreementStatus?.status === "accepted"
+                  ? "The client must lock the accepted agreement before work can be submitted."
+                  : "A work agreement must be locked before work can be submitted."}
           </div>
         ) : null}
 
@@ -939,12 +972,13 @@ export function WorkProofSubmissionPanel({
   const isClient =
     walletIdentity.isConnected &&
     isSameWallet(walletIdentity.walletAddress, escrow?.clientWallet ?? job.clientWallet);
-  const agreementAccepted =
-    agreementStatus?.status === "accepted" || agreementStatus?.status === "locked";
+  const agreementLocked = agreementStatus?.status === "locked";
+  const legacyAgreementExempt = hasLegacyWorkSubmissionAccess(job, milestone, agreementStatus);
+  const agreementReadyForSubmission = agreementLocked || legacyAgreementExempt;
   const canSubmit =
     Boolean(escrow?.escrowId) &&
     escrow?.status === "funded" &&
-    agreementAccepted &&
+    agreementReadyForSubmission &&
     isSelectedFreelancer;
   const buttonLabel = getWorkSubmissionButtonLabel({
     escrowStatus: escrow?.status,
@@ -959,6 +993,10 @@ export function WorkProofSubmissionPanel({
     canSubmit,
   });
   const isReleased = escrow?.status === "released" || job.status === "completed";
+
+  if (!agreementReadyForSubmission) {
+    return null;
+  }
 
   return (
     <section className="rounded-lg border p-4" aria-label="Work submission">

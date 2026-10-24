@@ -154,10 +154,12 @@ interface IAdminResolutionWorkspaceProps {
   readonly settlementBlockingReason: string | null;
   readonly canSettle: boolean;
   readonly isSubmitting: boolean;
+  readonly requiresOnChainReconciliation: boolean;
   readonly onResolutionStatusChange: (value: TAdminResolutionStatus) => void;
   readonly onResolutionShareInputChange: (value: string) => void;
   readonly onResolutionNoteChange: (value: string) => void;
   readonly onResolveOnChain: () => void;
+  readonly onReconcileOnChainResult: () => void;
 }
 
 interface IAdminTimelineProps {
@@ -635,10 +637,12 @@ function AdminResolutionWorkspace({
   settlementBlockingReason,
   canSettle,
   isSubmitting,
+  requiresOnChainReconciliation,
   onResolutionStatusChange,
   onResolutionShareInputChange,
   onResolutionNoteChange,
   onResolveOnChain,
+  onReconcileOnChainResult,
 }: IAdminResolutionWorkspaceProps) {
   return (
     <AdminSection
@@ -721,12 +725,36 @@ function AdminResolutionWorkspace({
         <AppButton
           type="button"
           onClick={onResolveOnChain}
-          disabled={isSubmitting || !canSettle || resolutionShareError !== null}
+          disabled={
+            isSubmitting ||
+            requiresOnChainReconciliation ||
+            !canSettle ||
+            resolutionShareError !== null
+          }
           className="rounded-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Resolving..." : "Resolve On-Chain"}
         </AppButton>
       </div>
+
+      {requiresOnChainReconciliation ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e8e8] pt-5">
+          <p className="max-w-2xl text-sm leading-relaxed text-[#5f5f5f]">
+            Highrable searches this admin wallet&apos;s Stellar history for a successful resolution
+            of this escrow, verifies the transaction and current contract state, then updates the
+            dispute record without submitting another transaction.
+          </p>
+          <AppButton
+            type="button"
+            variant="secondary"
+            onClick={onReconcileOnChainResult}
+            disabled={isSubmitting}
+            className="rounded-none"
+          >
+            {isSubmitting ? "Searching Stellar history…" : "Retry automatic reconciliation"}
+          </AppButton>
+        </div>
+      ) : null}
     </AdminSection>
   );
 }
@@ -1668,6 +1696,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
           settlementBlockingReason={settlementBlockingReason}
           canSettle={canSettle}
           isSubmitting={isAnyActionRunning}
+          requiresOnChainReconciliation={settlement.phase === "reconciliation_required"}
           onResolutionStatusChange={(value) => {
             setResolutionStatus(value);
           }}
@@ -1676,6 +1705,7 @@ function AdminDisputeDetailContent({ disputeId }: { readonly disputeId: string }
             setResolutionNote(value.slice(0, MAX_RESOLUTION_NOTE_LENGTH))
           }
           onResolveOnChain={() => void settlement.resolve()}
+          onReconcileOnChainResult={() => void settlement.reconcileOnChainResult()}
         />
       ) : null}
 

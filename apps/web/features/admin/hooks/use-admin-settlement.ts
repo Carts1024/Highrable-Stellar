@@ -8,7 +8,11 @@ import {
   isPendingStellarTransactionError,
   normalizeStellarError,
 } from "@/core/stellar/transaction";
-import { isAdminApiRejection, postAdminResolution } from "@/features/admin/lib/admin-api";
+import {
+  isAdminApiError,
+  isAdminApiRejection,
+  postAdminResolution,
+} from "@/features/admin/lib/admin-api";
 import { resolveSettlementTerms } from "@/features/admin/lib/settlement-validation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -34,6 +38,7 @@ export type TAdminSettlementPhase =
   | "confirmation"
   | "recording_final"
   | "reconciling"
+  | "reconciliation_required"
   | "pending"
   | "succeeded"
   | "failed";
@@ -79,6 +84,7 @@ export interface IUseAdminSettlementResult {
   readonly transactionExplorerUrl: string | null;
   readonly resolve: () => Promise<void>;
   readonly reconcile: (operationId: string, transactionHash?: string | null) => Promise<void>;
+  readonly reconcileOnChainResult: () => Promise<void>;
   readonly clearRefreshError: () => void;
 }
 
@@ -97,6 +103,7 @@ const PHASE_LABELS: Record<TAdminSettlementPhase, string> = {
   confirmation: "Waiting for Stellar confirmation",
   recording_final: "Recording verified settlement",
   reconciling: "Reconciling saved transaction",
+  reconciliation_required: "On-chain settlement needs reconciliation",
   pending: "Settlement pending reconciliation",
   succeeded: "Settlement succeeded",
   failed: "Settlement failed",
@@ -185,6 +192,23 @@ function assertSuccessfulOutcomeMatchesAttempt(
 
 function normalizeTransactionHash(transactionHash: string): string {
   return transactionHash.trim().toLowerCase();
+}
+
+function isTerminalSettlementPreflightError(error: unknown): boolean {
+  if (!isAdminApiError(error) || error.status !== 409) {
+    return false;
+  }
+
+  const details = error.details;
+  if (typeof details !== "object" || details === null || !("onChainStatus" in details)) {
+    return false;
+  }
+
+  return (
+    "code" in details &&
+    details.code === "settlement_preflight_failed" &&
+    (details.onChainStatus === "Released" || details.onChainStatus === "Cancelled")
+  );
 }
 
 function getOutcomeMessage(outcome: TAdminResolutionOutcomeResponse): string {
@@ -427,8 +451,83 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     [isCurrent, isExecutionCurrent, params, reconcileOperation, updateAttempt, updatePhase],
   );
 
+  const reconcileDiscoveredSettlement = useCallback(
+    async (token: TSettlementExecutionToken) => {
+      assertExecutionCurrent(token);
+      updatePhase("reconciling", token);
+      const response = await postAdminResolution(params.disputeId, {
+        phase: "reconcile_external",
+      });
+      assertExecutionCurrent(token);
+      if (
+        !("status" in response) ||
+        response.status !== "succeeded" ||
+        !("operationId" in response) ||
+        !("transactionValidUntil" in response)
+      ) {
+        throw new Error("Stellar did not return a verified settlement reconciliation.");
+      }
+
+      const transactionHash = response.result.resolutionTxHash.trim().toLowerCase();
+      updateAttempt(
+        {
+          operationId: response.operationId,
+          transactionHash,
+          transactionValidUntil: response.transactionValidUntil,
+          resolutionStatus: response.result.status,
+          freelancerShareBps: response.result.freelancerShareBps,
+        },
+        token,
+      );
+      await finishOutcome(response, transactionHash, token);
+    },
+    [assertExecutionCurrent, finishOutcome, params.disputeId, updateAttempt, updatePhase],
+  );
+
+  const reconcileOnChainResult = useCallback(async () => {
+    if (executionRef.current || !isCurrent()) {
+      return;
+    }
+
+    const token: TSettlementExecutionToken = {
+      generation: generationRef.current,
+      operationId: `reconcile_dispute:${params.disputeId}`,
+    };
+    executionRef.current = token;
+    setIsExecuting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await reconcileDiscoveredSettlement(token);
+    } catch (nextError) {
+      if (isExecutionCurrent(token)) {
+        params.handleProtectedApiError(nextError);
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : "Automatic settlement reconciliation could not be completed. Retry reconciliation.",
+        );
+        updatePhase("reconciliation_required", token);
+        await params.loadDetail().catch(() => undefined);
+      }
+    } finally {
+      if (executionRef.current === token) {
+        executionRef.current = null;
+        if (isCurrent()) {
+          setIsExecuting(false);
+        }
+      }
+    }
+  }, [isCurrent, isExecutionCurrent, params, reconcileDiscoveredSettlement, updatePhase]);
+
   const resolve = useCallback(async () => {
     if (executionRef.current || !isCurrent()) {
+      return;
+    }
+
+    if (phase === "reconciliation_required") {
+      setError("Retry automatic reconciliation before starting another settlement.");
       return;
     }
 
@@ -712,6 +811,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       }
       params.handleProtectedApiError(nextError);
       const normalizedError = normalizeStellarError(nextError);
+      const requiresAutomaticReconciliation = isTerminalSettlementPreflightError(nextError);
       const currentAttempt = readAttemptContext(attemptRef);
       const transactionHash =
         currentAttempt?.transactionHash ?? getTransactionHashFromError(nextError);
@@ -729,6 +829,23 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       }
 
       const hasKnownTransaction = Boolean(transactionHash);
+      if (requiresAutomaticReconciliation && !hasKnownTransaction && !startRequestConfirmed) {
+        try {
+          await reconcileDiscoveredSettlement(token);
+          return;
+        } catch (reconciliationError) {
+          if (isExecutionCurrent(token)) {
+            params.handleProtectedApiError(reconciliationError);
+            setError(
+              `Stellar already reports this escrow as settled. Automatic reconciliation could not verify the successful resolve_dispute transaction. ${reconciliationError instanceof Error ? reconciliationError.message : "Retry automatic reconciliation."} No new transaction was submitted.`,
+            );
+            updatePhase("reconciliation_required", token);
+            await params.loadDetail().catch(() => undefined);
+          }
+          return;
+        }
+      }
+
       if (hasKnownTransaction || isPendingStellarTransactionError(nextError)) {
         const outcome = await reconcileAfterUncertainExecution(normalizedError);
         if (outcome) {
@@ -751,11 +868,18 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
           );
           updatePhase("reconciling", token);
         } else {
-          setError(normalizedError);
+          setError(
+            requiresAutomaticReconciliation
+              ? "Stellar already reports this escrow as settled. Retry automatic reconciliation before starting another settlement."
+              : normalizedError,
+          );
         }
         if (!startRequestConfirmed) {
           updateAttempt(null, token);
-          updatePhase("failed", token);
+          updatePhase(
+            requiresAutomaticReconciliation ? "reconciliation_required" : "failed",
+            token,
+          );
         }
       }
 
@@ -783,8 +907,10 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     finishOutcome,
     isCurrent,
     isExecutionCurrent,
+    phase,
     params,
     refreshAfterStateChange,
+    reconcileDiscoveredSettlement,
     reconcileOperation,
     updateAttempt,
     updatePhase,
@@ -800,7 +926,11 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
     phase,
     phaseLabel: PHASE_LABELS[phase],
     isExecuting,
-    blocksNewAttempt: isExecuting || phase === "reconciling" || phase === "pending",
+    blocksNewAttempt:
+      isExecuting ||
+      phase === "reconciling" ||
+      phase === "reconciliation_required" ||
+      phase === "pending",
     error,
     success,
     refreshError,
@@ -810,6 +940,7 @@ export function useAdminSettlement(params: IUseAdminSettlementParams): IUseAdmin
       : null,
     resolve,
     reconcile,
+    reconcileOnChainResult,
     clearRefreshError,
   };
 }

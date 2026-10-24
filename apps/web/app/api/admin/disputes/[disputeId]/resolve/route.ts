@@ -1,4 +1,5 @@
 import {
+  findSuccessfulAdminResolutionTransaction,
   readDisputedEscrowStatus,
   verifyAdminChainOperation,
 } from "@/core/admin/chain-verification";
@@ -30,6 +31,9 @@ const BodySchema = z.discriminatedUnion("phase", [
     operationId: z.string().trim().min(8).max(160),
     transactionHash: z.string().regex(/^[0-9a-fA-F]{64}$/),
     transactionValidUntil: z.number().int().positive(),
+  }),
+  z.object({
+    phase: z.literal("reconcile_external"),
   }),
   z.object({
     phase: z.literal("failed"),
@@ -124,6 +128,101 @@ export async function POST(
         transactionValidUntil: body.transactionValidUntil,
       });
       return NextResponse.json({ success: true, phase: body.phase, result }, { status: 200 });
+    }
+
+    if (body.phase === "reconcile_external") {
+      const preflight = await client.query(api.admin.getAdminSettlementPreflight, {
+        adminWallet: adminContext.adminWallet,
+        adminApiSecret: adminContext.adminApiSecret,
+        disputeId,
+      });
+      if (preflight.escrowStatus !== "disputed") {
+        return NextResponse.json(
+          {
+            error:
+              "The Convex escrow mirror is not disputed; refresh the dispute before reconciling.",
+            details: { code: "settlement_reconciliation_failed" },
+          },
+          { status: 409 },
+        );
+      }
+
+      const verified = await findSuccessfulAdminResolutionTransaction({
+        network: preflight.network,
+        contractId: preflight.contractId,
+        actorWallet: adminContext.adminWallet,
+        escrowId: preflight.onChainEscrowId,
+        ...(preflight.disputeTxHash ? { searchAfterTransactionHash: preflight.disputeTxHash } : {}),
+      });
+      if (!verified) {
+        return NextResponse.json(
+          {
+            error:
+              "Automatic search found no matching successful resolve_dispute transaction in recent history for this admin wallet. No new transaction was submitted; retry the search or contact support if this persists.",
+            details: { code: "resolution_transaction_not_found" },
+          },
+          { status: 409 },
+        );
+      }
+      const onChainEscrow = await readDisputedEscrowStatus({
+        sourceAddress: adminContext.adminWallet,
+        escrowId: preflight.onChainEscrowId,
+        network: preflight.network,
+        contractId: preflight.contractId,
+      });
+      if (
+        onChainEscrow.client !== preflight.clientWallet.trim().toUpperCase() ||
+        onChainEscrow.freelancer !== (preflight.freelancerWallet?.trim().toUpperCase() ?? null)
+      ) {
+        return NextResponse.json(
+          {
+            error: "On-chain escrow participants do not match the saved dispute.",
+            details: { code: "settlement_reconciliation_failed" },
+          },
+          { status: 409 },
+        );
+      }
+      const expectedStatus = verified.freelancerShareBps === 0 ? "Cancelled" : "Released";
+      if (onChainEscrow.status !== expectedStatus) {
+        return NextResponse.json(
+          {
+            error: "The current escrow state does not match the successful resolution transaction.",
+            details: {
+              code: "settlement_reconciliation_failed",
+              onChainStatus: onChainEscrow.status,
+            },
+          },
+          { status: 409 },
+        );
+      }
+
+      const reconciled = await client.mutation(
+        api.admin.recordDisputeResolutionReconciliationStarted,
+        {
+          adminWallet: adminContext.adminWallet,
+          adminApiSecret: adminContext.adminApiSecret,
+          disputeId,
+          transactionHash: verified.transactionHash,
+          transactionValidUntil: verified.transactionValidUntil,
+          freelancerShareBps: verified.freelancerShareBps,
+        },
+      );
+      const result = await client.mutation(api.admin.recordDisputeResolutionSucceeded, {
+        adminWallet: adminContext.adminWallet,
+        adminApiSecret: adminContext.adminApiSecret,
+        operationId: reconciled.operationId,
+        transactionHash: verified.transactionHash,
+        transactionValidUntil: verified.transactionValidUntil,
+      });
+      return NextResponse.json(
+        {
+          status: "succeeded",
+          operationId: reconciled.operationId,
+          transactionValidUntil: verified.transactionValidUntil,
+          result,
+        },
+        { status: 200 },
+      );
     }
 
     if (body.phase === "failed") {
