@@ -7,7 +7,9 @@
     "./server": "./src/server.ts"
   },
   "scripts": {
-    "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit"
+    "lint:check": "oxlint .",
+    "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@repo/backend": "workspace:*",
