@@ -71,14 +71,14 @@ export function MilestoneApplicationsList({
 
   if (!applications || applications.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-border bg-muted/30 p-4 font-sans text-sm text-muted-foreground">
+      <p className="rounded-lg border border-dashed border-border bg-muted/30 p-4 font-sans text-sm text-muted-foreground">
         No applications for this milestone yet.
       </p>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y rounded-md border">
       {applications.map((application) => {
         const isAssigned = isSameWallet(
           milestone.assignedFreelancerWallet,
@@ -86,38 +86,22 @@ export function MilestoneApplicationsList({
         );
 
         return (
-          <article
-            key={application._id}
-            className="group rounded-xl border border-border bg-card p-4 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm"
-          >
+          <article key={application._id} className="px-3 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
                 <Link
                   href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}
-                  className="hr-text-primary text-sm font-semibold transition-colors hover:text-highrable-orange-3"
+                  className="hr-text-primary font-mono text-sm hover:underline"
                 >
                   {shortenWalletAddress(application.freelancerWallet)}
                 </Link>
-                <p className="font-mono text-[0.65rem] tracking-[0.06em] text-muted-foreground/70 uppercase">
+                <p className="hr-text-muted text-xs">
                   Applied {new Date(application.createdAt).toLocaleString()}
                 </p>
               </div>
               <div className="flex flex-wrap justify-end gap-2">
-                <AppButton
-                  asChild
-                  variant="outline"
-                  className="h-8 rounded-lg px-3 text-xs font-semibold"
-                >
-                  <Link href={`/freelancers/${encodeURIComponent(application.freelancerWallet)}`}>
-                    View profile
-                  </Link>
-                </AppButton>
                 {application.showcasedWorkEscrowId ? (
-                  <AppButton
-                    asChild
-                    variant="outline"
-                    className="h-8 rounded-lg border-highrable-orange-2/40 px-3 text-xs font-semibold text-highrable-orange-3 hover:border-highrable-orange-2 hover:bg-highrable-orange-2/5"
-                  >
+                  <AppButton asChild variant="ghost" className="h-8 px-3 text-sm">
                     <Link href={`/proof/${encodeURIComponent(application.showcasedWorkEscrowId)}`}>
                       View showcased work
                     </Link>
@@ -128,7 +112,7 @@ export function MilestoneApplicationsList({
                     type="button"
                     disabled={selectingWallet === application.freelancerWallet || isAssigned}
                     onClick={() => void handleAssign(application.freelancerWallet)}
-                    className="hr-v2-button-primary h-8 rounded-lg px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                    className="hr-v2-button-primary h-8 rounded-md px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isAssigned
                       ? "Assigned"
@@ -145,7 +129,7 @@ export function MilestoneApplicationsList({
       })}
 
       {selectionError ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="px-3 py-2 text-sm text-red-700">
           {selectionError}
         </p>
       ) : null}

@@ -1,8 +1,12 @@
 "use client";
 
-import { VerifiedReviewCard } from "@/features/common/components/reputation/verified-review-card";
+import { getTxExplorerUrl } from "@/core/stellar/explorer";
+import { WorkListRow, WorkMeta } from "@/features/common/components/work-list";
+import { formatAmount, formatAsset } from "@/features/dashboard/lib/format";
+import { shortenWalletAddress } from "@/features/marketplace/lib/wallet";
 import { Star } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 import type { TRecentPayout } from "@/features/dashboard/types";
 
@@ -10,31 +14,15 @@ type IRecentPayoutItemProps = {
   payout: TRecentPayout;
 };
 
-function RatingStars({ rating }: { rating: number }) {
-  return (
-    <span className="flex items-center gap-0.5 text-amber-400">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star
-          key={i}
-          className="h-3.5 w-3.5"
-          fill={i < rating ? "currentColor" : "none"}
-          strokeWidth={1.5}
-        />
-      ))}
-      <span className="hr-text-muted ml-1 text-xs">{rating}/5</span>
-    </span>
-  );
-}
-
 export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   const {
     escrowId,
+    jobId,
     jobTitle,
     milestoneTitle,
     amount,
     asset,
     clientWallet,
-    freelancerWallet,
     releaseTxHash,
     rating,
     reviewText,
@@ -42,67 +30,61 @@ export function RecentPayoutItem({ payout }: IRecentPayoutItemProps) {
   } = payout;
 
   return (
-    <article className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm">
-      <div>
-        <h3 className="hr-text-primary truncate text-base font-bold transition-colors group-hover:text-highrable-orange-3">
-          {jobTitle ?? "Untitled Job"}
-        </h3>
-        {milestoneTitle ? (
-          <p className="hr-text-muted truncate text-xs font-medium">Milestone: {milestoneTitle}</p>
-        ) : null}
-      </div>
-
-      <VerifiedReviewCard
-        compact
-        jobTitle={milestoneTitle ? `${jobTitle ?? "Untitled Job"} - ${milestoneTitle}` : jobTitle}
-        escrowId={escrowId}
-        clientWallet={clientWallet}
-        freelancerWallet={freelancerWallet}
-        amount={amount}
-        asset={asset}
-        rating={rating}
-        reviewText={reviewText}
-        txHash={releaseTxHash}
-        createdAt={releasedAt}
-        completionType={milestoneTitle ? "milestone" : "job"}
-      />
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-y border-border/80 bg-muted/50 px-4 py-3 text-xs">
-        {rating !== undefined ? (
-          <div className="hr-text-muted flex items-center gap-2">
-            <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-              Verified rating
+    <WorkListRow
+      href={`/marketplace/jobs/${jobId}`}
+      title={jobTitle ?? "Untitled job"}
+      subtitle={milestoneTitle ? `Milestone: ${milestoneTitle}` : undefined}
+      amount={`${formatAmount(amount)} ${formatAsset(asset)}`}
+      amountLabel="Paid"
+      meta={
+        <>
+          {releasedAt ? (
+            <WorkMeta label="Released">{new Date(releasedAt).toLocaleDateString()}</WorkMeta>
+          ) : null}
+          <WorkMeta label="Client">
+            <Link
+              href={`/clients/${encodeURIComponent(clientWallet)}`}
+              className="font-mono hover:underline"
+            >
+              {shortenWalletAddress(clientWallet)}
+            </Link>
+          </WorkMeta>
+          {rating !== undefined ? (
+            <span className="inline-flex items-center gap-1">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden="true" />
+              <span className="hr-text-primary">{rating}/5</span>
             </span>
-            <RatingStars rating={rating} />
-          </div>
-        ) : (
-          <p className="hr-text-muted text-xs">Rating not provided</p>
-        )}
-
-        <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
-          Paid through verified payment release
-        </div>
-      </div>
-
+          ) : (
+            <span className="hr-text-muted">Not rated</span>
+          )}
+        </>
+      }
+    >
       {reviewText ? (
-        <p className="hr-text-secondary line-clamp-2 text-sm leading-relaxed italic">
-          "{reviewText}"
+        <p className="hr-text-secondary mt-2 line-clamp-2 text-sm leading-relaxed">
+          “{reviewText}”
         </p>
       ) : null}
-
-      <div className="flex items-center justify-between gap-3">
-        {!releaseTxHash ? (
-          <span className="hr-text-muted text-xs">Transaction hash not stored</span>
-        ) : (
-          <span />
-        )}
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         <Link
           href={`/proof/${encodeURIComponent(escrowId)}`}
-          className="inline-flex items-center gap-1 font-mono text-[11px] tracking-[0.06em] text-highrable-orange-3 uppercase hover:underline"
+          className="hr-mode-text hover:underline"
         >
-          View proof
+          Payment proof
         </Link>
+        {releaseTxHash ? (
+          <a
+            href={getTxExplorerUrl(releaseTxHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hr-text-secondary hover:underline"
+          >
+            Transaction on Stellar
+          </a>
+        ) : (
+          <span className="hr-text-muted">Transaction hash not stored</span>
+        )}
       </div>
-    </article>
+    </WorkListRow>
   );
 }

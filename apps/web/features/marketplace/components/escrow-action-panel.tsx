@@ -46,6 +46,7 @@ import { useMemo, useState } from "react";
 
 import type { TConvexDoc } from "@repo/convex-client";
 
+import { EscrowActionProgress } from "./escrow-action-progress";
 import { EscrowSection } from "./escrow-section";
 import { JobSafetyBadge } from "./job-safety-badge";
 import { ReleasePaymentDialog } from "./release-payment-dialog";
@@ -94,6 +95,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     role,
     isPending,
     pendingAction,
+    progress,
     error,
     success,
     txExplorerUrl,
@@ -221,7 +223,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       ? getInsufficientBalanceMessage({
           symbol: escrowAssetSymbol,
           deficitDisplay: stablecoinReadiness.deficitDisplay,
-          actionLabel: "create this escrow",
+          actionLabel: "create this payment hold",
         })
       : stablecoinReadiness.error;
   const fundEscrowBalanceWarning =
@@ -229,7 +231,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
       ? getInsufficientBalanceMessage({
           symbol: escrowAssetSymbol,
           deficitDisplay: stablecoinReadiness.deficitDisplay,
-          actionLabel: "fund this escrow",
+          actionLabel: "fund this payment hold",
         })
       : stablecoinReadiness.error;
   const hasReleasedCompletion = currentStatus === "released" || currentStatus === "completed";
@@ -237,7 +239,10 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
     hasReleasedCompletion && escrow?.status === "released" && reputationRecord === null;
   const canShowWorkSubmission =
     Boolean(escrow) &&
-    (currentStatus === "funded" || currentStatus === "submitted" || hasReleasedCompletion) &&
+    (currentStatus === "created" ||
+      currentStatus === "funded" ||
+      currentStatus === "submitted" ||
+      hasReleasedCompletion) &&
     (role === "client" || role === "selectedFreelancer");
   const handleConfirmRelease = async ({
     rating,
@@ -254,47 +259,41 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
   };
 
   return (
-    <section className="space-y-3 rounded-xl border border-border/80 bg-card p-5 shadow-sm sm:rounded-2xl sm:p-6">
+    <section className="space-y-3" aria-busy={isPending}>
+      <EscrowActionProgress progress={progress} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-[11px] tracking-[0.08em] text-highrable-orange-3 uppercase">
-              Payment Flow
-            </p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <JobSafetyBadge status={safetyStatus.status} />
-              {shouldShowMarketplaceStatusBadge ? <StatusBadge label={currentStatus} /> : null}
-              {currentStatusMeta.trustWarning ? (
-                <HighrableV2IconNotice
-                  label="Payment flow warning"
-                  tone="warning"
-                  message={currentStatusMeta.trustWarning}
-                />
-              ) : null}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col">
-              <h2 className="hr-text-primary mt-0.5 font-sans text-lg font-semibold">
+              <p className="hr-text-primary flex items-center gap-1.5 font-sans text-sm font-medium">
                 {currentStatusMeta.label}
-              </h2>
-              <p className="hr-text-secondary mt-1 font-sans text-sm">
+                {currentStatusMeta.trustWarning ? (
+                  <HighrableV2IconNotice
+                    label="Payment flow warning"
+                    tone="warning"
+                    message={currentStatusMeta.trustWarning}
+                  />
+                ) : null}
+              </p>
+              <p className="hr-text-secondary mt-0.5 font-sans text-sm">
                 {currentStatusMeta.description}
               </p>
             </div>
 
             <ResponsiveDialog open={isPaymentFlowOpen} onOpenChange={setIsPaymentFlowOpen}>
               <ResponsiveDialogTrigger asChild>
-                <AppButton type="button" variant="primary" className="self-end text-xs">
-                  Open Payment Flow
+                <AppButton
+                  type="button"
+                  variant="outline"
+                  className="h-9 shrink-0 self-start rounded-md px-4 text-sm sm:self-center"
+                >
+                  Payment steps
                 </AppButton>
               </ResponsiveDialogTrigger>
 
               <ResponsiveDialogContent className="max-w-3xl">
                 <ResponsiveDialogHeader>
-                  <ResponsiveDialogTitle>Payment Flow</ResponsiveDialogTitle>
+                  <ResponsiveDialogTitle>Payment steps</ResponsiveDialogTitle>
                   <ResponsiveDialogDescription>
                     {currentStatusMeta.description}
                   </ResponsiveDialogDescription>
@@ -332,7 +331,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                         <TrustWarning message={currentStatusMeta.trustWarning} />
                       ) : null}
                       {walletIdentity.walletType ? (
-                        <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 font-sans text-xs text-muted-foreground">
+                        <p className="font-sans text-xs text-muted-foreground">
                           {isPasskeyMode
                             ? "Signing with Passkey Smart Account. Your browser/device will ask you to approve with your passkey."
                             : "Signing with Freighter or WalletConnect."}
@@ -344,7 +343,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                         <TrustWarning
                           message={
                             stablecoinConfigValidation.message ??
-                            "Stablecoin token contract is not configured."
+                            "Digital dollar token contract is not configured."
                           }
                         />
                       ) : null}
@@ -359,9 +358,9 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                       {jobEscrowAsset?.kind === "native_xlm" ? (
                         <div className="space-y-2">
-                          <TrustWarning message="XLM escrow is volatile. Final fiat value may change." />
+                          <TrustWarning message="XLM payment hold is volatile. Final fiat value may change." />
                           {isPasskeyMode ? (
-                            <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               XLM escrow will be funded through your passkey smart account using the
                               native XLM token contract.
                             </p>
@@ -373,24 +372,24 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                   {currentStatus === "open" ? (
                     <p className="hr-text-secondary font-sans text-sm">
-                      Waiting for client to select a freelancer. Once selected, escrow setup will
-                      begin.
+                      Waiting for client to select a freelancer. Once selected, payment hold setup
+                      will begin.
                     </p>
                   ) : null}
 
                   {currentStatus === "selected" && !escrow ? (
                     <EscrowSection
-                      ariaLabel="Create escrow action"
+                      ariaLabel="Create payment hold action"
                       role={role}
                       allowedRoles={["client", "selectedFreelancer", "other"]}
                       helperText={
                         role === "client"
-                          ? "Create a Stellar escrow record to secure payments during the project."
+                          ? "Create a payment hold record to secure payments during the project."
                           : undefined
                       }
                       warningText={
                         role === "selectedFreelancer"
-                          ? "Waiting for client to create and fund escrow. Do not start work until payment is confirmed."
+                          ? "Waiting for client to create and fund payment hold. Do not start work until payment is confirmed."
                           : role === "client" && !isJobAssetSupported
                             ? (jobEscrowAsset?.readinessMessage ??
                               getUnsupportedEscrowAssetMessage())
@@ -402,7 +401,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                       }
                       infoText={
                         role !== "client" && role !== "selectedFreelancer"
-                          ? "Client has selected a freelancer. Escrow setup begins next."
+                          ? "Client has selected a freelancer. Payment Hold setup begins next."
                           : undefined
                       }
                     >
@@ -438,24 +437,24 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                               disabled={isCreateEscrowDisabled}
                               onClick={() => void createEscrow()}
                               className="disabled:cursor-not-allowed disabled:opacity-60"
-                              aria-label="Create escrow for selected freelancer"
+                              aria-label="Create payment hold for selected freelancer"
                             >
                               {getActionButtonLabel(
-                                "Create Escrow",
+                                "Set Aside Payment",
                                 pendingAction === "create_escrow",
-                                "Creating Escrow...",
+                                "Setting Aside Payment...",
                               )}
                             </AppButton>
                             {createEscrowBalanceWarning ? (
-                              <SafetyInfoDisclosure label="View escrow balance requirement">
+                              <SafetyInfoDisclosure label="View payment hold balance requirement">
                                 <TrustWarning message={createEscrowBalanceWarning} />
                                 {jobEscrowAsset?.kind === "stablecoin" ? (
-                                  <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     Use the Stellar path payment panel in this section to convert
                                     XLM into {escrowAssetSymbol}, then refresh the balance.
                                   </p>
                                 ) : (
-                                  <p className="rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                                  <p className="text-sm text-muted-foreground">
                                     Buy or receive more {escrowAssetSymbol}, then refresh your
                                     escrow balance.
                                   </p>
@@ -470,17 +469,17 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                   {currentStatus === "created" ? (
                     <EscrowSection
-                      ariaLabel="Fund escrow action"
+                      ariaLabel="Fund payment hold action"
                       role={role}
                       allowedRoles={["client", "selectedFreelancer"]}
                       helperText={
                         role === "client"
-                          ? "Lock funds in escrow. Once funded, the freelancer can begin work."
+                          ? "Set the money aside safely. Once funded, the freelancer can begin work."
                           : undefined
                       }
                       warningText={
                         role === "selectedFreelancer"
-                          ? "Escrow created. Waiting for client to fund and confirm work can begin."
+                          ? "Payment Hold created. Waiting for client to fund and confirm work can begin."
                           : role === "client" &&
                               !isStablecoinConfigured &&
                               jobEscrowAsset?.kind === "stablecoin"
@@ -534,12 +533,12 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                               disabled={isFundEscrowDisabled}
                               onClick={() => void fundEscrow()}
                               className="disabled:cursor-not-allowed disabled:opacity-60"
-                              aria-label="Fund escrow and lock payment"
+                              aria-label="Fund payment hold and lock payment"
                             >
                               {getActionButtonLabel(
-                                "Fund Escrow",
+                                "Secure Payment",
                                 pendingAction === "fund_escrow",
-                                "Funding Escrow...",
+                                "Funding Payment Hold...",
                               )}
                             </AppButton>
                             <CancelWorkButton
@@ -563,8 +562,8 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                           ? "Submit completed work. Client will review and approve payment release."
                           : role === "client"
                             ? job.selectedFreelancerWallet
-                              ? "Escrow funded and locked. Waiting for freelancer to submit work."
-                              : "Escrow funded and locked. Select a freelancer from the applications list."
+                              ? "Payment Hold funded and locked. Waiting for freelancer to submit work."
+                              : "Payment Hold funded and locked. Select a freelancer from the applications list."
                             : undefined
                       }
                     >
@@ -697,7 +696,7 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
                       ) : null}
 
                       {showPendingVerifiedSync ? (
-                        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        <div className="space-y-3 border-l-2 border-amber-400 py-1 pl-3 text-sm text-amber-900">
                           <p>
                             Payment released. The verified reputation record is syncing from Stellar
                             blockchain.
@@ -733,13 +732,13 @@ export function EscrowActionPanel({ job, escrow, applications }: IEscrowActionPa
 
                   {currentStatus === "cancelled" ? (
                     <p className="hr-text-secondary text-sm">
-                      Escrow cancelled. No funds were exchanged.
+                      Payment Hold cancelled. No funds were exchanged.
                     </p>
                   ) : null}
 
                   {currentStatus === "disputed" ? (
                     <p className="text-sm text-red-700" role="alert">
-                      ⚠ Escrow disputed. A moderator will review this case shortly.
+                      This payment hold is disputed. A moderator will review the case.
                     </p>
                   ) : null}
                 </ResponsiveDialogBody>

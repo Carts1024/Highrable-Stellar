@@ -6,6 +6,7 @@ import {
   ADMIN_QUERY_KEY,
   useAdminSessionAccess,
 } from "@/features/admin/admin-session-gate";
+import { AdminMark } from "@/features/admin/components/admin-mark";
 import {
   AdminDisputeQueue,
   AdminMetricRail,
@@ -34,8 +35,9 @@ import {
 } from "@/features/disputes/lib";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@repo/ui/components/ui/native-select";
+import { cn } from "@repo/ui/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
 import type { TAdminAssignmentFilter } from "@/features/admin/lib/admin-api";
@@ -53,12 +55,12 @@ interface IFilterOption<TValue extends string> {
 }
 
 const STATUS_FILTER_OPTIONS = [
-  { value: "", label: "All statuses" },
+  { value: "", label: "All Statuses" },
   ...DISPUTE_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TStatusFilter>[];
 
 const ON_CHAIN_FILTER_OPTIONS = [
-  { value: "", label: "All on-chain states" },
+  { value: "", label: "All On-chain States" },
   ...DISPUTE_ON_CHAIN_STATUS_OPTIONS,
 ] satisfies readonly IFilterOption<TOnChainFilter>[];
 
@@ -189,7 +191,7 @@ function AdminDisputesContent() {
   const queueMetrics = useMemo(
     () => [
       {
-        label: "Visible disputes",
+        label: "Visible Disputes",
         value: disputes.length,
         description: `Showing up to ${ADMIN_DISPUTE_LIMIT} cases for the selected filters.`,
       },
@@ -199,7 +201,7 @@ function AdminDisputesContent() {
         description: "New cases waiting for admin triage.",
       },
       {
-        label: "Mark failed",
+        label: "Mark Failed",
         value: disputes.filter((dispute) => dispute.onChainStatus === "mark_failed").length,
         description: "Cases requiring on-chain retry attention.",
       },
@@ -214,102 +216,87 @@ function AdminDisputesContent() {
 
   return (
     <div className="space-y-6">
-      <ProductPageHero
-        label="Manual Review"
-        title={
-          <>
-            Admin <span className="hr-v2-gradient-text">Dispute Console</span>
-          </>
-        }
-        description="Filter disputes, inspect review state, and move cases into the detailed settlement workflow."
-      />
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <AppButton asChild variant="secondary" size="sm">
-          <Link href="/admin">Back to Admin</Link>
-        </AppButton>
+      <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <ProductPageHero
+          meta={<AdminMark />}
+          title="Disputes"
+          description="Pick a case, review the evidence, then record a decision and settle it on-chain."
+        />
         <AppButton
+          variant="outline"
           size="sm"
+          className="self-start sm:self-auto"
           onClick={() => void handleQueueReadRetry()}
           disabled={disputeQuery.isFetching}
         >
+          <RefreshCw
+            className={cn("mr-2 h-4 w-4", disputeQuery.isFetching && "animate-spin")}
+            aria-hidden="true"
+          />
           {disputeQuery.isFetching ? "Refreshing..." : "Refresh"}
         </AppButton>
       </div>
 
-      <AdminSection
-        label="Queue Controls"
-        title="Review filters"
-        description="Filters are constrained to known dispute states before they are sent to the admin API."
+      <div
+        role="group"
+        aria-label="Filter disputes"
+        className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3"
       >
-        <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_1fr] md:items-end">
-          <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Status
-            </span>
-            <NativeSelect
-              value={statusFilter}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setStatusFilter(isStatusFilter(nextValue) ? nextValue : "");
-              }}
-              className="h-11 w-[260px] max-w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
-            >
-              {STATUS_FILTER_OPTIONS.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
+        <label className="grid w-full gap-1 text-sm sm:w-auto">
+          <span className="hr-text-secondary text-xs font-medium">Status</span>
+          <NativeSelect
+            value={statusFilter}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setStatusFilter(isStatusFilter(nextValue) ? nextValue : "");
+            }}
+            className="h-9 w-full bg-background sm:w-52"
+          >
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </label>
 
-          <label htmlFor="assignment-filter" className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              Assignment
-            </span>
-            <NativeSelect
-              id="assignment-filter"
-              value={assignmentFilter}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                if (nextValue === "unassigned" || nextValue === "mine" || nextValue === "all") {
-                  setAssignmentFilter(nextValue);
-                }
-              }}
-              className="h-11 w-[260px] max-w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
-            >
-              <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
-              <NativeSelectOption value="mine">My cases</NativeSelectOption>
-              <NativeSelectOption value="all">All cases</NativeSelectOption>
-            </NativeSelect>
-          </label>
+        <label htmlFor="assignment-filter" className="grid w-full gap-1 text-sm sm:w-auto">
+          <span className="hr-text-secondary text-xs font-medium">Assignment</span>
+          <NativeSelect
+            id="assignment-filter"
+            value={assignmentFilter}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              if (nextValue === "unassigned" || nextValue === "mine" || nextValue === "all") {
+                setAssignmentFilter(nextValue);
+              }
+            }}
+            className="h-9 w-full bg-background sm:w-52"
+          >
+            <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
+            <NativeSelectOption value="mine">My cases</NativeSelectOption>
+            <NativeSelectOption value="all">All cases</NativeSelectOption>
+          </NativeSelect>
+        </label>
 
-          <label className="grid gap-1.5 text-sm text-[#5f5f5f]">
-            <span className="font-mono text-xs tracking-[0.06em] text-[#7f7f7f] uppercase">
-              On-chain status
-            </span>
-            <NativeSelect
-              value={onChainFilter}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setOnChainFilter(isOnChainFilter(nextValue) ? nextValue : "");
-              }}
-              className="h-11 w-[260px] max-w-full rounded-none border-[#e8e8e8] bg-white focus-visible:ring-[#FF7003]/30"
-            >
-              {ON_CHAIN_FILTER_OPTIONS.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </label>
-
-          <p className="text-sm leading-relaxed text-[#5f5f5f]">
-            Use the filters to isolate active review states, failed on-chain marks, or completed
-            settlement outcomes.
-          </p>
-        </div>
-      </AdminSection>
+        <label className="grid w-full gap-1 text-sm sm:w-auto">
+          <span className="hr-text-secondary text-xs font-medium">On-chain status</span>
+          <NativeSelect
+            value={onChainFilter}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setOnChainFilter(isOnChainFilter(nextValue) ? nextValue : "");
+            }}
+            className="h-9 w-full bg-background sm:w-52"
+          >
+            {ON_CHAIN_FILTER_OPTIONS.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </label>
+      </div>
 
       {isOwner && adminsQuery.isPending ? (
         <RouteCallout tone="warning" role="status">
@@ -385,17 +372,15 @@ function AdminDisputesContent() {
         <>
           {disputeQuery.data ? (
             <AdminSection
-              label="Queue Health"
-              title="Visible workload"
-              description="Counts are computed from the currently loaded dispute set."
+              title="Visible Workload"
+              description="Counts for the cases currently loaded with these filters."
             >
               <AdminMetricRail items={queueMetrics} />
             </AdminSection>
           ) : null}
 
           <AdminSection
-            label="Dispute Queue"
-            title="Review cases"
+            title="Review Cases"
             description="Open a case to inspect evidence, update review status, or record settlement."
           >
             {disputeQuery.isPending ? (

@@ -1,3 +1,4 @@
+import type { TStatusTone } from "@/features/common/components/status-text";
 import type { TConvexDoc } from "@repo/convex-client";
 
 export type TJobSafetyStatus =
@@ -26,7 +27,7 @@ type TJobSafetyMeta = {
   label: string;
   description: string;
   severity: TJobSafetySeverity;
-  badgeClassName: string;
+  tone: TStatusTone;
   sortRank: number;
 };
 
@@ -35,42 +36,42 @@ const JOB_SAFETY_META: Record<TJobSafetyStatus, TJobSafetyMeta> = {
     label: "Unfunded",
     description: "Funds are not locked yet. Freelancers should not start work.",
     severity: "high",
-    badgeClassName: "border-amber-200 bg-amber-50 text-amber-800",
+    tone: "warning",
     sortRank: 40,
   },
   escrow_created: {
     label: "Escrow Created",
     description: "Escrow exists, but payment has not been funded.",
     severity: "medium",
-    badgeClassName: "border-orange-200 bg-orange-50 text-orange-800",
+    tone: "warning",
     sortRank: 30,
   },
   verified_funded: {
     label: "Verified Funded",
     description: "Stablecoin funds are locked in Stellar escrow.",
     severity: "safe",
-    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    tone: "success",
     sortRank: 10,
   },
   paid: {
     label: "Paid",
     description: "Payment was released through Stellar escrow.",
     severity: "safe",
-    badgeClassName: "border-blue-200 bg-blue-50 text-blue-800",
+    tone: "info",
     sortRank: 50,
   },
   disputed: {
     label: "Disputed",
     description: "This job is under manual review.",
     severity: "high",
-    badgeClassName: "border-red-200 bg-red-50 text-red-700",
+    tone: "danger",
     sortRank: 60,
   },
   cancelled: {
     label: "Cancelled",
     description: "This job is no longer active.",
     severity: "neutral",
-    badgeClassName: "border-gray-300 bg-gray-100 text-gray-700",
+    tone: "neutral",
     sortRank: 70,
   },
 };
@@ -99,8 +100,8 @@ export function getJobSafetySeverity(status: TJobSafetyStatus): TJobSafetySeveri
   return JOB_SAFETY_META[status].severity;
 }
 
-export function getJobSafetyBadgeClassName(status: TJobSafetyStatus): string {
-  return JOB_SAFETY_META[status].badgeClassName;
+export function getJobSafetyTone(status: TJobSafetyStatus): TStatusTone {
+  return JOB_SAFETY_META[status].tone;
 }
 
 export function getApplicationTrustSafetyNoticeType(

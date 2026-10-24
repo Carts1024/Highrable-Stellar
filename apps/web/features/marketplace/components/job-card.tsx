@@ -5,16 +5,11 @@ import { DeadlineBadge } from "@/features/deadlines";
 import { getMarketplaceStatusMeta } from "@/features/marketplace/lib/escrow-status";
 import { getJobSafetyLabel, getJobSafetyStatus } from "@/features/marketplace/lib/job-safety";
 import { isSameWallet, shortenWalletAddress } from "@/features/marketplace/lib/wallet";
+import { useAppMode } from "@/features/mode";
 import { HighrableV2IconNotice } from "@repo/ui/components/highrable/v2-marketing";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@repo/ui/components/ui/tooltip";
-import { Coins, Send, ShieldCheck, User } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 import type { TConvexDoc } from "@repo/convex-client";
 
@@ -41,7 +36,9 @@ export function JobCard({
   const jobType = job.jobType ?? "micro_gig";
   const isMilestoneProject = jobType === "milestone_project";
   const isNativeXlmJob = isNativeXlmEscrowAsset(job.asset);
+  const { mode } = useAppMode();
   const canApply =
+    mode === "freelancer" &&
     !isMilestoneProject &&
     !!connectedWallet &&
     !hasApplied &&
@@ -50,54 +47,26 @@ export function JobCard({
     (job.status === "open" || (job.status === "funded" && !job.selectedFreelancerWallet));
   const safetyStatus = getJobSafetyStatus({ job, escrow });
   const marketplaceStatus = escrow?.status ?? job.status;
-  const isUnfunded = safetyStatus.status === "unfunded";
-  const isVerifiedFunded = safetyStatus.status === "verified_funded";
   const shouldShowMarketplaceStatusBadge =
     getJobSafetyLabel(safetyStatus.status) !== getMarketplaceStatusMeta(marketplaceStatus).label;
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-none transition-all duration-200 hover:border-highrable-orange-3/30 hover:shadow-sm">
-      {/* Card header */}
-      <div className="flex flex-col gap-3 p-6 pb-4">
-        {/* Badge row */}
-        <div className="flex flex-wrap items-center gap-2">
-          {isUnfunded ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-default">
-                    <JobSafetyBadge status={safetyStatus.status} />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  tone="neutral"
-                  className="max-w-xs text-sm leading-relaxed"
-                >
-                  This job has not been funded yet. Confirm escrow before starting work.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <JobSafetyBadge status={safetyStatus.status} />
-          )}
+    <li className="hr-clickable-card flex flex-col gap-3 rounded-lg border bg-card px-4 py-4 transition-colors hover:border-(--mode-border) hover:bg-muted/30 sm:flex-row sm:items-start sm:gap-6 sm:px-5">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Link
+          href={`/marketplace/jobs/${job._id}`}
+          className="hr-card-link hr-text-primary block text-lg leading-snug font-medium sm:text-xl"
+        >
+          {job.title}
+        </Link>
+        <p className="hr-text-secondary line-clamp-2 text-sm leading-relaxed">{job.description}</p>
 
+        <div className="flex w-fit flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
+          <JobSafetyBadge status={safetyStatus.status} />
           {shouldShowMarketplaceStatusBadge && <StatusBadge label={marketplaceStatus} />}
-
-          {isMilestoneProject && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
-              Milestone Project
-            </span>
-          )}
-
-          {isVerifiedFunded && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Escrow Verified
-            </span>
-          )}
-
-          {!isMilestoneProject && (
+          {isMilestoneProject ? (
+            <span className="hr-text-secondary text-xs">Milestone project</span>
+          ) : (
             <DeadlineBadge
               deadlineAt={job.deadlineAt}
               submittedAt={job.submittedAt}
@@ -110,116 +79,56 @@ export function JobCard({
           )}
         </div>
 
-        {/* Title + budget */}
-        <div className="mt-3 flex items-start justify-between gap-4">
-          <h3 className="hr-text-primary text-xl leading-snug font-bold transition-colors group-hover:text-highrable-orange-3">
-            {job.title}
-          </h3>
-          <div className="shrink-0 text-right">
-            <p className="font-sans text-2xl leading-none font-bold tracking-tight text-highrable-orange-3">
-              {formatAmount(job.totalBudget ?? job.budget)}
-            </p>
-            <p className="mt-1 font-mono text-[11px] tracking-[0.08em] text-muted-foreground/60 uppercase">
-              {isMilestoneProject ? "Total Budget" : "Budget"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Description */}
-      <div className="px-6 pb-5">
-        <p className="hr-text-secondary max-w-3xl text-sm leading-relaxed whitespace-pre-line">
-          {job.description}
-        </p>
-      </div>
-
-      {/* Meta strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/80 bg-muted/50 px-6 py-3 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-            Type
+        <div className="hr-text-secondary flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span>
+            <span className="hr-text-muted">Client </span>
+            <Link
+              href={`/clients/${encodeURIComponent(job.clientWallet)}`}
+              className="hr-text-primary font-mono hover:text-(--mode-text)"
+            >
+              {shortenWalletAddress(job.clientWallet)}
+            </Link>
           </span>
-          <span className="font-semibold text-foreground">
-            {isMilestoneProject ? "Milestone Project" : "Micro Gig"}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-            Client
-          </span>
-          <Link
-            href={`/clients/${encodeURIComponent(job.clientWallet)}`}
-            className="font-semibold text-foreground transition-colors hover:text-highrable-orange-3 hover:underline"
-          >
-            {shortenWalletAddress(job.clientWallet)}
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <Coins className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-            Asset
-          </span>
-          <span className="max-w-30 truncate font-semibold text-foreground sm:max-w-none">
-            {formatAssetLabel(job.asset)}
-          </span>
-          {isNativeXlmJob ? (
-            <HighrableV2IconNotice
-              label="XLM volatility warning"
-              tone="warning"
-              message="XLM escrow is volatile. Final fiat value may change."
-            />
+          {job.selectedFreelancerWallet ? (
+            <span>
+              <span className="hr-text-muted">Freelancer </span>
+              <span className="hr-text-primary font-mono">
+                {shortenWalletAddress(job.selectedFreelancerWallet)}
+              </span>
+            </span>
           ) : null}
-        </div>
-
-        {job.selectedFreelancerWallet ? (
-          <div className="flex items-center gap-1.5">
-            <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-            <span className="font-mono text-[11px] tracking-wide text-muted-foreground/50 uppercase">
-              Freelancer
-            </span>
-            <span className="font-semibold text-foreground">
-              {shortenWalletAddress(job.selectedFreelancerWallet)}
-            </span>
-          </div>
-        ) : null}
-
-        <div className="ml-auto flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-          {isMilestoneProject ? "Milestone escrow-ready" : "Escrow-ready"}
+          {isMilestoneProject ? <span>Apply to individual milestones on the job page</span> : null}
         </div>
       </div>
 
-      {/* Footer actions */}
-      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-border/40 px-6 py-4">
-        {isMilestoneProject ? (
-          <p className="hr-text-secondary mr-auto max-w-sm font-sans text-xs leading-relaxed">
-            Apply to specific milestones on the detail page.
+      <div className="flex shrink-0 items-center justify-between gap-4 sm:flex-col sm:items-end sm:gap-3">
+        <div className="sm:text-right">
+          <p className="hr-text-primary hr-num flex items-center gap-1 text-base font-semibold sm:justify-end">
+            {formatAmount(job.totalBudget ?? job.budget)} {formatAssetLabel(job.asset)}
+            {isNativeXlmJob ? (
+              <span className="relative z-[1] inline-flex">
+                <HighrableV2IconNotice
+                  label="XLM volatility warning"
+                  tone="warning"
+                  message="XLM payment hold is volatile. Final fiat value may change."
+                />
+              </span>
+            ) : null}
           </p>
-        ) : null}
+          <p className="hr-text-muted text-xs">{isMilestoneProject ? "Total budget" : "Budget"}</p>
+        </div>
 
-        <AppButton
-          asChild
-          variant="outline"
-          className="h-9 rounded-lg px-4 text-xs font-semibold hover:bg-muted/60"
-        >
-          <Link href={`/marketplace/jobs/${job._id}`}>Details</Link>
-        </AppButton>
-
-        {canApply && (
+        {canApply ? (
           <AppButton
             type="button"
             disabled={isApplying}
             onClick={() => onApply(job._id)}
-            className="hr-v2-button-primary h-9 gap-2 rounded-lg px-5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+            className="hr-v2-button-primary h-8 rounded-md px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Send className="h-3.5 w-3.5" />
-            {isApplying ? "Applying…" : "Apply Now"}
+            {isApplying ? "Applying…" : "Apply"}
           </AppButton>
-        )}
+        ) : null}
       </div>
-    </article>
+    </li>
   );
 }

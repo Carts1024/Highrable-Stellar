@@ -55,6 +55,7 @@ import type * as jobs_mutations from "../jobs/mutations.js";
 import type * as jobs_queries from "../jobs/queries.js";
 import type * as jobs_scamSignals from "../jobs/scamSignals.js";
 import type * as jobs_types from "../jobs/types.js";
+import type * as lib_registryReads from "../lib/registryReads.js";
 import type * as lib_stellarReads from "../lib/stellarReads.js";
 import type * as milestones from "../milestones.js";
 import type * as milestones_helpers from "../milestones/helpers.js";
@@ -63,6 +64,9 @@ import type * as milestones_queries from "../milestones/queries.js";
 import type * as milestones_types from "../milestones/types.js";
 import type * as profiles from "../profiles.js";
 import type * as proofs from "../proofs.js";
+import type * as registry_helpers from "../registry/helpers.js";
+import type * as registry_mutations from "../registry/mutations.js";
+import type * as registry_queries from "../registry/queries.js";
 import type * as reports from "../reports.js";
 import type * as reports_helpers from "../reports/helpers.js";
 import type * as reputation from "../reputation.js";
@@ -97,7 +101,12 @@ import type * as work_submissions from "../work_submissions.js";
 import type * as work_submissions_helpers from "../work_submissions/helpers.js";
 import type * as work_submissions_mutations from "../work_submissions/mutations.js";
 import type * as work_submissions_queries from "../work_submissions/queries.js";
-import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
+
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   "_shared/adminAuth": typeof _shared_adminAuth;
@@ -147,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/queries": typeof jobs_queries;
   "jobs/scamSignals": typeof jobs_scamSignals;
   "jobs/types": typeof jobs_types;
+  "lib/registryReads": typeof lib_registryReads;
   "lib/stellarReads": typeof lib_stellarReads;
   milestones: typeof milestones;
   "milestones/helpers": typeof milestones_helpers;
@@ -155,6 +165,9 @@ declare const fullApi: ApiFromModules<{
   "milestones/types": typeof milestones_types;
   profiles: typeof profiles;
   proofs: typeof proofs;
+  "registry/helpers": typeof registry_helpers;
+  "registry/mutations": typeof registry_mutations;
+  "registry/queries": typeof registry_queries;
   reports: typeof reports;
   "reports/helpers": typeof reports_helpers;
   reputation: typeof reputation;
@@ -199,7 +212,10 @@ declare const fullApi: ApiFromModules<{
  * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+export declare const api: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "public">
+>;
 
 /**
  * A utility for referencing Convex functions in your app's internal API.
@@ -209,7 +225,10 @@ export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "publ
  * const myFunctionReference = internal.myModule.myFunction;
  * ```
  */
-export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+export declare const internal: FilterApi<
+  typeof fullApi,
+  FunctionReference<any, "internal">
+>;
 
 export declare const components: {
   resend: import("@convex-dev/resend/_generated/component.js").ComponentApi<"resend">;

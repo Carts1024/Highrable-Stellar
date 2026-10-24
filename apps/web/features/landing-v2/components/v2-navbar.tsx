@@ -1,17 +1,18 @@
 "use client";
 
+import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import {
   V2_BUTTON_PRIMARY_CLASS,
-  V2_BUTTON_SECONDARY_CLASS,
   V2_PAGE_CONTAINER_CLASS,
 } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { NAV_LINKS } from "../constants/landing-v2.constants";
+import { LandingConnectButton } from "./landing-connect-button";
 
 // Shared nav link styles — keep in sync with header.tsx
 const NAV_LINK_BASE =
@@ -57,24 +58,12 @@ function NavLinks({ pathname }: { pathname: string }) {
 }
 
 function NavActions() {
-  const router = useRouter();
-
   return (
     <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-      <button
-        type="button"
-        onClick={() => router.push("/jobs")}
-        className={`${V2_BUTTON_SECONDARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
-      >
-        Find Work
-      </button>
-      <button
-        type="button"
-        onClick={() => router.push("/post-job")}
-        className={`${V2_BUTTON_PRIMARY_CLASS} px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
-      >
-        Post a Job
-      </button>
+      <LandingConnectButton
+        className={`${V2_BUTTON_PRIMARY_CLASS} h-auto px-2.5 py-2 font-mono text-[0.6rem] tracking-wide uppercase sm:px-4 sm:text-xs sm:tracking-widest`}
+      />
+      <ThemeToggle />
     </div>
   );
 }

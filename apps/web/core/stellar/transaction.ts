@@ -30,6 +30,7 @@ export type TInvokeContractParams = {
   method: string;
   args: xdr.ScVal[];
   signTransaction: TSignedTransactionSubmitter;
+  preSignCheck?: () => Promise<void>;
   operationId?: string;
   onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   onPhase?: (phase: TStellarExecutionPhase) => void;
@@ -331,6 +332,14 @@ async function pollTransaction(
 
 export async function invokeContract(params: TInvokeContractParams): Promise<TConfirmedContractTx> {
   const server = createRpcServer(params.rpcUrl);
+  const preSignCheckPromise = params.preSignCheck
+    ? Promise.resolve()
+        .then(params.preSignCheck)
+        .then(
+          () => ({ ok: true as const }),
+          (error: unknown) => ({ ok: false as const, error }),
+        )
+    : Promise.resolve({ ok: true as const });
   const sourceAccount = await server.getAccount(params.sourceAddress);
   const contract = new Contract(params.contractId);
   const transaction = new TransactionBuilder(sourceAccount, {
@@ -342,7 +351,13 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
     .build();
 
   notifyExecutionPhase(params.onPhase, "simulation");
-  const preparedTransaction = (await server.prepareTransaction(transaction)) as Transaction;
+  const [preparedTransaction, preSignCheckResult] = await Promise.all([
+    server.prepareTransaction(transaction) as Promise<Transaction>,
+    preSignCheckPromise,
+  ]);
+  if (!preSignCheckResult.ok) {
+    throw preSignCheckResult.error;
+  }
   const useVeloGas = shouldUseVeloGas(params.operationId);
   notifyExecutionPhase(params.onPhase, "signing");
   const signedXdr = await params.signTransaction(preparedTransaction.toXDR(), {

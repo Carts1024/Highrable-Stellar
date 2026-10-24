@@ -274,6 +274,42 @@ describe("admin API client errors", () => {
     ).resolves.toMatchObject({ status: outcome });
   });
 
+  it("preserves a recovered attempt that was closed before Stellar submission", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ status: "failed", result: true, failureKind: "not_submitted" }, 200),
+        ),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", {
+        phase: "reconcile",
+        operationId: "operation-123",
+      }),
+    ).resolves.toMatchObject({ status: "failed", failureKind: "not_submitted" });
+  });
+
+  it("rejects an unknown settlement failure kind", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ status: "failed", result: true, failureKind: "unknown" }, 200),
+        ),
+    );
+
+    await expect(
+      postAdminResolution("dispute-1", {
+        phase: "reconcile",
+        operationId: "operation-123",
+      }),
+    ).rejects.toThrow("unrecognized settlement outcome");
+  });
+
   it.each([
     ["fixed client terms", { status: "resolved_client", freelancerShareBps: 1 }],
     ["fixed freelancer terms", { status: "resolved_freelancer", freelancerShareBps: 9_999 }],

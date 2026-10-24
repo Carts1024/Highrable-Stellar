@@ -10,13 +10,9 @@ import { formatAttachmentSize } from "@/features/attachments/lib";
 import { getReadableChatError } from "@/features/chat/lib/errors";
 import { sanitizeMultilineInput, showWarningToast } from "@/features/common";
 import { api } from "@repo/convex-client";
-import { HighrableV2Badge, SectionLabel } from "@repo/ui/components/highrable/v2-marketing";
-import {
-  V2_BUTTON_PRIMARY_CLASS,
-  V2_GRADIENT_TEXT_CLASS,
-} from "@repo/ui/components/highrable/v2-theme";
+import { HighrableV2Badge } from "@repo/ui/components/highrable/v2-marketing";
+import { V2_BUTTON_PRIMARY_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui/components/ui/avatar";
-import { Badge } from "@repo/ui/components/ui/badge";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import {
   Sheet,
@@ -38,7 +34,6 @@ import {
   Paperclip,
   Reply,
   Send,
-  ShieldCheck,
   UserRound,
   X,
 } from "lucide-react";
@@ -249,12 +244,10 @@ function WalletTypeBadge({ walletType }: { walletType?: string }) {
 function SystemMessage({ message }: { message: TMessageWithAttachments }) {
   return (
     <div className="mx-auto flex max-w-[88%] items-center gap-2 border border-orange-200 bg-orange-50 px-3 py-2 text-center">
-      <CircleDot className="h-3.5 w-3.5 shrink-0 text-[#E85D00]" aria-hidden="true" />
+      <CircleDot className="hr-mode-text h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <div className="min-w-0 text-left">
         <p className="text-xs leading-snug font-medium text-[#7a3500]">{message.body}</p>
-        <p className="mt-0.5 font-mono text-[0.58rem] tracking-[0.04em] text-[#a05a20] uppercase">
-          {formatMessageTimestamp(message.createdAt)}
-        </p>
+        <p className="mt-0.5 text-xs text-[#a05a20]">{formatMessageTimestamp(message.createdAt)}</p>
       </div>
     </div>
   );
@@ -276,7 +269,7 @@ function MessageAvatar({
       className={cn(
         "h-8 w-8 shrink-0 rounded-none border",
         isOwnMessage
-          ? "border-[#0a0a0a] bg-[#0a0a0a] text-white"
+          ? "border-highrable-orange-3 bg-highrable-orange-2 text-[var(--mode-on)]"
           : "border-orange-200 bg-orange-50 text-[#B94A00]",
       )}
       aria-label={`${label} avatar`}
@@ -285,7 +278,9 @@ function MessageAvatar({
       <AvatarFallback
         className={cn(
           "rounded-none",
-          isOwnMessage ? "bg-[#0a0a0a] text-white" : "bg-orange-50 text-[#B94A00]",
+          isOwnMessage
+            ? "bg-highrable-orange-2 text-[var(--mode-on)]"
+            : "bg-orange-50 text-[#B94A00]",
         )}
       >
         <UserRound className="h-4 w-4" aria-hidden="true" />
@@ -298,7 +293,7 @@ function DateDivider({ timestamp }: { timestamp: number }) {
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="h-px flex-1 bg-border" />
-      <p className="font-mono text-[0.62rem] tracking-[0.08em] whitespace-nowrap text-[#7f7f7f] uppercase">
+      <p className="text-xs whitespace-nowrap text-[#7f7f7f]">
         {new Intl.DateTimeFormat(undefined, {
           month: "short",
           day: "numeric",
@@ -366,7 +361,7 @@ function InlineAttachmentPreview({
       className={`flex items-center gap-2 border px-3 py-2 ${
         isOwnMessage
           ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-          : "border-[#e8e8e8] bg-white text-[#0a0a0a] hover:border-[#FF7003]/70"
+          : "border-[#e8e8e8] bg-white text-[#0a0a0a] hover:border-highrable-orange-2/70"
       }`}
     >
       <span
@@ -423,12 +418,10 @@ function ReplyPreview({
       className={`mb-2 border-l-2 py-1.5 pr-2 pl-2 ${
         isOwnMessage
           ? "border-white/60 bg-white/10 text-white/85"
-          : "border-[#FF7003] bg-[#fff6ef] text-[#5f2a00]"
+          : "border-highrable-orange-2 bg-[#fff6ef] text-[#5f2a00]"
       }`}
     >
-      <p className="font-mono text-[0.58rem] tracking-[0.04em] uppercase opacity-80">
-        Replying to {getReplySenderLabel(replyToMessage)}
-      </p>
+      <p className="text-xs opacity-80">Replying to {getReplySenderLabel(replyToMessage)}</p>
       <p className="mt-0.5 line-clamp-2 text-[0.72rem] leading-snug">
         {getReplyPreview(replyToMessage)}
       </p>
@@ -454,16 +447,14 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
         />
       ) : null}
       <article
-        className={`group max-w-[82%] border px-3 py-2.5 shadow-sm ${
+        className={`group max-w-[82%] border px-3 py-2.5 ${
           isOwnMessage
-            ? "border-[#E85D00] bg-[#FF7003] text-white"
+            ? "border-highrable-orange-3 bg-highrable-orange-2 text-white"
             : "border-border bg-white text-[#0a0a0a]"
         }`}
       >
         <div className="mb-1 flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-[0.6rem] tracking-[0.06em] uppercase opacity-80">
-            {senderLabel}
-          </span>
+          <span className="text-xs opacity-80">{senderLabel}</span>
           <WalletTypeBadge walletType={message.senderWalletType} />
         </div>
         <ReplyPreview replyToMessage={replyToMessage} isOwnMessage={isOwnMessage} />
@@ -480,7 +471,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
         ) : null}
         <MessageAttachmentList attachments={message.attachments} isOwnMessage={isOwnMessage} />
         <p
-          className={`mt-2 text-right font-mono text-[0.58rem] ${
+          className={`mt-2 text-right font-mono text-xs ${
             isOwnMessage ? "text-white/60" : "text-[#7f7f7f]"
           }`}
         >
@@ -493,7 +484,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
             className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] transition-colors ${
               isOwnMessage
                 ? "text-white/70 hover:bg-white/10 hover:text-white"
-                : "text-[#7f7f7f] hover:bg-[#fff3eb] hover:text-[#FF7003]"
+                : "text-[#7f7f7f] hover:bg-accent hover:text-highrable-orange-3"
             }`}
           >
             <Reply className="h-3 w-3" />
@@ -515,7 +506,7 @@ function MessageBubble({ message, currentWallet, replyToMessage, onReply }: IMes
 function EmptyConversationState() {
   return (
     <div className="border border-dashed border-border bg-white p-6 text-center">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center border border-orange-200 bg-orange-50 text-[#E85D00]">
+      <div className="hr-mode-text mx-auto flex h-10 w-10 items-center justify-center border border-orange-200 bg-orange-50">
         <MessageCircle className="h-5 w-5" aria-hidden="true" />
       </div>
       <p className="mt-3 text-sm font-semibold text-[#0a0a0a]">No messages yet.</p>
@@ -608,7 +599,7 @@ function MessageComposer({
       {showAttachments ? (
         <div className="max-h-72 overflow-y-auto border border-border bg-[#fafafa] p-2">
           <div className="mb-2 flex items-center justify-between px-1">
-            <SectionLabel>Attachments</SectionLabel>
+            <p className="hr-text-muted text-xs">Attachments</p>
             <AppButton
               type="button"
               variant="ghost"
@@ -638,7 +629,7 @@ function MessageComposer({
           onClick={() => setShowAttachments((current) => !current)}
           className={`h-10 w-10 shrink-0 rounded-none border ${
             showAttachments || readyAttachmentIds.length > 0
-              ? "border-[#FF7003] bg-[#fff3eb] text-[#E85D00] hover:bg-[#ffe6d6]"
+              ? "hr-mode-text border-highrable-orange-2 bg-accent hover:bg-accent"
               : "border-[#e1e1e1] bg-white text-[#5f5f5f] hover:bg-[#fafafa]"
           }`}
           aria-label={showAttachments ? "Hide attachment uploader" : "Show attachment uploader"}
@@ -656,7 +647,7 @@ function MessageComposer({
           placeholder="Write a secure work update..."
           rows={1}
           maxLength={MAX_MESSAGE_BODY_LENGTH}
-          className="max-h-28 min-h-10 flex-1 resize-none rounded-none border-[#e1e1e1] bg-white px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-[#FF7003]/30"
+          className="max-h-28 min-h-10 flex-1 resize-none rounded-none border-[#e1e1e1] bg-white px-4 py-2.5 text-sm leading-5 shadow-none focus-visible:ring-ring/30"
         />
         <AppButton
           type="button"
@@ -672,7 +663,7 @@ function MessageComposer({
         </AppButton>
       </div>
       {readyAttachmentIds.length > 0 && !showAttachments ? (
-        <p className="px-12 text-[0.7rem] text-[#E85D00]">
+        <p className="hr-mode-text px-12 text-[0.7rem]">
           {readyAttachmentIds.length} attachment{readyAttachmentIds.length === 1 ? "" : "s"} ready
           to send.
         </p>
@@ -680,7 +671,7 @@ function MessageComposer({
       {replyToMessage ? (
         <div className="mx-12 flex items-start gap-2 border border-[#ffd7bd] bg-[#fff7f1] px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-[0.62rem] tracking-[0.05em] text-[#a74600] uppercase">
+            <p className="text-xs text-[#a74600]">
               Replying to {getReplySenderLabel(replyToMessage)}
             </p>
             <p className="mt-0.5 truncate text-xs text-[#5f2a00]">
@@ -827,10 +818,10 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
           aria-label="Open work chat"
           className={cn(
             V2_BUTTON_PRIMARY_CLASS,
-            "fixed right-5 bottom-5 z-40 h-14 rounded-none border border-[#FF7003] px-5 text-sm font-semibold text-white shadow-none",
+            "fixed right-5 bottom-5 z-40 h-11 rounded-md px-4 text-sm font-medium shadow-md",
           )}
         >
-          <MessageCircle className="mr-2 h-5 w-5" />
+          <MessageCircle className="mr-2 h-4 w-4" aria-hidden="true" />
           Messages
         </AppButton>
       </SheetTrigger>
@@ -840,66 +831,46 @@ export function ConversationThread({ parentType, parentId, title }: IConversatio
         aria-describedby="work-chat-description"
         showCloseButton={false}
       >
-        <SheetHeader className="relative overflow-hidden border-b border-[#E85D00] bg-[#0a0a0a] p-0 text-white">
-          <div className="absolute inset-0 opacity-20">
-            <div className="hr-v2-grid-overlay h-full w-full" />
+        <SheetHeader className="flex-row items-start justify-between gap-3 border-b p-4">
+          <div className="min-w-0 flex-1">
+            <SheetTitle className="hr-text-primary truncate text-base font-semibold">
+              {title ?? "Work chat"}
+            </SheetTitle>
+            <SheetDescription
+              id="work-chat-description"
+              className="hr-text-secondary mt-0.5 text-xs"
+            >
+              Only the client and freelancer on this work can read these messages.
+              {conversation?.status ? ` Status: ${conversation.status}.` : null}
+            </SheetDescription>
           </div>
-          <div className="relative bg-[radial-gradient(circle_at_top_right,rgba(255,112,3,0.42),transparent_42%)] p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <SectionLabel className="text-white [&_span]:text-white">Messages</SectionLabel>
-              <div className="flex shrink-0 items-center gap-2">
-                {conversation?.status ? (
-                  <Badge className="rounded-none border border-white/20 bg-white/10 px-2 py-1 font-mono text-[0.62rem] tracking-[0.06em] text-white uppercase hover:bg-white/10">
-                    {conversation.status}
-                  </Badge>
-                ) : null}
-                <SheetClose asChild>
-                  <AppButton
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-none text-white hover:bg-white/15 hover:text-white"
-                    aria-label="Close work chat"
-                  >
-                    <X className="h-4 w-4" />
-                  </AppButton>
-                </SheetClose>
-              </div>
-            </div>
-
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <SheetTitle className="truncate text-xl font-semibold text-white">
-                  <span className={V2_GRADIENT_TEXT_CLASS}>{title ?? "Work chat"}</span>
-                </SheetTitle>
-                <SheetDescription id="work-chat-description" className="mt-1 text-xs text-white/80">
-                  Client and freelancer updates for this work context.
-                </SheetDescription>
-              </div>
-              <div className="hidden shrink-0 items-center gap-2 border border-white/15 bg-white/10 px-3 py-2 sm:flex">
-                <ShieldCheck className="h-4 w-4 text-orange-200" aria-hidden="true" />
-                <span className="font-mono text-[0.62rem] tracking-[0.06em] text-white/80 uppercase">
-                  Participant only
-                </span>
-              </div>
-            </div>
-          </div>
+          <SheetClose asChild>
+            <AppButton
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              aria-label="Close work chat"
+            >
+              <X className="h-4 w-4" />
+            </AppButton>
+          </SheetClose>
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col">
           {!viewerWallet ? (
-            <p className="m-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
               Connect the wallet assigned to this work to view messages.
             </p>
           ) : error ? (
-            <p className="m-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="m-4 border-l-2 border-amber-400 bg-amber-50/60 py-2.5 pr-3 pl-3 text-sm text-amber-900">
               {error}
             </p>
           ) : !activeConversationId || messages === undefined ? (
             <p className="p-4 text-sm text-[#5f5f5f]">Loading conversation...</p>
           ) : (
             <>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f5f5f5] p-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#fafafa] p-4">
                 {messages.length === 0 ? (
                   <EmptyConversationState />
                 ) : (

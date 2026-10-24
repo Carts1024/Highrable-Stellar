@@ -194,7 +194,11 @@ vi.mock("convex/react", () => ({
   },
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) =>
     createElement("h1", undefined, title),
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
@@ -306,6 +310,16 @@ vi.mock("@repo/ui/responsive-dialog", () => ({
 vi.mock("lucide-react", () => {
   const Icon = (props: Record<string, unknown>) => createElement("span", props);
   return {
+    Activity: Icon,
+    Users: Icon,
+    CheckCircle2: Icon,
+    Clock: Icon,
+    Scale: Icon,
+    History: Icon,
+    Paperclip: Icon,
+    Wallet: Icon,
+    Copy: Icon,
+    Check: Icon,
     AlertTriangle: Icon,
     ArrowLeft: Icon,
     Download: Icon,
@@ -316,6 +330,7 @@ vi.mock("lucide-react", () => {
     Image: Icon,
     Link2: Icon,
     Loader2: Icon,
+    RefreshCw: Icon,
     RotateCcw: Icon,
     ShieldCheck: Icon,
     Trash2: Icon,
@@ -1520,9 +1535,9 @@ describe("C19 participant-to-administrator acceptance", () => {
     });
     fireEvent.click(within(admin.container).getByRole("button", { name: "Update Status" }));
     expect(
-      await within(admin.container).findByRole("heading", { name: "Admin access forbidden" }),
+      await within(admin.container).findByRole("heading", { name: "Admin Access Forbidden" }),
     ).toBeTruthy();
-    expect(within(admin.container).queryByText("Moderator workflow")).toBeNull();
+    expect(within(admin.container).queryByText("Moderator Workflow")).toBeNull();
     expect(getCase(opened.disputeId)).toEqual(beforeCase);
     expect(store.events.get(opened.disputeId)).toEqual(beforeEvents);
     expect(JSON.stringify(Array.from(runtime.convex.subscriptions.entries()))).toBe(
@@ -1541,8 +1556,8 @@ describe("C19 participant-to-administrator acceptance", () => {
   });
 
   it.each([
-    ["unauthorized", 401, "Authentication required"],
-    ["forbidden", 403, "Admin access forbidden"],
+    ["unauthorized", 401, "Authentication Required"],
+    ["forbidden", 403, "Admin Access Forbidden"],
   ] as const)("prevents protected queue reads for a %s session", async (mode, status, heading) => {
     httpRuntime.sessionMode = mode;
     const fetchMock = installHttpMock();

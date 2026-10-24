@@ -1,5 +1,6 @@
 import { Card, CardDescription, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 import { cn } from "@repo/ui/lib/utils";
+import React from "react";
 
 import type { ComponentProps, ReactNode } from "react";
 
@@ -28,14 +29,16 @@ interface IRouteEmptyStateProps extends Omit<ComponentProps<"div">, "title"> {
 }
 
 const ROUTE_CALLOUT_CLASSES: Record<TRouteCalloutTone, string> = {
-  neutral: "border-border bg-muted/40 hr-text-secondary",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  danger: "border-red-200 bg-red-50 text-red-700",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  neutral: "border-border hr-text-secondary",
+  warning: "border-amber-400 bg-amber-50/60 text-amber-900",
+  danger: "border-red-500 bg-red-50/60 text-red-800",
+  success: "border-emerald-500 bg-emerald-50/60 text-emerald-900",
 };
 
 export function RoutePanel({ className, ...props }: IRoutePanelProps) {
-  return <Card className={cn("hr-panel gap-4 py-0 shadow-none", className)} {...props} />;
+  return (
+    <Card className={cn("hr-panel gap-0 rounded-lg py-0 shadow-none", className)} {...props} />
+  );
 }
 
 export function RoutePanelHeader({
@@ -48,27 +51,24 @@ export function RoutePanelHeader({
   ...props
 }: IRoutePanelHeaderProps) {
   return (
-    <CardHeader className={cn("gap-4 border-b pb-5", className)} {...props}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-2">
-          {eyebrow ? <p className="hr-label-caps hr-text-muted">{eyebrow}</p> : null}
-          <div className="flex items-start gap-3">
+    <CardHeader
+      className={cn("gap-3 border-b px-5 pt-4 pb-4 [.border-b]:pb-4", className)}
+      {...props}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          {eyebrow ? <p className="hr-text-muted font-mono text-xs">{eyebrow}</p> : null}
+          <CardTitle className="hr-text-primary flex items-center gap-2 text-base leading-tight font-semibold">
             {icon ? (
-              <span className="hr-v2-badge-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
-                {icon}
-              </span>
+              <span className="hr-text-muted shrink-0 [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
             ) : null}
-            <div className="min-w-0 space-y-1.5">
-              <CardTitle className="hr-text-primary text-xl leading-tight font-semibold">
-                {title}
-              </CardTitle>
-              {description ? (
-                <CardDescription className="hr-text-secondary text-sm leading-relaxed">
-                  {description}
-                </CardDescription>
-              ) : null}
-            </div>
-          </div>
+            {title}
+          </CardTitle>
+          {description ? (
+            <CardDescription className="hr-text-secondary text-sm leading-relaxed">
+              {description}
+            </CardDescription>
+          ) : null}
         </div>
         {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
       </div>
@@ -86,7 +86,7 @@ export function RouteCallout({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+        "flex items-start gap-2.5 border-l-2 py-2.5 pr-3 pl-3 text-sm leading-relaxed",
         ROUTE_CALLOUT_CLASSES[tone],
         className,
       )}
@@ -109,19 +109,23 @@ export function RouteEmptyState({
   return (
     <div
       className={cn(
-        "hr-surface-muted flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center",
+        "flex flex-col items-start gap-1.5 rounded-lg border border-dashed border-border px-4 py-5 text-left",
         className,
       )}
       {...props}
     >
-      {icon ? (
-        <span className="hr-text-muted flex items-center justify-center rounded-full border border-border bg-background p-3">
-          {icon}
-        </span>
-      ) : null}
-      {title ? <p className="hr-text-primary font-sans text-sm font-semibold">{title}</p> : null}
-      <p className="hr-text-secondary max-w-xl font-sans text-sm leading-relaxed">{description}</p>
-      {action ? <div className="pt-1">{action}</div> : null}
+      <div className="flex items-start gap-2.5">
+        {icon ? (
+          <span className="hr-text-muted mt-0.5 shrink-0 [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+        ) : null}
+        <div className="min-w-0 space-y-0.5">
+          {title ? <p className="hr-text-primary font-sans text-sm font-medium">{title}</p> : null}
+          <p className="hr-text-secondary max-w-xl font-sans text-sm leading-relaxed">
+            {description}
+          </p>
+        </div>
+      </div>
+      {action ? <div className={icon ? "pt-1.5 pl-6.5" : "pt-1.5"}>{action}</div> : null}
     </div>
   );
 }

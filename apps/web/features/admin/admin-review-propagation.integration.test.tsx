@@ -178,7 +178,11 @@ vi.mock("convex/react", () => ({
   },
 }));
 
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   ProductPageHero: ({ title }: { readonly title: ReactNode }) =>
     createElement("h1", undefined, title),
   RouteCallout: ({ children }: { readonly children?: ReactNode }) =>
@@ -249,9 +253,22 @@ vi.mock("@repo/ui/components/ui/textarea", () => ({
   Textarea: (props: Record<string, unknown>) => createElement("textarea", props),
 }));
 vi.mock("lucide-react", () => ({
+  Activity: () => createElement("span"),
+  AlertTriangle: () => createElement("span"),
+  CheckCircle2: () => createElement("span"),
+  Clock: () => createElement("span"),
+  FileText: () => createElement("span"),
+  Users: () => createElement("span"),
+  History: () => createElement("span"),
+  Paperclip: () => createElement("span"),
+  Scale: () => createElement("span"),
+  Wallet: () => createElement("span"),
+  Copy: () => createElement("span"),
+  Check: () => createElement("span"),
   ArrowLeft: () => createElement("span"),
   ExternalLink: () => createElement("span"),
   RotateCcw: () => createElement("span"),
+  RefreshCw: () => createElement("span"),
 }));
 vi.mock("next/link", () => ({
   default: ({
@@ -702,7 +719,7 @@ describe("administrator review-state propagation", () => {
     const adminView = renderAdmin();
     const admin = adminView.container;
 
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     expect(getReviewStatusControl(admin).value).toBe(
       scenario.initialStatus === "open" ? "under_review" : scenario.initialStatus,
     );
@@ -775,7 +792,7 @@ describe("administrator review-state propagation", () => {
     installHttpMock();
     const adminView = renderAdmin();
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_client_response" },
     });
@@ -819,7 +836,7 @@ describe("administrator review-state propagation", () => {
     installHttpMock();
     const adminView = renderAdmin();
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_freelancer_response" },
     });
@@ -849,8 +866,8 @@ describe("administrator review-state propagation", () => {
   });
 
   it.each([
-    { mode: "unauthorized" as const, heading: "Authentication required" },
-    { mode: "forbidden" as const, heading: "Admin access forbidden" },
+    { mode: "unauthorized" as const, heading: "Authentication Required" },
+    { mode: "forbidden" as const, heading: "Admin Access Forbidden" },
   ])(
     "closes protected administrator content after a %s status mutation",
     async ({ mode, heading }) => {
@@ -863,14 +880,14 @@ describe("administrator review-state propagation", () => {
       installHttpMock();
       const adminView = renderAdmin();
       const admin = adminView.container;
-      await within(admin).findByText("Moderator workflow");
+      await within(admin).findByText("Moderator Workflow");
       fireEvent.change(getReviewStatusControl(admin), {
         target: { value: "awaiting_client_response" },
       });
       fireEvent.click(within(admin).getByRole("button", { name: "Update Status" }));
 
       expect(await within(admin).findByRole("heading", { name: heading })).toBeTruthy();
-      expect(within(admin).queryByText("Moderator workflow")).toBeNull();
+      expect(within(admin).queryByText("Moderator Workflow")).toBeNull();
       expect(currentCase.status).toBe("under_review");
       expect(currentTimeline).toHaveLength(1);
 
@@ -904,7 +921,7 @@ describe("administrator review-state propagation", () => {
     const queryClient = createQueryClient();
     const adminView = renderAdmin(queryClient);
     const admin = adminView.container;
-    await within(admin).findByText("Moderator workflow");
+    await within(admin).findByText("Moderator Workflow");
     fireEvent.change(getReviewStatusControl(admin), {
       target: { value: "awaiting_freelancer_response" },
     });

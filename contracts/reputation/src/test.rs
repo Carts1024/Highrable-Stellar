@@ -3,7 +3,7 @@
 extern crate std;
 
 use super::{
-    ReputationContract, ReputationContractClient, TCompletionRecord, TFreelancerStatsView,
+    Error, ReputationContract, ReputationContractClient, TCompletionRecord, TFreelancerStatsView,
 };
 use soroban_sdk::{
     testutils::{Address as _, MockAuth, MockAuthInvoke},
@@ -442,6 +442,180 @@ fn different_freelancers_have_separate_stats() {
             total_earned: 250,
             total_rating: 3,
             average_rating: 3,
+        }
+    );
+}
+
+fn try_record_completion_as_authorized(
+    context: &TestContext,
+    escrow_id: u64,
+    freelancer: &Address,
+    amount: i128,
+    rating: u32,
+) -> Result<bool, Error> {
+    let job_hash = hash_from_byte(&context.env, 90);
+    let review_hash = hash_from_byte(&context.env, 91);
+    let args = (
+        escrow_id,
+        context.client_address.clone(),
+        freelancer.clone(),
+        context.asset.clone(),
+        amount,
+        job_hash.clone(),
+        rating,
+        review_hash.clone(),
+    )
+        .into_val(&context.env);
+
+    match context
+        .client
+        .mock_auths(&[MockAuth {
+            address: &context.authorized_escrow_contract,
+            invoke: &MockAuthInvoke {
+                contract: &context.contract_id,
+                fn_name: "record_completion",
+                args,
+                sub_invokes: &[],
+            },
+        }])
+        .try_record_completion(
+            &escrow_id,
+            &context.client_address,
+            freelancer,
+            &context.asset,
+            &amount,
+            &job_hash,
+            &rating,
+            &review_hash,
+        ) {
+        Ok(result) => Ok(result.expect("record_completion should return a bool")),
+        Err(error) => Err(error.expect("record_completion should fail with a contract error")),
+    }
+}
+
+fn empty_stats() -> TFreelancerStatsView {
+    TFreelancerStatsView {
+        completed_jobs_count: 0,
+        total_earned: 0,
+        total_rating: 0,
+        average_rating: 0,
+    }
+}
+
+#[test]
+fn record_completion_before_initialize_returns_not_initialized() {
+    let context = setup();
+
+    let result = try_record_completion_as_authorized(&context, 60, &context.freelancer_a, 100, 5);
+
+    assert_eq!(result, Err(Error::NotInitialized));
+    assert!(!context.client.has_completion(&60));
+    assert_eq!(context.client.get_authorized_escrow_contract(), None);
+}
+
+#[test]
+fn rejected_completion_leaves_no_record_and_unchanged_stats() {
+    let context = setup();
+    context
+        .client
+        .initialize(&context.authorized_escrow_contract);
+
+    let invalid_rating =
+        try_record_completion_as_authorized(&context, 61, &context.freelancer_a, 100, 0);
+    let invalid_amount =
+        try_record_completion_as_authorized(&context, 62, &context.freelancer_a, 0, 4);
+
+    assert_eq!(invalid_rating, Err(Error::InvalidRating));
+    assert_eq!(invalid_amount, Err(Error::InvalidAmount));
+    assert_eq!(context.client.get_completion(&61), None);
+    assert_eq!(context.client.get_completion(&62), None);
+    assert_eq!(
+        context.client.get_freelancer_stats(&context.freelancer_a),
+        empty_stats()
+    );
+}
+
+#[test]
+fn average_rating_is_floored_integer_division() {
+    let context = setup();
+    context
+        .client
+        .initialize(&context.authorized_escrow_contract);
+
+    for (escrow_id, rating) in [(70_u64, 5_u32), (71, 4), (72, 4)] {
+        assert_eq!(
+            try_record_completion_as_authorized(
+                &context,
+                escrow_id,
+                &context.freelancer_a,
+                10,
+                rating
+            ),
+            Ok(true)
+        );
+    }
+
+    assert_eq!(
+        context.client.get_freelancer_stats(&context.freelancer_a),
+        TFreelancerStatsView {
+            completed_jobs_count: 3,
+            total_earned: 30,
+            total_rating: 13,
+            average_rating: 4,
+        }
+    );
+}
+
+#[test]
+fn completion_lookups_are_scoped_to_their_escrow_id() {
+    let context = setup();
+    context
+        .client
+        .initialize(&context.authorized_escrow_contract);
+
+    assert_eq!(
+        try_record_completion_as_authorized(&context, 80, &context.freelancer_a, 75, 3),
+        Ok(true)
+    );
+
+    assert!(context.client.has_completion(&80));
+    assert!(!context.client.has_completion(&81));
+    assert!(!context.client.has_completion(&79));
+    assert_eq!(context.client.get_completion(&81), None);
+    assert_eq!(
+        context.client.get_freelancer_stats(&context.freelancer_b),
+        empty_stats()
+    );
+    let stored = context
+        .client
+        .get_completion(&80)
+        .expect("completion 80 should exist");
+    assert_eq!(stored.escrow_id, 80);
+    assert_eq!(stored.freelancer, context.freelancer_a);
+}
+
+#[test]
+fn earnings_overflow_rolls_back_the_completion_record() {
+    let context = setup();
+    context
+        .client
+        .initialize(&context.authorized_escrow_contract);
+
+    assert_eq!(
+        try_record_completion_as_authorized(&context, 90, &context.freelancer_a, i128::MAX, 5),
+        Ok(true)
+    );
+    let overflow = try_record_completion_as_authorized(&context, 91, &context.freelancer_a, 1, 5);
+
+    assert_eq!(overflow, Err(Error::ArithmeticOverflow));
+    assert!(!context.client.has_completion(&91));
+    assert_eq!(
+        context.client.get_freelancer_stats(&context.freelancer_a),
+        TFreelancerStatsView {
+            completed_jobs_count: 1,
+            total_earned: i128::MAX,
+            total_rating: 5,
+            average_rating: 5,
         }
     );
 }

@@ -24,6 +24,10 @@ const config = {
   reputationContractId: contract,
   readSourceAccount: client,
 };
+const syncScope = {
+  expectedEscrowContractId: contract,
+  expectedNetworkPassphrase: config.networkPassphrase,
+};
 
 function escrow() {
   return {
@@ -152,6 +156,53 @@ describe("Deliverable 2 C19 RPC normalization", () => {
 });
 
 describe("Deliverable 2 C19 sync recovery", () => {
+  it.each([
+    [
+      "contract",
+      { ...syncScope, expectedEscrowContractId: StrKey.encodeContract(Buffer.alloc(32, 4)) },
+    ],
+    [
+      "network passphrase",
+      { ...syncScope, expectedNetworkPassphrase: "Public Global Stellar Network ; September 2015" },
+    ],
+  ])(
+    "rejects a mismatched %s scope without reading RPC or writing Convex",
+    async (_scope, expectedScope) => {
+      const t = convexTest(schema, modules);
+      const fixture = await seedDisputeFixture(t, { parentType: "milestone" });
+      await t.run(({ db }) => db.patch(fixture.escrowId, { escrowId: "42" }));
+      vi.stubEnv("STELLAR_RPC_URL", "");
+      const before = await t.run(async ({ db }) => ({
+        escrow: await db.get(fixture.escrowId),
+        job: await db.get(fixture.jobId),
+        milestone: fixture.milestoneId ? await db.get(fixture.milestoneId) : null,
+      }));
+      const getAccount = rpc.Server.prototype.getAccount;
+      const simulate = vi.spyOn(rpc.Server.prototype, "simulateTransaction");
+
+      expect(
+        await t.action(api.sync.syncEscrowStatus, {
+          escrowId: "42",
+          ...expectedScope,
+        }),
+      ).toMatchObject({
+        ok: false,
+        reason: "contract_config_mismatch",
+        escrowId: "42",
+      });
+
+      expect(getAccount).not.toHaveBeenCalled();
+      expect(simulate).not.toHaveBeenCalled();
+      expect(
+        await t.run(async ({ db }) => ({
+          escrow: await db.get(fixture.escrowId),
+          job: await db.get(fixture.jobId),
+          milestone: fixture.milestoneId ? await db.get(fixture.milestoneId) : null,
+        })),
+      ).toEqual(before);
+    },
+  );
+
   it.each(["micro_gig", "milestone"] as const)(
     "preserves %s state on an unreadable read and recovers on a matching read",
     async (parentType) => {
@@ -164,7 +215,9 @@ describe("Deliverable 2 C19 sync recovery", () => {
         : null;
       const simulate = vi.spyOn(rpc.Server.prototype, "simulateTransaction");
       simulate.mockResolvedValueOnce(rpcResult({ ...escrow(), escrow_id: 43n }));
-      expect(await t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).toMatchObject({
+      expect(
+        await t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...syncScope }),
+      ).toMatchObject({
         ok: false,
         reason: "onchain_read_failed",
       });
@@ -176,7 +229,9 @@ describe("Deliverable 2 C19 sync recovery", () => {
       }
 
       simulate.mockResolvedValueOnce(rpcResult(escrow()));
-      expect(await t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).toMatchObject({
+      expect(
+        await t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...syncScope }),
+      ).toMatchObject({
         ok: true,
         changed: true,
         newStatus: "disputed",
@@ -189,7 +244,9 @@ describe("Deliverable 2 C19 sync recovery", () => {
         (await t.run(({ db }) => db.get(fixture.escrowId)))?.lastSyncErrorMessage,
       ).toBeUndefined();
       simulate.mockResolvedValueOnce(rpcResult({ ...escrow(), status: ["Released"] }));
-      expect(await t.action(api.sync.syncEscrowStatus, { escrowId: "42" })).toMatchObject({
+      expect(
+        await t.action(api.sync.syncEscrowStatus, { escrowId: "42", ...syncScope }),
+      ).toMatchObject({
         ok: false,
         reason: "unsafe_status_downgrade",
       });

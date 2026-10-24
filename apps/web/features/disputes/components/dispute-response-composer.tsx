@@ -64,14 +64,14 @@ export function DisputeResponseComposer({
 
   return (
     <form
-      className="space-y-3 rounded-lg border border-[#e8e8e8] bg-white p-4"
+      className="space-y-3 rounded-lg border p-4"
       aria-describedby={error ? errorId : undefined}
       onSubmit={(event) => {
         event.preventDefault();
         void handleSubmit();
       }}
     >
-      <h2 className="font-mono text-xs text-[#5f5f5f] uppercase">Add response</h2>
+      <h2 className="hr-text-primary text-sm font-semibold">Add Response</h2>
       <label htmlFor="dispute-response-message" className="block text-sm text-[#3f3f3f]">
         Response
       </label>
