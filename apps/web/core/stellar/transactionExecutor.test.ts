@@ -70,22 +70,39 @@ afterEach(() => {
 describe("shared Highrable transaction executor", () => {
   it("routes external wallets through the classic source and preserves callbacks", async () => {
     const walletAddress = `G${"B".repeat(55)}`;
+    const preSignCheck = vi.fn(async () => undefined);
 
     await executeHighrableContractCall({
       ...sharedParams,
       walletAddress,
       walletType: "external_wallet",
+      preSignCheck,
     });
 
     expect(runtime.invokeContract).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceAddress: walletAddress,
+        preSignCheck,
         operationId: sharedParams.operationId,
         onSigned: sharedParams.onSigned,
         onPhase: sharedParams.onPhase,
       }),
     );
     expect(runtime.executeWithPasskeySmartAccount).not.toHaveBeenCalled();
+  });
+
+  it("runs pre-sign checks before passkey execution", async () => {
+    const preSignCheck = vi.fn(async () => undefined);
+
+    await executeHighrableContractCall({
+      ...sharedParams,
+      walletAddress: `C${"D".repeat(55)}`,
+      walletType: "passkey_smart_account",
+      preSignCheck,
+    });
+
+    expect(preSignCheck).toHaveBeenCalledOnce();
+    expect(runtime.executeWithPasskeySmartAccount).toHaveBeenCalledOnce();
   });
 
   it("routes passkey wallets as contract actors and preserves signed identity callbacks", async () => {

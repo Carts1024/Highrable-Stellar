@@ -165,6 +165,62 @@ describe("invokeContract execution phases and recovery identity", () => {
     expect(runtime.sendTransaction).not.toHaveBeenCalled();
   });
 
+  it("runs a pre-sign check alongside transaction preparation and waits for both", async () => {
+    let releaseCheck: (() => void) | undefined;
+    let markCheckStarted: (() => void) | undefined;
+    let markPreparationStarted: (() => void) | undefined;
+    const checkStarted = new Promise<void>((resolve) => {
+      markCheckStarted = resolve;
+    });
+    const preparationStarted = new Promise<void>((resolve) => {
+      markPreparationStarted = resolve;
+    });
+    const checkGate = new Promise<void>((resolve) => {
+      releaseCheck = resolve;
+    });
+    const preSignCheck = vi.fn(async () => {
+      markCheckStarted?.();
+      await checkGate;
+    });
+    runtime.prepareTransaction.mockImplementationOnce(async () => {
+      markPreparationStarted?.();
+      return { toXDR: () => "prepared-xdr" };
+    });
+    const signTransaction = vi.fn().mockResolvedValue("signed-xdr");
+
+    const invocation = invokeContract({
+      ...invokeParams,
+      signTransaction,
+      preSignCheck,
+    });
+
+    await Promise.all([checkStarted, preparationStarted]);
+    expect(signTransaction).not.toHaveBeenCalled();
+
+    releaseCheck?.();
+    await invocation;
+
+    expect(preSignCheck).toHaveBeenCalledOnce();
+    expect(signTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("does not request a wallet signature when a pre-sign check fails", async () => {
+    const signTransaction = vi.fn();
+
+    await expect(
+      invokeContract({
+        ...invokeParams,
+        signTransaction,
+        preSignCheck: async () => {
+          throw new Error("Insufficient USDC balance.");
+        },
+      }),
+    ).rejects.toThrow("Insufficient USDC balance.");
+
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(runtime.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it("keeps the local hash when signed-identity persistence fails", async () => {
     await expect(
       invokeContract({

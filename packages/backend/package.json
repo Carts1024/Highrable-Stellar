@@ -5,8 +5,10 @@
   "scripts": {
     "dashboard": "convex dashboard",
     "dev": "convex dev",
+    "lint:check": "oxlint convex tests",
+    "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit"
+    "typecheck": "tsc --project convex/tsconfig.json --noEmit && tsc --project tests/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@convex-dev/resend": "^0.2.4",
