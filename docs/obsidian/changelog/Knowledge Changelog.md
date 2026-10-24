@@ -8,6 +8,10 @@ source_of_truth: repository
 
 # Knowledge Changelog
 
+## 2026-10-24
+
+- Added GitHub Actions CI with read-only lint/type checks, web/backend/deployment-identity tests, synthetic local-only web build configuration, changed-file formatting, and locked Soroban tests/WASM builds. Added a serialized manual production release that verifies Testnet/Convex targeting before deploying Convex and publishing Vercel prebuilt output. Documented GitHub/Vercel activation, the required `CI / required` branch check, partial-failure recovery, and the unverified hosted activation boundary in [[Development Guide]], [[operations/Testing]], [[operations/Environment Variables]], [[operations/Deployment]], and [[Current System State]].
+
 ## 2026-10-23
 
 - Added automatic administrator recovery for successful prior `resolve_dispute` transactions when Stellar is terminal but Convex still shows the escrow disputed. The server discovers the call in the assigned admin's Horizon history, uses the saved dispute-mark hash as a ledger anchor when available, verifies the exact call through RPC/current escrow state, and uses normal Convex bookkeeping without asking for a hash or resubmitting. Testnet evidence for escrow 24 and bounded-history limitations are recorded in [[evidence/Admin-Resolution External Transaction Recovery Evidence]], [[backend/Admin and Server Routes]], [[data/State Machines]], and [[workflows/Debugging]].

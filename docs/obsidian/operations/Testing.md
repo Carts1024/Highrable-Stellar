@@ -14,13 +14,21 @@ The Deliverable 2 C19–C24 final local run passes 346 web tests, 361 backend te
 
 Deliverable 2 C22 extends participant integration coverage for revoked access during writes, stale wallet/case results, independent accessible form recovery, and saved-hash refresh without resubmission. The participant and attachment suites pass 60 tests across 10 files at this checkpoint; see [C22 evidence](../../instawards/Deliverable-2-C22-Participant-Integration-Evidence.md). This is local mocked transport/component evidence.
 
-| Layer | Command/location | Scope |
-| --- | --- | --- |
-| Web unit/component tests | `pnpm --filter web test` | Vitest suite under `apps/web`. |
-| Backend Convex tests | `pnpm --filter @repo/backend test` | In-memory `convex-test` regression suite under `packages/backend/tests/`, using the real schema and explicit Convex module map. |
-| Type/lint/build checks | `pnpm build`, `pnpm lint:fix` | Next build, TypeScript, oxlint/oxfmt through package scripts. |
-| Soroban contract tests | `cd contracts && cargo test` | Escrow/reputation behavior using Soroban test utilities. |
-| Deployment verification | `pnpm contracts:verify:testnet` | Live testnet wiring/admin/allowlist checks; requires Stellar CLI identity and network access. |
+| Layer                    | Command/location                   | Scope                                                                                                                           |
+| ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Web unit/component tests | `pnpm --filter web test`           | Vitest suite under `apps/web`.                                                                                                  |
+| Backend Convex tests     | `pnpm --filter @repo/backend test` | In-memory `convex-test` regression suite under `packages/backend/tests/`, using the real schema and explicit Convex module map. |
+| Type/lint/build checks   | `pnpm build`, `pnpm lint:fix`      | Next build, TypeScript, oxlint/oxfmt through package scripts.                                                                   |
+| Soroban contract tests   | `cd contracts && cargo test`       | Escrow/reputation behavior using Soroban test utilities.                                                                        |
+| Deployment verification  | `pnpm contracts:verify:testnet`    | Live testnet wiring/admin/allowlist checks; requires Stellar CLI identity and network access.                                   |
+
+## GitHub Actions checks
+
+`.github/workflows/ci.yml` runs for pull requests, pushes to `main`, and reusable workflow calls. It runs read-only Oxlint and TypeScript checks for web, Convex backend source and tests, shared UI, and the Convex client; web and backend Vitest suites; deployment-identity tests; the web production build with loopback-only synthetic service URLs; changed-file formatting; and the locked Rust workspace tests plus three Stellar WASM builds. It does not use deployment credentials or contact live Convex/Stellar services. Existing Oxlint warnings do not fail lint, and formatting checks only changed supported files.
+
+The stable aggregate check is `CI / required`; configure branch protection to require that exact check. Manual production releases call the same CI workflow for the dispatch commit before deployment. Contract artifacts include `highrable_escrow.wasm`, `highrable_reputation.wasm`, `highrable_registry.wasm`, `SHA256SUMS`, and `build-metadata.json`; GitHub retains them for 14 days.
+
+The changed-file comparison and release-sequencing tests run with `node --test scripts/ci/check-changed-format.test.mjs scripts/ci/select-comparison-base.test.mjs scripts/ci/deploy-production.test.mjs`. They cover PR merge-base, push previous-commit, reusable-workflow parent selection, deletions, renames, spaces, empty changes, release guards, build/deploy failures, and the rule that Vercel publication follows a successful Convex build/deploy command.
 
 ## Backend dispute regression harness
 
@@ -93,6 +101,7 @@ The backend now has a focused Vitest 5 + convex-test harness using the edge-runt
 C22 adds a protected-page integration suite at `apps/web/features/admin/admin-protected-pages.integration.test.tsx` using the real `AdminSessionGate`, TanStack Query, and admin HTTP client with mocked wallet infrastructure and HTTP responses. It covers pre-verification read blocking, wallet mismatch, passkey mode, page-level 401/403 cache eviction, wallet changes, disconnects, stale-response isolation, and retryable reads without writes.
 
 `apps/web/features/admin/admin-dispute-detail-page.test.tsx` now drives the real settlement coordinator with deferred phase and signed-identity callbacks. It covers preparation through final recording, duplicate-click protection, explorer links, signing/simulation retry, verified failure retry, signed/submission/confirmation/final-recording uncertainty, pending/reconciliation failure, read-only refresh retry, and 0/1/9999/10000-bps submission boundaries. The focused administrator suite passes 135 tests; the full web suite passes 211 tests. These are mocked component/integration tests, not live Testnet end-to-end evidence.
+
 ## C21 reconciliation coverage
 
 `packages/backend/tests/disputes/c21.reconciliation.test.ts` adds deterministic retry/reconciliation integration coverage on top of the existing C13 and C17 suites. It exercises dispute creation, marking callbacks, `escrows.updateEscrowStatus`/`milestones.updateMilestoneEscrowStatus`, administrator settlement callbacks, `syncMutations`, parent-job aggregation, transaction records, and dispute side effects. The suite covers micro-gigs, milestones, sibling isolation, all three settlement outcomes, callback conflicts/replays, settlement retry/uncertainty, and atomic rollback. Test-only helpers provide scoped admin membership and sibling milestones; no generated Convex files are edited.

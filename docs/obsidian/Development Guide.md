@@ -17,6 +17,7 @@ source_of_truth: repository
 - Lint/format: `oxlint` and `oxfmt`.
 - Git hooks: Husky is configured at the root.
 - Contracts: Rust workspace in `contracts/`, Soroban SDK `22.0.0`, built with the Stellar CLI.
+- GitHub Actions: CI uses Node `24`, the manifest-pinned pnpm version, Rust `1.98.1`, and Stellar CLI `28.0.0`.
 
 Use `GEMINI.md` for the repository’s existing conventions. Its older Node/pnpm prerequisite text is superseded by the root manifest.
 
@@ -41,6 +42,14 @@ pnpm --filter web lint:fix
 pnpm --filter web test
 pnpm --filter @repo/backend lint:fix
 pnpm --filter @repo/backend test
+pnpm --filter web lint:check
+pnpm --filter web typecheck
+pnpm --filter @repo/backend lint:check
+pnpm --filter @repo/backend typecheck
+pnpm --filter @repo/ui lint:check
+pnpm --filter @repo/ui typecheck
+pnpm --filter @repo/convex-client lint:check
+pnpm --filter @repo/convex-client typecheck
 pnpm exec tsc --project packages/backend/convex/tsconfig.json --noEmit
 pnpm exec tsc --project packages/backend/tests/tsconfig.json --noEmit
 ```
@@ -48,14 +57,18 @@ pnpm exec tsc --project packages/backend/tests/tsconfig.json --noEmit
 `web` tests use Vitest. Backend linting also type-checks `packages/backend/convex/tsconfig.json`.
 Backend dispute tests use `convex-test` and Vitest in `packages/backend/tests/`; they run against the real composed Convex schema in an Edge Runtime in-memory database. Keep fixtures deterministic and seed prerequisite records directly rather than calling unrelated production setup functions. Use synthetic administrator environment values only inside tests.
 
+The read-only `lint:check` and `typecheck` scripts are used by CI. Web typechecking generates Next.js route types first; backend typechecking checks both Convex source and tests. Changed-file formatting runs `node scripts/ci/check-changed-format.mjs` with `FORMAT_BASE_SHA` and `FORMAT_HEAD_SHA`; it skips deletions and unsupported extensions and safely handles renamed paths and spaces. CI does not run the mutating `lint:fix` scripts.
+
 ## Contracts
 
 ```bash
-pnpm contracts:build
-cd contracts && cargo test
+cargo test --workspace --locked --manifest-path contracts/Cargo.toml
+stellar contract build --manifest-path contracts/Cargo.toml --package highrable-escrow --locked
+stellar contract build --manifest-path contracts/Cargo.toml --package highrable-reputation --locked
+stellar contract build --manifest-path contracts/Cargo.toml --package highrable-registry --locked
 ```
 
-These commands build/test locally. Deployment and verification commands are network-changing or chain-reading operations; see [[operations/Deployment]].
+CI runs the locked workspace test and builds all three WASM contracts. It uploads the three WASM files, SHA-256 checksums, and source/toolchain metadata for 14 days. These commands do not deploy contracts. Deployment and verification commands are network-changing or chain-reading operations; see [[operations/Deployment]].
 
 ## Focused Exploration
 

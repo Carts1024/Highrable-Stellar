@@ -41,7 +41,23 @@ The older command below uses contract invocation and must not be treated as a re
 
 ## Web/backend release
 
-The web package has `build`, `start`, and `dev` scripts. The backend package has Convex `dev` and dashboard scripts. Hosting/provider deployment configuration is not fully documented in this repository.
+The web package has `build`, `start`, and `dev` scripts. The backend package has Convex `dev` and dashboard scripts. `.github/workflows/deploy.yml` adds a manual production release for the existing Vercel web project and existing Convex Testnet deployment; Soroban contracts are built and tested by CI but are never deployed by this workflow.
+
+### One-time provider and repository setup
+
+1. Create a GitHub repository environment named `production`. Add `VERCEL_TOKEN` and a production-only `CONVEX_DEPLOY_KEY` under environment secrets. Add `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and `EXPECTED_CONVEX_URL` as environment variables. The expected URL must be the Convex deployment selected by the production deploy key.
+2. Configure the Vercel project Root Directory as `apps/web` and keep the pnpm workspace root/lockfile available so imports from `packages/ui`, `packages/backend`, and `packages/convex-client` resolve. The workflow invokes Vercel CLI from the monorepo root with `--cwd apps/web`.
+3. Disable independent automatic Git deployments for this Vercel project. The release workflow is the only production publisher; preview deployments can remain separately configured.
+4. Configure branch protection for `main` to require the stable status check `CI / required`.
+5. Ensure the Vercel production environment selects `NEXT_PUBLIC_STELLAR_NETWORK=testnet` and points `NEXT_PUBLIC_CONVEX_URL` to the expected Convex deployment. Verify the existing deployment key is for that same deployment.
+
+### Manual release and recovery
+
+Run **Actions → Production Release → Run workflow** and select `main`. The workflow captures the dispatch commit SHA, validates that the ref is `main`, reruns CI for that immutable commit, then enters the GitHub `production` environment. Vercel pulls production settings; the guard checks Testnet and the Convex target before any deployment. The installed backend Convex CLI deploys with `--cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL` and runs `vercel build --prod --yes --cwd apps/web` from the repository root. Only after the command succeeds does the workflow publish `apps/web/.vercel/output` with `vercel deploy --prebuilt --prod`. The Vercel CLI is pinned to `63.1.2`.
+
+The run summary records source SHA, CI/guard/deploy outcomes, and the deployment URL when available. Pulled `.vercel/.env.production.local` is removed after the release attempt. It and the Vercel build output are never uploaded as GitHub artifacts.
+
+A Convex deploy can succeed before Vercel publication fails. In that case the run summary identifies the partial result and the new backend may already be active. Keep backend releases backward-compatible with the currently published frontend. Rerun the release against the same commit after resolving the Vercel failure or publish that commit through the approved Vercel process. Do not automatically roll back Convex data or schema. The workflow does not deploy Soroban contracts, migrate data, or change the Testnet network scope.
 
 `deployments/testnet.json` and `deployments/mainnet.json` are public deployment records, not secrets. The smart-account deployment records are placeholders and do not establish passkey artifact deployment or audit status.
 
@@ -49,7 +65,7 @@ See [[contracts/Deployment Artifacts]], [[stellar/Network Configuration]], and [
 
 ## Status
 
-Status: Production hosting/release automation is not documented yet. The repository documents contract deployment scripts and readiness checks, but not a complete application CI/CD or rollback runbook.
+Status: CI and manual application release automation are implemented. GitHub environment configuration, Vercel project settings, branch protection, and the first hosted release remain operator activation steps. No hosted run or first live release is claimed by local validation.
 
 ## Multiple dispute admins
 
