@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@/core/analytics/google-analytics";
 import { AppProviders } from "@/core/providers/app-providers";
 import {
   buildCanonicalUrl,
@@ -7,6 +8,7 @@ import {
   SeoJsonLd,
 } from "@/core/seo";
 import { AppShell } from "@/features/common";
+import { Analytics } from "@vercel/analytics/next";
 import "@repo/ui/globals.css";
 import type { Metadata } from "next";
 
@@ -50,13 +52,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <AppProviders>
           <SeoJsonLd id="website-json-ld" data={buildWebsiteJsonLd()} />
           <SeoJsonLd id="organization-json-ld" data={buildOrganizationJsonLd()} />
           <AppShell>{children}</AppShell>
         </AppProviders>
+        <GoogleAnalytics />
+        <Analytics />
       </body>
     </html>
   );

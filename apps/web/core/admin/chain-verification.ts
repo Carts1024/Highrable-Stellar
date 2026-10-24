@@ -4,6 +4,7 @@ import {
   BASE_FEE,
   Contract,
   FeeBumpTransaction,
+  Horizon,
   nativeToScVal,
   rpc,
   scValToNative,
@@ -12,6 +13,7 @@ import {
 } from "@stellar/stellar-sdk";
 
 type TAdminChainConfig = {
+  readonly horizonUrl: string;
   readonly rpcUrl: string;
   readonly networkPassphrase: string;
   readonly network: string;
@@ -29,22 +31,30 @@ type TExpectedAdminCall = {
 export type TAdminChainOperationStatus = "succeeded" | "failed" | "pending" | "expired";
 
 function getAdminChainConfig(): TAdminChainConfig {
+  const horizonUrl = env.NEXT_PUBLIC_STELLAR_HORIZON_URL?.trim();
   const rpcUrl = env.NEXT_PUBLIC_STELLAR_RPC_URL?.trim();
   const networkPassphrase = env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE?.trim();
   const network = env.NEXT_PUBLIC_STELLAR_NETWORK?.trim().toLowerCase();
   const escrowContractId = env.NEXT_PUBLIC_ESCROW_CONTRACT_ID?.trim();
-  if (!rpcUrl || !networkPassphrase || !network || !escrowContractId) {
+  if (!horizonUrl || !rpcUrl || !networkPassphrase || !network || !escrowContractId) {
     throw new Error(
       "Admin chain verification requires the configured Stellar network and escrow contract.",
     );
   }
-  return { rpcUrl, networkPassphrase, network, escrowContractId };
+  return { horizonUrl, rpcUrl, networkPassphrase, network, escrowContractId };
 }
 
 function createRpcServer(config: TAdminChainConfig): rpc.Server {
   return new rpc.Server(config.rpcUrl, {
     allowHttp: config.rpcUrl.startsWith("http://"),
     timeout: 30_000,
+  });
+}
+
+function createHorizonServer(config: TAdminChainConfig): Horizon.Server {
+  return new Horizon.Server(config.horizonUrl, {
+    allowHttp: config.horizonUrl.startsWith("http://"),
+    appName: "Highrable Admin Recovery",
   });
 }
 
@@ -96,6 +106,40 @@ function normalizeInteger(value: unknown): bigint {
     return BigInt(value);
   }
   throw new Error("Transaction invocation contains an unreadable integer argument.");
+}
+
+function matchesResolutionInvocation(
+  envelope: xdr.TransactionEnvelope,
+  config: TAdminChainConfig,
+  actorWallet: string,
+  escrowId: string,
+): boolean {
+  try {
+    const transaction = getTransactionBody(envelope);
+    const operations = transaction.operations();
+    if (
+      operations.length !== 1 ||
+      operations[0]?.body().switch() !== xdr.OperationType.invokeHostFunction()
+    ) {
+      return false;
+    }
+
+    const invocation = operations[0]!.body().invokeHostFunctionOp().hostFunction().invokeContract();
+    const args = invocation.args().map((arg) => scValToNative(arg));
+    const freelancerShareBps = normalizeInteger(args[2]);
+    return (
+      Address.fromScAddress(invocation.contractAddress()).toString().toUpperCase() ===
+        config.escrowContractId.toUpperCase() &&
+      invocation.functionName().toString() === "resolve_dispute" &&
+      args.length === 4 &&
+      normalizeAddress(args[0]) === actorWallet.trim().toUpperCase() &&
+      normalizeInteger(args[1]) === BigInt(escrowId) &&
+      freelancerShareBps >= 0n &&
+      freelancerShareBps <= 10_000n
+    );
+  } catch {
+    return false;
+  }
 }
 
 function assertExpectedInvocation(
@@ -197,6 +241,174 @@ export async function verifyAdminChainOperation(args: {
   }
   assertExpectedInvocation(response.envelopeXdr, config, args.expected);
   return response.status === rpc.Api.GetTransactionStatus.SUCCESS ? "succeeded" : "failed";
+}
+
+export async function verifySuccessfulAdminResolutionTransaction(args: {
+  readonly transactionHash: string;
+  readonly network: string;
+  readonly contractId: string;
+  readonly actorWallet: string;
+  readonly escrowId: string;
+}): Promise<{ freelancerShareBps: number; transactionValidUntil: number }> {
+  const config = getAdminChainConfig();
+  assertAdminChainScope(config, args.network, args.contractId);
+  if (!/^[0-9a-fA-F]{64}$/.test(args.transactionHash)) {
+    throw new Error("Settlement transaction hash must be a 64-character hexadecimal hash.");
+  }
+
+  const response = await createRpcServer(config).getTransaction(args.transactionHash);
+  if (response.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+    throw new Error("Stellar does not report this resolution transaction as successful.");
+  }
+
+  const transaction = TransactionBuilder.fromXDR(response.envelopeXdr, config.networkPassphrase);
+  const expectedHash = args.transactionHash.toLowerCase();
+  if (
+    transaction.hash().toString("hex") !== expectedHash &&
+    !(
+      transaction instanceof FeeBumpTransaction &&
+      transaction.innerTransaction.hash().toString("hex") === expectedHash
+    )
+  ) {
+    throw new Error("Stellar returned a transaction that does not match the supplied hash.");
+  }
+
+  const envelope = transaction.toEnvelope();
+  const txBody = getTransactionBody(envelope);
+  const operations = txBody.operations();
+  if (
+    operations.length !== 1 ||
+    operations[0]?.body().switch() !== xdr.OperationType.invokeHostFunction()
+  ) {
+    throw new Error("Transaction does not contain a single Soroban resolution call.");
+  }
+
+  const invocation = operations[0]!.body().invokeHostFunctionOp().hostFunction().invokeContract();
+  const contractId = Address.fromScAddress(invocation.contractAddress()).toString().toUpperCase();
+  const argsNative = invocation.args().map((value) => scValToNative(value));
+  if (
+    contractId !== config.escrowContractId.toUpperCase() ||
+    invocation.functionName().toString() !== "resolve_dispute" ||
+    argsNative.length !== 4 ||
+    normalizeAddress(argsNative[0]) !== args.actorWallet.trim().toUpperCase() ||
+    normalizeInteger(argsNative[1]) !== BigInt(args.escrowId)
+  ) {
+    throw new Error("Transaction does not match this dispute's escrow and assigned admin.");
+  }
+
+  const freelancerShareBps = normalizeInteger(argsNative[2]);
+  if (freelancerShareBps < 0n || freelancerShareBps > 10_000n) {
+    throw new Error("Settlement transaction contains an invalid freelancer share.");
+  }
+
+  const submittedTransaction =
+    transaction instanceof FeeBumpTransaction ? transaction.innerTransaction : transaction;
+  const transactionValidUntil = Number(submittedTransaction.timeBounds?.maxTime ?? Number.NaN);
+  if (!Number.isSafeInteger(transactionValidUntil) || transactionValidUntil <= 0) {
+    throw new Error("Settlement transaction does not contain a usable expiry.");
+  }
+
+  return { freelancerShareBps: Number(freelancerShareBps), transactionValidUntil };
+}
+
+const ADMIN_RESOLUTION_HISTORY_PAGE_SIZE = 200;
+const ADMIN_RESOLUTION_HISTORY_SCAN_LIMIT = 2_000;
+
+/**
+ * Finds a prior resolution for this unique escrow in the assigned admin's Horizon
+ * transaction history, then verifies its exact hash and invocation through Soroban RPC.
+ */
+export async function findSuccessfulAdminResolutionTransaction(args: {
+  readonly network: string;
+  readonly contractId: string;
+  readonly actorWallet: string;
+  readonly escrowId: string;
+  readonly searchAfterTransactionHash?: string;
+}): Promise<{
+  readonly transactionHash: string;
+  readonly freelancerShareBps: number;
+  readonly transactionValidUntil: number;
+} | null> {
+  const config = getAdminChainConfig();
+  assertAdminChainScope(config, args.network, args.contractId);
+  const actorWallet = new Address(args.actorWallet.trim().toUpperCase()).toString();
+  if (!/^\d+$/.test(args.escrowId)) {
+    throw new Error("Dispute escrow ID must be a nonnegative integer.");
+  }
+
+  const horizon = createHorizonServer(config);
+  let searchAfterLedger: number | null = null;
+  if (
+    args.searchAfterTransactionHash &&
+    /^[0-9a-fA-F]{64}$/.test(args.searchAfterTransactionHash)
+  ) {
+    try {
+      const disputeMark = await horizon
+        .transactions()
+        .transaction(args.searchAfterTransactionHash.toLowerCase())
+        .call();
+      if (Number.isSafeInteger(disputeMark.ledger_attr) && disputeMark.ledger_attr > 0) {
+        searchAfterLedger = disputeMark.ledger_attr;
+      }
+    } catch {
+      // The anchor only narrows the scan. If Horizon cannot load it, scan the bounded recent history.
+    }
+  }
+
+  const history = horizon
+    .transactions()
+    .forAccount(actorWallet)
+    .order("desc")
+    .limit(ADMIN_RESOLUTION_HISTORY_PAGE_SIZE);
+  let page = await history.call();
+  let scannedRecords = 0;
+
+  while (page.records.length > 0 && scannedRecords < ADMIN_RESOLUTION_HISTORY_SCAN_LIMIT) {
+    for (const record of page.records.slice(
+      0,
+      ADMIN_RESOLUTION_HISTORY_SCAN_LIMIT - scannedRecords,
+    )) {
+      if (
+        searchAfterLedger !== null &&
+        Number.isSafeInteger(record.ledger_attr) &&
+        record.ledger_attr < searchAfterLedger
+      ) {
+        return null;
+      }
+      scannedRecords += 1;
+      if (record.successful !== true || !/^[0-9a-fA-F]{64}$/.test(record.hash)) {
+        continue;
+      }
+
+      let envelope: xdr.TransactionEnvelope;
+      try {
+        envelope = xdr.TransactionEnvelope.fromXDR(record.envelope_xdr, "base64");
+      } catch {
+        continue;
+      }
+      if (!matchesResolutionInvocation(envelope, config, actorWallet, args.escrowId)) continue;
+
+      const transactionHash = record.hash.toLowerCase();
+      const verified = await verifySuccessfulAdminResolutionTransaction({
+        transactionHash,
+        network: args.network,
+        contractId: args.contractId,
+        actorWallet,
+        escrowId: args.escrowId,
+      });
+      return { transactionHash, ...verified };
+    }
+
+    if (
+      page.records.length < ADMIN_RESOLUTION_HISTORY_PAGE_SIZE ||
+      scannedRecords >= ADMIN_RESOLUTION_HISTORY_SCAN_LIMIT
+    ) {
+      break;
+    }
+    page = await page.next();
+  }
+
+  return null;
 }
 
 async function simulateContractRead<T>(args: {

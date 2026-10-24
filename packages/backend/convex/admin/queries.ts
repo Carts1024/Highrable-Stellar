@@ -5,14 +5,16 @@ import type { QueryCtx } from "../_generated/server";
 
 import { query } from "../_generated/server";
 import { assertAdminApiSecret, isConfiguredAdminWallet } from "../_shared/adminAuth";
-import { ForbiddenError } from "../_shared/errors";
+import { BadRequestError, ConflictError, ForbiddenError } from "../_shared/errors";
+import { normalizeWalletAddress } from "../_shared/input";
+import { resolveCurrentDisputeWork, resolveDisputeParticipants } from "../disputes/helpers";
 import {
   DISPUTE_ON_CHAIN_STATUSES,
   DISPUTE_STATUSES,
   disputeOnChainStatusValidator,
   disputeStatusValidator,
 } from "../disputes/schema";
-import { ESCROW_STATUSES } from "../escrows/schema";
+import { ESCROW_STATUSES, escrowStatusValidator } from "../escrows/schema";
 import { JOB_STATUSES } from "../jobs/schema";
 import { REVISION_REQUEST_STATUSES } from "../revisions/schema";
 import { USER_ROLES } from "../users/schema";
@@ -128,16 +130,53 @@ async function listRecentDisputes(ctx: QueryCtx, limit: number): Promise<Doc<"di
     .slice(0, limit);
 }
 
-async function resolveAttachmentForAdmin(ctx: QueryCtx, attachmentId: Id<"attachments">) {
+async function resolveAttachmentForAdmin(
+  ctx: QueryCtx,
+  attachmentId: Id<"attachments">,
+  dispute: Doc<"disputes">,
+) {
   const attachment = await ctx.db.get(attachmentId);
-  if (!attachment) {
+  if (
+    !attachment ||
+    attachment.status !== "active" ||
+    attachment.parentType !== "dispute" ||
+    !attachment.parentId ||
+    ctx.db.normalizeId("disputes", attachment.parentId) !== dispute._id
+  ) {
     return null;
   }
 
-  return {
-    ...attachment,
-    url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
-  };
+  try {
+    await resolveCurrentDisputeWork(ctx, dispute);
+  } catch {
+    return null;
+  }
+
+  const expectedUploader =
+    attachment.ownerRole === "client"
+      ? dispute.clientWallet
+      : attachment.ownerRole === "freelancer"
+        ? dispute.freelancerWallet
+        : null;
+  if (
+    expectedUploader === null ||
+    normalizeWalletAddress(attachment.uploadedByWallet) !== normalizeWalletAddress(expectedUploader)
+  ) {
+    return null;
+  }
+
+  try {
+    const url = attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null;
+    if (attachment.storageId && url === null) {
+      return null;
+    }
+    return {
+      ...attachment,
+      url,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export const getAdminDashboardMetrics = query({
@@ -315,7 +354,7 @@ export const getAdminDispute = query({
           .take(300),
         Promise.all(
           dispute.evidenceAttachmentIds.map(async (attachmentId) =>
-            resolveAttachmentForAdmin(ctx, attachmentId),
+            resolveAttachmentForAdmin(ctx, attachmentId, dispute),
           ),
         ),
         ctx.db
@@ -334,7 +373,7 @@ export const getAdminDispute = query({
       timeline.map(async (event) => {
         const attachments = await Promise.all(
           event.attachmentIds.map(async (attachmentId) =>
-            resolveAttachmentForAdmin(ctx, attachmentId),
+            resolveAttachmentForAdmin(ctx, attachmentId, dispute),
           ),
         );
 
@@ -356,6 +395,105 @@ export const getAdminDispute = query({
       job,
       milestone,
       escrow,
+    };
+  },
+});
+
+export const getAdminSettlementPreflight = query({
+  args: {
+    adminWallet: v.string(),
+    adminApiSecret: v.string(),
+    disputeId: v.id("disputes"),
+  },
+  returns: v.object({
+    network: v.string(),
+    contractId: v.string(),
+    onChainEscrowId: v.string(),
+    disputeTxHash: v.optional(v.string()),
+    escrowStatus: escrowStatusValidator,
+    clientWallet: v.string(),
+    freelancerWallet: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const adminWallet = await assertDisputeAdminContext(ctx, args);
+    const dispute = await getDisputeOrThrow(ctx, args.disputeId);
+    assertAssignedDisputeAdmin(adminWallet, dispute);
+
+    const scope = getAdminScope();
+    if (!dispute.escrowId) {
+      throw new BadRequestError("Dispute escrow context is missing.");
+    }
+
+    const parent = await resolveDisputeParticipants(ctx, {
+      parentType: dispute.parentType,
+      parentId: dispute.parentId,
+      escrowId: dispute.escrowId,
+    });
+    if (parent.escrowId !== dispute.escrowId) {
+      throw new ConflictError("Dispute escrow does not match its persisted parent.");
+    }
+
+    const escrow = await ctx.db.get(parent.escrowId);
+    if (!escrow) {
+      throw new ConflictError("Escrow not found for dispute.");
+    }
+    const onChainEscrowId = escrow.escrowId.trim();
+    if (!onChainEscrowId) {
+      throw new ConflictError("The persisted escrow is missing its on-chain identity.");
+    }
+
+    if (
+      dispute.onChainEscrowId !== undefined &&
+      dispute.onChainEscrowId.trim() !== onChainEscrowId
+    ) {
+      throw new ConflictError("Dispute escrow ID does not match the persisted settlement escrow.");
+    }
+    if (
+      dispute.escrowContractId !== undefined &&
+      dispute.escrowContractId.trim() !== scope.contractId
+    ) {
+      throw new ConflictError(
+        "Dispute escrow contract ID does not match the persisted settlement escrow.",
+      );
+    }
+
+    const parentTypeMatches =
+      dispute.parentType === parent.parentType ||
+      (dispute.parentType === "job" && parent.parentType === "micro_gig");
+    if (!parentTypeMatches || dispute.parentId !== parent.parentId) {
+      throw new ConflictError("Dispute parent does not match the persisted settlement escrow.");
+    }
+
+    const populatedLinks: Array<[string, string | undefined, string | undefined]> = [
+      ["job", dispute.jobId, parent.jobId],
+      ["micro-gig", dispute.microGigId, parent.microGigId],
+      ["milestone", dispute.milestoneId, parent.milestoneId],
+      ["escrow", dispute.escrowId, parent.escrowId],
+      ["on-chain escrow", dispute.onChainEscrowId, onChainEscrowId],
+    ];
+    for (const [label, savedLink, currentLink] of populatedLinks) {
+      if (savedLink !== undefined && savedLink !== currentLink) {
+        throw new ConflictError(
+          `Dispute ${label} link does not match the persisted settlement escrow.`,
+        );
+      }
+    }
+
+    if (
+      normalizeWalletAddress(dispute.clientWallet) !== parent.clientWallet ||
+      normalizeWalletAddress(dispute.freelancerWallet) !== parent.freelancerWallet
+    ) {
+      throw new ConflictError("Dispute participants do not match the persisted settlement escrow.");
+    }
+
+    return {
+      network: scope.network,
+      contractId: scope.contractId,
+      onChainEscrowId,
+      ...(escrow.disputeTxHash ? { disputeTxHash: escrow.disputeTxHash } : {}),
+      escrowStatus: escrow.status,
+      clientWallet: escrow.clientWallet,
+      freelancerWallet: escrow.freelancerWallet!,
     };
   },
 });

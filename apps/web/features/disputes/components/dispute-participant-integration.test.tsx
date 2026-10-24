@@ -132,7 +132,12 @@ vi.mock("@/core/wallet/hooks/use-highrable-wallet-identity", () => ({
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({
     address: wallet.walletAddress,
-    walletState: { isConnected: true },
+    walletState: {
+      isConnected: true,
+      canWriteContracts: true,
+      network: "Test SDF Network ; September 2015",
+      isTestnet: true,
+    },
     signTransaction: vi.fn(),
   }),
 }));
@@ -204,7 +209,12 @@ vi.mock("@/features/attachments/components", () => ({
 vi.mock("@/features/attachments/lib", () => ({
   getReadableAttachmentError: (error: Error) => error.message,
 }));
-vi.mock("@/features/common", () => ({ showWarningToast: vi.fn() }));
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+  showWarningToast: vi.fn(),
+}));
 vi.mock("@/features/work-agreements/components", () => ({ AgreementReferenceCard: () => null }));
 vi.mock("@repo/ui/components/ui/button", () => ({
   Button: ({ children, asChild, ...props }: { children: ReactNode; asChild?: boolean }) =>
@@ -239,6 +249,7 @@ const dispute = {
   reasonCategory: "payment_release_disagreement",
   status: "open",
   onChainStatus: "marked",
+  onChainEscrowId: "chain-1",
   openedAt: 1,
   clientWallet: "GCLIENT",
   freelancerWallet: "GFREELANCER",
@@ -366,6 +377,41 @@ describe("participant detail integration and accessibility", () => {
         message: "Please review the invoice.",
       }),
     );
+  });
+
+  it("drives the real detail and timeline from failed marking through retry and confirmation", async () => {
+    const detailKey = detailArgs("dispute-1", "GCLIENT");
+    const timelineKey = timelineArgs("dispute-1", "GCLIENT");
+    setQueryResult("detail", detailKey, { ...dispute, onChainStatus: "mark_failed" });
+    setQueryResult("timeline", timelineKey, [timelineEvent("Historical marking failure.")]);
+    const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    markOnChain.mockRejectedValueOnce(new Error("wallet rejected signing"));
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("before submission"),
+    );
+    expect(markOnChain).toHaveBeenCalledOnce();
+
+    markOnChain.mockResolvedValueOnce({ txHash: "tx-confirmed" });
+    fireEvent.click(screen.getByRole("button", { name: "Retry escrow marking" }));
+    await waitFor(() => expect(mutations.markSucceeded).toHaveBeenCalledOnce());
+    expect(stellarOperations).toHaveLength(2);
+
+    setQueryResult("detail", detailKey, {
+      ...dispute,
+      onChainStatus: "marked",
+      transactionHash: "tx-confirmed",
+    });
+    setQueryResult("timeline", timelineKey, [
+      timelineEvent("Historical marking failure."),
+      timelineEvent("Marking confirmed."),
+    ]);
+    view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+    expect(screen.getByText("Historical marking failure.")).toBeTruthy();
+    expect(screen.getByText("Marking confirmed.")).toBeTruthy();
+    expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
   });
 
   it("hides both action forms when the case stops accepting participant submissions", () => {
@@ -853,6 +899,80 @@ describe("participant detail integration and accessibility", () => {
       consoleSpy.mockRestore();
     }
   });
+
+  it.each([
+    ["GCLIENT", "not_marked"],
+    ["GFREELANCER", "not_marked"],
+    ["GCLIENT", "marking"],
+    ["GFREELANCER", "marking"],
+    ["GCLIENT", "mark_failed"],
+    ["GFREELANCER", "mark_failed"],
+  ] as const)(
+    "D2 C24 reopens saved %s %s evidence without blind marking retry",
+    (participant, onChainStatus) => {
+      const hash = "e".repeat(64);
+      wallet.walletAddress = "GOUTSIDER";
+      setQueryResult("canView", permissionArgs("dispute-1", "GOUTSIDER"), {
+        allowed: false,
+        role: null,
+        reason: "Only participants may view this case.",
+      });
+      const view = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByRole("alert").textContent).toContain("do not have access");
+      expect(screen.queryByRole("list", { name: "Dispute evidence timeline" })).toBeNull();
+      expect(screen.queryByLabelText("Response")).toBeNull();
+
+      wallet.walletAddress = participant;
+      const savedEvent = {
+        ...timelineEvent("Saved marking attempt", participant),
+        type: "on_chain_mark_failed" as const,
+        transactionHash: hash,
+      };
+      setParticipantCase("dispute-1", participant, { timeline: [savedEvent] });
+      const savedCase = {
+        ...dispute,
+        onChainStatus,
+        transactionHash: hash,
+        onChainEscrowId: "chain-1",
+      };
+      setQueryResult("detail", detailArgs("dispute-1", participant), savedCase);
+      view.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByText("DSP-1")).toBeTruthy();
+      expect(screen.getByText("Saved marking attempt")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      expect(
+        screen
+          .getByRole("link", { name: "View transaction on Stellar Expert" })
+          .getAttribute("href"),
+      ).toContain(hash);
+
+      // Recreate the component with no browser-local operation state.
+      view.unmount();
+      const reopened = render(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      setQueryResult("detail", detailArgs("dispute-1", participant), {
+        ...savedCase,
+        onChainStatus: "marked",
+      });
+      setQueryResult("timeline", timelineArgs("dispute-1", participant), [
+        savedEvent,
+        {
+          ...timelineEvent("Saved operation confirmed", participant),
+          type: "on_chain_mark_succeeded",
+          transactionHash: hash,
+        },
+      ]);
+      reopened.rerender(createElement(DisputeDetailPanel, { disputeId: "dispute-1" }));
+      expect(screen.getByText("Escrow dispute marking is confirmed on Stellar.")).toBeTruthy();
+      expect(screen.getByText("Saved marking attempt")).toBeTruthy();
+      expect(screen.getByText("Saved operation confirmed")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Retry escrow marking" })).toBeNull();
+      expect(Object.values(mutations).every((mutation) => mutation.mock.calls.length === 0)).toBe(
+        true,
+      );
+      expect(stellarOperations).toHaveLength(0);
+    },
+  );
 
   it("D2 C24 keeps confirmed parent-recording failures recoverable when the case already reports marked", async () => {
     const hash = "d".repeat(64);

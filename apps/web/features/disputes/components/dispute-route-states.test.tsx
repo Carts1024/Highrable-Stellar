@@ -85,7 +85,11 @@ vi.mock("@/features/attachments/components", () => ({
     return createElement("span", null, "Evidence mounted");
   },
 }));
-vi.mock("@/features/common", () => ({
+vi.mock("@/features/common", async () => ({
+  ...(await vi.importActual<object>("@/features/common/components/section-card")),
+  ...(await vi.importActual<object>("@/features/common/components/stat-card")),
+  ...(await vi.importActual<object>("@/features/common/components/wallet-address-tile")),
+
   showWarningToast: vi.fn(),
   RouteCallout: ({ children }: { children: ReactNode }) =>
     createElement("div", { role: "alert" }, children),
@@ -312,6 +316,38 @@ describe("participant dispute route states", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(screen.getByText("Recovered list dispute")).toBeTruthy();
     expect(view.container.textContent).not.toContain(rawError.message);
+  });
+
+  it.each(["GFREELANCER", null])(
+    "recovers a failed wallet-scoped route when the wallet becomes %s",
+    (nextWallet) => {
+      walletIdentity.walletAddress = "GCLIENT";
+      setQueryError("list", { walletAddress: "GCLIENT" }, new Error("Old wallet read failed"));
+      const route = () => createElement(TestRouteErrorBoundary, null, createElement(DisputeList));
+      const view = render(route());
+      expect(screen.getByRole("alert").textContent).toContain("Unable to load disputes");
+
+      walletIdentity.walletAddress = nextWallet;
+      view.rerender(route());
+      expect(screen.queryByRole("alert")).toBeNull();
+      if (nextWallet) {
+        expect(screen.getByRole("status").textContent).toContain("Loading disputes");
+        expect(queryCalls.at(-1)).toEqual({ name: "list", args: { walletAddress: nextWallet } });
+      } else {
+        expect(screen.getByText("Connect your wallet to view disputes.")).toBeTruthy();
+        expect(queryCalls.at(-1)).toEqual({ name: "list", args: "skip" });
+      }
+    },
+  );
+
+  it("does not automatically retry a persistent failure for an unchanged wallet", () => {
+    walletIdentity.walletAddress = "GCLIENT";
+    const reset = vi.fn();
+    const view = render(createElement(DisputesError, { reset }));
+    view.rerender(createElement(DisputesError, { reset: () => reset() }));
+    expect(reset).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 
   it("shows the real route fallback and recovers from a permission read failure", () => {

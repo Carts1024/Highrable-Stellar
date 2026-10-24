@@ -40,26 +40,30 @@ const ACTOR_LABELS = {
 
 export function DisputeTimelineItem({ event }: { readonly event: TTimelineEvent }) {
   return (
-    <li className="border-l border-[#d8d8d8] pl-4">
-      <div className="rounded-lg border border-[#e8e8e8] bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-mono text-xs text-[#5f5f5f] uppercase">{EVENT_LABELS[event.type]}</p>
-          <p className="font-mono text-xs text-[#7f7f7f]">{formatDisputeDate(event.createdAt)}</p>
+    <li className="relative border-l pb-5 pl-5 last:pb-0">
+      <span
+        className="absolute top-1.5 -left-[4.5px] h-2 w-2 rounded-full border-2 border-background bg-zinc-400"
+        aria-hidden="true"
+      />
+      <div>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <p className="hr-text-primary text-sm font-medium">{EVENT_LABELS[event.type]}</p>
+          <p className="hr-text-muted text-xs">{formatDisputeDate(event.createdAt)}</p>
         </div>
-        <p className="mt-2 text-sm text-[#0a0a0a]">{event.message}</p>
-        <p className="mt-2 font-mono text-xs text-[#5f5f5f]">
+        <p className="hr-text-muted mt-0.5 text-xs break-all">
           {ACTOR_LABELS[event.actorRole]}
           {event.actorRole !== "system" ? ` · ${event.actorWallet}` : null}
         </p>
+        <p className="hr-text-primary mt-1.5 text-sm whitespace-pre-wrap">{event.message}</p>
         {event.newStatus ? (
-          <p className="mt-2 text-sm text-[#3f3f3f]">
+          <p className="hr-text-secondary mt-1.5 text-sm">
             {event.oldStatus
               ? `Status: ${getDisputeStatusLabel(event.oldStatus)} → ${getDisputeStatusLabel(event.newStatus)}`
               : `Status: ${getDisputeStatusLabel(event.newStatus)}`}
           </p>
         ) : null}
         {event.transactionHash ? (
-          <p className="mt-2 font-mono text-xs break-all text-[#5f5f5f]">
+          <p className="hr-text-secondary mt-1.5 font-mono text-xs break-all">
             tx:{" "}
             <a
               href={getTxExplorerUrl(event.transactionHash)}
@@ -90,22 +94,18 @@ export function DisputeTimeline({
 }) {
   if (isLoading || events === undefined) {
     return (
-      <p className="rounded-lg border border-[#e8e8e8] bg-white p-4 text-sm" role="status">
+      <p className="hr-text-secondary text-sm" role="status">
         Loading timeline...
       </p>
     );
   }
 
   if (events.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-[#d8d8d8] bg-[#fafafa] p-4 text-sm text-[#5f5f5f]">
-        No dispute timeline events yet.
-      </p>
-    );
+    return <p className="hr-text-secondary text-sm">No dispute timeline events yet.</p>;
   }
 
   return (
-    <ol aria-label="Dispute evidence timeline" className="space-y-3">
+    <ol aria-label="Dispute evidence timeline">
       {events.map((event) => (
         <DisputeTimelineItem key={event._id} event={event} />
       ))}
@@ -140,7 +140,7 @@ class TimelineErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <div
-          className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pl-3 text-sm text-red-800"
           role="alert"
         >
           <p>Unable to load the dispute timeline.</p>

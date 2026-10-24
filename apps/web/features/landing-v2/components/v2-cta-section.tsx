@@ -1,5 +1,6 @@
 "use client";
 
+import { withModeHref } from "@/features/mode";
 import Link from "next/link";
 
 import { EDITORIAL_CONTAINER_CLASS, EDITORIAL_SECTION_CLASS } from "./editorial-layout";
@@ -47,13 +48,13 @@ export function V2CtaSection() {
             <V2Reveal delay={0.34} className="mt-8 flex justify-center">
               <div className="mx-auto flex w-full max-w-md flex-col justify-center gap-3 sm:flex-row">
                 <Link
-                  href="/jobs"
+                  href={withModeHref("/jobs", "freelancer")}
                   className="hr-button-hover-shadow flex min-h-11 items-center justify-center rounded-lg bg-white px-6 py-3 font-mono text-xs font-bold tracking-widest text-[#B94A00] uppercase transition-colors hover:bg-white/90"
                 >
                   Find Work
                 </Link>
                 <Link
-                  href="/post-job"
+                  href={withModeHref("/post-job", "client")}
                   className="hr-button-hover-shadow flex min-h-11 items-center justify-center rounded-lg border border-white/70 px-6 py-3 font-mono text-xs font-bold tracking-widest text-white uppercase transition-colors hover:bg-transparent"
                 >
                   Post a Job

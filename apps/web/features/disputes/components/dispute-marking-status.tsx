@@ -5,10 +5,22 @@ import { Button as AppButton } from "@repo/ui/components/ui/button";
 import React from "react";
 
 import type { TDisputeOnChainStatus } from "../types";
+import type { TParticipantMarkRecordingContext } from "./participant-marking";
 
 export type TLocalMarkOutcome =
-  | { kind: "pending"; transactionHash?: string }
-  | { kind: "confirmed_sync_pending"; transactionHash: string; recordingFailed?: boolean };
+  | {
+      kind: "pending";
+      disputeId: string;
+      transactionHash?: string;
+      recordingContext?: TParticipantMarkRecordingContext;
+    }
+  | {
+      kind: "confirmed_sync_pending";
+      disputeId: string;
+      transactionHash: string;
+      recordingContext: TParticipantMarkRecordingContext;
+      recordingFailed?: boolean;
+    };
 
 export function getDisputeMarkingPresentation(
   status: TDisputeOnChainStatus,
@@ -19,7 +31,7 @@ export function getDisputeMarkingPresentation(
   if (status === "marked") {
     return {
       message: "Escrow dispute marking is confirmed on Stellar.",
-      transactionHash,
+      transactionHash: transactionHash ?? localOutcome?.transactionHash,
       canRetry: false,
       tone: "success" as const,
     };
@@ -51,7 +63,7 @@ export function getDisputeMarkingPresentation(
       tone: "pending" as const,
     };
   }
-  if (status === "mark_failed" && transactionHash) {
+  if (transactionHash) {
     return {
       message:
         "The marking attempt has a recorded transaction hash. Reconcile its outcome before retrying.",
@@ -102,16 +114,19 @@ export function DisputeMarkingStatus({
   );
   const toneClass =
     presentation.tone === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      ? "border-emerald-500 bg-emerald-50/60 text-emerald-900"
       : presentation.tone === "warning"
-        ? "border-amber-200 bg-amber-50 text-amber-900"
-        : "border-[#d8d8d8] bg-[#fafafa] text-[#3f3f3f]";
+        ? "border-amber-400 bg-amber-50/60 text-amber-900"
+        : "border-border hr-text-secondary";
   const hash = presentation.transactionHash?.trim();
   const pendingOutcomeReconciled = status === "marked" && localOutcome?.kind === "pending";
 
   return (
-    <div className={`mt-4 space-y-3 rounded-lg border p-3 text-sm ${toneClass}`}>
+    <div className={`space-y-2 border-l-2 py-2.5 pr-3 pl-3 text-sm ${toneClass}`}>
       <p>{presentation.message}</p>
+      {status === "marked" && localOutcome?.kind === "confirmed_sync_pending" ? (
+        <p>Highrable is still recording the result. Do not submit another transaction.</p>
+      ) : null}
       {retryPhase ? <p role="status">{retryPhase}</p> : null}
       {retryError && !pendingOutcomeReconciled ? <p role="alert">{retryError}</p> : null}
       {hash ? (

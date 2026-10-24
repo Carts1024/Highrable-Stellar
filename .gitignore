@@ -2,6 +2,8 @@
 !docs/passkey-smart-accounts.md
 !docs/mainnet-smart-account-readiness.md
 node_modules*
+.agents/
+.kilo/
 .turbo
 .next
 out
@@ -25,8 +27,6 @@ docs/PLAN.md
 docs/README-keyless.md
 docs/passkey-escrow-debug-progress.md
 docs/passkey.md
-docs/obsidian/.obsidian/workspace.json
-docs/obsidian/.obsidian/workspace-mobile.json
-docs/obsidian/.obsidian/cache/
+docs/obsidian/
 docs/instawards/Highrable Instawards SOW Revised.docx.md
 docs/instawards/Highrable-Instawards-SOW.md

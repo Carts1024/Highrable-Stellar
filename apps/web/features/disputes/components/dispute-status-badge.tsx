@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusText } from "@/features/common/components/status-text";
 import React from "react";
 
 import type { TDisputeOnChainStatus, TDisputeStatus } from "../types";
@@ -11,18 +12,10 @@ import {
 } from "../lib";
 
 export function DisputeStatusBadge({ status }: { readonly status: TDisputeStatus }) {
-  const className =
-    status === "cancelled"
-      ? "border-[#d8d8d8] bg-[#f5f5f5] text-[#5f5f5f]"
-      : isTerminalDisputeStatus(status)
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : "border-[#FF7003]/30 bg-orange-50 text-[#9a3f00]";
+  const tone =
+    status === "cancelled" ? "neutral" : isTerminalDisputeStatus(status) ? "success" : "warning";
 
-  return (
-    <span className={`rounded-md border px-2 py-1 font-mono text-xs uppercase ${className}`}>
-      {getDisputeStatusLabel(status)}
-    </span>
-  );
+  return <StatusText tone={tone}>{getDisputeStatusLabel(status)}</StatusText>;
 }
 
 export function DisputeOnChainStatusBadge({
@@ -34,25 +27,25 @@ export function DisputeOnChainStatusBadge({
   readonly transactionHash?: string;
   readonly localOutcome?: "pending" | "confirmed_sync_pending";
 }) {
-  const className =
-    status === "marked"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-      : status === "mark_failed" && !localOutcome
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-[#d8d8d8] bg-[#fafafa] text-[#5f5f5f]";
+  const effectiveOutcome =
+    status === "marked" && localOutcome === "pending" ? undefined : localOutcome;
+  const tone =
+    status === "marked" && !effectiveOutcome
+      ? "success"
+      : status === "mark_failed" && !effectiveOutcome
+        ? "danger"
+        : "neutral";
 
   return (
-    <span className={`rounded-md border px-2 py-1 font-mono text-xs uppercase ${className}`}>
+    <StatusText tone={tone}>
       Chain:{" "}
-      {status === "marked"
-        ? getDisputeOnChainStatusLabel(status)
-        : localOutcome === "pending"
-          ? "Outcome Pending"
-          : localOutcome === "confirmed_sync_pending"
-            ? "Recording Confirmation"
-            : status === "mark_failed" && transactionHash
-              ? "Reconciliation Required"
-              : getDisputeOnChainStatusLabel(status)}
-    </span>
+      {effectiveOutcome === "pending"
+        ? "Outcome Pending"
+        : effectiveOutcome === "confirmed_sync_pending"
+          ? "Recording Confirmation"
+          : (status === "mark_failed" || status === "not_marked") && transactionHash
+            ? "Reconciliation Required"
+            : getDisputeOnChainStatusLabel(status)}
+    </StatusText>
   );
 }

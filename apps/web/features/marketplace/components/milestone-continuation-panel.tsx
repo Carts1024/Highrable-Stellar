@@ -176,7 +176,7 @@ export function MilestoneContinuationPanel({
       ) : null}
 
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
           {error}
         </p>
       ) : null}

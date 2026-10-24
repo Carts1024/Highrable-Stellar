@@ -1,0 +1,130 @@
+name: Production Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highrable-production-release
+  cancel-in-progress: false
+
+jobs:
+  release_ref_check:
+    name: Validate main release source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dispatch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Reject non-main or changed source commits
+        run: node scripts/ci/deploy-production.mjs --check-ref
+
+  ci:
+    name: Revalidate dispatched commit
+    needs: release_ref_check
+    uses: ./.github/workflows/ci.yml
+    with:
+      source_sha: ${{ github.sha }}
+
+  deploy:
+    name: Deploy Testnet application
+    needs:
+      - release_ref_check
+      - ci
+    if: needs.release_ref_check.result == 'success' && needs.ci.result == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      convex_result: ${{ steps.release.outputs.convex_result }}
+      vercel_result: ${{ steps.release.outputs.vercel_result }}
+      deployment_url: ${{ steps.release.outputs.deployment_url }}
+    steps:
+      - name: Check out immutable dispatch commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Set up pnpm from package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@63.1.2
+
+      - name: Verify Testnet and Convex target, deploy backend, build, and publish prebuilt site
+        id: release
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          RELEASE_CI_RESULT: ${{ needs.ci.result }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          EXPECTED_CONVEX_URL: ${{ vars.EXPECTED_CONVEX_URL }}
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ vars.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
+        run: node scripts/ci/deploy-production.mjs
+
+  release_summary:
+    name: Record release result
+    if: always()
+    needs:
+      - release_ref_check
+      - ci
+      - deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write source, outcome, and deployment URL to the run summary
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          REF_CHECK_RESULT: ${{ needs.release_ref_check.result }}
+          CI_RESULT: ${{ needs.ci.result }}
+          DEPLOY_JOB_RESULT: ${{ needs.deploy.result }}
+          CONVEX_RESULT: ${{ needs.deploy.outputs.convex_result || 'not_started' }}
+          VERCEL_RESULT: ${{ needs.deploy.outputs.vercel_result || 'not_started' }}
+          DEPLOYMENT_URL: ${{ needs.deploy.outputs.deployment_url || '' }}
+        run: |
+          if [[ "$VERCEL_RESULT" == "success" ]]; then
+            outcome="success"
+          elif [[ "$CONVEX_RESULT" == "success" ]]; then
+            outcome="partial: Convex is deployed; Vercel publication failed"
+          elif [[ "$REF_CHECK_RESULT" != "success" || "$CI_RESULT" != "success" || "$DEPLOY_JOB_RESULT" == "failure" ]]; then
+            outcome="failure"
+          else
+            outcome="not deployed"
+          fi
+
+          {
+            echo "## Production release"
+            echo
+            echo "- Source commit: \`$SOURCE_SHA\`"
+            echo "- Outcome: $outcome"
+            echo "- Release guard: $REF_CHECK_RESULT"
+            echo "- Reusable CI: $CI_RESULT"
+            echo "- Convex deployment: $CONVEX_RESULT"
+            echo "- Vercel publication: $VERCEL_RESULT"
+            if [[ -n "$DEPLOYMENT_URL" ]]; then
+              echo "- Deployment URL: $DEPLOYMENT_URL"
+            else
+              echo "- Deployment URL: unavailable"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

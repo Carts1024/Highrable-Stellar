@@ -66,13 +66,13 @@ export function StablecoinBalancePanel({
   const assetLabel = formatAssetLabel(readiness.tokenContractId ?? "");
 
   return (
-    <div className="space-y-3 rounded-xl border border-[#e8e8e8] bg-[#fafafa] p-4">
+    <div className="space-y-3 rounded-lg border border-[#e8e8e8] bg-[#fafafa] p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-[#0a0a0a]">
           {escrowAsset?.kind === "native_xlm" ? "XLM escrow balance" : "USDC escrow balance"}
         </h3>
         <span
-          className={`inline-flex rounded-full border px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.06em] uppercase ${readinessClassName}`}
+          className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${readinessClassName}`}
         >
           {readinessLabel}
         </span>
@@ -119,13 +119,13 @@ export function StablecoinBalancePanel({
       </p>
 
       {escrowAsset?.kind === "stablecoin" && !configValidation.isValid ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
           {configValidation.message}
         </p>
       ) : null}
 
       {readiness.error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="border-l-2 border-red-500 bg-red-50/60 py-2.5 pr-3 pl-3 text-sm text-red-700">
           {readiness.error}
         </p>
       ) : null}

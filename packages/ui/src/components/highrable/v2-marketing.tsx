@@ -55,6 +55,10 @@ export interface IHighrableV2MetricProps extends ComponentPropsWithoutRef<"div">
   readonly label: string;
   readonly value: ReactNode;
   readonly description?: ReactNode;
+  /** Optional icon shown in a badge on the right of the card. */
+  readonly icon?: ReactNode;
+  /** Optional pastel background: orange, yellow, green, sky, violet or rose. */
+  readonly tone?: "orange" | "yellow" | "green" | "sky" | "violet" | "rose";
 }
 
 export interface IHighrableV2IconNoticeProps extends ComponentPropsWithoutRef<"span"> {
@@ -205,19 +209,38 @@ export function HighrableV2Metric({
   label,
   value,
   description,
+  icon,
+  tone,
   className,
   ...props
 }: IHighrableV2MetricProps) {
   return (
     <div
       className={cn(
-        "rounded-md border-l-3 border-highrable-orange-2 px-4 py-3 shadow-sm",
+        "rounded-xl border px-4 py-3 shadow-sm",
+        tone
+          ? `hr-tone-${tone} hr-tone-card`
+          : "border-[var(--mode-border,var(--border))] bg-[var(--mode-soft,transparent)]",
         className,
       )}
       {...props}
     >
-      <p className="hr-label-caps hr-text-muted">{label}</p>
-      <div className="hr-text-primary mt-1 text-2xl leading-none font-semibold">{value}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="hr-text-secondary font-sans text-sm font-semibold">{label}</p>
+          <div className="hr-text-primary mt-1.5 text-2xl leading-none font-bold">{value}</div>
+        </div>
+        {icon ? (
+          <span
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white",
+              tone ? "hr-tone-icon" : "border border-[var(--mode-border,var(--border))]",
+            )}
+          >
+            {icon}
+          </span>
+        ) : null}
+      </div>
       {description ? (
         <p className="hr-text-secondary mt-2 text-xs leading-relaxed">{description}</p>
       ) : null}

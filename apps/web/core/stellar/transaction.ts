@@ -13,6 +13,14 @@ export type TSignedTransactionSubmitter = (
 ) => Promise<string>;
 
 export type TStellarExecutionPhase = "simulation" | "signing" | "submission" | "confirmation";
+export type TSubmissionIdentityType = "transaction" | "inner_transaction";
+
+export type TStellarSubmissionIdentity = {
+  readonly operationId?: string;
+  readonly transactionHash: string;
+  readonly transactionValidUntil: number;
+  readonly identityType?: TSubmissionIdentityType;
+};
 
 export type TInvokeContractParams = {
   rpcUrl: string;
@@ -22,17 +30,15 @@ export type TInvokeContractParams = {
   method: string;
   args: xdr.ScVal[];
   signTransaction: TSignedTransactionSubmitter;
+  preSignCheck?: () => Promise<void>;
   operationId?: string;
-  onSigned?: (identity: {
-    readonly operationId?: string;
-    readonly transactionHash: string;
-    readonly transactionValidUntil: number;
-  }) => Promise<void>;
+  onSigned?: (identity: TStellarSubmissionIdentity) => Promise<void>;
   onPhase?: (phase: TStellarExecutionPhase) => void;
 };
 
 export type TConfirmedContractTx = {
   txHash: string;
+  transactionValidUntil?: number;
   result?: unknown;
   returnValue?: xdr.ScVal;
 };
@@ -109,7 +115,7 @@ async function submitViaVeloGas(params: {
       signedTransactionXdr: params.signedTransactionXdr,
     });
   } catch (error) {
-    throw new StellarTransactionError(getErrorMessage(error), params.transactionHash);
+    throw new StellarTransactionPendingError(getErrorMessage(error), params.transactionHash);
   }
 
   for (let attempt = 0; attempt < 3 && gasResult.status !== "succeeded"; attempt += 1) {
@@ -126,9 +132,9 @@ async function submitViaVeloGas(params: {
         observeUntilTerminal: true,
       });
     } catch (error) {
-      throw new StellarTransactionError(
+      throw new StellarTransactionPendingError(
         getErrorMessage(error),
-        gasResult.outerTransactionHash ?? gasResult.transactionHash ?? params.transactionHash,
+        gasResult.outerTransactionHash ?? params.transactionHash,
       );
     }
   }
@@ -145,7 +151,13 @@ async function submitViaVeloGas(params: {
   try {
     confirmedTransaction = await pollTransaction(params.server, confirmationHash);
   } catch (error) {
-    throw new StellarTransactionError(getErrorMessage(error), confirmationHash);
+    if (error instanceof StellarTransactionError) {
+      if (error instanceof StellarTransactionPendingError) {
+        throw new StellarTransactionPendingError(getErrorMessage(error), confirmationHash);
+      }
+      throw new StellarTransactionError(getErrorMessage(error), confirmationHash);
+    }
+    throw new StellarTransactionPendingError(getErrorMessage(error), confirmationHash);
   }
 
   return {
@@ -309,17 +321,25 @@ async function pollTransaction(
     }
 
     if (transaction.status === rpc.Api.GetTransactionStatus.FAILED) {
-      throw new Error("On-chain transaction failed.");
+      throw new StellarTransactionError("On-chain transaction failed.", txHash);
     }
 
     await wait(POLL_DELAY_MS);
   }
 
-  throw new Error("Stellar RPC confirmation timed out.");
+  throw new StellarTransactionPendingError("Stellar RPC confirmation timed out.", txHash);
 }
 
 export async function invokeContract(params: TInvokeContractParams): Promise<TConfirmedContractTx> {
   const server = createRpcServer(params.rpcUrl);
+  const preSignCheckPromise = params.preSignCheck
+    ? Promise.resolve()
+        .then(params.preSignCheck)
+        .then(
+          () => ({ ok: true as const }),
+          (error: unknown) => ({ ok: false as const, error }),
+        )
+    : Promise.resolve({ ok: true as const });
   const sourceAccount = await server.getAccount(params.sourceAddress);
   const contract = new Contract(params.contractId);
   const transaction = new TransactionBuilder(sourceAccount, {
@@ -331,7 +351,13 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
     .build();
 
   notifyExecutionPhase(params.onPhase, "simulation");
-  const preparedTransaction = (await server.prepareTransaction(transaction)) as Transaction;
+  const [preparedTransaction, preSignCheckResult] = await Promise.all([
+    server.prepareTransaction(transaction) as Promise<Transaction>,
+    preSignCheckPromise,
+  ]);
+  if (!preSignCheckResult.ok) {
+    throw preSignCheckResult.error;
+  }
   const useVeloGas = shouldUseVeloGas(params.operationId);
   notifyExecutionPhase(params.onPhase, "signing");
   const signedXdr = await params.signTransaction(preparedTransaction.toXDR(), {
@@ -358,6 +384,7 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
       operationId: params.operationId,
       transactionHash,
       transactionValidUntil,
+      ...(useVeloGas ? { identityType: "inner_transaction" as const } : {}),
     });
   } catch (error) {
     throw new StellarTransactionError(getErrorMessage(error), transactionHash);
@@ -377,7 +404,7 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
   try {
     submittedTransaction = await server.sendTransaction(signedTransaction);
   } catch (error) {
-    throw new StellarTransactionError(getErrorMessage(error), transactionHash);
+    throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
   }
 
   if (submittedTransaction.status !== "PENDING" && submittedTransaction.status !== "DUPLICATE") {
@@ -392,11 +419,18 @@ export async function invokeContract(params: TInvokeContractParams): Promise<TCo
   try {
     confirmedTransaction = await pollTransaction(server, submittedTransaction.hash);
   } catch (error) {
-    throw new StellarTransactionError(getErrorMessage(error), transactionHash);
+    if (error instanceof StellarTransactionError) {
+      if (error instanceof StellarTransactionPendingError) {
+        throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
+      }
+      throw new StellarTransactionError(getErrorMessage(error), transactionHash);
+    }
+    throw new StellarTransactionPendingError(getErrorMessage(error), transactionHash);
   }
 
   return {
     txHash: submittedTransaction.hash,
+    transactionValidUntil,
     result: confirmedTransaction.returnValue
       ? scValToNative(confirmedTransaction.returnValue)
       : undefined,
