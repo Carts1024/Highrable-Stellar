@@ -130,6 +130,55 @@ describe("AdminSessionGate", () => {
     await waitFor(() => expect(screen.getByTestId("protected-content")).toBeTruthy());
   });
 
+  it("keeps verified content mounted during a background session re-check", async () => {
+    const session = {
+      adminWallet: runtime.wallet.walletState.walletAddress,
+      isOwner: true,
+      isDisputeAdmin: true,
+    };
+    const refetch = createDeferred<Response>();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, session))
+      .mockReturnValueOnce(refetch.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryClient } = renderGate();
+    const content = await screen.findByTestId("protected-content");
+
+    // Mirrors the refetch React Query runs when focus returns from a wallet signing popup.
+    void queryClient.refetchQueries({ queryKey: ["admin", "session"] });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByTestId("protected-content")).toBe(content);
+    expect(screen.queryByRole("heading", { name: "Checking Admin Access" })).toBeNull();
+
+    refetch.resolve(response(200, session));
+    await waitFor(() => expect(screen.getByTestId("protected-content")).toBe(content));
+  });
+
+  it("closes verified content when a background session re-check is rejected", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(200, {
+          adminWallet: runtime.wallet.walletState.walletAddress,
+          isOwner: true,
+          isDisputeAdmin: true,
+        }),
+      )
+      .mockResolvedValueOnce(response(403, { error: "Admin access is forbidden." }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryClient } = renderGate();
+    await screen.findByTestId("protected-content");
+
+    await queryClient.refetchQueries({ queryKey: ["admin", "session"] });
+
+    expect(await screen.findByRole("heading", { name: "Admin Access Forbidden" })).toBeTruthy();
+    expect(screen.queryByTestId("protected-content")).toBeNull();
+  });
+
   it("shows forbidden access and never trusts a database-role-shaped client state", async () => {
     vi.stubGlobal(
       "fetch",

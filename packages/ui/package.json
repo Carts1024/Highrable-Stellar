@@ -11,7 +11,9 @@
   },
   "scripts": {
     "generate:component": "turbo gen react-component",
-    "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit"
+    "lint:check": "oxlint .",
+    "lint:fix": "oxlint --fix . && oxfmt --write . && tsc --noEmit",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

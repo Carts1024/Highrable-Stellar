@@ -6,9 +6,11 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --port 3000",
+    "lint:check": "oxlint .",
     "lint:fix": "oxlint --fix . && oxfmt --write . && next typegen && tsc --noEmit",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@carts1024/velo-sdk": "0.1.0-alpha.4",

@@ -1,0 +1,297 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Immutable commit to validate.
+        required: true
+        type: string
+      base_sha:
+        description: Optional comparison base; otherwise the selected commit's parent is used.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ inputs.source_sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  prepare:
+    name: Select source and formatting base
+    runs-on: ubuntu-latest
+    outputs:
+      head_sha: ${{ steps.comparison.outputs.head_sha }}
+      base_sha: ${{ steps.comparison.outputs.base_sha }}
+    steps:
+      - name: Check out immutable source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Select comparison base
+        id: comparison
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
+          INPUT_SOURCE_SHA: ${{ inputs.source_sha || '' }}
+          INPUT_BASE_SHA: ${{ inputs.base_sha || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PUSH_BEFORE_SHA: ${{ github.event.before || '' }}
+        run: node scripts/ci/select-comparison-base.mjs
+
+  formatting:
+    name: Changed-file formatting
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Set up pnpm from package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check supported changed files
+        env:
+          FORMAT_BASE_SHA: ${{ needs.prepare.outputs.base_sha }}
+          FORMAT_HEAD_SHA: ${{ needs.prepare.outputs.head_sha }}
+        run: node scripts/ci/check-changed-format.mjs
+
+  quality:
+    name: Lint and typecheck
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Set up pnpm from package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint web, backend source and tests, shared UI, and Convex client
+        run: |
+          pnpm --filter web lint:check
+          pnpm --filter @repo/backend lint:check
+          pnpm --filter @repo/ui lint:check
+          pnpm --filter @repo/convex-client lint:check
+
+      - name: Typecheck web, backend source and tests, shared UI, and Convex client
+        run: |
+          pnpm --filter web typecheck
+          pnpm --filter @repo/backend typecheck
+          pnpm --filter @repo/ui typecheck
+          pnpm --filter @repo/convex-client typecheck
+
+      - name: Test CI guard and changed-file selection scripts
+        run: node --test scripts/ci/check-changed-format.test.mjs scripts/ci/select-comparison-base.test.mjs scripts/ci/deploy-production.test.mjs
+
+  tests:
+    name: Web, backend, and deployment identity tests
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Set up pnpm from package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run web tests
+        run: pnpm --filter web test
+
+      - name: Run backend tests
+        run: pnpm --filter @repo/backend test
+
+      - name: Run deployment identity tests
+        run: pnpm contracts:test:identity
+
+  web-build:
+    name: Web production build
+    needs: prepare
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_STELLAR_NETWORK: testnet
+      NEXT_PUBLIC_STELLAR_RPC_URL: http://127.0.0.1:9980
+      NEXT_PUBLIC_STELLAR_HORIZON_URL: http://127.0.0.1:9981
+      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: Test SDF Network ; September 2015
+      NEXT_PUBLIC_CONVEX_URL: http://127.0.0.1:3210
+      NEXT_PUBLIC_APP_DOMAIN: http://127.0.0.1:3000
+      NEXT_PUBLIC_WAITLIST_MODE: "false"
+      NEXT_PUBLIC_ENABLE_PASSKEYS: "false"
+      NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: "false"
+      NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: "false"
+      NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: none
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Set up pnpm from package.json
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app without live service configuration
+        run: pnpm --filter web build
+
+  contracts:
+    name: Soroban tests and WASM builds
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.head_sha }}
+
+      - name: Cache Cargo dependencies and build outputs
+        uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        with:
+          path: |
+            ~/.cargo/bin/stellar
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/registry/src
+            ~/.cargo/git/db
+            contracts/target
+          key: ubuntu-contracts-${{ hashFiles('contracts/Cargo.lock') }}-rust-1.98.1-cli-28.0.0
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal --target wasm32v1-none
+          rustup default 1.98.1
+          rustc --version
+          cargo --version
+
+      - name: Install Stellar CLI native build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends pkg-config libdbus-1-dev libudev-dev
+
+      - name: Install pinned Stellar CLI
+        run: |
+          if ! command -v stellar >/dev/null || ! stellar --version | grep -q '^stellar 28\.0\.0 '; then
+            cargo install --locked --version 28.0.0 stellar-cli
+          fi
+          stellar --version
+
+      - name: Test Rust workspace
+        run: cargo test --workspace --locked --manifest-path contracts/Cargo.toml
+
+      - name: Build escrow WASM
+        run: stellar contract build --manifest-path contracts/Cargo.toml --package highrable-escrow --locked
+
+      - name: Build reputation WASM
+        run: stellar contract build --manifest-path contracts/Cargo.toml --package highrable-reputation --locked
+
+      - name: Build registry WASM
+        run: stellar contract build --manifest-path contracts/Cargo.toml --package highrable-registry --locked
+
+      - name: Prepare checksums and source/toolchain metadata
+        env:
+          GITHUB_SHA: ${{ needs.prepare.outputs.head_sha }}
+          RUSTC_VERSION: 1.98.1
+          CARGO_VERSION: 1.98.1
+          STELLAR_CLI_VERSION: 28.0.0
+          ARTIFACT_DIR: artifacts/contracts
+        run: node scripts/ci/prepare-contract-artifacts.mjs
+
+      - name: Upload Testnet-scoped contract build artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: soroban-wasm-${{ needs.prepare.outputs.head_sha }}
+          path: artifacts/contracts/
+          if-no-files-found: error
+          retention-days: 14
+
+  required:
+    name: required
+    if: always()
+    needs:
+      - prepare
+      - formatting
+      - quality
+      - tests
+      - web-build
+      - contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required CI job did not succeed
+        env:
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          FORMATTING_RESULT: ${{ needs.formatting.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          WEB_BUILD_RESULT: ${{ needs.web-build.result }}
+          CONTRACTS_RESULT: ${{ needs.contracts.result }}
+        run: |
+          for result in \
+            "$PREPARE_RESULT" \
+            "$FORMATTING_RESULT" \
+            "$QUALITY_RESULT" \
+            "$TESTS_RESULT" \
+            "$WEB_BUILD_RESULT" \
+            "$CONTRACTS_RESULT"; do
+            if [[ "$result" != "success" ]]; then
+              echo "A required CI job ended with result: $result" >&2
+              exit 1
+            fi
+          done
