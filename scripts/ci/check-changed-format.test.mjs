@@ -96,3 +96,29 @@ test("excludes Obsidian vault notes while formatting other Markdown files", () =
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+test("excludes generated Convex files while formatting authored backend code", () => {
+  const cwd = createRepo();
+  try {
+    mkdirSync(path.join(cwd, "packages/backend/convex/_generated"), { recursive: true });
+    mkdirSync(path.join(cwd, "packages/backend/convex"), { recursive: true });
+    writeFileSync(
+      path.join(cwd, "packages/backend/convex/_generated/api.d.ts"),
+      "// generated API declarations\n",
+    );
+    writeFileSync(path.join(cwd, "packages/backend/convex/jobs.ts"), "export const jobs = [];\n");
+    const base = commit(cwd, "base");
+    writeFileSync(
+      path.join(cwd, "packages/backend/convex/_generated/api.d.ts"),
+      "// updated generated API declarations\n",
+    );
+    writeFileSync(path.join(cwd, "packages/backend/convex/jobs.ts"), "export const jobs = [1];\n");
+    const head = commit(cwd, "backend changes");
+
+    assert.deepEqual(getChangedFormatFiles({ base, head, cwd }), [
+      "./packages/backend/convex/jobs.ts",
+    ]);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
