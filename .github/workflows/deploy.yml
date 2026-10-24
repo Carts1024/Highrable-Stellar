@@ -81,6 +81,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           EXPECTED_CONVEX_URL: ${{ vars.EXPECTED_CONVEX_URL }}
+          NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${{ vars.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID }}
         run: node scripts/ci/deploy-production.mjs
 
   release_summary:

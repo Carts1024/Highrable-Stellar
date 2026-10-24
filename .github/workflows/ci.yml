@@ -168,6 +168,8 @@ jobs:
       NEXT_PUBLIC_APP_DOMAIN: http://127.0.0.1:3000
       NEXT_PUBLIC_WAITLIST_MODE: "false"
       NEXT_PUBLIC_ENABLE_PASSKEYS: "false"
+      # CI builds are discarded; production releases receive the configured environment value.
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ci-build-placeholder
       NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: "false"
       NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: "false"
       NEXT_PUBLIC_SMART_ACCOUNT_RELAYER_KIND: none

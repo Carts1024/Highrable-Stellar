@@ -56,6 +56,7 @@ function validEnvironment(cwd, extra = {}) {
     VERCEL_PROJECT_ID: "prj_synthetic",
     CONVEX_DEPLOY_KEY: deployKey,
     EXPECTED_CONVEX_URL: expectedUrl,
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "test-walletconnect-project-id",
     VERCEL_PROJECT_DIR: path.join(cwd, "apps/web"),
     GITHUB_OUTPUT: output,
     ...extra,
@@ -125,6 +126,7 @@ test("release guard rejects failed CI, missing configuration, and mismatched dep
     VERCEL_PROJECT_ID: "project",
     CONVEX_DEPLOY_KEY: deployKey,
     EXPECTED_CONVEX_URL: expectedUrl,
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: "test-walletconnect-project-id",
   };
   assert.throws(
     () => validateReleaseConfiguration({ ...base, RELEASE_CI_RESULT: "failure" }),

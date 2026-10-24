@@ -65,6 +65,7 @@ export function validateReleaseConfiguration(env, { headSha } = {}) {
     "VERCEL_PROJECT_ID",
     "CONVEX_DEPLOY_KEY",
     "EXPECTED_CONVEX_URL",
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
   ];
   const missing = required.filter((name) => !env[name]?.trim());
   if (missing.length > 0) {
