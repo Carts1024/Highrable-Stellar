@@ -5,6 +5,7 @@ import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockState = vi.hoisted(() => ({
+  authenticateWallet: vi.fn<() => Promise<void>>(),
   clearWalletError: vi.fn(),
   connectWallet: vi.fn<(onNotice?: (message: string) => void) => Promise<string | null>>(),
   recordWalletIdentity: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@/core/wallet/config", () => ({
 
 vi.mock("@/core/wallet/hooks/use-wallet", () => ({
   useWallet: () => ({
+    authenticateWallet: mockState.authenticateWallet,
     clearWalletError: mockState.clearWalletError,
     connectWallet: mockState.connectWallet,
     walletState: mockState.walletState,
@@ -59,6 +61,7 @@ import { WalletConnectTrigger } from "./wallet-connect-trigger";
 
 describe("WalletConnectTrigger external wallet feedback", () => {
   beforeEach(() => {
+    mockState.authenticateWallet.mockReset().mockResolvedValue(undefined);
     mockState.clearWalletError.mockReset();
     mockState.connectWallet.mockReset().mockResolvedValue(null);
     mockState.recordWalletIdentity.mockReset().mockResolvedValue(undefined);
@@ -98,7 +101,7 @@ describe("WalletConnectTrigger external wallet feedback", () => {
     );
   });
 
-  it("records the connected external wallet identity", async () => {
+  it("authenticates the connected external wallet", async () => {
     const walletAddress = `G${"B".repeat(55)}`;
     mockState.connectWallet.mockResolvedValue(walletAddress);
     render(<WalletConnectTrigger />);
@@ -106,10 +109,7 @@ describe("WalletConnectTrigger external wallet feedback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect External Wallet" }));
 
     await waitFor(() => {
-      expect(mockState.recordWalletIdentity).toHaveBeenCalledWith({
-        walletAddress,
-        walletType: "external_wallet",
-      });
+      expect(mockState.authenticateWallet).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -127,17 +127,14 @@ describe("WalletConnectTrigger external wallet feedback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect External Wallet" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(notice);
-    expect(mockState.recordWalletIdentity).toHaveBeenCalledWith({
-      walletAddress,
-      walletType: "external_wallet",
-    });
+    expect(mockState.authenticateWallet).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Try wallet picker again" })).toBeTruthy();
   });
 
   it("catches identity-recording failures and lets the user retry saving", async () => {
     const walletAddress = `G${"C".repeat(55)}`;
     mockState.connectWallet.mockResolvedValue(walletAddress);
-    mockState.recordWalletIdentity
+    mockState.authenticateWallet
       .mockRejectedValueOnce(new Error("Convex is temporarily unavailable."))
       .mockResolvedValueOnce(undefined);
     render(<WalletConnectTrigger />);
@@ -150,7 +147,7 @@ describe("WalletConnectTrigger external wallet feedback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry saving wallet" }));
 
     await waitFor(() => {
-      expect(mockState.recordWalletIdentity).toHaveBeenCalledTimes(2);
+      expect(mockState.authenticateWallet).toHaveBeenCalledTimes(2);
     });
     expect(screen.queryByRole("alert")).toBeNull();
   });

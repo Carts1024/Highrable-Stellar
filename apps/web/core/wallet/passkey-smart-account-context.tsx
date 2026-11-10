@@ -1,6 +1,7 @@
 "use client";
 
 import { isWebAuthnSupported } from "@/core/passkeys/webauthn-support";
+import { authenticatePasskeySession } from "@/core/wallet/auth/passkey-auth-service";
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
   assertPasskeyFeatureEnabled,
@@ -11,8 +12,6 @@ import {
   isPasskeyFeatureEnabled,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
-import { api } from "@repo/convex-client";
-import { useMutation } from "convex/react";
 import {
   createContext,
   useCallback,
@@ -191,7 +190,6 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   const [pendingCredentialId, setPendingCredentialId] = useState<string | null>(null);
   const [isContractPickerOpen, setIsContractPickerOpen] = useState(false);
   const restoreAttemptedRef = useRef(false);
-  const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
   const isSupported = isWebAuthnSupported();
   const isEnabled = isPasskeyFeatureEnabled();
   const hasConfig = hasSmartAccountConfig();
@@ -235,13 +233,19 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
   );
 
   const persistIdentity = useCallback(
-    async (walletAddress: string) => {
-      await recordWalletIdentity({
-        walletAddress,
-        walletType: "passkey_smart_account",
+    async (walletAddress: string, credentialId: string) => {
+      await authenticatePasskeySession(walletAddress, credentialId);
+      const response = await fetch("/api/member/identity", {
+        method: "POST",
+        credentials: "same-origin",
       });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not save the authenticated account.");
+      }
+      window.dispatchEvent(new Event("highrable-auth-session-refresh"));
     },
-    [recordWalletIdentity],
+    [],
   );
 
   const restorePasskeySession = useCallback(async (): Promise<string | null> => {
@@ -313,7 +317,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       });
 
       setConnectedState({ ...result, sessionStatus: "created" });
-      await persistIdentity(result.contractId);
+      await persistIdentity(result.contractId, result.credentialId);
       return result.contractId;
     } catch (error) {
       const message = formatCreateError(error);
@@ -417,7 +421,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       }
 
       setConnectedState({ ...result, sessionStatus: "reconnected" });
-      await persistIdentity(result.contractId);
+      await persistIdentity(result.contractId, result.credentialId);
       return result.contractId;
     } catch (error) {
       const message = formatReconnectError(error);
@@ -459,7 +463,7 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
         });
 
         setConnectedState({ ...result, sessionStatus: "reconnected" });
-        await persistIdentity(result.contractId);
+        await persistIdentity(result.contractId, result.credentialId);
         return result.contractId;
       } catch (error) {
         const message = formatReconnectError(error);
@@ -494,6 +498,18 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
       await getSmartAccountKit().disconnect();
     } catch {
       // Local UI state should clear even if the SDK session was already gone.
+    }
+
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    }).catch(() => undefined);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("highrable-auth-event", String(Date.now()));
+      } catch {
+        // Cross-tab invalidation is best effort when browser storage is unavailable.
+      }
     }
 
     setState(DEFAULT_STATE);

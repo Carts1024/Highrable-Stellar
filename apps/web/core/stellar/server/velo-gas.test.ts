@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { GasExecutionIdentity, GasSubmitResult, Velo } from "@carts1024/velo-sdk";
 
-import { AUTH_SESSION_COOKIE_NAME, createSessionToken } from "../../wallet/server/auth-store";
+import { AUTH_SESSION_COOKIE_NAME } from "../../wallet/server/auth-store";
 import {
   requireWalletRequestContext,
   WalletRequestAuthError,
@@ -19,6 +19,14 @@ import {
   toSafeGasResponse,
   validateVeloGasApiKey,
 } from "./velo-gas";
+
+const testConfig = vi.hoisted(() => ({
+  getPersistedSession: vi.fn(),
+}));
+
+vi.mock("../../wallet/server/persisted-session", () => ({
+  getPersistedSessionFromRequest: testConfig.getPersistedSession,
+}));
 
 function gasResult(status: GasSubmitResult["status"]): GasSubmitResult {
   return {
@@ -56,20 +64,37 @@ describe("Velo Gas Station boundary", () => {
     expect(() => validateVeloGasApiKey("tg_test_not-a-real-key")).toThrow(/tg_test_/);
   });
 
-  it("requires the signed wallet session before the server handoff", () => {
+  it("requires the signed wallet session before the server handoff", async () => {
     const request = new NextRequest("http://localhost/api/stellar/gas/submit");
 
-    expect(() => requireWalletRequestContext(request)).toThrow(WalletRequestAuthError);
+    await expect(requireWalletRequestContext(request)).rejects.toThrow(WalletRequestAuthError);
 
     const walletAddress = `G${"A".repeat(55)}`;
-    const session = createSessionToken(walletAddress);
+    testConfig.getPersistedSession.mockResolvedValue({
+      sessionId: "session-1",
+      session: {
+        sessionId: "session-1",
+        walletAddress,
+        walletType: "external_wallet",
+        authMethod: "external_wallet",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+        profile: null,
+      },
+    });
     const authenticatedRequest = new NextRequest("http://localhost/api/stellar/gas/submit", {
       headers: {
-        cookie: `${AUTH_SESSION_COOKIE_NAME}=${session.token}`,
+        cookie: `${AUTH_SESSION_COOKIE_NAME}=session-1`,
       },
     });
 
-    expect(requireWalletRequestContext(authenticatedRequest)).toEqual({ walletAddress });
+    await expect(requireWalletRequestContext(authenticatedRequest)).resolves.toEqual({
+      sessionId: "session-1",
+      walletAddress,
+      walletType: "external_wallet",
+      authMethod: "external_wallet",
+      profile: null,
+    });
   });
 
   it("bounds and validates the signed handoff payload", () => {

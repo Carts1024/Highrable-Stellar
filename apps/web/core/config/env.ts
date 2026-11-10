@@ -51,7 +51,9 @@ export interface IClientEnv {
  * Interface for the validated server-side application environment.
  */
 export interface IServerEnv extends IClientEnv {
-  readonly WALLET_SESSION_SECRET?: string;
+  readonly HIGHRABLE_AUTH_SERVICE_SECRET?: string;
+  readonly STELLAR_READ_SOURCE_ACCOUNT?: string;
+  readonly NEWSFEED_ENABLED?: boolean;
   readonly HIGHRABLE_ADMIN_WALLET_ADDRESS?: string;
   readonly HIGHRABLE_ADMIN_CONVEX_SECRET?: string;
   readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
@@ -188,7 +190,9 @@ const ClientEnvSchema = z.object({
 });
 
 const ServerEnvSchema = ClientEnvSchema.extend({
-  WALLET_SESSION_SECRET: z.string().min(1).optional(),
+  HIGHRABLE_AUTH_SERVICE_SECRET: z.string().trim().min(1).optional(),
+  STELLAR_READ_SOURCE_ACCOUNT: TStellarPublicKeySchema.optional(),
+  NEWSFEED_ENABLED: OptionalBooleanEnvSchema,
   HIGHRABLE_ADMIN_WALLET_ADDRESS: TStellarPublicKeySchema.optional(),
   HIGHRABLE_ADMIN_CONVEX_SECRET: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),
@@ -252,7 +256,9 @@ function validateEnv(): IServerEnv {
     NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER: process.env.NEXT_PUBLIC_ENABLE_HIGHRABLE_DEBUGGER,
     NEXT_PUBLIC_ENABLE_VELO_GAS_STATION: process.env.NEXT_PUBLIC_ENABLE_VELO_GAS_STATION,
     NODE_ENV: process.env.NODE_ENV,
-    WALLET_SESSION_SECRET: process.env.WALLET_SESSION_SECRET,
+    HIGHRABLE_AUTH_SERVICE_SECRET: process.env.HIGHRABLE_AUTH_SERVICE_SECRET,
+    STELLAR_READ_SOURCE_ACCOUNT: process.env.STELLAR_READ_SOURCE_ACCOUNT,
+    NEWSFEED_ENABLED: process.env.NEWSFEED_ENABLED,
     HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
     HIGHRABLE_ADMIN_CONVEX_SECRET: process.env.HIGHRABLE_ADMIN_CONVEX_SECRET,
     SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,

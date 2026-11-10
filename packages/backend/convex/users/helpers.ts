@@ -224,6 +224,23 @@ export async function assertPublicHandleAvailable(
   }
 }
 
+export async function assertAvatarStorageOwned(
+  ctx: QueryCtx,
+  avatarStorageId: Id<"_storage">,
+  walletAddress: string,
+): Promise<void> {
+  const intent = await ctx.db
+    .query("avatarUploadIntents")
+    .withIndex("by_storageId", (q) => q.eq("storageId", avatarStorageId))
+    .unique();
+  if (!intent || intent.walletAddress !== normalizeWalletAddress(walletAddress)) {
+    throw new BadRequestError("Avatar upload does not belong to this member.");
+  }
+  if (intent.expiresAt <= Date.now() || intent.finalizedAt === undefined) {
+    throw new BadRequestError("Avatar upload has expired. Upload the image again.");
+  }
+}
+
 export async function ensureUserIdentity(
   ctx: MutationCtx,
   walletAddress: string,

@@ -2,6 +2,7 @@
 
 import { WalletStatusCard } from "@/core/wallet/components/wallet-status-card";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { ClientTrustActivitySection } from "@/features/client-profile/components/client-trust-activity-section";
 import { ClientTrustProfileHeader } from "@/features/client-profile/components/client-trust-profile-header";
 import { EditClientProfileForm } from "@/features/client-profile/components/edit-client-profile-form";
@@ -24,6 +25,7 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
   }, [walletAddress]);
   const [isEditing, setIsEditing] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
+  const { authSession } = useWallet();
   const hasWalletAddress = decodedWalletAddress.length > 0;
   const profileData = useQuery(
     api.profiles.getClientTrustProfile,
@@ -50,7 +52,9 @@ export function ClientProfilePage({ walletAddress }: { readonly walletAddress: s
     recentCompletedPayments,
     reportedJobsSummary,
   } = profileData;
-  const canEdit = isSameWallet(walletIdentity.walletAddress, profile.walletAddress);
+  const canEdit =
+    isSameWallet(walletIdentity.walletAddress, profile.walletAddress) &&
+    authSession?.address === profile.walletAddress;
   const indicator = getClientTrustIndicator(stats);
 
   return (

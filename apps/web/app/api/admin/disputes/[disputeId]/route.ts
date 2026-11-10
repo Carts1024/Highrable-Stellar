@@ -23,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ disputeId: string }> },
 ) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const client = createAdminConvexClient();
     const params = ParamsSchema.parse(await context.params);
 

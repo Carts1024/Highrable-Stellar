@@ -1,8 +1,8 @@
 "use client";
 
-import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
+import { updateFreelancerProfile, uploadAvatar as uploadAvatarFile } from "@/core/member/client";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
 import {
   buildProfileIdentityMutationArgs,
@@ -10,9 +10,8 @@ import {
   TProfileIdentityFormSchema,
   validateAvatarFile,
 } from "@/features/profile/lib/profile-identity-form";
-import { api, type TConvexStorageId } from "@repo/convex-client";
+import { type TConvexStorageId } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { useMutation } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { TProfileIdentityFormValues } from "@/features/profile/lib/profile-identity-form";
@@ -41,9 +40,6 @@ export function EditFreelancerProfileForm({
   readonly onSaved: () => void;
   readonly onCancel: () => void;
 }) {
-  const walletIdentity = useHighrableWalletIdentity();
-  const updateProfile = useMutation(api.profiles.updateFreelancerProfile);
-  const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
   const initialValues = useMemo(() => buildInitialValues(profile), [profile]);
   const [values, setValues] = useState<TProfileIdentityFormValues>(initialValues);
   const [skillsInput, setSkillsInput] = useState(profile.coreSkills.join(", "));
@@ -72,27 +68,12 @@ export function EditFreelancerProfileForm({
     setError(null);
   };
 
-  const uploadAvatar = async (): Promise<TConvexStorageId | undefined> => {
+  const uploadProfileAvatar = async (): Promise<TConvexStorageId | undefined> => {
     if (!avatarFile) return undefined;
     const validationError = validateAvatarFile(avatarFile);
     if (validationError) throw new Error(validationError);
 
-    const uploadUrl = await generateUploadUrl({
-      walletAddress: profile.walletAddress,
-      ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
-      name: avatarFile.name,
-      size: avatarFile.size,
-      mimeType: avatarFile.type,
-      type: "image",
-    });
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": avatarFile.type },
-      body: avatarFile,
-    });
-    if (!response.ok) throw new Error("Avatar upload failed.");
-    const body = (await response.json()) as { storageId: TConvexStorageId };
-    return body.storageId;
+    return await uploadAvatarFile(avatarFile);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -113,9 +94,8 @@ export function EditFreelancerProfileForm({
 
     setStatus("saving");
     try {
-      const avatarStorageId = await uploadAvatar();
-      await updateProfile({
-        walletAddress: profile.walletAddress,
+      const avatarStorageId = await uploadProfileAvatar();
+      await updateFreelancerProfile({
         ...buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
       });
       setStatus("idle");

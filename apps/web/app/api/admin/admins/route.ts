@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const result = await createAdminConvexClient().query(api.admin.listDisputeAdmins, {
       adminWallet: adminContext.adminWallet,
       adminApiSecret: adminContext.adminApiSecret,
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const body = OperationSchema.parse((await request.json()) as unknown);
     const operation = await createAdminConvexClient().mutation(
       api.admin.startDisputeAdminOperation,

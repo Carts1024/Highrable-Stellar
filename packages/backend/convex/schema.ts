@@ -7,6 +7,7 @@ import {
   settlementAttempts,
 } from "./admin/schema";
 import applications from "./applications/schema";
+import { authChallenges, authRateLimits, authSessions } from "./auth/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
 import { conversationReads, conversations, messages } from "./conversations/schema";
@@ -22,6 +23,7 @@ import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
 import waitlistEntries from "./waitlist/schema";
+import { avatarUploadIntents } from "./users/schema";
 import workAgreements, {
   workAgreementEvents,
   workAgreementVersions,
@@ -29,6 +31,10 @@ import workAgreements, {
 import workSubmissions from "./work_submissions/schema";
 
 export default defineSchema({
+  authChallenges,
+  authSessions,
+  authRateLimits,
+  avatarUploadIntents,
   attachments,
   attachmentAccessLogs,
   cancellationRequests,

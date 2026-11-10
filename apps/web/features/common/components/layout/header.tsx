@@ -2,6 +2,7 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { useIsVerifiedAdminOwner } from "@/features/admin/lib/admin-session-query";
 import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
 import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
@@ -14,6 +15,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { HeaderProfileLink } from "./header-profile-link";
+import { useNewsfeedRelease } from "@/features/newsfeed/use-newsfeed-release";
 
 interface IAdminNavItem extends IModeNavItem {
   /** Shown only to the verified platform owner; the page itself also enforces this. */
@@ -49,13 +51,30 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const walletIdentity = useHighrableWalletIdentity();
+  const { authSession } = useWallet();
   const { mode } = useAppMode();
+  const newsfeedEnabled = useNewsfeedRelease();
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   // Owner tabs stay hidden until the server verifies the owner, so dispute admins never see them.
   const isVerifiedAdminOwner = useIsVerifiedAdminOwner({ enabled: isAdminRoute });
+  const isEligibleNewsfeedMember = Boolean(
+    newsfeedEnabled &&
+      authSession?.profile?.onboardingCompletedAt &&
+      authSession.profile.name?.trim(),
+  );
+  const memberNavigation = isEligibleNewsfeedMember
+    ? [
+        {
+          name: "Newsfeed",
+          href: "/newsfeed",
+          description: "Verified-member community feed",
+        },
+        ...MODE_NAVIGATION[mode],
+      ]
+    : MODE_NAVIGATION[mode];
   const navigation = isAdminRoute
     ? ADMIN_NAVIGATION.filter((item) => !item.ownerOnly || isVerifiedAdminOwner)
-    : MODE_NAVIGATION[mode];
+    : memberNavigation;
   const navLabel = isAdminRoute ? "Admin navigation" : `${MODE_COPY[mode].label} navigation`;
 
   const walletActionClass = "hidden px-4 py-2 text-sm sm:block";

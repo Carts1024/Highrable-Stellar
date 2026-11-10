@@ -2,12 +2,11 @@
 
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import { api } from "@repo/convex-client";
+import { updateClientProfile } from "@/core/member/client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
 import { Textarea } from "@repo/ui/components/ui/textarea";
-import { useMutation } from "convex/react";
 import { useState } from "react";
 
 import type { TClientProfile } from "@/features/client-profile/types";
@@ -34,7 +33,6 @@ export function EditClientProfileForm({
   readonly onSaved: () => void;
   readonly onCancel: () => void;
 }) {
-  const updateProfile = useMutation(api.profiles.updateClientProfile);
   const [name, setName] = useState(profile.name ?? "");
   const [companyName, setCompanyName] = useState(profile.companyName ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
@@ -62,8 +60,7 @@ export function EditClientProfileForm({
 
     setStatus("saving");
     try {
-      await updateProfile({
-        walletAddress: profile.walletAddress,
+      await updateClientProfile({
         name,
         companyName,
         bio,

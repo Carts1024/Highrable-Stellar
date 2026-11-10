@@ -28,7 +28,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const client = createAdminConvexClient();
     const parsed = SearchSchema.parse(
       Object.fromEntries(new URL(request.url).searchParams.entries()),

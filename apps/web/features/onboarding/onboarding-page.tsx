@@ -2,6 +2,7 @@
 
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
+import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import {
   FormStepNav,
   FormStepTabs,
@@ -24,11 +25,12 @@ import {
 } from "@/features/profile/lib/profile-identity-form";
 import { api, type TConvexStorageId } from "@repo/convex-client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { IFormStep } from "@/features/common";
+import { saveProfileDraft, uploadAvatar } from "@/core/member/client";
 
 const EMPTY_FORM_VALUES: TOnboardingFormValues = {
   firstName: "",
@@ -42,6 +44,13 @@ const EMPTY_FORM_VALUES: TOnboardingFormValues = {
 };
 
 const ONBOARDING_ID_PREFIX = "onboarding";
+
+function safeLocalReturnPath(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/dashboard";
+  }
+  return value;
+}
 
 const ONBOARDING_STEPS: readonly (IFormStep & {
   readonly sections: readonly TProfileIdentitySection[];
@@ -69,14 +78,13 @@ const ONBOARDING_STEPS: readonly (IFormStep & {
 export function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") ?? "/dashboard";
+  const nextPath = safeLocalReturnPath(searchParams.get("next"));
   const walletIdentity = useHighrableWalletIdentity();
+  const { authSession } = useWallet();
   const onboardingState = useQuery(
     api.users.queries.getOnboardingState,
     walletIdentity.walletAddress ? { walletAddress: walletIdentity.walletAddress } : "skip",
   );
-  const generateUploadUrl = useMutation(api.attachments.generateUploadUrl);
-  const saveProfileDraft = useMutation(api.users.saveProfileDraft);
   const registration = useRegistryRegistration();
   const [values, setValues] = useState<TOnboardingFormValues>(EMPTY_FORM_VALUES);
   const [skillsInput, setSkillsInput] = useState("");
@@ -156,7 +164,7 @@ export function OnboardingPage() {
     registration.clearError();
   };
 
-  const uploadAvatar = async (): Promise<TConvexStorageId | undefined> => {
+  const uploadProfileAvatar = async (): Promise<TConvexStorageId | undefined> => {
     if (!avatarFile || !walletIdentity.walletAddress) {
       return undefined;
     }
@@ -166,26 +174,7 @@ export function OnboardingPage() {
       throw new Error(validationError);
     }
 
-    const uploadUrl = await generateUploadUrl({
-      walletAddress: walletIdentity.walletAddress,
-      ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
-      name: avatarFile.name,
-      size: avatarFile.size,
-      mimeType: avatarFile.type,
-      type: "image",
-    });
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": avatarFile.type },
-      body: avatarFile,
-    });
-
-    if (!response.ok) {
-      throw new Error("Avatar upload failed.");
-    }
-
-    const body = (await response.json()) as { storageId: TConvexStorageId };
-    return body.storageId;
+    return await uploadAvatar(avatarFile);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -231,11 +220,9 @@ export function OnboardingPage() {
     try {
       const profileDraft = buildProfileIdentityMutationArgs(parsed.data, undefined);
       await saveProfileDraft({
-        walletAddress: walletIdentity.walletAddress,
-        ...(walletIdentity.walletType ? { walletType: walletIdentity.walletType } : {}),
         ...profileDraft,
       });
-      const avatarStorageId = await uploadAvatar();
+      const avatarStorageId = await uploadProfileAvatar();
       await registration.register({
         profileDraft: buildProfileIdentityMutationArgs(parsed.data, avatarStorageId),
         completeOnboarding: true,
@@ -257,6 +244,22 @@ export function OnboardingPage() {
             Create your account
           </h1>
           <p className="hr-text-secondary mt-1 text-sm">{helperText}</p>
+        </div>
+        <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
+      </div>
+    );
+  }
+
+  if (authSession?.address !== walletIdentity.walletAddress) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <div>
+          <h1 className="hr-text-primary text-2xl font-semibold tracking-tight">
+            Verify your account
+          </h1>
+          <p className="hr-text-secondary mt-1 text-sm">
+            Sign in with the connected wallet or passkey before starting or editing onboarding.
+          </p>
         </div>
         <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
       </div>

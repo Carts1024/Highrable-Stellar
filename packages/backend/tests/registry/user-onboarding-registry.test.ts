@@ -8,6 +8,7 @@ import schema from "../../convex/schema";
 import { modules } from "../convexModules";
 
 type TProfileDraftArgs = {
+  serviceSecret: string;
   walletAddress: string;
   firstName: string;
   lastName: string;
@@ -15,7 +16,7 @@ type TProfileDraftArgs = {
   coreSkills: string[];
 };
 
-type TCompleteOnboardingArgs = { walletAddress: string };
+type TCompleteOnboardingArgs = { serviceSecret: string; walletAddress: string };
 
 type TApplyVerifiedRegistrationArgs = {
   network: string;
@@ -28,6 +29,7 @@ type TApplyVerifiedRegistrationArgs = {
 const CONTRACT_ID = `C${"A".repeat(55)}`;
 const FIRST_WALLET = `G${"B".repeat(55)}`;
 const SECOND_WALLET = `G${"C".repeat(55)}`;
+const SERVICE_SECRET = "test-member-service-secret";
 const saveProfileDraftRef = makeFunctionReference<"mutation", TProfileDraftArgs, Id<"users">>(
   "users/mutations:saveProfileDraft",
 );
@@ -44,6 +46,7 @@ const applyVerifiedRegistrationRef = makeFunctionReference<
 
 function profileDraft(walletAddress: string, publicHandle: string): TProfileDraftArgs {
   return {
+    serviceSecret: SERVICE_SECRET,
     walletAddress,
     firstName: "  Ada  ",
     lastName: "Lovelace",
@@ -56,6 +59,7 @@ describe("registry gated onboarding", () => {
   beforeEach(() => {
     process.env.STELLAR_NETWORK = "testnet";
     process.env.REGISTRY_CONTRACT_ID = CONTRACT_ID;
+    process.env.HIGHRABLE_AUTH_SERVICE_SECRET = SERVICE_SECRET;
   });
 
   it("saves a sanitized profile draft without completing onboarding", async () => {
@@ -97,7 +101,7 @@ describe("registry gated onboarding", () => {
     await t.mutation(saveProfileDraftRef, profileDraft(FIRST_WALLET, "new-user"));
 
     await expect(
-      t.mutation(completeOnboardingRef, { walletAddress: FIRST_WALLET }),
+      t.mutation(completeOnboardingRef, { serviceSecret: SERVICE_SECRET, walletAddress: FIRST_WALLET }),
     ).rejects.toThrow("Verify your on-chain wallet registration");
     const user = await t.run((ctx) =>
       ctx.db
@@ -114,7 +118,10 @@ describe("registry gated onboarding", () => {
       registeredAt: 1_700_000_000,
       verifiedAt: 1_700_000_100,
     });
-    const userId = await t.mutation(completeOnboardingRef, { walletAddress: FIRST_WALLET });
+    const userId = await t.mutation(completeOnboardingRef, {
+      serviceSecret: SERVICE_SECRET,
+      walletAddress: FIRST_WALLET,
+    });
     const completedUser = await t.run((ctx) => ctx.db.get(userId));
     expect(completedUser?.onboardingCompletedAt).toBeTypeOf("number");
   });
@@ -138,9 +145,12 @@ describe("registry gated onboarding", () => {
     delete process.env.STELLAR_NETWORK;
     delete process.env.REGISTRY_CONTRACT_ID;
 
-    await expect(t.mutation(completeOnboardingRef, { walletAddress: FIRST_WALLET })).resolves.toBe(
-      userId,
-    );
+    await expect(
+      t.mutation(completeOnboardingRef, {
+        serviceSecret: SERVICE_SECRET,
+        walletAddress: FIRST_WALLET,
+      }),
+    ).resolves.toBe(userId);
     const user = await t.run((ctx) => ctx.db.get(userId));
     expect(user?.onboardingCompletedAt).toBe(completedAt);
   });

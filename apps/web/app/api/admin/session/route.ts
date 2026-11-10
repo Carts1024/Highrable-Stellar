@@ -17,7 +17,7 @@ function noStore(response: NextResponse): NextResponse {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const capabilities = await createAdminConvexClient().query(api.admin.getAdminCapabilities, {
       adminWallet: adminContext.adminWallet,
       adminApiSecret: adminContext.adminApiSecret,

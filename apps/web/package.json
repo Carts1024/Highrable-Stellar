@@ -17,6 +17,8 @@
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@creit.tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.1.0",
     "@heroicons/react": "^2.2.0",
+    "@simplewebauthn/browser": "13.3.0",
+    "@simplewebauthn/server": "13.3.0",
     "@hookstate/core": "^4.0.2",
     "@hookstate/devtools": "^4.0.3",
     "@repo/convex-client": "workspace:*",

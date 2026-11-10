@@ -4,7 +4,6 @@ import { PasskeySmartAccountCard } from "@/core/wallet/components/passkey-smart-
 import { WALLETCONNECT_ENABLED } from "@/core/wallet/config";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { usePasskeySmartAccount } from "@/core/wallet/passkey-smart-account-context";
-import { api } from "@repo/convex-client";
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -15,7 +14,6 @@ import {
 } from "@repo/ui/components/ui-customs/responsive-dialog";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { cn } from "@repo/ui/lib/utils";
-import { useMutation } from "convex/react";
 import { Wallet } from "lucide-react";
 import React from "react";
 import { useState } from "react";
@@ -32,9 +30,8 @@ export function WalletConnectTrigger({
   label = "Connect Wallet",
   onOpen,
 }: IWalletConnectTriggerProps) {
-  const { clearWalletError, connectWallet, walletState } = useWallet();
+  const { authenticateWallet, clearWalletError, connectWallet, walletState } = useWallet();
   const { setActiveWalletMode } = usePasskeySmartAccount();
-  const recordWalletIdentity = useMutation(api.users.recordWalletIdentity);
   const [isOpen, setIsOpen] = useState(false);
   const [connectionFeedback, setConnectionFeedback] = useState<string | null>(null);
   const [pendingIdentityAddress, setPendingIdentityAddress] = useState<string | null>(null);
@@ -44,10 +41,7 @@ export function WalletConnectTrigger({
     successNotice: string | null = null,
   ): Promise<void> => {
     try {
-      await recordWalletIdentity({
-        walletAddress,
-        walletType: "external_wallet",
-      });
+      await authenticateWallet();
       setPendingIdentityAddress(null);
       setConnectionFeedback(successNotice);
       setIsOpen(Boolean(successNotice));

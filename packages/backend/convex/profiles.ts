@@ -4,9 +4,11 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
 import { mutation, query } from "./_generated/server";
+import { assertMemberServiceSecret } from "./_shared/serviceAuth";
 import { BadRequestError } from "./_shared/errors";
 import { normalizeWalletAddress } from "./_shared/input";
 import {
+  assertAvatarStorageOwned,
   assertPublicHandleAvailable,
   findUserByWallet,
   resolveAvatarUrl,
@@ -115,6 +117,7 @@ async function getEscrowByEscrowId(ctx: QueryCtx, escrowId: string) {
 
 export const updateFreelancerProfile = mutation({
   args: {
+    serviceSecret: v.string(),
     walletAddress: v.string(),
     firstName: v.string(),
     middleName: v.optional(v.string()),
@@ -127,7 +130,7 @@ export const updateFreelancerProfile = mutation({
     avatarStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    assertMemberServiceSecret(args.serviceSecret);
     const walletAddress = normalizeWalletAddress(args.walletAddress);
     const existingUser = await findUserByWallet(ctx, walletAddress);
 
@@ -136,6 +139,9 @@ export const updateFreelancerProfile = mutation({
     }
 
     const profile = await sanitizeOnboardingProfile(ctx, args);
+    if (profile.avatarStorageId && profile.avatarStorageId !== existingUser.avatarStorageId) {
+      await assertAvatarStorageOwned(ctx, profile.avatarStorageId, walletAddress);
+    }
     await assertPublicHandleAvailable(ctx, profile.normalizedPublicHandle, existingUser._id);
 
     const now = Date.now();
@@ -164,6 +170,7 @@ export const updateFreelancerProfile = mutation({
 
 export const updateClientProfile = mutation({
   args: {
+    serviceSecret: v.string(),
     walletAddress: v.string(),
     name: v.optional(v.string()),
     companyName: v.optional(v.string()),
@@ -172,7 +179,7 @@ export const updateClientProfile = mutation({
     location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // TODO: Replace walletAddress trust with signed wallet session/auth.
+    assertMemberServiceSecret(args.serviceSecret);
     const walletAddress = normalizeWalletAddress(args.walletAddress);
     const now = Date.now();
     const patch: TClientProfilePatch = {

@@ -16,7 +16,7 @@ export async function POST(
   context: { params: Promise<{ operationId: string }> },
 ) {
   try {
-    const adminContext = requireAdminRequestContext(request);
+    const adminContext = await requireAdminRequestContext(request);
     const { operationId } = ParamsSchema.parse(await context.params);
     const body = BodySchema.parse((await request.json()) as unknown);
     const operation = await createAdminConvexClient().mutation(

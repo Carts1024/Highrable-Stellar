@@ -145,12 +145,38 @@ vi.mock("@creit-tech/stellar-wallets-kit/types", () => ({
 
 const PUBLIC_KEY = `G${"A".repeat(55)}`;
 
+function installBrowserStorage(): void {
+  const createStorage = (): Storage => {
+    const values = new Map<string, string>();
+    return {
+      get length() {
+        return values.size;
+      },
+      clear: () => values.clear(),
+      getItem: (key) => values.get(key) ?? null,
+      key: (index) => Array.from(values.keys())[index] ?? null,
+      removeItem: (key) => values.delete(key),
+      setItem: (key, value) => values.set(key, value),
+    };
+  };
+
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: createStorage(),
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: createStorage(),
+  });
+}
+
 async function loadClient(
   network: "mainnet" | "testnet" | "local" = "mainnet",
   projectId: string | undefined = "test-project-id",
 ) {
   vi.resetModules();
-  localStorage.clear();
+  installBrowserStorage();
+  window.localStorage.clear();
 
   mockState.config.WALLET_NETWORK = network;
   mockState.config.WALLET_NETWORK_LABEL =
@@ -197,7 +223,7 @@ describe("StellarWalletKitClient WalletConnect readiness", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    localStorage.clear();
+    window.localStorage?.clear();
   });
 
   it("waits through delayed initialization before opening the picker", async () => {
@@ -273,8 +299,8 @@ describe("StellarWalletKitClient WalletConnect readiness", () => {
 
   it("checks readiness before restoring a WalletConnect selection", async () => {
     const client = await loadClient();
-    localStorage.setItem("@StellarWalletsKit/activeAddress", PUBLIC_KEY);
-    localStorage.setItem("@StellarWalletsKit/selectedModuleId", "wallet_connect");
+    window.localStorage.setItem("@StellarWalletsKit/activeAddress", PUBLIC_KEY);
+    window.localStorage.setItem("@StellarWalletsKit/selectedModuleId", "wallet_connect");
     mockState.walletConnectAvailability.mockResolvedValue(false);
     vi.useFakeTimers();
 

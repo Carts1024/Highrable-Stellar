@@ -62,8 +62,14 @@ export type TWalletState = {
 
 export type TAuthSession = {
   address: string;
-  token: string;
   expiresAt: string;
+  walletType: "external_wallet" | "passkey_smart_account";
+  authMethod: "external_wallet" | "passkey";
+  profile: {
+    name: string | null;
+    onboardingCompletedAt: number | null;
+    role: "client" | "freelancer" | "admin" | null;
+  } | null;
 };
 
 export type TAuthChallenge = {

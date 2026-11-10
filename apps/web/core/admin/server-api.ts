@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { AdminAccessError } from "./server-auth";
+import { SameOriginError } from "@/core/wallet/server/same-origin";
 
 const DEFAULT_CONVEX_URL = "http://127.0.0.1:3210";
 
@@ -47,6 +48,9 @@ export function createAdminConvexClient(): ConvexHttpClient {
 }
 
 export function createAdminErrorResponse(error: unknown): NextResponse {
+  if (error instanceof SameOriginError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
   if (error instanceof AdminAccessError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
