@@ -8,6 +8,8 @@ Plan for **one developer across five two-week sprints**. This is an initial esti
 
 Sprint 1 implementation and acceptance evidence is tracked in [Sprint 1 — Execution and Acceptance](./Sprint-1-Execution-and-Acceptance.md).
 
+Sprint 2 implementation and acceptance tracking is in [Sprint 2 — Execution and Acceptance](./Sprint-2-Execution-and-Acceptance.md).
+
 Agreed product behavior:
 
 - Require verified login and a completed, named profile.

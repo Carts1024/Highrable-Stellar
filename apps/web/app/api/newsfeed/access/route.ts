@@ -21,6 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         NextResponse.json(
           {
             enabled: true,
+            textEnabled: env.NEWSFEED_TEXT_ENABLED === true,
             eligible: false,
             next: "/onboarding?next=%2Fnewsfeed",
             error: "Complete your named profile before entering Newsfeed.",
@@ -31,7 +32,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
     return noStore(
       NextResponse.json(
-        { enabled: true, eligible: true, address: member.walletAddress },
+        {
+          enabled: true,
+          textEnabled: env.NEWSFEED_TEXT_ENABLED === true,
+          eligible: true,
+          profile: member.profile,
+        },
         { status: 200 },
       ),
     );
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return noStore(
       NextResponse.json(
         { enabled: true, eligible: false, error: "Verified member access is required." },
-        { status: status === 503 ? 503 : 401 },
+        { status: status === 503 ? 503 : status === 403 ? 403 : 401 },
       ),
     );
   }

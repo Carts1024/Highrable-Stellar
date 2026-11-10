@@ -5,6 +5,7 @@ const APP_ERROR_CODES = {
   NOT_FOUND: "NOT_FOUND",
   FORBIDDEN: "FORBIDDEN",
   CONFLICT: "CONFLICT",
+  RATE_LIMIT: "RATE_LIMIT",
 } as const;
 
 type TAppErrorCode = (typeof APP_ERROR_CODES)[keyof typeof APP_ERROR_CODES];
@@ -47,5 +48,11 @@ export class ForbiddenError extends AppError {
 export class ConflictError extends AppError {
   constructor(message: string) {
     super(message, APP_ERROR_CODES.CONFLICT);
+  }
+}
+
+export class RateLimitError extends AppError {
+  constructor(message: string) {
+    super(message, APP_ERROR_CODES.RATE_LIMIT);
   }
 }
