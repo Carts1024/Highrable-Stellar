@@ -4,9 +4,9 @@ import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
 import { mutation, query } from "./_generated/server";
-import { assertMemberServiceSecret } from "./_shared/serviceAuth";
 import { BadRequestError } from "./_shared/errors";
 import { normalizeWalletAddress } from "./_shared/input";
+import { assertMemberServiceSecret } from "./_shared/serviceAuth";
 import {
   assertAvatarStorageOwned,
   assertPublicHandleAvailable,

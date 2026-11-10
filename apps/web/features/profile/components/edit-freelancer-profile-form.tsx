@@ -1,8 +1,8 @@
 "use client";
 
+import { updateFreelancerProfile, uploadAvatar as uploadAvatarFile } from "@/core/member/client";
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import { updateFreelancerProfile, uploadAvatar as uploadAvatarFile } from "@/core/member/client";
 import { ProfileIdentityFields } from "@/features/profile/components/profile-identity-fields";
 import {
   buildProfileIdentityMutationArgs,

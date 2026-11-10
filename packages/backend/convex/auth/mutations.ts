@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 
 import { mutation } from "../_generated/server";
-import { assertMemberServiceSecret } from "../_shared/serviceAuth";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
 import { normalizeWalletAddress } from "../_shared/input";
+import { assertMemberServiceSecret } from "../_shared/serviceAuth";
 import { findUserByWallet } from "../users/helpers";
 import { authMethodValidator, authWalletTypeValidator } from "./schema";
 
@@ -190,4 +190,3 @@ export const consumeRateLimit = mutation({
     return { allowed: true, remaining: Math.max(args.limit - existing.count - 1, 0) };
   },
 });
-

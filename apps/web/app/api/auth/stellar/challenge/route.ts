@@ -1,8 +1,4 @@
 import { env } from "@/core/config/env";
-import { api } from "@repo/convex-client/server";
-import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-
 import {
   AUTH_BROWSER_BINDING_COOKIE_NAME,
   AUTH_CHALLENGE_COOKIE_NAME,
@@ -14,6 +10,9 @@ import {
 import { createMemberConvexClient, getMemberServiceSecret } from "@/core/wallet/server/convex";
 import { assertSameOrigin } from "@/core/wallet/server/same-origin";
 import { TChallengeRequestSchema } from "@/core/wallet/validation";
+import { api } from "@repo/convex-client/server";
+import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import type { NextRequest } from "next/server";
 

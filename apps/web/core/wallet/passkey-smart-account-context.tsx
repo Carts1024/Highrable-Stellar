@@ -1,7 +1,6 @@
 "use client";
 
 import { isWebAuthnSupported } from "@/core/passkeys/webauthn-support";
-import { authenticatePasskeySession } from "@/core/wallet/auth/passkey-auth-service";
 import { evaluateSmartAccountMainnetReadiness } from "@/core/stellar/mainnet-readiness";
 import {
   assertPasskeyFeatureEnabled,
@@ -12,6 +11,7 @@ import {
   isPasskeyFeatureEnabled,
   SMART_ACCOUNT_CONFIG_MISSING_MESSAGE,
 } from "@/core/stellar/smart-account-config";
+import { authenticatePasskeySession } from "@/core/wallet/auth/passkey-auth-service";
 import {
   createContext,
   useCallback,
@@ -232,21 +232,18 @@ export function PasskeySmartAccountProvider({ children }: { readonly children: R
     [],
   );
 
-  const persistIdentity = useCallback(
-    async (walletAddress: string, credentialId: string) => {
-      await authenticatePasskeySession(walletAddress, credentialId);
-      const response = await fetch("/api/member/identity", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Could not save the authenticated account.");
-      }
-      window.dispatchEvent(new Event("highrable-auth-session-refresh"));
-    },
-    [],
-  );
+  const persistIdentity = useCallback(async (walletAddress: string, credentialId: string) => {
+    await authenticatePasskeySession(walletAddress, credentialId);
+    const response = await fetch("/api/member/identity", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? "Could not save the authenticated account.");
+    }
+    window.dispatchEvent(new Event("highrable-auth-session-refresh"));
+  }, []);
 
   const restorePasskeySession = useCallback(async (): Promise<string | null> => {
     if (!isEnabled || !isSupported || !hasConfig) {

@@ -43,4 +43,3 @@ export const authRateLimits = defineTable({
   windowStartedAt: v.number(),
   count: v.number(),
 }).index("by_key", ["key"]);
-

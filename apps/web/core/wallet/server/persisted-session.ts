@@ -1,10 +1,10 @@
 import { api } from "@repo/convex-client/server";
 
-import { createMemberConvexClient, getMemberServiceSecret } from "./convex";
-import { AUTH_SESSION_COOKIE_NAME } from "./auth-store";
-
 import type { TAuthSessionRecord } from "./session-types";
 import type { NextRequest } from "next/server";
+
+import { AUTH_SESSION_COOKIE_NAME } from "./auth-store";
+import { createMemberConvexClient, getMemberServiceSecret } from "./convex";
 
 export async function getPersistedSession(sessionId: string): Promise<TAuthSessionRecord | null> {
   const result = await createMemberConvexClient().query(api.auth.getSession, {

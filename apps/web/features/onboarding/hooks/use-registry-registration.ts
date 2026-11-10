@@ -2,6 +2,10 @@
 
 import { getRequiredRegistryConfig } from "@/core/config/stellar-contracts";
 import {
+  completeOnboarding as completeOnboardingViaApi,
+  saveProfileDraft as saveProfileDraftViaApi,
+} from "@/core/member/client";
+import {
   checkRegistryTransaction,
   getUserRegistration,
   registerUser as submitRegistryRegistration,
@@ -10,7 +14,6 @@ import { StellarTransactionPendingError } from "@/core/stellar/transaction";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { buildProfileIdentityMutationArgs } from "@/features/profile/lib/profile-identity-form";
-import { completeOnboarding as completeOnboardingViaApi, saveProfileDraft as saveProfileDraftViaApi } from "@/core/member/client";
 import { api } from "@repo/convex-client";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { makeFunctionReference } from "convex/server";

@@ -47,10 +47,11 @@ vi.mock("../config/env", () => ({
   },
 }));
 
+import type { TAuthSessionRecord } from "../wallet/server/session-types";
+
 import { GET as getAdminSession } from "../../app/api/admin/session/route";
 import { AUTH_SESSION_COOKIE_NAME } from "../wallet/server/auth-store";
 import { requireAdminRequestContext } from "./server-auth";
-import type { TAuthSessionRecord } from "../wallet/server/session-types";
 
 const nonAdminWallet = `G${"C".repeat(55)}`;
 
@@ -60,7 +61,10 @@ function requestWithToken(token?: string): NextRequest {
   });
 }
 
-function persistedSession(walletAddress: string, sessionId = "session-1"): { sessionId: string; session: TAuthSessionRecord } {
+function persistedSession(
+  walletAddress: string,
+  sessionId = "session-1",
+): { sessionId: string; session: TAuthSessionRecord } {
   return {
     sessionId,
     session: {
@@ -90,12 +94,12 @@ describe("admin server authorization", () => {
 
   it("rejects revoked or unknown session IDs with 401", async () => {
     testConfig.getPersistedSession.mockResolvedValue(null);
-    await expect(requireAdminRequestContext(requestWithToken("expired-session"))).rejects.toThrowError(
-      expect.objectContaining({ status: 401 }),
-    );
-    await expect(requireAdminRequestContext(requestWithToken("tampered-session"))).rejects.toThrowError(
-      expect.objectContaining({ status: 401 }),
-    );
+    await expect(
+      requireAdminRequestContext(requestWithToken("expired-session")),
+    ).rejects.toThrowError(expect.objectContaining({ status: 401 }));
+    await expect(
+      requireAdminRequestContext(requestWithToken("tampered-session")),
+    ).rejects.toThrowError(expect.objectContaining({ status: 401 }));
   });
 
   it("accepts a valid persisted session for an external wallet and leaves authorization to Convex", async () => {

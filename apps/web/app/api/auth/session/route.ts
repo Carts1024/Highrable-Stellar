@@ -1,8 +1,8 @@
+import { noStore } from "@/core/member/server-api";
 import { AUTH_SESSION_COOKIE_NAME } from "@/core/wallet/server/auth-store";
 import { createMemberConvexClient, getMemberServiceSecret } from "@/core/wallet/server/convex";
 import { getPersistedSessionFromRequest } from "@/core/wallet/server/persisted-session";
 import { assertSameOrigin, SameOriginError } from "@/core/wallet/server/same-origin";
-import { noStore } from "@/core/member/server-api";
 import { api } from "@repo/convex-client/server";
 import { NextResponse } from "next/server";
 
@@ -15,7 +15,9 @@ export const revalidate = 0;
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const sessionId = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value?.trim();
   if (!sessionId) {
-    return noStore(NextResponse.json({ authenticated: false, status: "anonymous" }, { status: 200 }));
+    return noStore(
+      NextResponse.json({ authenticated: false, status: "anonymous" }, { status: 200 }),
+    );
   }
 
   try {
@@ -48,8 +50,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           expiresAt: new Date(result.session.expiresAt).toISOString(),
           profile: result.session.profile,
           onboardingEligible: Boolean(
-            result.session.profile?.onboardingCompletedAt &&
-              result.session.profile.name?.trim(),
+            result.session.profile?.onboardingCompletedAt && result.session.profile.name?.trim(),
           ),
         },
         { status: 200 },

@@ -2,8 +2,11 @@
 
 import { startAuthentication } from "@simplewebauthn/browser";
 
-import type { AuthenticationResponseJSON, PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import type { TAuthSession } from "@/core/wallet/types";
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from "@simplewebauthn/browser";
 
 async function readJson<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as { error?: string } & T;
@@ -23,7 +26,9 @@ export async function authenticatePasskeySession(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ address, credentialId }),
   });
-  const options = await readJson<{ options: PublicKeyCredentialRequestOptionsJSON }>(optionsResponse);
+  const options = await readJson<{ options: PublicKeyCredentialRequestOptionsJSON }>(
+    optionsResponse,
+  );
   const assertion: AuthenticationResponseJSON = await startAuthentication({
     optionsJSON: options.options,
   });

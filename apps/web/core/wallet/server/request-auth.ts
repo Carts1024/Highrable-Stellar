@@ -1,8 +1,8 @@
+import type { NextRequest } from "next/server";
+
 import { AUTH_SESSION_COOKIE_NAME } from "./auth-store";
 import { getPersistedSessionFromRequest } from "./persisted-session";
 import { assertSameOrigin } from "./same-origin";
-
-import type { NextRequest } from "next/server";
 
 export class WalletRequestAuthError extends Error {
   readonly status: number;
@@ -19,7 +19,9 @@ export async function requireWalletRequestContext(request: NextRequest): Promise
   walletAddress: string;
   walletType: "external_wallet" | "passkey_smart_account";
   authMethod: "external_wallet" | "passkey";
-  profile: NonNullable<Awaited<ReturnType<typeof getPersistedSessionFromRequest>>>["session"]["profile"];
+  profile: NonNullable<
+    Awaited<ReturnType<typeof getPersistedSessionFromRequest>>
+  >["session"]["profile"];
 }> {
   assertSameOrigin(request);
   const sessionId = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value?.trim();

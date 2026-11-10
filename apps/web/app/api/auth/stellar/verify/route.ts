@@ -1,10 +1,4 @@
 import { env } from "@/core/config/env";
-import { api } from "@repo/convex-client/server";
-import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-
-import type { NextRequest } from "next/server";
-
 import {
   AUTH_BROWSER_BINDING_COOKIE_NAME,
   AUTH_CHALLENGE_COOKIE_NAME,
@@ -16,6 +10,11 @@ import { createMemberConvexClient, getMemberServiceSecret } from "@/core/wallet/
 import { assertSameOrigin } from "@/core/wallet/server/same-origin";
 import { verifyStellarMessageSignature } from "@/core/wallet/server/signature";
 import { TVerifyRequestSchema } from "@/core/wallet/validation";
+import { api } from "@repo/convex-client/server";
+import { NextResponse } from "next/server";
+import { ZodError } from "zod";
+
+import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -57,7 +56,10 @@ export async function POST(request: NextRequest) {
       challenge.walletAddress !== payload.address ||
       challenge.expiresAt <= Date.now()
     ) {
-      return NextResponse.json({ error: "Challenge payload mismatch or expiration." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Challenge payload mismatch or expiration." },
+        { status: 401 },
+      );
     }
 
     if (
@@ -124,8 +126,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes("Cross-origin")) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
-    if (error instanceof Error && /already been used|not found|expired|mismatch/i.test(error.message)) {
-      return NextResponse.json({ error: "Challenge not found, expired, or already used." }, { status: 401 });
+    if (
+      error instanceof Error &&
+      /already been used|not found|expired|mismatch/i.test(error.message)
+    ) {
+      return NextResponse.json(
+        { error: "Challenge not found, expired, or already used." },
+        { status: 401 },
+      );
     }
     console.error("Failed to verify Stellar authentication.");
     return NextResponse.json(

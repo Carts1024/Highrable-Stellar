@@ -1,10 +1,4 @@
-import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { api } from "@repo/convex-client/server";
-import { NextResponse } from "next/server";
-import { z } from "zod";
-
-import type { NextRequest } from "next/server";
-
+import { env } from "@/core/config/env";
 import {
   AUTH_BROWSER_BINDING_COOKIE_NAME,
   AUTH_CHALLENGE_COOKIE_NAME,
@@ -13,9 +7,17 @@ import {
   getClientAddress,
 } from "@/core/wallet/server/auth-store";
 import { createMemberConvexClient, getMemberServiceSecret } from "@/core/wallet/server/convex";
+import {
+  getPasskeyWebAuthnConfig,
+  resolveOnChainPasskeyCredential,
+} from "@/core/wallet/server/passkey";
 import { assertSameOrigin } from "@/core/wallet/server/same-origin";
-import { getPasskeyWebAuthnConfig, resolveOnChainPasskeyCredential } from "@/core/wallet/server/passkey";
-import { env } from "@/core/config/env";
+import { api } from "@repo/convex-client/server";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import type { NextRequest } from "next/server";
 
 const VerifySchema = z.object({
   address: z.string().regex(/^C[A-Z2-7]{55}$/),
@@ -32,7 +34,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const challengeId = request.cookies.get(AUTH_CHALLENGE_COOKIE_NAME)?.value;
     const browserBinding = request.cookies.get(AUTH_BROWSER_BINDING_COOKIE_NAME)?.value;
     if (!challengeId || !browserBinding) {
-      return NextResponse.json({ error: "Passkey challenge not found or expired." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Passkey challenge not found or expired." },
+        { status: 401 },
+      );
     }
 
     const convex = createMemberConvexClient();
@@ -62,7 +67,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       !challenge.webauthnChallenge ||
       challenge.expiresAt <= Date.now()
     ) {
-      return NextResponse.json({ error: "Passkey challenge payload mismatch or expiration." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Passkey challenge payload mismatch or expiration." },
+        { status: 401 },
+      );
     }
 
     const credential = await resolveOnChainPasskeyCredential({
@@ -83,7 +91,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       requireUserVerification: true,
     });
     if (!verification.verified) {
-      return NextResponse.json({ error: "Passkey verification was not accepted." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Passkey verification was not accepted." },
+        { status: 401 },
+      );
     }
 
     const sessionId = createOpaqueId();

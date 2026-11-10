@@ -1,8 +1,15 @@
-import { memberErrorResponse, memberServiceArgs, noStore, requireMember, api, createMemberConvexClient } from "@/core/member/server-api";
-import type { TConvexStorageId } from "@repo/convex-client";
+import {
+  memberErrorResponse,
+  memberServiceArgs,
+  noStore,
+  requireMember,
+  api,
+  createMemberConvexClient,
+} from "@/core/member/server-api";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import type { TConvexStorageId } from "@repo/convex-client";
 import type { NextRequest } from "next/server";
 
 const FreelancerProfileSchema = z.object({

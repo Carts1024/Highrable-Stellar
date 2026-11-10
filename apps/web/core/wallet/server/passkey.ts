@@ -46,7 +46,9 @@ export async function resolveOnChainPasskeyCredential(input: {
     throw new Error("The smart account does not have a default passkey signer rule.");
   }
   const externalSigners = rule.signers.filter((signer) => signer.tag === "External");
-  const requestedCredentialId = input.credentialId ? normalizeCredentialId(input.credentialId) : null;
+  const requestedCredentialId = input.credentialId
+    ? normalizeCredentialId(input.credentialId)
+    : null;
   const signer = externalSigners.find((candidate) => {
     const keyData = candidate.values[1];
     const candidateCredentialId = normalizeCredentialId(

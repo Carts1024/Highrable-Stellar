@@ -5,6 +5,7 @@ import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wa
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
 import { useIsVerifiedAdminOwner } from "@/features/admin/lib/admin-session-query";
 import { MODE_COPY, MODE_NAVIGATION, useAppMode, type IModeNavItem } from "@/features/mode";
+import { useNewsfeedRelease } from "@/features/newsfeed/use-newsfeed-release";
 import { ThemeToggle } from "@repo/ui/components/highrable/theme-toggle";
 import { V2_PAGE_CONTAINER_CLASS } from "@repo/ui/components/highrable/v2-theme";
 import { cn } from "@repo/ui/lib/utils";
@@ -15,7 +16,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { HeaderProfileLink } from "./header-profile-link";
-import { useNewsfeedRelease } from "@/features/newsfeed/use-newsfeed-release";
 
 interface IAdminNavItem extends IModeNavItem {
   /** Shown only to the verified platform owner; the page itself also enforces this. */
@@ -59,8 +59,8 @@ export function Header() {
   const isVerifiedAdminOwner = useIsVerifiedAdminOwner({ enabled: isAdminRoute });
   const isEligibleNewsfeedMember = Boolean(
     newsfeedEnabled &&
-      authSession?.profile?.onboardingCompletedAt &&
-      authSession.profile.name?.trim(),
+    authSession?.profile?.onboardingCompletedAt &&
+    authSession.profile.name?.trim(),
   );
   const memberNavigation = isEligibleNewsfeedMember
     ? [

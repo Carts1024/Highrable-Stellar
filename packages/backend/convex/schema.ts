@@ -7,8 +7,8 @@ import {
   settlementAttempts,
 } from "./admin/schema";
 import applications from "./applications/schema";
-import { authChallenges, authRateLimits, authSessions } from "./auth/schema";
 import attachments, { attachmentAccessLogs } from "./attachments/schema";
+import { authChallenges, authRateLimits, authSessions } from "./auth/schema";
 import { cancellationEvents, cancellationRequests } from "./cancellations/schema";
 import { conversationReads, conversations, messages } from "./conversations/schema";
 import { deadlineAuditEvents, deadlineReminders, notifications } from "./deadlines/schema";
@@ -22,8 +22,8 @@ import reputationRecords from "./reputation_records/schema";
 import revisionRequests from "./revisions/schema";
 import transactions from "./transactions/schema";
 import users from "./users/schema";
-import waitlistEntries from "./waitlist/schema";
 import { avatarUploadIntents } from "./users/schema";
+import waitlistEntries from "./waitlist/schema";
 import workAgreements, {
   workAgreementEvents,
   workAgreementVersions,

@@ -72,7 +72,9 @@ export function NewsfeedPage() {
           icon={<LockKeyhole />}
         />
         <div className="space-y-4 px-5 py-5">
-          <RouteCallout tone="neutral">No community content is loaded until access is verified.</RouteCallout>
+          <RouteCallout tone="neutral">
+            No community content is loaded until access is verified.
+          </RouteCallout>
           <WalletConnectTrigger className="hr-v2-button-primary rounded-md px-4 py-2 text-sm" />
         </div>
       </RoutePanel>
@@ -102,10 +104,13 @@ export function NewsfeedPage() {
       <header className="space-y-1">
         <p className="hr-text-muted font-mono text-xs uppercase">Community</p>
         <h1 className="hr-text-primary text-2xl font-semibold tracking-tight">Newsfeed</h1>
-        <p className="hr-text-secondary text-sm">The text community feed will appear here in Sprint 2.</p>
+        <p className="hr-text-secondary text-sm">
+          The text community feed will appear here in Sprint 2.
+        </p>
       </header>
       <RouteCallout tone="neutral" icon={<Newspaper className="h-4 w-4" />}>
-        Your verified member access is active. Posts and interactions are intentionally not enabled in this shell release.
+        Your verified member access is active. Posts and interactions are intentionally not enabled
+        in this shell release.
       </RouteCallout>
     </div>
   );

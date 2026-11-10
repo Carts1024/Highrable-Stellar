@@ -1,5 +1,6 @@
 "use client";
 
+import { saveProfileDraft, uploadAvatar } from "@/core/member/client";
 import { WalletConnectTrigger } from "@/core/wallet/components/wallet-connect-trigger";
 import { useHighrableWalletIdentity } from "@/core/wallet/hooks/use-highrable-wallet-identity";
 import { useWallet } from "@/core/wallet/hooks/use-wallet";
@@ -30,7 +31,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { IFormStep } from "@/features/common";
-import { saveProfileDraft, uploadAvatar } from "@/core/member/client";
 
 const EMPTY_FORM_VALUES: TOnboardingFormValues = {
   firstName: "",

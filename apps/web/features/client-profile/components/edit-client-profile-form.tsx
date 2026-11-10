@@ -1,8 +1,8 @@
 "use client";
 
+import { updateClientProfile } from "@/core/member/client";
 import { showErrorToast, showSuccessToast, showWarningToast } from "@/features/common";
 import { getReadableErrorMessage } from "@/features/marketplace/lib/errors";
-import { updateClientProfile } from "@/core/member/client";
 import { Button as AppButton } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";

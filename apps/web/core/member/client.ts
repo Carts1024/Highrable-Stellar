@@ -14,7 +14,9 @@ async function postJson<T>(path: string, body?: unknown): Promise<T> {
   return result;
 }
 
-export function saveProfileDraft<T extends Record<string, unknown>>(draft: T): Promise<{ userId: string }> {
+export function saveProfileDraft<T extends Record<string, unknown>>(
+  draft: T,
+): Promise<{ userId: string }> {
   return postJson<{ userId: string }>("/api/member/onboarding/draft", draft);
 }
 
@@ -28,10 +30,12 @@ export function completeOnboarding(): Promise<{ userId: string }> {
 export function updateFreelancerProfile<T extends Record<string, unknown>>(
   profile: T,
 ): Promise<{ profile: unknown }> {
-  return postJson<{ profile: unknown }>("/api/member/profile/freelancer", profile).then((result) => {
-    window.dispatchEvent(new Event("highrable-auth-session-refresh"));
-    return result;
-  });
+  return postJson<{ profile: unknown }>("/api/member/profile/freelancer", profile).then(
+    (result) => {
+      window.dispatchEvent(new Event("highrable-auth-session-refresh"));
+      return result;
+    },
+  );
 }
 
 export function updateClientProfile<T extends Record<string, unknown>>(
