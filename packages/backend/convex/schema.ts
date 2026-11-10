@@ -17,6 +17,9 @@ import escrows from "./escrows/schema";
 import jobs from "./jobs/schema";
 import milestones from "./milestones/schema";
 import {
+  newsfeedCleanupCursors,
+  newsfeedUploads,
+  newsfeedMediaGrants,
   newsfeedComments,
   newsfeedModerationActions,
   newsfeedPostLikes,
@@ -67,6 +70,9 @@ export default defineSchema({
   workAgreementVersions,
   workSubmissions,
   newsfeedPosts,
+  newsfeedCleanupCursors,
+  newsfeedUploads,
+  newsfeedMediaGrants,
   newsfeedComments,
   newsfeedPostLikes,
   newsfeedReports,

@@ -8,6 +8,10 @@ export function GET(): NextResponse {
   return noStore(
     NextResponse.json(
       {
+        photosEnabled:
+          env.NEWSFEED_ENABLED === true &&
+          env.NEWSFEED_TEXT_ENABLED === true &&
+          env.NEWSFEED_PHOTOS_ENABLED === true,
         enabled: env.NEWSFEED_ENABLED === true,
         textEnabled: env.NEWSFEED_ENABLED === true && env.NEWSFEED_TEXT_ENABLED === true,
       },

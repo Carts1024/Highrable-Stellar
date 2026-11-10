@@ -16,6 +16,7 @@ import {
 } from "../disputes/schema";
 import { ESCROW_STATUSES, escrowStatusValidator } from "../escrows/schema";
 import { JOB_STATUSES } from "../jobs/schema";
+import { assertSharedStorage } from "../newsfeed/photos";
 import { REVISION_REQUEST_STATUSES } from "../revisions/schema";
 import { USER_ROLES } from "../users/schema";
 import {
@@ -166,7 +167,12 @@ async function resolveAttachmentForAdmin(
   }
 
   try {
-    const url = attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null;
+    const url = attachment.storageId
+      ? await (async () => {
+          await assertSharedStorage(ctx, attachment.storageId!);
+          return ctx.storage.getUrl(attachment.storageId!);
+        })()
+      : null;
     if (attachment.storageId && url === null) {
       return null;
     }

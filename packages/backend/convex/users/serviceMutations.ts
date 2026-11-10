@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { assertMemberServiceSecret } from "../_shared/serviceAuth";
+import { assertSharedStorage } from "../newsfeed/photos";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ALLOWED_AVATAR_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -64,6 +65,7 @@ export const finalizeAvatarUpload = mutation({
       throw new BadRequestError("Avatar upload has expired or was already finalized.");
     }
 
+    await assertSharedStorage(ctx, args.storageId);
     const storageMetadata = await ctx.db.system.get("_storage", args.storageId);
     if (!storageMetadata) {
       throw new NotFoundError("Uploaded avatar was not found.");

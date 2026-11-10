@@ -40,3 +40,11 @@ Required Convex configuration:
 ## Evidence to record
 
 Record test command results, environment/flag values without secrets, measured latency/authentication-failure metrics, and moderation queue age. Do not record post contents, session IDs, wallet private keys, seed phrases, or service secrets.
+
+
+## Partial follow-up evidence
+
+The local production build passed guest access and foreign-Origin photo-boundary checks in Playwright-managed Chromium, Firefox and WebKit, and real Ed25519 signature-verifier tests passed. See [Sprint 3 follow-up acceptance evidence](Sprint-3-Execution-and-Acceptance.md#follow-up-acceptance-attempt). The checklist above remains pending because these checks do not exercise the configured deployment with authenticated users, wallet extensions or passkeys. The inspected development target/local web environment lack the member-auth/newsfeed configuration needed for those checks.
+
+
+The later user-authorized development run removed the configuration blocker and passed 51 live API assertions plus signed-in four-photo browser flows in Chromium, Firefox and WebKit. See [development deployment acceptance](Sprint-3-Execution-and-Acceptance.md#configured-development-deployment-acceptance). Signed API sessions used genuine Stellar signatures and synthetic named profiles. Real wallet-extension/passkey/onboarding, full interaction/load and physical-device gates remain pending; the broad checklist is not marked complete from this subset.

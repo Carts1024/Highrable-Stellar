@@ -19,6 +19,7 @@ export const NEWSFEED_TEXT_LIMIT = 3_000;
 export const NEWSFEED_REPORT_EXPLANATION_LIMIT = 1_000;
 
 const RATE_LIMITS: Record<TNewsfeedRateLimitOperation, number> = {
+  upload: 10,
   post: 5,
   comment: 20,
   like: 60,

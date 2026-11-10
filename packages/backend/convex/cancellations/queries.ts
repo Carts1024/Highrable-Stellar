@@ -6,6 +6,7 @@ import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import { normalizeWalletAddress } from "../_shared/input";
 import { assertCanViewAttachment } from "../attachments/helpers";
+import { assertSharedStorage } from "../newsfeed/photos";
 import {
   assertCanCreateCancellationRequest,
   assertCanRespondToCancellation,
@@ -36,7 +37,12 @@ async function withEventAttachments(
       await assertCanViewAttachment(ctx, attachment, viewerWallet);
       attachments.push({
         ...attachment,
-        url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
+        url: attachment.storageId
+          ? await (async () => {
+              await assertSharedStorage(ctx, attachment.storageId!);
+              return ctx.storage.getUrl(attachment.storageId!);
+            })()
+          : null,
       });
     } catch {
       // Hide inaccessible response evidence.

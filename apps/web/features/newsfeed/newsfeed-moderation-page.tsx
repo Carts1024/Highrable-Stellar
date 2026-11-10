@@ -204,6 +204,11 @@ export function NewsfeedModerationPage() {
                       >
                         Dismiss report
                       </AppButton>
+                      {target.type === "post" && target.visibility !== "author_deleted" && (
+                        <a href={`/newsfeed/${target.id}`} className="underline">
+                          Inspect post and photos
+                        </a>
+                      )}
                       {target.visibility === "moderation_hidden" ? (
                         <AppButton
                           size="sm"

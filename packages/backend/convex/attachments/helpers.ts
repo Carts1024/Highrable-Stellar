@@ -25,6 +25,7 @@ import {
   resolveCurrentDisputeWork,
 } from "../disputes/helpers";
 import { ACTIVE_DISPUTE_STATUSES } from "../disputes/schema";
+import { assertSharedStorage } from "../newsfeed/photos";
 
 const MB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MB;
@@ -1007,7 +1008,10 @@ export async function serializeAttachmentForViewer(
     ...attachment,
     url:
       !policy.isProtected && attachment.storageId
-        ? await ctx.storage.getUrl(attachment.storageId)
+        ? await (async () => {
+            await assertSharedStorage(ctx, attachment.storageId!);
+            return ctx.storage.getUrl(attachment.storageId!);
+          })()
         : null,
     protection: {
       mode: policy.protectionMode,

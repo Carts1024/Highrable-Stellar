@@ -93,3 +93,7 @@ Defer ranked recommendations, follows, reactions beyond Like, nested replies, no
 - **Documentation:** Record sprint acceptance evidence and operational limits. Update relevant vault notes if restored; `docs/obsidian/` was absent from this checkout.
 
 Dates remain relative until a start date is chosen. No paid video service, smart-contract changes, or public guest feed is assumed.
+
+### Sprint 3 implementation and release gate
+
+See [Sprint 3 — Execution and Acceptance](Sprint-3-Execution-and-Acceptance.md) for photo configuration, limits, implementation details, test evidence, pending device/deployment checks, monitoring and rollback. Keep photos disabled until the recorded acceptance gates pass.

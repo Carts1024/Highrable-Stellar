@@ -25,6 +25,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TAppMode } from "@/features/mode";
 import type { TNewsfeedPostDto } from "@repo/convex-client";
 
+import { PhotoControls, PhotoGrid, usePhotoDraft } from "./photos";
+
 type TNewsfeedAccess =
   | { state: "loading" }
   | { state: "disabled" }
@@ -89,13 +91,20 @@ function Composer({
   displayName: string;
   onPublished: (post: TNewsfeedPostDto | null) => void;
 }) {
+  const draft = usePhotoDraft();
+  const publication = useRef({ payload: "", requestId: "" });
   const { mode, setMode } = useAppMode();
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (!text.trim()) {
+    if (pending) return;
+    if (!draft.valid) {
+      setError("Finish uploads and add a description of 1–500 characters to each photo.");
+      return;
+    }
+    if (!text.trim() && !draft.photos.length) {
       setError("Write something before posting.");
       return;
     }
@@ -103,13 +112,25 @@ function Composer({
       setError(`Posts must be ${TEXT_LIMIT.toLocaleString()} characters or less.`);
       return;
     }
+    const payload = JSON.stringify({
+      publicationMode: mode,
+      text,
+      photos: draft.photos.map((p) => ({
+        uploadId: p.uploadId,
+        description: p.description.trim(),
+      })),
+    });
+    if (publication.current.payload !== payload)
+      publication.current = { payload, requestId: makeRequestId() };
     setPending(true);
     setError(null);
     try {
       const result = await requestJson<{ post: TNewsfeedPostDto | null }>("/api/newsfeed/posts", {
         method: "POST",
-        body: JSON.stringify({ requestId: makeRequestId(), publicationMode: mode, text }),
+        body: JSON.stringify({ ...JSON.parse(payload), requestId: publication.current.requestId }),
       });
+      draft.clear();
+      publication.current = { payload: "", requestId: "" };
       setText("");
       onPublished(result.post);
     } catch (submissionError) {
@@ -155,6 +176,7 @@ function Composer({
         </div>
       </div>
       <div className="space-y-3 px-5 py-4">
+        <PhotoControls draft={draft} disabled={pending} />
         <Textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
@@ -324,7 +346,8 @@ export function NewsfeedPostCard({
   };
 
   const saveEdit = async () => {
-    if (!editText.trim() || countCodePoints(editText.trim()) > TEXT_LIMIT) return;
+    if ((!editText.trim() && !post.photos?.length) || countCodePoints(editText.trim()) > TEXT_LIMIT)
+      return;
     setEditPending(true);
     try {
       const updated = await requestJson<TNewsfeedPostDto>(`/api/newsfeed/posts/${post.id}`, {
@@ -390,6 +413,10 @@ export function NewsfeedPostCard({
           ) : (
             <p className="mt-3 text-sm leading-6 break-words whitespace-pre-wrap">{post.text}</p>
           )}
+          <PhotoGrid
+            post={post}
+            moderation={post.visibility === "moderation_hidden" && post.viewer.isModerator}
+          />
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
             <button
               type="button"
@@ -672,6 +699,7 @@ export function NewsfeedPage() {
 
   return (
     <NewsfeedFeed
+      key={identityKey}
       identityKey={identityKey}
       displayName={authSession?.profile?.name?.trim() || "You"}
     />

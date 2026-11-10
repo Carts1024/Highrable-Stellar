@@ -14,6 +14,8 @@ import {
   sanitizeNewsfeedText,
   sanitizeReportExplanation,
 } from "./helpers";
+import { enabled as photosEnabled } from "./photos";
+import { photoInput } from "./schema";
 import {
   newsfeedModerationActionValidator,
   newsfeedReportReasonValidator,
@@ -84,6 +86,7 @@ async function countVisibleComments(
 export const createPost = mutation({
   args: {
     ...sessionArgs,
+    photos: v.optional(v.array(photoInput)),
     requestId: v.string(),
     publicationMode: publicationModeValidator,
     text: v.string(),
@@ -91,8 +94,21 @@ export const createPost = mutation({
   handler: async (ctx, args) => {
     const actor = await requireNewsfeedActor(ctx, args);
     const requestId = assertRequestId(args.requestId);
-    const text = sanitizeNewsfeedText(args.text);
-    const payloadFingerprint = JSON.stringify({ publicationMode: args.publicationMode, text });
+    const photos = (args.photos ?? []).map((photo) => ({
+      ...photo,
+      description: photo.description.trim(),
+    }));
+    if (photos.length > 4 || new Set(photos.map((p) => p.uploadId)).size !== photos.length)
+      throw new Error("Choose up to four distinct photos.");
+    if (photos.some((p) => !p.description || Array.from(p.description).length > 500))
+      throw new Error("Photo descriptions must contain 1–500 characters.");
+    if (photos.length) photosEnabled();
+    const text = photos.length && !args.text.trim() ? "" : sanitizeNewsfeedText(args.text);
+    const payloadFingerprint = JSON.stringify({
+      publicationMode: args.publicationMode,
+      text,
+      ...(photos.length ? { photos } : {}),
+    });
     const existing = await getRequestDeduplication(
       ctx,
       actor.user._id,
@@ -104,9 +120,22 @@ export const createPost = mutation({
       return { postId: existing.resultId as Id<"newsfeedPosts">, duplicate: true };
     }
 
+    for (const photo of photos) {
+      const upload = await ctx.db.get(photo.uploadId);
+      if (
+        !upload ||
+        upload.ownerId !== actor.user._id ||
+        upload.sessionId !== args.sessionId ||
+        upload.state !== "ready" ||
+        upload.postId ||
+        upload.expiresAt <= Date.now()
+      )
+        throw new Error("Photo upload is unavailable.");
+    }
     await consumeNewsfeedRateLimit(ctx, actor.user._id, "post");
     const now = Date.now();
     const postId = await ctx.db.insert("newsfeedPosts", {
+      photos,
       authorUserId: actor.user._id,
       publicationMode: args.publicationMode,
       text,
@@ -116,6 +145,12 @@ export const createPost = mutation({
       likeCount: 0,
       commentCount: 0,
     });
+    for (const photo of photos)
+      await ctx.db.patch(photo.uploadId, {
+        state: "attached",
+        postId,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      });
     await ctx.db.insert("newsfeedRequestDeduplication", {
       userId: actor.user._id,
       operation: "create_post",
@@ -144,7 +179,7 @@ export const updatePost = mutation({
     if (post.authorUserId !== actor.user._id) {
       throw new ForbiddenError("Only the post author can edit this post.");
     }
-    const text = sanitizeNewsfeedText(args.text);
+    const text = post.photos?.length && !args.text.trim() ? "" : sanitizeNewsfeedText(args.text);
     await ctx.db.patch(post._id, { text, updatedAt: Date.now() });
     return { postId: post._id };
   },
@@ -172,6 +207,8 @@ export const deletePost = mutation({
       commentCount: 0,
       updatedAt: Date.now(),
     });
+    for (const photo of post.photos ?? [])
+      await ctx.db.patch(photo.uploadId, { state: "cancelled", expiresAt: 0 });
     return { postId: post._id, deleted: true };
   },
 });

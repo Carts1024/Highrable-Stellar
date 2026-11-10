@@ -55,6 +55,7 @@ export interface IServerEnv extends IClientEnv {
   readonly STELLAR_READ_SOURCE_ACCOUNT?: string;
   readonly NEWSFEED_ENABLED?: boolean;
   readonly NEWSFEED_TEXT_ENABLED?: boolean;
+  readonly NEWSFEED_PHOTOS_ENABLED?: boolean;
   readonly HIGHRABLE_ADMIN_WALLET_ADDRESS?: string;
   readonly HIGHRABLE_ADMIN_CONVEX_SECRET?: string;
   readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
@@ -195,6 +196,7 @@ const ServerEnvSchema = ClientEnvSchema.extend({
   STELLAR_READ_SOURCE_ACCOUNT: TStellarPublicKeySchema.optional(),
   NEWSFEED_ENABLED: OptionalBooleanEnvSchema,
   NEWSFEED_TEXT_ENABLED: OptionalBooleanEnvSchema,
+  NEWSFEED_PHOTOS_ENABLED: OptionalBooleanEnvSchema,
   HIGHRABLE_ADMIN_WALLET_ADDRESS: TStellarPublicKeySchema.optional(),
   HIGHRABLE_ADMIN_CONVEX_SECRET: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),
@@ -262,6 +264,7 @@ function validateEnv(): IServerEnv {
     STELLAR_READ_SOURCE_ACCOUNT: process.env.STELLAR_READ_SOURCE_ACCOUNT,
     NEWSFEED_ENABLED: process.env.NEWSFEED_ENABLED,
     NEWSFEED_TEXT_ENABLED: process.env.NEWSFEED_TEXT_ENABLED,
+    NEWSFEED_PHOTOS_ENABLED: process.env.NEWSFEED_PHOTOS_ENABLED,
     HIGHRABLE_ADMIN_WALLET_ADDRESS: process.env.HIGHRABLE_ADMIN_WALLET_ADDRESS,
     HIGHRABLE_ADMIN_CONVEX_SECRET: process.env.HIGHRABLE_ADMIN_CONVEX_SECRET,
     SMART_ACCOUNT_RELAYER_PRIVATE_KEY: process.env.SMART_ACCOUNT_RELAYER_PRIVATE_KEY,

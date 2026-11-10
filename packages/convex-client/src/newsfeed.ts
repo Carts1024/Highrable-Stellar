@@ -13,6 +13,7 @@ export type TNewsfeedAuthorDto = {
 };
 
 export type TNewsfeedPostDto = {
+  photos?: { mediaId: string; description: string; width: number; height: number }[];
   id: string;
   text: string;
   createdAt: number;

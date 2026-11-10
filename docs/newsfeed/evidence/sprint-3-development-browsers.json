@@ -1,0 +1,51 @@
+{
+  "scope": "Playwright desktop engines against local production gateway and deployed development Convex; actual signed API sessions with synthetic profiles; no hardware camera or wallet-extension interaction",
+  "transport": "Chromium/Firefox used localhost HTTP. WebKit used a temporary local HTTPS proxy with exact local-origin translation; application Secure cookies and foreign-origin rejection were retained. This does not substitute for hosted HTTPS or physical Safari testing.",
+  "results": [
+    {
+      "engine": "chromium",
+      "check": "real signed session, four sequential uploads, descriptions, publication and protected grid",
+      "pass": true
+    },
+    {
+      "engine": "chromium",
+      "check": "separate labeled native-capture and selection controls",
+      "pass": true
+    },
+    {
+      "engine": "chromium",
+      "check": "logout clears authenticated feed and media",
+      "pass": true
+    },
+    {
+      "engine": "firefox",
+      "check": "real signed session, four sequential uploads, descriptions, publication and protected grid",
+      "pass": true
+    },
+    {
+      "engine": "firefox",
+      "check": "separate labeled native-capture and selection controls",
+      "pass": true
+    },
+    {
+      "engine": "firefox",
+      "check": "logout clears authenticated feed and media",
+      "pass": true
+    },
+    {
+      "engine": "webkit",
+      "check": "real signed session, four sequential uploads, descriptions, publication and protected grid",
+      "pass": true
+    },
+    {
+      "engine": "webkit",
+      "check": "separate labeled native-capture and selection controls",
+      "pass": true
+    },
+    {
+      "engine": "webkit",
+      "check": "logout clears authenticated feed and media",
+      "pass": true
+    }
+  ]
+}

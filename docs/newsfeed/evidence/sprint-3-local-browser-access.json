@@ -1,0 +1,177 @@
+{
+  "scope": "Local production build on localhost:3001; temporary process-only newsfeed flags enabled. No authenticated sessions and no deployment changes.",
+  "engines": "Playwright-managed Chromium, Firefox, WebKit; these are not physical-device Safari/Chrome acceptance.",
+  "results": [
+    {
+      "browser": "chromium",
+      "check": "configuration",
+      "status": 200,
+      "config": {
+        "photosEnabled": true,
+        "enabled": true,
+        "textEnabled": true
+      }
+    },
+    {
+      "browser": "chromium",
+      "check": "guest /api/newsfeed/posts",
+      "status": 401
+    },
+    {
+      "browser": "chromium",
+      "check": "guest /api/newsfeed/access",
+      "status": 401
+    },
+    {
+      "browser": "chromium",
+      "check": "guest /api/newsfeed/uploads",
+      "status": 401
+    },
+    {
+      "browser": "chromium",
+      "check": "cross-origin /api/newsfeed/uploads",
+      "status": 403
+    },
+    {
+      "browser": "chromium",
+      "check": "guest /api/newsfeed/media",
+      "status": 401
+    },
+    {
+      "browser": "chromium",
+      "check": "cross-origin /api/newsfeed/media",
+      "status": 403
+    },
+    {
+      "browser": "chromium",
+      "check": "guest /api/newsfeed/moderation/media",
+      "status": 401
+    },
+    {
+      "browser": "chromium",
+      "check": "cross-origin /api/newsfeed/moderation/media",
+      "status": 403
+    },
+    {
+      "browser": "chromium",
+      "check": "guest page",
+      "status": 200,
+      "finalPath": "/newsfeed",
+      "signInGateVisible": true
+    },
+    {
+      "browser": "firefox",
+      "check": "configuration",
+      "status": 200,
+      "config": {
+        "photosEnabled": true,
+        "enabled": true,
+        "textEnabled": true
+      }
+    },
+    {
+      "browser": "firefox",
+      "check": "guest /api/newsfeed/posts",
+      "status": 401
+    },
+    {
+      "browser": "firefox",
+      "check": "guest /api/newsfeed/access",
+      "status": 401
+    },
+    {
+      "browser": "firefox",
+      "check": "guest /api/newsfeed/uploads",
+      "status": 401
+    },
+    {
+      "browser": "firefox",
+      "check": "cross-origin /api/newsfeed/uploads",
+      "status": 403
+    },
+    {
+      "browser": "firefox",
+      "check": "guest /api/newsfeed/media",
+      "status": 401
+    },
+    {
+      "browser": "firefox",
+      "check": "cross-origin /api/newsfeed/media",
+      "status": 403
+    },
+    {
+      "browser": "firefox",
+      "check": "guest /api/newsfeed/moderation/media",
+      "status": 401
+    },
+    {
+      "browser": "firefox",
+      "check": "cross-origin /api/newsfeed/moderation/media",
+      "status": 403
+    },
+    {
+      "browser": "firefox",
+      "check": "guest page",
+      "status": 200,
+      "finalPath": "/newsfeed",
+      "signInGateVisible": true
+    },
+    {
+      "browser": "webkit",
+      "check": "configuration",
+      "status": 200,
+      "config": {
+        "photosEnabled": true,
+        "enabled": true,
+        "textEnabled": true
+      }
+    },
+    {
+      "browser": "webkit",
+      "check": "guest /api/newsfeed/posts",
+      "status": 401
+    },
+    {
+      "browser": "webkit",
+      "check": "guest /api/newsfeed/access",
+      "status": 401
+    },
+    {
+      "browser": "webkit",
+      "check": "guest /api/newsfeed/uploads",
+      "status": 401
+    },
+    {
+      "browser": "webkit",
+      "check": "cross-origin /api/newsfeed/uploads",
+      "status": 403
+    },
+    {
+      "browser": "webkit",
+      "check": "guest /api/newsfeed/media",
+      "status": 401
+    },
+    {
+      "browser": "webkit",
+      "check": "cross-origin /api/newsfeed/media",
+      "status": 403
+    },
+    {
+      "browser": "webkit",
+      "check": "guest /api/newsfeed/moderation/media",
+      "status": 401
+    },
+    {
+      "browser": "webkit",
+      "check": "cross-origin /api/newsfeed/moderation/media",
+      "status": 403
+    },
+    {
+      "browser": "webkit",
+      "check": "guest page",
+      "status": 200,
+      "finalPath": "/newsfeed",
+      "signInGateVisible": true
+    }
+  ]
+}

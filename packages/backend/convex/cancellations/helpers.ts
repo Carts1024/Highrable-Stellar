@@ -20,6 +20,7 @@ import { assertCanViewAttachment } from "../attachments/helpers";
 import { createSystemMessageForEvent } from "../conversations/helpers";
 import { computeDeadlineStatus } from "../deadlines/helpers";
 import { getActiveDisputeForEscrowId, isActiveDisputeStatus } from "../disputes/helpers";
+import { assertSharedStorage } from "../newsfeed/photos";
 import { ACTIVE_CANCELLATION_STATUSES } from "./schema";
 
 const MAX_REASON_TEXT_LENGTH = 4000;
@@ -956,7 +957,12 @@ export async function withCancellationAttachments(
       await assertCanViewAttachment(ctx, attachment, viewerWallet);
       attachments.push({
         ...attachment,
-        url: attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null,
+        url: attachment.storageId
+          ? await (async () => {
+              await assertSharedStorage(ctx, attachment.storageId!);
+              return ctx.storage.getUrl(attachment.storageId!);
+            })()
+          : null,
       });
     } catch {
       // Hide inaccessible evidence.

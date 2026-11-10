@@ -5,6 +5,7 @@ import type { TUserRole, TWalletType } from "./schema";
 import { isConfiguredAdminWallet } from "../_shared/adminAuth";
 import { BadRequestError, ConflictError } from "../_shared/errors";
 import { normalizeWalletAddress, optionalNonEmptyString } from "../_shared/input";
+import { assertSharedStorage } from "../newsfeed/photos";
 
 const HANDLE_PATTERN = /^[a-z0-9_-]+$/;
 const SOCIAL_HANDLE_PATTERN = /^[a-zA-Z0-9_.-]+$/;
@@ -197,6 +198,7 @@ async function validateAvatarStorage(
     return undefined;
   }
 
+  await assertSharedStorage(ctx, avatarStorageId);
   const storageMetadata = await ctx.db.system.get("_storage", avatarStorageId);
   if (!storageMetadata) {
     throw new BadRequestError("Avatar upload was not found.");
@@ -297,7 +299,12 @@ export async function resolveAvatarUrl(
   }
 
   if (user.avatarStorageId) {
-    return (await ctx.storage.getUrl(user.avatarStorageId)) ?? undefined;
+    return (
+      (await (async () => {
+        await assertSharedStorage(ctx, user.avatarStorageId!);
+        return ctx.storage.getUrl(user.avatarStorageId!);
+      })()) ?? undefined
+    );
   }
 
   return user.avatarUrl;

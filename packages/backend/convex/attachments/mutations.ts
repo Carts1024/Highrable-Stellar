@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { BadRequestError, NotFoundError } from "../_shared/errors";
 import { normalizeWalletAddress } from "../_shared/input";
+import { assertSharedStorage } from "../newsfeed/photos";
 import { walletTypeValidator } from "../users/schema";
 import {
   assertCanDownloadAttachment,
@@ -80,6 +81,7 @@ export const saveUploadedAttachment = mutation({
   },
   handler: async (ctx, args) => {
     const uploadedByWallet = normalizeWalletAddress(args.uploadedByWallet);
+    await assertSharedStorage(ctx, args.storageId);
     const storageMetadata = await ctx.db.system.get("_storage", args.storageId);
     if (!storageMetadata) {
       throw new NotFoundError("Uploaded file was not found.");
@@ -319,7 +321,12 @@ export const recordProtectedPreviewOpened = mutation({
     }
 
     const policy = await assertCanPreviewAttachment(ctx, attachment, viewerWallet);
-    const previewUrl = attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null;
+    const previewUrl = attachment.storageId
+      ? await (async () => {
+          await assertSharedStorage(ctx, attachment.storageId!);
+          return ctx.storage.getUrl(attachment.storageId!);
+        })()
+      : null;
     const url = attachment.externalUrl ?? previewUrl;
     const watermark = buildWatermarkPayload({
       attachment,
@@ -421,7 +428,12 @@ export const recordDownloadAttempt = mutation({
     return {
       url:
         attachment.externalUrl ??
-        (attachment.storageId ? await ctx.storage.getUrl(attachment.storageId) : null),
+        (attachment.storageId
+          ? await (async () => {
+              await assertSharedStorage(ctx, attachment.storageId!);
+              return ctx.storage.getUrl(attachment.storageId!);
+            })()
+          : null),
     };
   },
 });

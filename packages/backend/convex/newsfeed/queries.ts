@@ -33,6 +33,17 @@ async function serializePost(
   return {
     id: post._id,
     text: post.text,
+    photos: await Promise.all(
+      (post.photos ?? []).map(async (photo) => {
+        const upload = await ctx.db.get(photo.uploadId);
+        return {
+          mediaId: photo.uploadId,
+          description: photo.description,
+          width: upload?.width ?? 1,
+          height: upload?.height ?? 1,
+        };
+      }),
+    ),
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     visibility: post.visibility,

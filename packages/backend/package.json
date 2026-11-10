@@ -7,7 +7,7 @@
     "dev": "convex dev",
     "lint:check": "oxlint convex tests",
     "lint:fix": "oxlint --fix convex && oxfmt --write convex && tsc --project convex/tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --project convex/tsconfig.json --noEmit && tsc --project tests/tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -15,7 +15,8 @@
     "@repo/ui": "workspace:*",
     "@stellar/stellar-sdk": "^14.2.0",
     "convex": "1.46.0",
-    "sanitize-html": "^2.17.0"
+    "sanitize-html": "^2.17.0",
+    "sharp": "0.34.5"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

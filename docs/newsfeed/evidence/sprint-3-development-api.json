@@ -1,0 +1,231 @@
+{
+  "scope": "Configured development Convex with local production web gateway; ephemeral signed wallets and synthetic named profiles; not wallet-extension/passkey/onboarding acceptance",
+  "results": [
+    {
+      "check": "challenge issued",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "forged signature rejected",
+      "pass": true
+    },
+    {
+      "check": "signed external-wallet login",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "challenge replay rejected",
+      "pass": true
+    },
+    {
+      "check": "challenge issued",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "forged signature rejected",
+      "pass": true
+    },
+    {
+      "check": "signed external-wallet login",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "challenge replay rejected",
+      "pass": true
+    },
+    {
+      "check": "challenge issued",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "forged signature rejected",
+      "pass": true
+    },
+    {
+      "check": "signed external-wallet login",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "challenge replay rejected",
+      "pass": true
+    },
+    {
+      "check": "incomplete profile blocked",
+      "pass": true
+    },
+    {
+      "check": "named profile eligible",
+      "pass": true
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "deployed exact 10 MiB upload",
+      "pass": true,
+      "status": 200,
+      "ms": 5240,
+      "bytes": 10485760
+    },
+    {
+      "check": "upload credential replay blocked",
+      "pass": true
+    },
+    {
+      "check": "storage marker and validated size",
+      "pass": true,
+      "size": 10485760,
+      "contentType": "application/x-highrable-newsfeed"
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "additional image upload",
+      "pass": true
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "additional image upload",
+      "pass": true
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "additional image upload",
+      "pass": true
+    },
+    {
+      "check": "another member upload rejected",
+      "pass": true
+    },
+    {
+      "check": "five photos rejected",
+      "pass": true
+    },
+    {
+      "check": "four-photo media-only publication",
+      "pass": true,
+      "status": 201
+    },
+    {
+      "check": "publication response-loss retry deduplicated",
+      "pass": true
+    },
+    {
+      "check": "cross-mode member can view",
+      "pass": true
+    },
+    {
+      "check": "empty text edit allowed",
+      "pass": true
+    },
+    {
+      "check": "DTO excludes storage identifiers",
+      "pass": true
+    },
+    {
+      "check": "protected 10 MiB delivery",
+      "pass": true,
+      "status": 200,
+      "size": 10485760,
+      "ms": 1326,
+      "cache": "private, no-store"
+    },
+    {
+      "check": "nonmoderator inspection blocked",
+      "pass": true
+    },
+    {
+      "check": "moderator hide",
+      "pass": true
+    },
+    {
+      "check": "hidden media denied with old credential",
+      "pass": true
+    },
+    {
+      "check": "explicit moderator hidden inspection",
+      "pass": true
+    },
+    {
+      "check": "moderator restore",
+      "pass": true
+    },
+    {
+      "check": "restored media readable",
+      "pass": true
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "cancellation accepted",
+      "pass": true
+    },
+    {
+      "check": "cancelled credential unusable",
+      "pass": true
+    },
+    {
+      "check": "upload reservation",
+      "pass": true,
+      "status": 200
+    },
+    {
+      "check": "oversized actual bytes rejected",
+      "pass": true
+    },
+    {
+      "check": "author deletion",
+      "pass": true
+    },
+    {
+      "check": "deleted media denied to moderator",
+      "pass": true
+    },
+    {
+      "check": "author deletion terminal",
+      "pass": true
+    },
+    {
+      "check": "permanent storage cleanup",
+      "pass": true
+    },
+    {
+      "check": "expired session rejected",
+      "pass": true
+    },
+    {
+      "check": "logout",
+      "pass": true
+    },
+    {
+      "check": "revoked session replay rejected",
+      "pass": true
+    },
+    {
+      "check": "unauthorized direct backend mutation rejected",
+      "pass": true
+    }
+  ]
+}

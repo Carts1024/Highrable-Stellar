@@ -52,4 +52,5 @@ export default defineTable({
 })
   .index("by_walletAddress", ["walletAddress"])
   .index("by_role", ["role"])
+  .index("by_avatarStorageId", ["avatarStorageId"])
   .index("by_normalizedPublicHandle", ["normalizedPublicHandle"]);

@@ -23,7 +23,13 @@ const requestOperationEnum = createStringEnum([
   "create_comment",
   "moderation_action",
 ] as const);
-const rateLimitOperationEnum = createStringEnum(["post", "comment", "like", "report"] as const);
+const rateLimitOperationEnum = createStringEnum([
+  "post",
+  "comment",
+  "like",
+  "report",
+  "upload",
+] as const);
 
 export const publicationModeValidator = publicationModeEnum.validator;
 export const newsfeedVisibilityValidator = visibilityEnum.validator;
@@ -43,7 +49,46 @@ export type TNewsfeedModerationAction = Infer<typeof newsfeedModerationActionVal
 export type TNewsfeedRequestOperation = Infer<typeof newsfeedRequestOperationValidator>;
 export type TNewsfeedRateLimitOperation = Infer<typeof newsfeedRateLimitOperationValidator>;
 
+export const photoInput = v.object({ uploadId: v.id("newsfeedUploads"), description: v.string() });
+export const newsfeedCleanupCursors = defineTable({ cursor: v.union(v.string(), v.null()) });
+export const newsfeedUploads = defineTable({
+  ownerId: v.id("users"),
+  sessionId: v.string(),
+  walletAddress: v.string(),
+  credentialHash: v.string(),
+  credentialExpiresAt: v.number(),
+  state: v.union(
+    v.literal("reserved"),
+    v.literal("transferring"),
+    v.literal("ready"),
+    v.literal("attached"),
+    v.literal("cancelled"),
+  ),
+  expiresAt: v.number(),
+  storageId: v.optional(v.id("_storage")),
+  format: v.optional(v.string()),
+  size: v.optional(v.number()),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+  postId: v.optional(v.id("newsfeedPosts")),
+})
+  .index("by_owner", ["ownerId"])
+  .index("by_owner_unattached_expiration", ["ownerId", "postId", "expiresAt"])
+  .index("by_expiration", ["expiresAt"])
+  .index("by_storage", ["storageId"])
+  .index("by_post", ["postId"]);
+export const newsfeedMediaGrants = defineTable({
+  credentialHash: v.string(),
+  mediaId: v.id("newsfeedUploads"),
+  sessionId: v.string(),
+  walletAddress: v.string(),
+  moderation: v.boolean(),
+  expiresAt: v.number(),
+})
+  .index("by_hash", ["credentialHash"])
+  .index("by_expiration", ["expiresAt"]);
 export const newsfeedPosts = defineTable({
+  photos: v.optional(v.array(photoInput)),
   authorUserId: v.id("users"),
   publicationMode: publicationModeValidator,
   text: v.string(),

@@ -11,4 +11,5 @@ crons.interval(
   {},
 );
 
+crons.interval("newsfeed photo cleanup", { minutes: 15 }, internal.newsfeed.photos.cleanup, {});
 export default crons;
