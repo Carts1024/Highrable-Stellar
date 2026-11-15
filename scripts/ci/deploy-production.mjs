@@ -65,6 +65,7 @@ export function validateReleaseConfiguration(env, { headSha } = {}) {
     "VERCEL_PROJECT_ID",
     "CONVEX_DEPLOY_KEY",
     "EXPECTED_CONVEX_URL",
+    "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID",
   ];
   const missing = required.filter((name) => !env[name]?.trim());
   if (missing.length > 0) {
@@ -217,22 +218,13 @@ export async function runProductionRelease({
 } = {}) {
   const headSha = await getHeadSha(cwd);
   const { expectedConvexUrl } = validateReleaseConfiguration(env, { headSha });
-  const projectDirectory = env.VERCEL_PROJECT_DIR || path.join(cwd, "apps/web");
-  const pulledEnvironment = path.join(projectDirectory, ".vercel", ".env.production.local");
+  const pulledEnvironment = path.join(cwd, ".vercel", ".env.production.local");
   const state = { convex: "not_started", vercel: "not_started", deploymentUrl: "" };
 
   try {
     await execute(
       env.VERCEL_CLI || "vercel",
-      [
-        "pull",
-        "--yes",
-        "--environment=production",
-        "--cwd",
-        "apps/web",
-        "--token",
-        env.VERCEL_TOKEN,
-      ],
+      ["pull", "--yes", "--environment=production", "--token", env.VERCEL_TOKEN],
       { cwd, env },
     );
 
@@ -246,8 +238,7 @@ export async function runProductionRelease({
     }
     validatePulledVercelConfiguration(pulledContents, expectedConvexUrl);
 
-    const buildCommand =
-      'cd ../.. && vercel build --prod --yes --cwd apps/web --token="$VERCEL_TOKEN"';
+    const buildCommand = 'cd ../.. && vercel build --prod --yes --token="$VERCEL_TOKEN"';
     await execute(
       env.PNPM_CLI || "pnpm",
       [
@@ -267,7 +258,7 @@ export async function runProductionRelease({
 
     const deployment = await execute(
       env.VERCEL_CLI || "vercel",
-      ["deploy", "--prebuilt", "--prod", "--yes", "--cwd", "apps/web", "--token", env.VERCEL_TOKEN],
+      ["deploy", "--prebuilt", "--prod", "--yes", "--token", env.VERCEL_TOKEN],
       { cwd, env, captureStdout: true },
     );
     state.vercel = "success";
