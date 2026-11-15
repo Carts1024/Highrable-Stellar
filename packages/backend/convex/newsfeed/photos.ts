@@ -10,16 +10,28 @@ import {
   consumeNewsfeedRateLimit,
   assertNewsfeedTextEnabled,
 } from "./helpers";
+import { newsfeedMediaKindValidator, type TNewsfeedMediaKind } from "./schema";
 export const sessionArgs = {
   serviceSecret: v.string(),
   sessionId: v.string(),
   walletAddress: v.string(),
 };
 export const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 26_214_400;
 export const STORAGE_MARKER = "application/x-highrable-newsfeed";
-export function enabled() {
+export const VIDEO_MAX_DURATION_SECONDS = 60;
+
+export function enabledForKind(kind: TNewsfeedMediaKind): void {
   assertNewsfeedTextEnabled();
+  if (kind === "video") {
+    if (process.env.NEWSFEED_VIDEO_ENABLED !== "true") throw new Error("Videos are unavailable.");
+    return;
+  }
   if (process.env.NEWSFEED_PHOTOS_ENABLED !== "true") throw new Error("Photos are unavailable.");
+}
+
+export function enabled() {
+  enabledForKind("photo");
 }
 export async function hash(value: string) {
   return Array.from(
@@ -28,7 +40,7 @@ export async function hash(value: string) {
   ).join("");
 }
 async function actorForUpload(ctx: QueryCtx | MutationCtx, upload: Doc<"newsfeedUploads">) {
-  enabled();
+  enabledForKind(upload.kind ?? "photo");
   const actor = await requireNewsfeedActor(ctx, {
     serviceSecret: process.env.HIGHRABLE_AUTH_SERVICE_SECRET ?? "",
     sessionId: upload.sessionId,
@@ -38,10 +50,15 @@ async function actorForUpload(ctx: QueryCtx | MutationCtx, upload: Doc<"newsfeed
   return actor;
 }
 export const reserve = mutation({
-  args: { ...sessionArgs, credentialHash: v.string() },
+  args: {
+    ...sessionArgs,
+    credentialHash: v.string(),
+    kind: v.optional(newsfeedMediaKindValidator),
+  },
   handler: async (ctx, args) => {
     if (!/^[a-f0-9]{64}$/.test(args.credentialHash)) throw new Error("Invalid credential digest.");
-    enabled();
+    const kind = args.kind ?? "photo";
+    enabledForKind(kind);
     const actor = await requireNewsfeedActor(ctx, args);
     await consumeNewsfeedRateLimit(ctx, actor.user._id, "upload");
     const uploads = await ctx.db
@@ -61,6 +78,7 @@ export const reserve = mutation({
       walletAddress: args.walletAddress,
       credentialHash: args.credentialHash,
       credentialExpiresAt: Date.now() + 300_000,
+      kind,
       expiresAt: Date.now() + 86_400_000,
       state: "reserved",
     });
@@ -93,7 +111,11 @@ export const cancel = mutation({
   },
 });
 export const claim = internalMutation({
-  args: { uploadId: v.id("newsfeedUploads"), credentialHash: v.string() },
+  args: {
+    uploadId: v.id("newsfeedUploads"),
+    credentialHash: v.string(),
+    kind: v.optional(newsfeedMediaKindValidator),
+  },
   handler: async (ctx, args) => {
     const upload = await ctx.db.get(args.uploadId);
     if (
@@ -103,6 +125,8 @@ export const claim = internalMutation({
       upload.credentialExpiresAt <= Date.now()
     )
       throw new Error("Upload credential unavailable.");
+    if (args.kind && (upload.kind ?? "photo") !== args.kind)
+      throw new Error("Upload kind mismatch.");
     await actorForUpload(ctx, upload);
     await ctx.db.patch(upload._id, { state: "transferring" });
   },
@@ -115,12 +139,23 @@ export const finalize = internalMutation({
     size: v.number(),
     width: v.number(),
     height: v.number(),
+    duration: v.optional(v.number()),
+    videoCodec: v.optional(v.string()),
+    audioCodec: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const upload = await ctx.db.get(args.uploadId);
     if (!upload || upload.state !== "transferring" || upload.expiresAt <= Date.now())
       throw new Error("Upload cancelled or expired.");
     await actorForUpload(ctx, upload);
+    if (
+      (upload.kind ?? "photo") === "video" &&
+      (args.duration === undefined ||
+        !args.videoCodec ||
+        args.duration <= 0 ||
+        args.duration > VIDEO_MAX_DURATION_SECONDS)
+    )
+      throw new Error("Video metadata is invalid.");
     const { uploadId, ...metadata } = args;
     await ctx.db.patch(uploadId, { ...metadata, state: "ready" });
   },
@@ -135,7 +170,8 @@ async function readable(
     moderation: boolean;
   },
 ) {
-  enabled();
+  const mediaKind = (await ctx.db.get(args.mediaId))?.kind ?? "photo";
+  enabledForKind(mediaKind);
   const actor = await requireNewsfeedActor(ctx, args);
   if (args.moderation && !actor.isModerator) throw new Error("Moderation access is restricted.");
   const media = await ctx.db.get(args.mediaId);
@@ -147,7 +183,7 @@ async function readable(
     post.visibility === "author_deleted" ||
     (post.visibility !== "visible" && !(args.moderation && actor.isModerator))
   )
-    throw new Error("Photo unavailable.");
+    throw new Error(`${mediaKind === "video" ? "Video" : "Photo"} unavailable.`);
   return media;
 }
 export const authorizeRead = mutation({

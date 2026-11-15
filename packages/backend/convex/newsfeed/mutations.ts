@@ -15,7 +15,8 @@ import {
   sanitizeReportExplanation,
 } from "./helpers";
 import { enabled as photosEnabled } from "./photos";
-import { photoInput } from "./schema";
+import { enabledForKind } from "./photos";
+import { photoInput, videoInput } from "./schema";
 import {
   newsfeedModerationActionValidator,
   newsfeedReportReasonValidator,
@@ -87,6 +88,7 @@ export const createPost = mutation({
   args: {
     ...sessionArgs,
     photos: v.optional(v.array(photoInput)),
+    video: v.optional(videoInput),
     requestId: v.string(),
     publicationMode: publicationModeValidator,
     text: v.string(),
@@ -98,16 +100,28 @@ export const createPost = mutation({
       ...photo,
       description: photo.description.trim(),
     }));
+    if (photos.length && args.video)
+      throw new Error("A post can contain photos or one video, not both.");
     if (photos.length > 4 || new Set(photos.map((p) => p.uploadId)).size !== photos.length)
       throw new Error("Choose up to four distinct photos.");
     if (photos.some((p) => !p.description || Array.from(p.description).length > 500))
       throw new Error("Photo descriptions must contain 1–500 characters.");
     if (photos.length) photosEnabled();
-    const text = photos.length && !args.text.trim() ? "" : sanitizeNewsfeedText(args.text);
+    const video = args.video
+      ? { ...args.video, description: args.video.description.trim() }
+      : undefined;
+    if (video) {
+      if (!video.description || Array.from(video.description).length > 500)
+        throw new Error("Video descriptions must contain 1–500 characters.");
+      enabledForKind("video");
+    }
+    const text =
+      (photos.length || video) && !args.text.trim() ? "" : sanitizeNewsfeedText(args.text);
     const payloadFingerprint = JSON.stringify({
       publicationMode: args.publicationMode,
       text,
       ...(photos.length ? { photos } : {}),
+      ...(video ? { video } : {}),
     });
     const existing = await getRequestDeduplication(
       ctx,
@@ -127,15 +141,30 @@ export const createPost = mutation({
         upload.ownerId !== actor.user._id ||
         upload.sessionId !== args.sessionId ||
         upload.state !== "ready" ||
+        (upload.kind !== undefined && upload.kind !== "photo") ||
         upload.postId ||
         upload.expiresAt <= Date.now()
       )
         throw new Error("Photo upload is unavailable.");
     }
+    if (video) {
+      const upload = await ctx.db.get(video.uploadId);
+      if (
+        !upload ||
+        upload.ownerId !== actor.user._id ||
+        upload.sessionId !== args.sessionId ||
+        upload.state !== "ready" ||
+        upload.kind !== "video" ||
+        upload.postId ||
+        upload.expiresAt <= Date.now()
+      )
+        throw new Error("Video upload is unavailable.");
+    }
     await consumeNewsfeedRateLimit(ctx, actor.user._id, "post");
     const now = Date.now();
     const postId = await ctx.db.insert("newsfeedPosts", {
       photos,
+      ...(video ? { video } : {}),
       authorUserId: actor.user._id,
       publicationMode: args.publicationMode,
       text,
@@ -147,6 +176,12 @@ export const createPost = mutation({
     });
     for (const photo of photos)
       await ctx.db.patch(photo.uploadId, {
+        state: "attached",
+        postId,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      });
+    if (video)
+      await ctx.db.patch(video.uploadId, {
         state: "attached",
         postId,
         expiresAt: Number.MAX_SAFE_INTEGER,
@@ -179,7 +214,10 @@ export const updatePost = mutation({
     if (post.authorUserId !== actor.user._id) {
       throw new ForbiddenError("Only the post author can edit this post.");
     }
-    const text = post.photos?.length && !args.text.trim() ? "" : sanitizeNewsfeedText(args.text);
+    const text =
+      (post.photos?.length || post.video) && !args.text.trim()
+        ? ""
+        : sanitizeNewsfeedText(args.text);
     await ctx.db.patch(post._id, { text, updatedAt: Date.now() });
     return { postId: post._id };
   },
@@ -209,6 +247,7 @@ export const deletePost = mutation({
     });
     for (const photo of post.photos ?? [])
       await ctx.db.patch(photo.uploadId, { state: "cancelled", expiresAt: 0 });
+    if (post.video) await ctx.db.patch(post.video.uploadId, { state: "cancelled", expiresAt: 0 });
     return { postId: post._id, deleted: true };
   },
 });

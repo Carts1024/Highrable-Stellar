@@ -30,6 +30,7 @@ const rateLimitOperationEnum = createStringEnum([
   "report",
   "upload",
 ] as const);
+const mediaKindEnum = createStringEnum(["photo", "video"] as const);
 
 export const publicationModeValidator = publicationModeEnum.validator;
 export const newsfeedVisibilityValidator = visibilityEnum.validator;
@@ -39,6 +40,7 @@ export const newsfeedReportStatusValidator = reportStatusEnum.validator;
 export const newsfeedModerationActionValidator = moderationActionEnum.validator;
 export const newsfeedRequestOperationValidator = requestOperationEnum.validator;
 export const newsfeedRateLimitOperationValidator = rateLimitOperationEnum.validator;
+export const newsfeedMediaKindValidator = mediaKindEnum.validator;
 
 export type TNewsfeedPublicationMode = Infer<typeof publicationModeValidator>;
 export type TNewsfeedVisibility = Infer<typeof newsfeedVisibilityValidator>;
@@ -48,8 +50,10 @@ export type TNewsfeedReportStatus = Infer<typeof newsfeedReportStatusValidator>;
 export type TNewsfeedModerationAction = Infer<typeof newsfeedModerationActionValidator>;
 export type TNewsfeedRequestOperation = Infer<typeof newsfeedRequestOperationValidator>;
 export type TNewsfeedRateLimitOperation = Infer<typeof newsfeedRateLimitOperationValidator>;
+export type TNewsfeedMediaKind = Infer<typeof newsfeedMediaKindValidator>;
 
 export const photoInput = v.object({ uploadId: v.id("newsfeedUploads"), description: v.string() });
+export const videoInput = v.object({ uploadId: v.id("newsfeedUploads"), description: v.string() });
 export const newsfeedCleanupCursors = defineTable({ cursor: v.union(v.string(), v.null()) });
 export const newsfeedUploads = defineTable({
   ownerId: v.id("users"),
@@ -57,6 +61,8 @@ export const newsfeedUploads = defineTable({
   walletAddress: v.string(),
   credentialHash: v.string(),
   credentialExpiresAt: v.number(),
+  // Optional so records created before video support remain valid and are photos.
+  kind: v.optional(newsfeedMediaKindValidator),
   state: v.union(
     v.literal("reserved"),
     v.literal("transferring"),
@@ -70,6 +76,9 @@ export const newsfeedUploads = defineTable({
   size: v.optional(v.number()),
   width: v.optional(v.number()),
   height: v.optional(v.number()),
+  duration: v.optional(v.number()),
+  videoCodec: v.optional(v.string()),
+  audioCodec: v.optional(v.string()),
   postId: v.optional(v.id("newsfeedPosts")),
 })
   .index("by_owner", ["ownerId"])
@@ -89,6 +98,7 @@ export const newsfeedMediaGrants = defineTable({
   .index("by_expiration", ["expiresAt"]);
 export const newsfeedPosts = defineTable({
   photos: v.optional(v.array(photoInput)),
+  video: v.optional(videoInput),
   authorUserId: v.id("users"),
   publicationMode: publicationModeValidator,
   text: v.string(),

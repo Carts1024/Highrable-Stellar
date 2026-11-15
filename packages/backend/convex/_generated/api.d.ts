@@ -69,6 +69,7 @@ import type * as milestones_queries from "../milestones/queries.js";
 import type * as milestones_types from "../milestones/types.js";
 import type * as newsfeed from "../newsfeed.js";
 import type * as newsfeed_decode from "../newsfeed/decode.js";
+import type * as newsfeed_decodeVideo from "../newsfeed/decodeVideo.js";
 import type * as newsfeed_helpers from "../newsfeed/helpers.js";
 import type * as newsfeed_mutations from "../newsfeed/mutations.js";
 import type * as newsfeed_photos from "../newsfeed/photos.js";
@@ -182,6 +183,7 @@ declare const fullApi: ApiFromModules<{
   "milestones/types": typeof milestones_types;
   newsfeed: typeof newsfeed;
   "newsfeed/decode": typeof newsfeed_decode;
+  "newsfeed/decodeVideo": typeof newsfeed_decodeVideo;
   "newsfeed/helpers": typeof newsfeed_helpers;
   "newsfeed/mutations": typeof newsfeed_mutations;
   "newsfeed/photos": typeof newsfeed_photos;

@@ -12,6 +12,10 @@ export function GET(): NextResponse {
           env.NEWSFEED_ENABLED === true &&
           env.NEWSFEED_TEXT_ENABLED === true &&
           env.NEWSFEED_PHOTOS_ENABLED === true,
+        videosEnabled:
+          env.NEWSFEED_ENABLED === true &&
+          env.NEWSFEED_TEXT_ENABLED === true &&
+          env.NEWSFEED_VIDEO_ENABLED === true,
         enabled: env.NEWSFEED_ENABLED === true,
         textEnabled: env.NEWSFEED_ENABLED === true && env.NEWSFEED_TEXT_ENABLED === true,
       },

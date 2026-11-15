@@ -21,6 +21,7 @@ const CreatePostSchema = z.object({
     .array(z.object({ uploadId: z.string(), description: z.string() }))
     .max(4)
     .optional(),
+  video: z.object({ uploadId: z.string(), description: z.string() }).optional(),
   requestId: z.string().trim().min(1).max(128),
   publicationMode: z.enum(["freelancer", "client"]),
   text: z.string(),
@@ -60,6 +61,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ...photo,
         uploadId: photo.uploadId as import("@repo/convex-client").TConvexId<"newsfeedUploads">,
       })),
+      video: body.video
+        ? {
+            ...body.video,
+            uploadId: body.video
+              .uploadId as import("@repo/convex-client").TConvexId<"newsfeedUploads">,
+          }
+        : undefined,
     });
     const post = await createMemberConvexClient().query(api.newsfeed.getPost, {
       ...memberServiceArgs(),

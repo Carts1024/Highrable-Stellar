@@ -26,6 +26,7 @@ import type { TAppMode } from "@/features/mode";
 import type { TNewsfeedPostDto } from "@repo/convex-client";
 
 import { PhotoControls, PhotoGrid, usePhotoDraft } from "./photos";
+import { VideoControls, VideoGrid, useVideoDraft } from "./videos";
 
 type TNewsfeedAccess =
   | { state: "loading" }
@@ -92,6 +93,7 @@ function Composer({
   onPublished: (post: TNewsfeedPostDto | null) => void;
 }) {
   const draft = usePhotoDraft();
+  const videoDraft = useVideoDraft();
   const publication = useRef({ payload: "", requestId: "" });
   const { mode, setMode } = useAppMode();
   const [text, setText] = useState("");
@@ -100,11 +102,11 @@ function Composer({
 
   const submit = async () => {
     if (pending) return;
-    if (!draft.valid) {
-      setError("Finish uploads and add a description of 1–500 characters to each photo.");
+    if (!draft.valid || (videoDraft.video !== null && !videoDraft.valid)) {
+      setError("Finish the media upload and add a description of 1–500 characters.");
       return;
     }
-    if (!text.trim() && !draft.photos.length) {
+    if (!text.trim() && !draft.photos.length && !videoDraft.video) {
       setError("Write something before posting.");
       return;
     }
@@ -119,6 +121,9 @@ function Composer({
         uploadId: p.uploadId,
         description: p.description.trim(),
       })),
+      video: videoDraft.video
+        ? { uploadId: videoDraft.video.uploadId, description: videoDraft.video.description.trim() }
+        : undefined,
     });
     if (publication.current.payload !== payload)
       publication.current = { payload, requestId: makeRequestId() };
@@ -130,6 +135,7 @@ function Composer({
         body: JSON.stringify({ ...JSON.parse(payload), requestId: publication.current.requestId }),
       });
       draft.clear();
+      videoDraft.clear();
       publication.current = { payload: "", requestId: "" };
       setText("");
       onPublished(result.post);
@@ -176,7 +182,8 @@ function Composer({
         </div>
       </div>
       <div className="space-y-3 px-5 py-4">
-        <PhotoControls draft={draft} disabled={pending} />
+        <PhotoControls draft={draft} disabled={pending || Boolean(videoDraft.video)} />
+        <VideoControls draft={videoDraft} disabled={pending || draft.photos.length > 0} />
         <Textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
@@ -346,7 +353,10 @@ export function NewsfeedPostCard({
   };
 
   const saveEdit = async () => {
-    if ((!editText.trim() && !post.photos?.length) || countCodePoints(editText.trim()) > TEXT_LIMIT)
+    if (
+      (!editText.trim() && !post.photos?.length && !post.video) ||
+      countCodePoints(editText.trim()) > TEXT_LIMIT
+    )
       return;
     setEditPending(true);
     try {
@@ -414,6 +424,10 @@ export function NewsfeedPostCard({
             <p className="mt-3 text-sm leading-6 break-words whitespace-pre-wrap">{post.text}</p>
           )}
           <PhotoGrid
+            post={post}
+            moderation={post.visibility === "moderation_hidden" && post.viewer.isModerator}
+          />
+          <VideoGrid
             post={post}
             moderation={post.visibility === "moderation_hidden" && post.viewer.isModerator}
           />

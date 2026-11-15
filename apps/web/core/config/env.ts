@@ -56,6 +56,8 @@ export interface IServerEnv extends IClientEnv {
   readonly NEWSFEED_ENABLED?: boolean;
   readonly NEWSFEED_TEXT_ENABLED?: boolean;
   readonly NEWSFEED_PHOTOS_ENABLED?: boolean;
+  readonly NEWSFEED_VIDEO_ENABLED?: boolean;
+  readonly NEWSFEED_CONVEX_HTTP_URL?: string;
   readonly HIGHRABLE_ADMIN_WALLET_ADDRESS?: string;
   readonly HIGHRABLE_ADMIN_CONVEX_SECRET?: string;
   readonly SMART_ACCOUNT_RELAYER_PRIVATE_KEY?: string;
@@ -197,6 +199,8 @@ const ServerEnvSchema = ClientEnvSchema.extend({
   NEWSFEED_ENABLED: OptionalBooleanEnvSchema,
   NEWSFEED_TEXT_ENABLED: OptionalBooleanEnvSchema,
   NEWSFEED_PHOTOS_ENABLED: OptionalBooleanEnvSchema,
+  NEWSFEED_VIDEO_ENABLED: OptionalBooleanEnvSchema,
+  NEWSFEED_CONVEX_HTTP_URL: z.string().url().optional(),
   HIGHRABLE_ADMIN_WALLET_ADDRESS: TStellarPublicKeySchema.optional(),
   HIGHRABLE_ADMIN_CONVEX_SECRET: z.string().trim().min(1).optional(),
   SMART_ACCOUNT_RELAYER_PRIVATE_KEY: z.string().trim().min(1).optional(),

@@ -44,6 +44,18 @@ async function serializePost(
         };
       }),
     ),
+    video: post.video
+      ? await (async () => {
+          const upload = await ctx.db.get(post.video!.uploadId);
+          return {
+            mediaId: post.video!.uploadId,
+            description: post.video!.description,
+            width: upload?.width ?? 1,
+            height: upload?.height ?? 1,
+            duration: upload?.duration ?? 0,
+          };
+        })()
+      : null,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     visibility: post.visibility,
